@@ -304,8 +304,8 @@ module.exports = configure(function (ctx) {
         ],
         publish: {
           provider: "github",
-          repo: "xeq-wallet",
-          owner: "adminxeq",
+          repo: "Arqma-GUI-MM",
+          owner: "ArqTras",
           releaseType: "release",
           publishAutoUpdate: true,
           private: true
