@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - win10
+          - Win10
           - ubuntu-latest
 
     steps:
@@ -31,7 +31,7 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Patch node gyp on self hosted windows 10 to support Visual Studio 2019
-        if: matrix.os == 'win10'
+        if: matrix.os == 'Win10'
         shell: powershell
         run: |
             yarn global add node-gyp
@@ -41,7 +41,7 @@ jobs:
         run: npm install
 
       - name: Install dependencies by yarn for Windows 10
-        if: matrix.os == 'win10'
+        if: matrix.os == 'Win10'
         run: yarn
 
       - name: Download Arqma binaries
@@ -60,7 +60,7 @@ jobs:
           ls ${{ github.workspace }}/bin
 
       - name: Extract Windows binaries
-        if: runner.os == 'win10'
+        if: runner.os == 'Win10'
         run: |
           mkdir ${{ github.workspace }}\bin
           tar -xvf ${{ github.workspace }}\downloads\latest.zip -C ${{ github.workspace }}\bin
@@ -73,13 +73,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
       - name: Publish Windows binaries
-        if: matrix.os == 'win10'
+        if: matrix.os == 'Win10'
         run: npm run build-windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
       - name: Remove un-needed Windows artifacts
-        if: matrix.os == 'win10'
+        if: matrix.os == 'Win10'
         run: |
           ls
           rm -r -fo win-unpacked
@@ -91,7 +91,7 @@ jobs:
         working-directory: ./dist/electron/Packaged
 
       - name: Upload artifacts Windows
-        if: matrix.os == 'win10'
+        if: matrix.os == 'Win10'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}
