@@ -1,0 +1,105 @@
+name: Arqma Electron Wallet Build
+
+on:
+  push:
+    branches:
+      - "arqma"
+  pull_request:
+    branches:
+      - "arqma"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - win10
+          - ubuntu-latest
+
+    steps:
+      - name: Checkout git repo
+        uses: actions/checkout@v4
+
+      - name: Install node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.17.0"
+
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - name: Patch node gyp on self hosted windows 10 to support Visual Studio 2019
+        if: matrix.os == 'win10'
+        shell: powershell
+        run: |
+            yarn global add node-gyp
+
+      - name: npm Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: npm install
+
+      - name: Install dependencies by yarn for Windows 10
+        if: matrix.os == 'win10'
+        run: yarn
+
+      - name: Download Arqma binaries
+        run: node ./build/download-binaries.js
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Display
+        run: echo "$RUNNER_OS"
+
+      - name: Extract binaries
+        if: runner.os == 'ubuntu-latest'
+        run: |
+          mkdir -p ${{ github.workspace }}/bin
+          tar -xvf ${{ github.workspace }}/downloads/latest.gz --directory ${{ github.workspace }}
+          ls ${{ github.workspace }}/bin
+
+      - name: Extract Windows binaries
+        if: runner.os == 'win10'
+        run: |
+          mkdir ${{ github.workspace }}\bin
+          tar -xvf ${{ github.workspace }}\downloads\latest.zip -C ${{ github.workspace }}\bin
+          dir ${{ github.workspace }}\bin
+
+      - name: Publish Linux binaries
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB }}
+
+      - name: Publish Windows binaries
+        if: matrix.os == 'win10'
+        run: npm run build-windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB }}
+
+      - name: Remove un-needed Windows artifacts
+        if: matrix.os == 'win10'
+        run: |
+          ls
+          rm -r -fo win-unpacked
+        working-directory: .\dist\electron\Packaged
+
+      - name: Remove un-needed Linux artifacts
+        if: matrix.os == 'ubuntu-latest'
+        run: rm -r -- ./*/
+        working-directory: ./dist/electron/Packaged
+
+      - name: Upload artifacts Windows
+        if: matrix.os == 'win10'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ runner.os }}
+          path: ${{ github.workspace }}\dist\electron\Packaged
+
+      - name: Upload artifacts Ubuntu 22.04 self hosted
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/dist/electron/Packaged
