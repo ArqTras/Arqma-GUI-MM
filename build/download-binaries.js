@@ -1,0 +1,59 @@
+const axios = require("axios").default
+const fs = require("fs-extra")
+const path = require("path")
+const axiosRetry = require("axios-retry").default
+
+axiosRetry(axios, {
+  retries: 5, // number of retries
+  retryDelay: (retryCount) => {
+    console.log(`retry attempt: ${retryCount}`)
+    return retryCount * 5000 // time interval between retries
+  },
+  retryCondition: (error) => {
+    // if retry condition is not specified, by default idempotent requests are retried
+    return error.response.status === 403
+  }
+})
+
+async function download () {
+  const { platform, env } = process
+  const repoUrl = "https://api.github.com/repos/arqma/arqma/releases/latest"
+  try {
+    const pwd = process.cwd()
+    const downloadDir = path.join(pwd, "downloads")
+    await fs.ensureDir(downloadDir)
+
+    const headers = {
+      "Content-Type": "application/json"
+    }
+    if (env.GH_TOKEN) {
+      headers.Authorisation = `Bearer ${env.GH_TOKEN}`
+    }
+
+    const { data } = await axios.get(repoUrl, { headers })
+    const url = (data.assets || [])
+      .map(asset => asset.browser_download_url)
+      .find(url => {
+        if (platform === "darwin") {
+          return url.includes("osx-x64")
+        } else if (platform === "win32") {
+          return url.includes("win64")
+        }
+        return url.includes("arqma-x86_64-linux-gnu")
+      })
+
+    if (!url) { throw new Error("Download url not found for " + process) }
+    console.log("Downloading binary at url: " + url)
+
+    const extension = path.extname(url)
+    const filePath = path.join(downloadDir, "latest" + extension)
+    const { data: artifact } = await axios.get(url, { responseType: "stream" })
+    artifact.pipe(fs.createWriteStream(filePath))
+    console.log("Downloaded binary to: " + filePath)
+  } catch (err) {
+    console.error("Failed to download file: " + err)
+    process.exit(1)
+  }
+}
+
+download()

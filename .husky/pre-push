@@ -1,0 +1,2 @@
+npx eslint --fix --ext .js,.vue ./
+npx jest

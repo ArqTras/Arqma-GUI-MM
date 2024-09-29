@@ -1,0 +1,19 @@
+{
+    "id": 10,
+    "jsonrpc": "2.0",
+    "result": {
+        "entries": [
+            {
+                "address": "Tw1j56oPeHmfRb8UrqCG35JhABWhRJd9ycJiK2cfpUGw4HFpuDGHxXFAP71uXkjPN3JoKZzZ9oCFweRJxdZXsuxt2tnw1TNKZ",
+                "description": "test b wallet::",
+                "index": 0
+            },
+            {
+                "address": "Tsz58Nfvb4GbMvtZfGVQb5hyyZeU1NgkaHj9FUpbWhDzcd5hW4E2rdoS73sMQgDA4UiSEAfArNVBhHYQHgd61doU5TQuPs8kkc",
+                "description": "starred::TradeOgre::My TO account",
+                "index": 1
+            }
+        ]
+    },
+    "params": {}
+}

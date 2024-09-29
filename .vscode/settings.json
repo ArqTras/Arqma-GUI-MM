@@ -1,0 +1,14 @@
+{
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": true,
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": [
+        "source.fixAll.eslint"
+    ],
+    "eslint.validate": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "vue"
+    ]
+}
