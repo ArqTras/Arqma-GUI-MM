@@ -3,10 +3,10 @@ name: Arqma Electron Wallet Build
 on:
   push:
     branches:
-      - "arqma"
+      - "main"
   pull_request:
     branches:
-      - "arqma"
+      - "main"
 
 jobs:
   build:
