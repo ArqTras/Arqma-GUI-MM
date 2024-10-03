@@ -2,7 +2,7 @@
     "name": "arqma-wallet",
     "version": "3.0.7",
     "description": "Modern Electron Wallet for Arqma",
-    "productName": "Arqma-Wallet",
+    "productName": "Arqma-Electron-Wallet",
     "repository": {
         "type": "git",
         "url": "https://github.com/arqma/arqma-wallet.git"
@@ -61,7 +61,7 @@
         "@quasar/app-webpack": "^3.13.3",
         "dotenv": "^16.0.3",
         "electron": "32.0.1",
-        "electron-builder": "^24.13.3",
+        "electron-builder": "23.0.3",
         "eslint": "^8.35.0",
         "eslint-config-standard": "^17.0.0",
         "eslint-plugin-import": "^2.26.0",
