@@ -126,14 +126,13 @@ jobs:
         if: matrix.os == 'ubuntu22204-ex'
         uses: garygrossgarten/github-action-scp@release
         with:
-          local: "${{ github.workspace }}/dist/electron/Packaged/*"
+          local: "${{ github.workspace }}/dist/electron/Packaged/"
           remote: downloads
           concurrency: 4
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATE_KEY}}
-          atomicPut: true
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
