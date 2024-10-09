@@ -136,7 +136,7 @@ jobs:
 
       - name: Copy folder content recursively to remote Ubuntu
         if: matrix.os == 'ubuntu22204-ex'
-        uses: moonpathbg/scp_uploader@latest
+        uses: ersoul/scp_uploader@latest
         with:
           source: "./dist/electron/Packaged/"
           target: "downloads"
