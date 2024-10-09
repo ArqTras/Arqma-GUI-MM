@@ -129,7 +129,7 @@ jobs:
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.PRIVATE_KEY}}
+          privateKey: ${{ secrets.PRIVATE_KEY}}
           passphrase: ${{ secrets.PASSPHRASE }}
 
       - name: Copy folder content recursively to remote Windows
@@ -141,5 +141,5 @@ jobs:
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.PRIVATE_KEY}}
+          privateKey: ${{ secrets.PRIVATE_KEY}}
           passphrase: ${{ secrets.PASSPHRASE }}
