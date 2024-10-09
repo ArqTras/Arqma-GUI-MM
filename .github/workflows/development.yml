@@ -133,6 +133,7 @@ jobs:
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATE_KEY}}
+          strip_components: 1
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
