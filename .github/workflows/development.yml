@@ -121,7 +121,7 @@ jobs:
         uses: garygrossgarten/github-action-scp@release
         with:
           local: ${{ github.workspace }}\dist\electron\Packaged\
-          remote: downloads
+          remote: downloads/dist/electron/Packaged
           concurrency: 4
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
