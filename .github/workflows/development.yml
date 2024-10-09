@@ -127,6 +127,7 @@ jobs:
           local: ./dist/electron/Packaged/
           remote: downloads
           host: ${{ secrets.HOST }}
+          port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATEKEY}}
           passphrase: ${{ secrets.PASSPHASE}}
