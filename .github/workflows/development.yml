@@ -103,7 +103,7 @@ jobs:
 #        with:
 #          name: ${{ matrix.os }}
 #          path: ${{ github.workspace }}/dist/electron/Packaged
-          
+
 #       if: matrix.os == 'ubuntu-latest'
 #        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
 #        with:
@@ -111,7 +111,7 @@ jobs:
 #          username: ${{ secrets.USERNAME }}
 #          password: ${{ secrets.PASSWORD }}
 #          local-dir: ./dist/electron/Packaged/
-          
+
 #      - name: Sync files Windows
 #        if: matrix.os == 'Win10'
 #        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -119,7 +119,7 @@ jobs:
 #          server: ${{ secrets.SERVER }}
 #          username: ${{ secrets.USERNAME }}
 #          password: ${{ secrets.PASSWORD }}
-#          local-dir: .\dist\electron\Packaged\          
+#          local-dir: .\dist\electron\Packaged\
       - name: Copy folder content recursively to remote Ubuntu
         if: matrix.os == 'ubuntu-latest'
         uses: garygrossgarten/github-action-scp@release
@@ -129,9 +129,9 @@ jobs:
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.PASSPHASE}}
           privateKey: ${{ secrets.PRIVATEKEY}}
-          passphrase: ${{ secrets.PASSPHASE}}
-      
+
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
         uses: garygrossgarten/github-action-scp@release
@@ -141,5 +141,5 @@ jobs:
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.PASSPHASE}}
           privateKey: ${{ secrets.PRIVATEKEY}}
-          passphrase: ${{ secrets.PASSPHASE}}
