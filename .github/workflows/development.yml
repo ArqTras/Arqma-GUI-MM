@@ -126,7 +126,7 @@ jobs:
         if: matrix.os == 'ubuntu22204-ex'
         uses: garygrossgarten/github-action-scp@release
         with:
-          local: ./Packaged/
+          local: ${{ github.workspace }}/dist/electron/Packaged/
           remote: downloads
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
@@ -138,7 +138,7 @@ jobs:
         if: matrix.os == 'Win10'
         uses: garygrossgarten/github-action-scp@release
         with:
-          local: .\dist\electron\Packaged\
+          local: ${{ github.workspace }}\dist\electron\Packaged\
           remote: downloads
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
