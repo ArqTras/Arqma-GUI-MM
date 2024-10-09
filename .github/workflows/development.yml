@@ -114,6 +114,7 @@ jobs:
           local-dir: ./dist/electron/Packaged/
           
       - name: Sync files Windows
+        if: matrix.os == 'Win10'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.SERVER }}
