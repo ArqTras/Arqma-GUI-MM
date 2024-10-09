@@ -104,23 +104,22 @@ jobs:
 #          name: ${{ matrix.os }}
 #          path: ${{ github.workspace }}/dist/electron/Packaged
           
-      - name: Sync files Ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.SERVER }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          local-dir: ./dist/electron/Packaged/
+#       if: matrix.os == 'ubuntu-latest'
+#        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+#        with:
+#          server: ${{ secrets.SERVER }}
+#          username: ${{ secrets.USERNAME }}
+#          password: ${{ secrets.PASSWORD }}
+#          local-dir: ./dist/electron/Packaged/
           
-      - name: Sync files Windows
-        if: matrix.os == 'Win10'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.SERVER }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          local-dir: .\dist\electron\Packaged\
+#      - name: Sync files Windows
+#        if: matrix.os == 'Win10'
+#        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+#        with:
+#          server: ${{ secrets.SERVER }}
+#          username: ${{ secrets.USERNAME }}
+#          password: ${{ secrets.PASSWORD }}
+#          local-dir: .\dist\electron\Packaged\
           
       - name: Copy folder content recursively to remote
         if: matrix.os == 'ubuntu-latest'
