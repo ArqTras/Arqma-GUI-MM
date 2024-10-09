@@ -122,7 +122,7 @@ jobs:
 #          local-dir: .\dist\electron\Packaged\
       - name: Copy folder content recursively to remote Ubuntu
         if: matrix.os == 'ubuntu-latest'
-        uses: garygrossgarten/github-action-scp@release/0.6.3
+        uses: garygrossgarten/github-action-scp@release
         with:
           local: ./dist/electron/Packaged/
           remote: downloads
@@ -134,7 +134,7 @@ jobs:
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
-        uses: garygrossgarten/github-action-scp@release/0.6.3
+        uses: garygrossgarten/github-action-scp@release
         with:
           local: .\dist\electron\Packaged\
           remote: downloads
