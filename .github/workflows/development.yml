@@ -134,9 +134,9 @@ jobs:
 #          privateKey: ${{ secrets.PRIVATE_KEY}}
 #          dotfiles: true
 
-      - name: Copy folder content recursively to remote Ubuntu
+      - name: SCP Uploader (Fork) Ubuntu
         if: matrix.os == 'ubuntu22204-ex'
-        uses: ersoul/scp_uploader@latest
+        uses: ErSoul/scp_uploader@v1.0
         with:
           source: "./dist/electron/Packaged/"
           target: "downloads"
