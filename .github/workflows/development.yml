@@ -16,7 +16,7 @@ jobs:
       matrix:
         os:
           - Win10
-          - ubuntu-latest
+          - ubuntu2204-ex
 
     steps:
       - name: Checkout git repo
@@ -37,7 +37,7 @@ jobs:
             yarn global add node-gyp
 
       - name: npm Linux
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu2204-ex'
         run: npm install
 
       - name: Install dependencies by yarn for Windows 10
@@ -53,7 +53,7 @@ jobs:
         run: echo "$RUNNER_OS"
 
       - name: Extract binaries
-        if: runner.os == 'ubuntu-latest'
+        if: runner.os == 'ubuntu2204-ex'
         run: |
           mkdir -p ${{ github.workspace }}/bin
           tar -xvf ${{ github.workspace }}/downloads/latest.gz --directory ${{ github.workspace }}
@@ -67,7 +67,7 @@ jobs:
           dir ${{ github.workspace }}\bin
 
       - name: Publish Linux binaries
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu2204-ex'
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
@@ -78,6 +78,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
+      - name: Remove un-needed Windows artifacts
+        if: matrix.os == 'Win10'
+        run: |
+          ls
+          rm -r -fo win-unpacked
+        working-directory: .\dist\electron\Packaged
+
+      - name: Remove un-needed Linux artifacts
+        if: matrix.os == 'ubuntu2204-ex'
+        run: rm -r -- ./*/
+        working-directory: ./dist/electron/Packaged
+
+
 #      - name: Upload artifacts Windows
 #        if: matrix.os == 'Win10'
 #        uses: actions/upload-artifact@v4
@@ -86,13 +99,13 @@ jobs:
 #          path: ${{ github.workspace }}\dist\electron\Packaged
 
 #      - name: Upload artifacts Ubuntu 22.04 self hosted
-#        if: matrix.os == 'ubuntu-latest'
+#        if: matrix.os == 'ubuntu2204-ex'
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: ${{ matrix.os }}
 #          path: ${{ github.workspace }}/dist/electron/Packaged
 
-#       if: matrix.os == 'ubuntu-latest'
+#       if: matrix.os == 'ubuntu2204-ex'
 #        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
 #        with:
 #          server: ${{ secrets.SERVER }}
@@ -109,7 +122,7 @@ jobs:
 #          password: ${{ secrets.PASSWORD }}
 #          local-dir: .\dist\electron\Packaged\
       - name: Copy folder content recursively to remote Ubuntu
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu2204-ex'
         uses: garygrossgarten/github-action-scp@release
         with:
           local: ./dist/electron/Packaged/
@@ -131,15 +144,3 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATE_KEY}}
           dotfiles: true
-
-      - name: Remove un-needed Windows artifacts
-        if: matrix.os == 'Win10'
-        run: |
-          ls
-          rm -r -fo win-unpacked
-        working-directory: .\dist\electron\Packaged
-
-      - name: Remove un-needed Linux artifacts
-        if: matrix.os == 'ubuntu-latest'
-        run: rm -r -- ./*/
-        working-directory: ./dist/electron/Packaged
