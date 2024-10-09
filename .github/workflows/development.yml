@@ -78,18 +78,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
-      - name: Remove un-needed Windows artifacts
-        if: matrix.os == 'Win10'
-        run: |
-          ls
-          rm -r -fo win-unpacked
-        working-directory: .\dist\electron\Packaged
-
-      - name: Remove un-needed Linux artifacts
-        if: matrix.os == 'ubuntu-latest'
-        run: rm -r -- ./*/
-        working-directory: ./dist/electron/Packaged
-
 #      - name: Upload artifacts Windows
 #        if: matrix.os == 'Win10'
 #        uses: actions/upload-artifact@v4
@@ -130,6 +118,7 @@ jobs:
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATE_KEY}}
+          dotfiles: true
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
@@ -141,3 +130,16 @@ jobs:
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           privateKey: ${{ secrets.PRIVATE_KEY}}
+          dotfiles: true
+
+      - name: Remove un-needed Windows artifacts
+        if: matrix.os == 'Win10'
+        run: |
+          ls
+          rm -r -fo win-unpacked
+        working-directory: .\dist\electron\Packaged
+
+      - name: Remove un-needed Linux artifacts
+        if: matrix.os == 'ubuntu-latest'
+        run: rm -r -- ./*/
+        working-directory: ./dist/electron/Packaged
