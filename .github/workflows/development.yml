@@ -98,12 +98,12 @@ jobs:
 #          name: ${{ runner.os }}
 #          path: ${{ github.workspace }}\dist\electron\Packaged
 
-#      - name: Upload artifacts Ubuntu 22.04 self hosted
-#        if: matrix.os == 'ubuntu22204-ex'
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ matrix.os }}
-#          path: ${{ github.workspace }}/dist/electron/Packaged
+      - name: Upload artifacts Ubuntu 22.04 self hosted
+        if: matrix.os == 'ubuntu22204-ex'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: ${{ github.workspace }}/dist/electron/Packaged
 
 #       if: matrix.os == 'ubuntu22204-ex'
 #        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -126,7 +126,7 @@ jobs:
         if: matrix.os == 'ubuntu22204-ex'
         uses: garygrossgarten/github-action-scp@release
         with:
-          local: "./dist/electron/Packaged/*.*"
+          local: "${{ github.workspace }}/dist/electron/Packaged"
           remote: downloads
           concurrency: 4
           host: ${{ secrets.HOST }}
