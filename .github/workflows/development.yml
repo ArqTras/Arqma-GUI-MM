@@ -134,17 +134,16 @@ jobs:
 #          privateKey: ${{ secrets.PRIVATE_KEY}}
 #          dotfiles: true
 
-      - name: SCP Uploader (Fork) Ubuntu
+      - name: SCP Upload Ubuntu
         if: matrix.os == 'ubuntu22204-ex'
-        uses: ErSoul/scp_uploader@v1.0
+        uses: srueda99/scp-action@v12
         with:
-          source: "./dist/electron/Packaged/"
-          target: "downloads"
+          origin: "./dist/electron/Packaged/"
+          destination: "downloads"
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.PRIVATE_KEY}}
-#          dotfiles: true
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
