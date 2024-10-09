@@ -128,6 +128,7 @@ jobs:
         with:
           local: ${{ github.workspace }}/dist/electron/Packaged/
           remote: downloads
+          concurrency: 4
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
@@ -140,6 +141,7 @@ jobs:
         with:
           local: ${{ github.workspace }}\dist\electron\Packaged\
           remote: downloads
+          concurrency: 4
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
