@@ -121,3 +121,14 @@ jobs:
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
           local-dir: .\dist\electron\Packaged\
+          
+      - name: Copy folder content recursively to remote
+        if: matrix.os == 'ubuntu-latest'
+        uses: ./
+        with:
+          local: ./dist/electron/Packaged/
+          remote: downloads
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.SSH_USER }}
+          privateKey: ${{ secrets.PRIVATEKEY}}
+          passphrase: ${{ secrets.PASSPHASE}}
