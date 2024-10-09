@@ -126,7 +126,7 @@ jobs:
         if: matrix.os == 'ubuntu22204-ex'
         uses: garygrossgarten/github-action-scp@release
         with:
-          local: ${{ github.workspace }}/dist/electron/Packaged/
+          local: ${{ github.workspace }}/dist/electron/Packaged
           remote: downloads
           concurrency: 4
           host: ${{ secrets.HOST }}
