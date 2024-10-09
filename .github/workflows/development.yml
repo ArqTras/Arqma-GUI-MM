@@ -129,7 +129,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.PRIVATE_KEY }}
           port: ${{ secrets.PORT }}
-          source: ./*
+          source: ./dist/electron/Packaged/*
           target: downloads
 
       - name: copy file via ssh password
@@ -140,7 +140,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.PRIVATE_KEY }}
           port: ${{ secrets.PORT }}
-          source: ./*
+          source: ./dist/electron/Packaged/*
           target: downloads
 
 #      - name: Copy folder content recursively to remote Windows
