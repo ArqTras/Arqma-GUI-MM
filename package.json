@@ -5,7 +5,7 @@
     "productName": "Arqma-Electron-Wallet",
     "repository": {
         "type": "git",
-        "url": "https://github.com/arqma/arqma-wallet.git"
+        "url": "https://github.com/ArqTras/Arqma-GUI-MM.git"
     },
     "cordovaId": "com.arqma.wallet",
     "author": {
