@@ -122,28 +122,17 @@ jobs:
 #          password: ${{ secrets.PASSWORD }}
 #          local-dir: .\dist\electron\Packaged\
 
-#      - name: Copy folder content recursively to remote Ubuntu
-#        if: matrix.os == 'ubuntu22204-ex'
-#        uses: garygrossgarten/github-action-scp@release
-#        with:
-#          local: ${{ github.workspace }}/dist/electron/Packaged/
-#          remote: downloads
-#          host: ${{ secrets.HOST }}
-#          port: ${{ secrets.PORT }}
-#          username: ${{ secrets.SSH_USER }}
-#          privateKey: ${{ secrets.PRIVATE_KEY}}
-#          dotfiles: true
-
-      - name: SCP Upload Ubuntu
+      - name: Copy folder content recursively to remote Ubuntu
         if: matrix.os == 'ubuntu22204-ex'
-        uses: srueda99/scp-action@v12
+        uses: garygrossgarten/github-action-scp@release
         with:
-          origin: "./dist/electron/Packaged/"
-          destination: "downloads"
+          local: ${{ github.workspace }}/dist/electron/Packaged/
+          remote: downloads
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.PRIVATE_KEY}}
+          privateKey: ${{ secrets.PRIVATE_KEY}}
+          atomicPut: true
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
