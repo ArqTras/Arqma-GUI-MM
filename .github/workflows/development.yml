@@ -120,4 +120,4 @@ jobs:
           server: ${{ secrets.SERVER }}
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
-          local-dir: \dist\electron\Packaged\
+          local-dir: .\dist\electron\Packaged\
