@@ -103,3 +103,10 @@ jobs:
         with:
           name: ${{ matrix.os }}
           path: ${{ github.workspace }}/dist/electron/Packaged
+
+       - name: 📂 Sync files
+         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+         with:
+           server: ${{ secrets.SERVER }}
+           username: ${{ secrets.USERNAME }}
+           password: ${{ secrets.PASSWORD }}
