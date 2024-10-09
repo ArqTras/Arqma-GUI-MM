@@ -38,7 +38,7 @@ jobs:
 
       - name: npm Linux
         if: matrix.os == 'ubuntu22204-ex'
-        run: npm install
+        run: yarn
 
       - name: Install dependencies by yarn for Windows 10
         if: matrix.os == 'Win10'
