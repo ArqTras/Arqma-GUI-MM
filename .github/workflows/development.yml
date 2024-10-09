@@ -90,19 +90,19 @@ jobs:
         run: rm -r -- ./*/
         working-directory: ./dist/electron/Packaged
 
-      - name: Upload artifacts Windows
-        if: matrix.os == 'Win10'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ runner.os }}
-          path: ${{ github.workspace }}\dist\electron\Packaged
+#      - name: Upload artifacts Windows
+#        if: matrix.os == 'Win10'
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{ runner.os }}
+#          path: ${{ github.workspace }}\dist\electron\Packaged
 
-      - name: Upload artifacts Ubuntu 22.04 self hosted
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.os }}
-          path: ${{ github.workspace }}/dist/electron/Packaged
+#      - name: Upload artifacts Ubuntu 22.04 self hosted
+#        if: matrix.os == 'ubuntu-latest'
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{ matrix.os }}
+#          path: ${{ github.workspace }}/dist/electron/Packaged
           
       - name: Sync files Ubuntu
         if: matrix.os == 'ubuntu-latest'
@@ -124,7 +124,7 @@ jobs:
           
       - name: Copy folder content recursively to remote
         if: matrix.os == 'ubuntu-latest'
-        uses: ./
+        uses: garygrossgarten/github-action-scp@release
         with:
           local: ./dist/electron/Packaged/
           remote: downloads
