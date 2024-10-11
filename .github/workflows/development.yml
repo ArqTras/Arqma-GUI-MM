@@ -27,6 +27,10 @@ jobs:
         with:
           node-version: "20.17.0"
 
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
       - name: Upgrade npm
         run: npm install -g npm@latest
 
@@ -114,7 +118,7 @@ jobs:
           key: ${{ secrets.PRIVATE_KEY }}
           port: ${{ secrets.PORT }}
           source: ./dist/electron/Packaged/*
-          target: downloads/GUI
+          target: downloads/GUI/${{ steps.date.outputs.date }}
           strip_components: 3
 
       - name: Copy folder content recursively to remote Windows
@@ -122,7 +126,7 @@ jobs:
         uses: garygrossgarten/github-action-scp@release
         with:
           local: ${{ github.workspace }}\dist\electron\Packaged\
-          remote: downloads/GUI
+          remote: downloads/GUI/${{ steps.date.outputs.date }}
           strip_components: 3
           concurrency: 4
           host: ${{ secrets.HOST }}
