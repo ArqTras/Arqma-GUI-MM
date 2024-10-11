@@ -115,13 +115,15 @@ jobs:
           port: ${{ secrets.PORT }}
           source: ./dist/electron/Packaged/*
           target: downloads
+          strip_components: 3
 
       - name: Copy folder content recursively to remote Windows
         if: matrix.os == 'Win10'
         uses: garygrossgarten/github-action-scp@release
         with:
           local: ${{ github.workspace }}\dist\electron\Packaged\
-          remote: downloads/dist/electron/Packaged
+          remote: downloads
+          strip_components: 3
           concurrency: 4
           host: ${{ secrets.HOST }}
           port: ${{ secrets.PORT }}
