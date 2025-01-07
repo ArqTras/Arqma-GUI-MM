@@ -22,7 +22,7 @@
         "build-armv7": "quasar build -m electron -T linux -A armv7l",
         "build-armv8": "quasar build -m electron -T linux -A arm64",
         "lint": "eslint --ext .js,.vue ./",
-        "prepare": "husky install"
+        "prepare": "husky init"
     },
     "dependencies": {
         "@metamask/sdk": "0.27.0",
