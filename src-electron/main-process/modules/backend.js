@@ -40,7 +40,7 @@ export class Backend {
         port: 19994
       },
       {
-        host: "xeq.gntl.uk",
+        host: "arq.gntl.uk",
         port: 19994
       }
     ]
@@ -188,8 +188,8 @@ export class Backend {
         }
       }
       remotesArray = remotesArray.map(obj => {
-        if (obj && obj.host === "xeq.pool.gntl.co.uk") {
-          return { ...obj, host: "xeq.gntl.uk" }
+        if (obj && obj.host === "arq.pool.gntl.co.uk") {
+          return { ...obj, host: "arq.gntl.uk" }
         }
         return obj
       })
