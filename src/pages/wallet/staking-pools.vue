@@ -294,7 +294,8 @@ export default defineComponent({
 
     const getNodeReward = () => {
       try {
-        const amount = roundToTwo((blocksPerDay / all_pools.value.length) * serviceNodeDurationReward)
+        let amount = 0
+        if (all_pools.value.length > 0) { amount = roundToTwo((blocksPerDay / all_pools.value.length) * serviceNodeDurationReward) }
         nodeReward.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getNodeReward", error.stack || error)
