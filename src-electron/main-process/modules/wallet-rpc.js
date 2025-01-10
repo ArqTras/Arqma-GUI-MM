@@ -2079,6 +2079,7 @@ export class WalletRPC {
         return wallet
       }
       const data = await this.backend.daemon.sendRPC("get_service_nodes")
+      if (!data.result) { return pools }
       if (!data.result.service_node_states) {
         data.result.service_node_states = []
       }
