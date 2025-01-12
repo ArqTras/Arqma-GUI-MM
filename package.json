@@ -51,7 +51,7 @@
     "vuex": "4.1.0",
     "web3": "4.16.0",
     "winston": "3.17.0",
-    "zeromq": "6.0.3"
+    "zeromq": "6.3.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "7.25.9",
