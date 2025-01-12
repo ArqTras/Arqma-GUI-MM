@@ -38,7 +38,6 @@ jobs:
 
       - name: Configure CMake
         if: matrix.os == 'Win10'
-        shell: bash
         run: npm install --global --production windows-build-tools --vs2015
 
       - name: npm Linux
