@@ -36,6 +36,12 @@ jobs:
         run: |
             yarn global add node-gyp
 
+      - name: Configure CMake
+        if: matrix.os == 'Win10'
+        shell: bash
+        working-directory: ${{github.workspace}}/build
+        run: cmake $GITHUB_WORKSPACE -G "Visual Studio 16 2019" -A x64 -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_UNIT_TESTS=ON
+
       - name: npm Linux
         if: matrix.os == 'ubuntu22204-ex'
         run: npm i --force
