@@ -82,12 +82,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
-      - name: Remove un-needed Windows artifacts
-        if: matrix.os == 'Win10'
-        run: |
-          ls
+  #    - name: Remove un-needed Windows artifacts
+  #      if: matrix.os == 'Win10'
+  #      run: |
+  #        ls
         #   rm -r -fo win-unpacked
-        working-directory: .\dist\electron\Packaged
+  #      working-directory: .\dist\electron\Packaged
 
       - name: Remove un-needed Linux artifacts
         if: matrix.os == 'ubuntu22204-ex'
