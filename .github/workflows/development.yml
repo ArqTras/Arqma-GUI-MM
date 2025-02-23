@@ -16,7 +16,7 @@ jobs:
       matrix:
         os:
           - windows-latest
-          - ubuntu22204-ex
+          - ubuntu-latest
 
     steps:
       - name: Checkout git repo
@@ -41,7 +41,7 @@ jobs:
   #      run: npm install --global --production windows-build-tools --vs2015
 
       - name: npm Linux
-        if: matrix.os == 'ubuntu22204-ex'
+        if: matrix.os == 'ubuntu-latest'
         run: npm i --force
 
       - name: Install dependencies by yarn for Windows 10
@@ -57,7 +57,7 @@ jobs:
         run: echo "$RUNNER_OS"
 
       - name: Extract binaries
-        if: runner.os == 'ubuntu22204-ex'
+        if: runner.os == 'ubuntu-latest'
         run: |
           mkdir -p ${{ github.workspace }}/bin
           tar -xvf ${{ github.workspace }}/downloads/latest.gz --directory ${{ github.workspace }}
@@ -71,7 +71,7 @@ jobs:
           dir ${{ github.workspace }}\bin
 
       - name: Publish Linux binaries
-        if: matrix.os == 'ubuntu22204-ex'
+        if: matrix.os == 'ubuntu-latest'
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
@@ -90,7 +90,7 @@ jobs:
   #      working-directory: .\dist\electron\Packaged
 
       - name: Remove un-needed Linux artifacts
-        if: matrix.os == 'ubuntu22204-ex'
+        if: matrix.os == 'ubuntu-latest'
         run: rm -r -- ./*/
         working-directory: ./dist/electron/Packaged
 
@@ -110,7 +110,7 @@ jobs:
 #          path: ${{ github.workspace }}/dist/electron/Packaged
 
       - name: copy file via ssh password
-        if: matrix.os == 'ubuntu22204-ex'
+        if: matrix.os == 'ubuntu-latest'
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.HOST }}
