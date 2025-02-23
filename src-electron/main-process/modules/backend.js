@@ -24,19 +24,19 @@ export class Backend {
     this.config_data = {}
     this.defaultRemotes = [
       {
-        host: "eu.arqma.com",
+        host: "node1.arqma.com",
         port: 19994
       },
       {
-        host: "us.arqma.com",
+        host: "node2.arqma.com",
         port: 19994
       },
       {
-        host: "us1.arqma.com",
+        host: "node3.arqma.com",
         port: 19994
       },
       {
-        host: "asia.arqma.com",
+        host: "node4.arqma.com",
         port: 19994
       },
       {
@@ -110,7 +110,7 @@ export class Backend {
     const daemons = {
       mainnet: {
         ...daemon,
-        remote_host: "us.arqma.com",
+        remote_host: "node1.arqma.com",
         remote_port: 19994
       },
       stagenet: {
