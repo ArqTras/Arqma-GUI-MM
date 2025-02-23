@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
+          - Windows
           - ubuntu-latest
 
     steps:
@@ -31,13 +31,13 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Patch node gyp on self hosted windows 10 to support Visual Studio 2019
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'Windows'
         shell: powershell
         run: |
             yarn global add node-gyp
 
   #    - name: Configure CMake #need to be installed manually by visual studio
-  #      if: matrix.os == 'windows-latest'
+  #      if: matrix.os == 'Windows'
   #      run: npm install --global --production windows-build-tools --vs2015
 
       - name: npm Linux
@@ -45,7 +45,7 @@ jobs:
         run: npm i --force
 
       - name: Install dependencies by yarn for Windows 10
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'Windows'
         run: yarn
 
       - name: Download Arqma binaries
@@ -64,7 +64,7 @@ jobs:
           ls ${{ github.workspace }}/bin
 
       - name: Extract Windows binaries
-        if: runner.os == 'windows-latest'
+        if: runner.os == 'Windows'
         run: |
           mkdir ${{ github.workspace }}\bin
           tar -xvf ${{ github.workspace }}\downloads\latest.zip -C ${{ github.workspace }}\bin
@@ -77,13 +77,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
       - name: Publish Windows binaries
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'Windows'
         run: npm run build-windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
   #    - name: Remove un-needed Windows artifacts
-  #      if: matrix.os == 'windows-latest'
+  #      if: matrix.os == 'Windows'
   #      run: |
   #        ls
         #   rm -r -fo win-unpacked
@@ -96,7 +96,7 @@ jobs:
 
 
 #      - name: Upload artifacts Windows
-#        if: matrix.os == 'windows-latest'
+#        if: matrix.os == 'Windows'
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: ${{ runner.os }}
@@ -122,7 +122,7 @@ jobs:
           strip_components: 3
 
       - name: Copy folder content recursively to remote Windows
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'Windows'
         uses: garygrossgarten/github-action-scp@release
         with:
           local: ${{ github.workspace }}\dist\electron\Packaged\
