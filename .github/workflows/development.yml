@@ -36,9 +36,9 @@ jobs:
         run: |
             yarn global add node-gyp
 
-      - name: Configure CMake #need to be installed manually by visual studio
-        if: matrix.os == 'Windows'
-        run: npm install --global --production windows-build-tools --vs2015
+#      - name: Configure CMake #need to be installed manually by visual studio
+#        if: matrix.os == 'Windows'
+#        run: npm install --global --production windows-build-tools --vs2015
 
       - name: npm Linux
         if: matrix.os == 'ubuntu-latest'
