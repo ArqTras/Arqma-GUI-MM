@@ -3,7 +3,6 @@ import { WalletRPC } from "./wallet-rpc"
 import { dialog } from "electron"
 import { writeFile, mkdir, readFile } from "node:fs/promises"
 import { existsSync } from "node:fs"
-// const zmq = require("zeromq")
 const electron = require("electron")
 const axios = require("axios")
 const os = require("os")
