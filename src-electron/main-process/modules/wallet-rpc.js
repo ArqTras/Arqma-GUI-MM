@@ -22,7 +22,7 @@ const crypto = require("crypto")
 const logger = require("./logger")
 const axios = require("axios")
 const fs = require("fs")
-const zmq = require("zeromq")
+// const zmq = require("zeromq")
 const { Observable, Subject, fromEvent } = require("rxjs")
 
 export class WalletRPC {
@@ -452,9 +452,9 @@ export class WalletRPC {
         await this.getConversionData()
         break
 
-      case "subscribe_for_signature_data":
-        await this.subscribeForSignatureData(params.ethereumAddress)
-        break
+        //   case "subscribe_for_signature_data":
+        //     await this.subscribeForSignatureData(params.ethereumAddress)
+        //     break
 
       case "unsubscribe_for_signature_data":
         await this.endSignatureSubscription()
@@ -543,55 +543,55 @@ export class WalletRPC {
     }
   }
 
-  async subscribeForSignatureData (ethereumAddress) {
-    try {
-      logger.info("wallet subscribeForSignatureData")
+  //   async subscribeForSignatureData (ethereumAddress) {
+  //     try {
+  //       logger.info("wallet subscribeForSignatureData")
 
-      if (this.subscriber === null) {
-        const context = new zmq.Context({ blocky: false })
-        this.subscriber = new zmq.Dealer(context)
-        this.subscriber.routingId = ethereumAddress
-        // const address = "tcp://10.0.0.20:5556"
-        // const address = "tcp://10.0.0.13:5556"
-        const address = "tcp://154.38.161.92:5556"
-        await this.subscriber.connect(address)
+  //       if (this.subscriber === null) {
+  //         const context = new zmq.Context({ blocky: false })
+  //         this.subscriber = new zmq.Dealer(context)
+  //         this.subscriber.routingId = ethereumAddress
+  //         // const address = "tcp://10.0.0.20:5556"
+  //         // const address = "tcp://10.0.0.13:5556"
+  //         const address = "tcp://154.38.161.92:5556"
+  //         await this.subscriber.connect(address)
 
-        await this.subscriber.send([ethereumAddress, "REGISTER"])
+  //         await this.subscriber.send([ethereumAddress, "REGISTER"])
 
-        const receiveObservable = new Observable(observer => {
-          const receiveHandler = async () => {
-            try {
-              const [response] = await this.subscriber.receive()
-              let signatures = []
-              const responseString = response.toString()
-              if (response.length > 0) {
-                signatures = JSON.parse(responseString)
-              }
-              observer.next(signatures)
-              receiveHandler()
-            } catch (error) {
-              observer.error(error)
-            }
-          }
-          receiveHandler()
-          return async () => {
-            await this.endSignatureSubscription()
-          }
-        })
+  //         const receiveObservable = new Observable(observer => {
+  //           const receiveHandler = async () => {
+  //             try {
+  //               const [response] = await this.subscriber.receive()
+  //               let signatures = []
+  //               const responseString = response.toString()
+  //               if (response.length > 0) {
+  //                 signatures = JSON.parse(responseString)
+  //               }
+  //               observer.next(signatures)
+  //               receiveHandler()
+  //             } catch (error) {
+  //               observer.error(error)
+  //             }
+  //           }
+  //           receiveHandler()
+  //           return async () => {
+  //             await this.endSignatureSubscription()
+  //           }
+  //         })
 
-        this.subscription = receiveObservable.subscribe({
-          next: signatures => this.sendGateway("set_signature_data", signatures),
-          error: async error => {
-            console.error("Error in receiveObservable:", error)
-            await this.endSignatureSubscription()
-          }
-        })
-      }
-    } catch (error) {
-      logger.error("wallet", "Error in subscribeForSignatureData:", error.stack || error)
-      await this.endSignatureSubscription()
-    }
-  }
+  //         this.subscription = receiveObservable.subscribe({
+  //           next: signatures => this.sendGateway("set_signature_data", signatures),
+  //           error: async error => {
+  //             console.error("Error in receiveObservable:", error)
+  //             await this.endSignatureSubscription()
+  //           }
+  //         })
+  //       }
+  //     } catch (error) {
+  //       logger.error("wallet", "Error in subscribeForSignatureData:", error.stack || error)
+  //       await this.endSignatureSubscription()
+  //     }
+  //   }
 
   async getConversionData () {
     const conversionData = {
