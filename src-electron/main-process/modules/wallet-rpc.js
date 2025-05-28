@@ -2073,7 +2073,7 @@ export class WalletRPC {
     }
 
     try {
-      const coinUnits = 10000
+      const coinUnits = 10 ** 9
       const check = await this.checkHeight("pools", height)
       if (!check) {
         return wallet

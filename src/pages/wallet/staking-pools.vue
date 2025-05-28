@@ -182,7 +182,7 @@ export default defineComponent({
     const blocksPerDay = 720
     const serviceNodeReward = operatorReward + contributorReward
     const serviceNodeDurationReward = serviceNodeReward * nodeDuration.value
-    const coinUnits = 10000
+    const coinUnits = 10 ** 9
     const nodeReward = ref(0)
     const personalNodeRewards = ref(0)
     const monthlyYield = ref(0)
