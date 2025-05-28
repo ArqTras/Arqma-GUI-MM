@@ -276,7 +276,7 @@ export default defineComponent({
     })
     const v$ = useVuelidate(rules, stake_data)
 
-    const coinUnits = 10000
+    const coinUnits = 10 ** 9
 
     // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
