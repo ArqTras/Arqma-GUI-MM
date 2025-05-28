@@ -39,7 +39,7 @@ export class Backend {
         port: 19994
       },
       {
-        host: "arq.gntl.uk",
+        host: "node5.arqma.com",
         port: 19994
       }
     ]
@@ -115,16 +115,16 @@ export class Backend {
       stagenet: {
         ...daemon,
         type: "local",
-        p2p_bind_port: 29993,
-        rpc_bind_port: 29994,
-        zmq_rpc_bind_port: 29995
+        p2p_bind_port: 39993,
+        rpc_bind_port: 39994,
+        zmq_rpc_bind_port: 39995
       },
       testnet: {
         ...daemon,
         type: "local",
-        p2p_bind_port: 39993,
-        rpc_bind_port: 39994,
-        zmq_rpc_bind_port: 39995
+        p2p_bind_port: 29993,
+        rpc_bind_port: 29994,
+        zmq_rpc_bind_port: 29995
       }
     }
 
