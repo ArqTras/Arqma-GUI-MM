@@ -1,5 +1,3 @@
-[![EquilibiraCC Electron Wallet Build](https://github.com/AdminXeq/xeq-wallet/actions/workflows/development.yml/badge.svg)](https://github.com/AdminXeq/xeq-wallet/actions/workflows/development.yml)
-
 # Quasar App (quasar-project)
 
 A Quasar Project
