@@ -28,6 +28,8 @@ export const service_node_key = (input) => {
   return input.length === 64 && /^[0-9A-Za-z]+$/.test(input)
 }
 
+export const trimmedRequired = (value) => !!value && value.trim().length > 0
+
 export const address = (input, gateway) => {
   if (!(/^[0-9A-Za-z]+$/.test(input))) return false
 

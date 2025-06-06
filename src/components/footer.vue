@@ -129,30 +129,30 @@ export default defineComponent({
       if (config_daemon.value.type === "remote") {
         return 0
       }
-      const pct = (
-        (100 * daemon.value.info.height_without_bootstrap) /
-        target_height.value
-      ).toFixed(1)
+      if (!target_height.value) {
+        return 0
+      }
+      const pct = (100 * daemon.value.info.height_without_bootstrap) / target_height.value
       if (
-        pct === 100.0 &&
+        pct >= 100 &&
         daemon.value.info.height_without_bootstrap < target_height.value
       ) {
         return 99.9
       } else {
-        return pct
+        return Math.min(Number(pct.toFixed(1)), 100)
       }
     })
 
     const wallet_pct = computed(() => {
-      let pct = 0
       if (target_height.value && walletHeight.value) {
-        pct = ((100 * walletHeight.value) / target_height.value).toFixed(1)
+        const pct = (100 * walletHeight.value) / target_height.value
+        if (pct >= 100 && walletHeight.value < target_height.value) {
+          return 99.9
+        } else {
+          return Math.min(Number(pct.toFixed(1)), 100)
+        }
       }
-      if (pct === 100.0 && walletHeight.value < target_height.value) {
-        return 99.9
-      } else {
-        return pct
-      }
+      return 0
     })
 
     const status = computed(() => {
