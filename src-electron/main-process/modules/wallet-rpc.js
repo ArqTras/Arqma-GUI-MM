@@ -2469,7 +2469,8 @@ export class WalletRPC {
       if (!check) {
         return wallet
       }
-      const filter_height = height <= 720 ? height : height - (this.backend.config_data.app.daysOfTransactions * 720)
+      const windowBlocks = this.backend.config_data.app.daysOfTransactions * 720
+      const filter_height = height > windowBlocks ? height - windowBlocks : 0
       const options = {
         in: true,
         out: true,
@@ -2479,7 +2480,6 @@ export class WalletRPC {
         filter_by_height: applyFilter,
         min_height: filter_height
       }
-
       const data = await this.sendRPC("get_transfers", options)
 
       if (data && data.result) {
