@@ -163,6 +163,7 @@
 import { defineComponent, reactive, computed, watch } from "vue"
 import { useVuelidate } from "@vuelidate/core"
 import { required, numeric, sameAs } from "@vuelidate/validators"
+import { trimmedRequired } from "src/validators/common"
 import { useStore } from "vuex"
 import arqmaField from "components/arqma_field"
 import { date, useQuasar, extend } from "quasar"
@@ -223,8 +224,8 @@ export default defineComponent({
 
     const rules = computed(() => {
       return {
-        name: { required },
-        seed: { required },
+        name: { required: trimmedRequired },
+        seed: { required: trimmedRequired },
         refresh_start_height: { numeric },
         password: {},
         password_confirm: { sameAs: sameAs(wallet.password) }
@@ -237,6 +238,8 @@ export default defineComponent({
     const restore_wallet = async () => {
       try {
         v$.value.$validate()
+
+        console.log(">>", wallet.seed, "<<")
 
         if (v$.value.name.$error && v$.value.seed.$error) {
           $q.notify({
