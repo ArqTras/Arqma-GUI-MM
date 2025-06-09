@@ -273,7 +273,7 @@ export default defineComponent({
     const conversionFromXtri = () => {
       try {
         // Do conversion with current currency
-        newTx.amountInCurrency = (newTx.amount * conversion_data.value.currentPrice * conversion_data.value.sats).toFixed(4)
+        newTx.amountInCurrency = (newTx.amount * conversion_data.value.currentPrice * conversion_data.value.sats).toFixed(9)
         return 1
       } catch (error) {
         api.error("/pages/wallet/send", "conversionFromXtri", error.stack || error)

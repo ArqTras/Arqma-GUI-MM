@@ -1385,7 +1385,7 @@ export class WalletRPC {
         return
       }
 
-      amount = parseFloat(amount).toFixed(4) * 1e9
+      amount = parseFloat(amount).toFixed(9) * 1e9
       const data = await this.sendRPC("stake", {
         amount,
         destination,
@@ -1682,7 +1682,7 @@ export class WalletRPC {
                 (sum, value) => sum + value,
                 0
               )
-              message = `${parseFloat(totalFees / 1e9).toFixed(4)}`
+              message = `${parseFloat(totalFees / 1e9).toFixed(9)}`
               for (const item of data.result.tx_metadata_list) {
                 this.tx_metadata_list.push({
                   tx_metadata: item,
@@ -1779,7 +1779,7 @@ export class WalletRPC {
         reply.message = "Invalid password"
         reply.sending = false
       } else {
-        amount = parseFloat(amount).toFixed(4) * 1e9
+        amount = parseFloat(amount).toFixed(9) * 1e9
         const rpc_endpoint = "transfer_split"
         const params = {
           destinations: [{ amount, address }],
