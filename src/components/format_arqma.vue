@@ -33,7 +33,7 @@ export default defineComponent({
       } else {
         let value = amount.value / 1e9
         if (round.value) {
-          value = value.toFixed(4)
+          value = value.toFixed(9)
         }
         return value.toLocaleString()
       }

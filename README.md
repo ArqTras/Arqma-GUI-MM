@@ -1,6 +1,6 @@
 # Quasar App (quasar-project)
 
-A Quasar Project
+A Quasar Project 3.0.9
 
 ## Notice Win 10 support
 
@@ -58,4 +58,3 @@ See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-webpack/quas
 $XDG_CONFIG_HOME or ~/.config/Arqma-Wallet/logs/Arqma.log on Linux
 ~/snap/arqma-electron-wallet/current/.config/Arqma-Wallet/logs/Arqma.log on Linux
 ~/library/Application Support/Arqma-Wallet/logs/Arqma.log on macOS
-
