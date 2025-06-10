@@ -365,10 +365,12 @@
        "operator": "Operator",
        "oracle_node_id": "Oracle Node ID:",
        "stakers": "Stakers: ",
-       "lock_up": "Lockup: ",
+       "lock_up": "Infinity ",
+       "expiring": "Expiring ~",
        "staked": "Staked : ",
        "available": "Available: ",
        "copy_oracle_node_id": "Copy Oracle Node ID",
+       "deregister_oracle_node": "Deregister Oracle Node",
        "view_on_explorer": "View on explorer",
        "contributor": "Contributor",
        "equity": "Equity: ",
@@ -393,7 +395,11 @@
        "favourite_operator": "favourite operator",
        "days": "days",
        "minutes": "minutes",
-       "hours": "hours"
+       "hours": "hours",
+       "deregister_service_node_title": "Deregister Service Node",
+       "deregister_service_node_message": "Do you want to deregister?",
+       "deregister_service_node_ok_label": "Deregister",
+       "deregister_service_node_cancel_label": "CANCEL"
       },
       "receive_item": {
         "show_qr_code": "Show QR Code",

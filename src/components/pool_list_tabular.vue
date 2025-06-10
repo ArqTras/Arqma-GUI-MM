@@ -39,7 +39,14 @@
           </q-item-label>
 
           <q-item-label class="col-1 meta">
-            <div>{{ $t('components.pool_list_tabular.lock_up') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}</div>
+            <div>
+              <template v-if="item.lockup.amount === ''">
+                {{ $t('components.pool_list_tabular.lock_up') }}
+              </template>
+              <template v-else>
+                {{ $t('components.pool_list_tabular.expiring') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
+              </template>
+            </div>
           </q-item-label>
 
           <q-item-label class="col-2 meta">
@@ -63,6 +70,14 @@
               separator
               style="min-width: 150px; max-height: 300px"
             >
+              <q-item
+                v-if="item.operator && item.requested_unlock_height === 0"
+                v-close-popup
+                clickable
+                @click="deregisterServiceNode(item.service_node_pubkey, $event)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
+              </q-item>
               <q-item
                 v-close-popup
                 clickable
@@ -116,7 +131,14 @@
           </q-item-label>
 
           <q-item-label class="col-1 meta">
-            <div>{{ $t('components.pool_list_tabular.lock_up') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}</div>
+            <div>
+              <template v-if="item.lockup.amount === ''">
+                {{ $t('components.pool_list_tabular.lock_up') }}
+              </template>
+              <template v-else>
+                {{ $t('components.pool_list_tabular.expiring') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
+              </template>
+            </div>
           </q-item-label>
 
           <q-item-label class="col-2 meta">
@@ -146,6 +168,15 @@
                 @click="addToAddressBook(item)"
               >
                 <q-item-section>{{ $t('components.pool_list_tabular.add_operator_to_addressbook') }}</q-item-section>
+              </q-item>
+
+              <q-item
+                v-if="item.is_contributor && item.requested_unlock_height === 0"
+                v-close-popup
+                clickable
+                @click="deregisterServiceNode(item.service_node_pubkey, $event)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
               </q-item>
 
               <q-item
@@ -284,6 +315,7 @@ export default defineComponent({
     const filtered_pools = computed(() => $store.getters["gateway/filtered_pools"])
     const tx_status = computed(() => $store.state.gateway.tx_status)
     const stake_status = computed(() => $store.state.gateway.service_node_status.stake)
+    const deregister_status = computed(() => $store.state.gateway.service_node_status.unlock)
     const unlocked_balance = computed(() => $store.state.gateway.wallet.info.unlocked_balance / coinUnits)
     const stakedPools = computed(() => $store.getters["gateway/staked_pools"] || [])
     const info = computed(() => {
@@ -294,8 +326,33 @@ export default defineComponent({
     })
 
     // Watchers
+    const deregister_statusWatcher = watch(deregister_status, (newVal, oldVal) => {
+      try {
+        if (newVal.code === oldVal.code) return
+        switch (newVal.code) {
+          case 400:
+            $q.notify({
+              type: "positive",
+              timeout: 10000,
+              message: deregister_status.value.message
+            })
+            break
+          case -400:
+            $q.notify({
+              type: "negative",
+              timeout: 3000,
+              message: deregister_status.value.message
+            })
+            break
+        }
+      } catch (error) {
+        api.error("/pages/wallet/staking-pools", "deregister_statusWatcher", error.stack || error)
+      }
+    })
+
     const stake_statusWatcher = watch(stake_status, (newVal, oldVal) => {
       try {
+        console.log("stake_statusWatcher", newVal, oldVal)
         if (newVal.code === oldVal.code) return
         switch (newVal.code) {
           case 0:
@@ -423,6 +480,34 @@ export default defineComponent({
       }
     }
 
+    const deregisterServiceNode = async (nodeId, event) => {
+      try {
+        event.stopPropagation()
+        const dialog = await showPasswordConfirmation({
+          title: t("components.pool_list_tabular.deregister_service_node_title"),
+          message: t("components.pool_list_tabular.deregister_service_node_message"),
+          ok: {
+            label: t("components.pool_list_tabular.deregister_service_node_ok_label"),
+            color: "negative"
+          },
+          cancel: {
+            flat: true,
+            label: t("components.pool_list_tabular.deregister_service_node_cancel_label"),
+            color: "primary"
+          },
+          dark: theme.value === "dark",
+          color: theme.value === "dark" ? "white" : "dark"
+        })
+        dialog.onOk((password) => {
+          api.send("wallet", "unlock_stake", { password, service_node_key: nodeId, confirmed: true })
+        })
+          .onDismiss(() => {})
+          .onCancel(() => {})
+      } catch (error) {
+        await api.error("components/pool_list_tabular", "deregisterServiceNode", error.stack || error)
+      }
+    }
+
     const copyOracleNodeId = async (nodeId, event) => {
       try {
         event.stopPropagation()
@@ -459,6 +544,8 @@ export default defineComponent({
       t,
       v$,
       copyOracleNodeId,
+      deregisterServiceNode,
+      deregister_statusWatcher,
       openExplorer,
       filtered_pools,
       tx_type,

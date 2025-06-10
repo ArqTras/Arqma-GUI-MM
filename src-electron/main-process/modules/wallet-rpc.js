@@ -24,6 +24,7 @@ const axios = require("axios")
 const fs = require("fs")
 // const zmq = require("zeromq")
 const { Observable, Subject, fromEvent } = require("rxjs")
+const Decimal = require("decimal.js")
 
 export class WalletRPC {
   constructor (backend) {
@@ -82,6 +83,7 @@ export class WalletRPC {
       }
     ]
     this.queue = new PQueue({ concurrency: 1 })
+    this.STAKING_SHARE_PARTS = new Decimal("18446744073709551612")
   }
 
   // this function will take an options object for testnet, data-dir, etc
@@ -1414,7 +1416,7 @@ export class WalletRPC {
         }) // add new transactions
         this.sendGateway("set_tx_status", {
           code: 300,
-          message: `Fee ${fee.toLocaleString()}`,
+          message: `Fee ${fee}`, // .toLocaleString()}`,
           sending: false
         })
       }
@@ -1477,13 +1479,13 @@ export class WalletRPC {
   async unlockStake (password, service_node_key, confirmed = false) {
     try {
       logger.info("wallet unlockStake")
-      // Unlock code 0 means success, 1 means can unlock, -1 means error
+      this.sendGateway("set_snode_status_unlock", { code: 0, message: "", sending: false }) // reset status
       const hashBuffer = this.promptForPasswordCheck(password)
 
       if (!this.isValidPasswordHash(hashBuffer)) {
-        this.sendGateway("set_snode_status", {
+        this.sendGateway("set_snode_status_unlock", {
           unlock: {
-            code: -1,
+            code: -400,
             message: "invalidPassword",
             sending: false
           }
@@ -1495,37 +1497,32 @@ export class WalletRPC {
           const data = await this.sendRPC("request_stake_unlock", {
             service_node_key
           })
+          //   console.log("unlockStake data", data)
           let unlock = {}
-          if (data.error) {
+          if (data.result && typeof data.result === "object") {
             unlock = {
-              code: -1,
-              message: data.error.message,
+              code: data.result.unlocked ? -400 : -400,
+              message: data.result.msg || "",
               sending: false
             }
           } else {
             unlock = {
-              code: data.unlocked ? 0 : -1,
-              message: data.msg,
+              code: -400,
+              message: (data.error && data.error.message) ? data.error.message : "Unknown error",
               sending: false
             }
           }
-          // Update the new snode list
-          if (data.unlocked) {
-            this.backend.daemon.updateServiceNodes()
-          }
-          this.sendGateway("set_snode_status", { unlock })
+          this.sendGateway("set_snode_status_unlock", unlock)
         } catch (error) {
           logger.error(
             `wallet unlockStake:request_stake_unlock ${
               error.stack || error
             }`
           )
-          this.sendGateway("set_snode_status", {
-            unlock: {
-              code: -1,
-              message: error,
-              sending: false
-            }
+          this.sendGateway("set_snode_status_unlock", {
+            code: -400,
+            message: error.message,
+            sending: false
           })
         }
       } else {
@@ -1537,30 +1534,28 @@ export class WalletRPC {
           let unlock = {}
           if (data.error) {
             unlock = {
-              code: -1,
+              code: -400,
               message: data.error.message,
               sending: false
             }
           } else {
             unlock = {
-              code: data.can_unlock ? 1 : -1,
+              code: data.can_unlock ? 400 : -400,
               message: data.msg,
               sending: false
             }
           }
-          this.sendGateway("set_snode_status", { unlock })
+          this.sendGateway("set_snode_status_unlock", unlock)
         } catch (error) {
           logger.error(
             `wallet unlockStake:can_request_stake_unlock ${
               error.stack || error
             }`
           )
-          this.sendGateway("set_snode_status", {
-            unlock: {
-              code: -1,
-              message: error,
-              sending: false
-            }
+          this.sendGateway("set_snode_status_unlock", {
+            code: -400,
+            message: error.message,
+            sending: false
           })
         }
       }
@@ -2007,67 +2002,205 @@ export class WalletRPC {
     return wallet
   }
 
-  getLockTime (registration_height, height) {
-    const forecastedUnlockHeight = parseInt(registration_height) + 20160
-    const unlockHeightDifference = forecastedUnlockHeight - height
+  //   getLockTime (registration_height, height) {
+  //     const forecastedUnlockHeight = parseInt(registration_height) + 20160
+  //     const unlockHeightDifference = forecastedUnlockHeight - height
+  //     try {
+  //       if (unlockHeightDifference < 30) {
+  //         return {
+  //           amount: `${Math.round(unlockHeightDifference / 2)}`,
+  //           i18n: "components.pool_list_tabular.minutes"
+  //         }
+  //       } else if (unlockHeightDifference < 720) {
+  //         return {
+  //           amount: `${Math.round(unlockHeightDifference / 30)}`,
+  //           i18n: "components.pool_list_tabular.hours"
+  //         }
+  //       } else {
+  //         return {
+  //           amount: `${Math.round(unlockHeightDifference / 720)}`,
+  //           i18n: "components.pool_list_tabular.days"
+  //         }
+  //       }
+  //     } catch (error) {
+  //       logger.error(`wallet getLockTime ${error.stack || error}`)
+  //     }
+  //   }
+  getUnLockTime (requested_unlock_height, height) {
     try {
-      if (unlockHeightDifference < 30) {
+      if (parseInt(requested_unlock_height) === 0) {
         return {
-          amount: `${Math.round(unlockHeightDifference / 2)}`,
-          i18n: "components.pool_list_tabular.minutes"
+          amount: "",
+          i18n: ""
         }
-      } else if (unlockHeightDifference < 720) {
+      }
+      const blocks_remaining = parseInt(requested_unlock_height) - parseInt(height)
+      if (blocks_remaining <= 0) {
         return {
-          amount: `${Math.round(unlockHeightDifference / 30)}`,
-          i18n: "components.pool_list_tabular.hours"
-        }
-      } else {
-        return {
-          amount: `${Math.round(unlockHeightDifference / 720)}`,
+          amount: "0",
           i18n: "components.pool_list_tabular.days"
         }
       }
+      const days = Math.ceil(blocks_remaining / 720)
+      return {
+        amount: days.toString(),
+        i18n: "components.pool_list_tabular.days"
+      }
     } catch (error) {
-      logger.error(`wallet getLockTime ${error.stack || error}`)
+      logger.error(`wallet getUnLockTime ${error.stack || error}`)
+      return {
+        amount: "0",
+        i18n: "components.pool_list_tabular.days"
+      }
     }
   }
 
   /*
-    {
-            pool_list: [
-                    {
-                            contributors: [
-                                    {
-                                            address: "Tw1RpbLquGD14KbGuV5TN3QqnMaQCyjmJGVKUgNqNWSACTWb6zswQrS7D1p7NwcQQXYf3MDvBiVoTQTUwL5UgJtG25qQdYGZb",
-                                            amount: 350000000,
-                                            reserved: 350000000
-                                    }
-                            ],
-                            is_pool: false,
-                            last_reward_block_height: 939051,
-                            last_reward_transaction_index: 4294967295,
-                            last_uptime_proof: 0,
-                            operator_address: "Tw1RpbLquGD14KbGuV5TN3QqnMaQCyjmJGVKUgNqNWSACTWb6zswQrS7D1p7NwcQQXYf3MDvBiVoTQTUwL5UgJtG25qQdYGZb",
-                            portions_for_operator: 18446744073709552000,
-                            registration_height: 938947,
-                            service_node_pubkey: "fd30752a83e489774194d4f65bee1a0539154e941323f9dc377cf7422e281dfc",
-                            staking_requirement: 1000000000,
-                            total_contributed: 350000000,
-                            total_reserved: 350000000
-                    }
-            ]
+  {
+    "status": "fulfilled",
+    "value": {
+        "pool_list": [
+        {
+            "active": true,
+            "contributors": [
+            {
+                "address": "ar3fceKHF5NEBmVRFJGuGofdFdbL73iVJXLwK8dY2ZfvPAmGJcpmoqL7FapikHyHtJUvzY63hCjWFLKGkeabVadi1qMatM8A9",
+                "amount": 25000000000000,
+                "locked_contributions": [
+                {
+                    "amount": 25000000000000,
+                    "key_image": "bb584d9a4d40a1f2247ef18d979a3c2906d9d77d1c54d3fd4aaedf2e23be921f",
+                    "key_image_pub_key": "c4d7bdcfffeef09e700a0513f26e71a3d5628dc9d615d20fc6f8c68ca1a90a55"
+                }
+                ],
+                "reserved": 25000000000000
+            },
+            {
+                "address": "ar3k85DeZBxBccvHouqaHnfvmZ4CVWLG5BC8JQ5F1bB1FhjGBz4qiV85jaNwgqXu7eQ9cB6dCvqVheZaFu97SNoe1FDsPih3K",
+                "amount": 50000000000000,
+                "locked_contributions": [
+                {
+                    "amount": 25000000000000,
+                    "key_image": "402335c0eea07fdf320fbcf53276d8dde733dc1fe6b5f0da476f89c0fdbbd87d",
+                    "key_image_pub_key": "4e29a17ec591c0e8530a8b38b0d181d48aabad5a19c5cfc11577ae3e3c44b64c"
+                },
+                {
+                    "amount": 25000000000000,
+                    "key_image": "c3a06ccb35b4ba9ccbbc953c2643ed83062bdba25e71d3f5dcc2ed38f79aaa02",
+                    "key_image_pub_key": "1153a874e0c61766576977b0375c0885f9d11ab562094aee98f4d9c24ba66efb"
+                }
+                ],
+                "reserved": 50000000000000
+            },
+            {
+                "address": "ar3MrwFPvSxbMyJaMS6cEuSidLFKZuACVVB9NyExztNBTiLpbYCbEG8gx9V1P1pKht1tdHA1EzE71cjnBTgg6AXa1qpNyEcth",
+                "amount": 25000000000000,
+                "locked_contributions": [
+                {
+                    "amount": 25000000000000,
+                    "key_image": "1339a55a628309256151f6c0d1771aadb50f9b282f56ff2cbe1c3e78dc55240f",
+                    "key_image_pub_key": "6509146025ba4f40d6bf041276ff5c3dff0f42e707a48a9ad776d248d8148cc0"
+                }
+                ],
+                "reserved": 25000000000000
+            }
+            ],
+            "decommission_count": 0,
+            "earned_downtime_blocks": 1,
+            "funded": true,
+            "last_reward_block_height": 1734387,
+            "last_reward_transaction_index": 4294967295,
+            "last_uptime_proof": 0,
+            "operator_address": "ar3fceKHF5NEBmVRFJGuGofdFdbL73iVJXLwK8dY2ZfvPAmGJcpmoqL7FapikHyHtJUvzY63hCjWFLKGkeabVadi1qMatM8A9",
+            "portions_for_operator": 3689348814741910500,
+            "pubkey_ed25519": "",
+            "pubkey_x25519": "",
+            "public_ip": "80.0.0.0",
+            "registration_height": 1734348,
+            "requested_unlock_height": 1745153,
+            "service_node_pubkey": "40ab33dc6fa06c0925e7b0a62e6d8699ae1de589ff88be9fe700c6cd7d41776d",
+            "service_node_version": [
+            0,
+            0,
+            0
+            ],
+            "staking_requirement": 100000000000000,
+            "state_height": 1734368,
+            "storage_port": 0,
+            "storage_server_reachable": true,
+            "storage_server_reachable_timestamp": 0,
+            "swarm_id": 9223372036854776000,
+            "total_contributed": 100000000000000,
+            "total_reserved": 100000000000000,
+            "version_major": 0,
+            "version_minor": 0,
+            "version_patch": 0,
+            "votes": [
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            },
+            {
+                "height": 18446744073709552000,
+                "voted": true
+            }
+            ],
+            "staked": "100,000",
+            "equity": "50",
+            "lockup": {
+            "amount": "15",
+            "i18n": "components.pool_list_tabular.days"
+            },
+            "available": "0",
+            "is_contributor": true,
+            "is_operator": false
+        }
+        ],
+        "staker": {
+        "stake": {
+            "total_staked": 0,
+            "staked_nodes": 5
+        }
+        }
     }
-    */
+    }
+  */
   async getPools (height) {
+    // const portions_for_operator = new Decimal("2767011611056432600")
+    // const result = this.STAKING_SHARE_PARTS.div(portions_for_operator).mull(100)
+    // console.log("Precise result:", result.toString())
+
     logger.info("wallet  getPools")
     const pools = {
       pool_list: [],
       staker: {
         stake: {
-          burnt_xeq: 0,
           total_staked: 0,
-          staked_nodes: 0,
-          num_operating: 0
+          staked_nodes: 0
         }
       }
     }
@@ -2090,8 +2223,8 @@ export class WalletRPC {
           pool.total_contributed / coinUnits
         ).toLocaleString()
         pool.equity = ""
-        pool.lockup = this.getLockTime(
-          pool.registration_height,
+        pool.lockup = this.getUnLockTime(
+          pool.requested_unlock_height,
           height
         )
         pool.available = (
