@@ -50,7 +50,8 @@
     "vue-timeago3": "2.3.2",
     "vuex": "4.1.0",
     "web3": "4.16.0",
-    "winston": "3.17.0"
+    "winston": "3.17.0",
+    "decimal.js": "10.4.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "7.25.9",

@@ -54,6 +54,9 @@ export const set_tx_status = (state, data) => {
 export const set_snode_status = (state, data) => {
   state.service_node_status = data
 }
+export const set_snode_status_unlock = (state, data) => {
+  state.service_node_status.unlock = objectAssignDeep.noMutate(state.service_node_status.unlock, data)
+}
 export const save_pending_config = (state, data) => {
   state.app = objectAssignDeep.noMutate(state.app, data)
 }

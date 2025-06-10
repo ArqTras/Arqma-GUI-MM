@@ -117,8 +117,9 @@ export class Daemon {
           "--limit-rate-up", daemon.limit_rate_up,
           "--limit-rate-down", daemon.limit_rate_down,
           "--log-level", daemon.log_level
-          // "--service-node"
         ]
+
+        console.log(`Starting daemon with args: ${args}`)
 
         const dirs = {
           mainnet: options.app.data_dir,

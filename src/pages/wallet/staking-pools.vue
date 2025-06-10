@@ -192,7 +192,7 @@ export default defineComponent({
 
     // // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
-    const all_pools = computed(() => $store.state.gateway.pools.pool_list)
+    const all_pools = computed(() => $store.state.gateway.pools.pool_list) // .filter(x => x.requested_unlock_height !== 0))
     const state = computed(() => {
       return $store.state
     })

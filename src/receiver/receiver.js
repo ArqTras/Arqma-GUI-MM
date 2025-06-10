@@ -112,6 +112,10 @@ export class Receiver extends EventEmitter {
           this.store.commit("gateway/set_snode_status", message.data)
           break
 
+        case "set_snode_status_unlock":
+          this.store.commit("gateway/set_snode_status_unlock", message.data)
+          break
+
         case "set_old_gui_import_status":
           this.store.commit("gateway/set_old_gui_import_status", message.data)
           break
