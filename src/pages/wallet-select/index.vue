@@ -189,10 +189,10 @@ export default defineComponent({
           name: t("pages.wallet_select.index.restore_account_from_seed"),
           handler: restoreWallet
         },
-        {
-          name: t("pages.wallet_select.index.import_account_from_file"),
-          handler: importWallet
-        },
+        // {
+        //   name: t("pages.wallet_select.index.import_account_from_file"),
+        //   handler: importWallet
+        // },
         {
           name: t("pages.wallet_select.index.restore_account_from_viewkey"),
           handler: restoreViewWallet
