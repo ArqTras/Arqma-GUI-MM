@@ -51,7 +51,6 @@ export class Receiver extends EventEmitter {
           break
 
         case "set_wallet_error":
-          console.log(message.data)
           this.store.commit("gateway/set_wallet_error", message.data)
           break
 
