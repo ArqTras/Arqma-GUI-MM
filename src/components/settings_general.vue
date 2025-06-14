@@ -440,7 +440,7 @@
         />
       </arqmaField>
     </q-expansion-item>
-    <q-expansion-item
+    <!-- <q-expansion-item
       v-if="isDevelopment"
       :label="$t('components.general_settings.advanced_swap_options')"
       header-class="q-mt-sm non-selectable row reverse advanced-options-label"
@@ -493,7 +493,7 @@
           />
         </arqmaField>
       </div>
-    </q-expansion-item>
+    </q-expansion-item> -->
   </div>
 </template>
 
@@ -638,8 +638,12 @@ export default defineComponent({
     const setDataPath = async () => {
       try {
         const result = await api.openDirectory(pending_config.value.app.data_dir)
-        if (result && !result.cancelled && !!result.filePaths[0]) {
-          pending_config.value.app.data_dir = result.filePaths[0]
+        // Support both 'canceled' and 'cancelled'
+        const isCanceled = result.canceled || result.cancelled
+        // Support both 'filePath' (string) and 'filePaths' (array)
+        const path = result.filePath || (result.filePaths && result.filePaths[0])
+        if (!isCanceled && path) {
+          pending_config.value.app.data_dir = path
         }
       } catch (error) {
         await api.error("components/settings_general", "selectPath", error.stack || error)
