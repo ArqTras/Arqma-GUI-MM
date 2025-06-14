@@ -1,3 +1,4 @@
+const fs = require("fs")
 const path = require("path")
 const electron = require("electron")
 const winston = require("winston")
@@ -10,8 +11,12 @@ let environmentFile = ""
 if (process.env.NODE_ENV === "development") {
   environmentFile = path.join(process.cwd(), ".env").replace(/\\/g, "\\\\")
 } else {
-  const environmentDirectory = getAppDataPath.getAppDataPath("Arqma-Wallet")
+  const environmentDirectory = getAppDataPath("Arqma-Electron-Wallet")
   environmentFile = path.join(environmentDirectory, ".env").replace(/\\/g, "\\\\")
+}
+
+if (!fs.existsSync(environmentFile)) {
+  fs.writeFileSync(environmentFile, `LOG_LEVEL=info\nCUSTOM_VERSION=${VERSION}`)
 }
 
 dotenv.config({ path: environmentFile })
