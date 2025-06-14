@@ -9,10 +9,6 @@
     </template>
 
     <template v-else>
-      <!-- <q-infinite-scroll
-        ref="scroller"
-        @load="loadMore"
-      > -->
       <q-list
         link
         no-border
@@ -128,7 +124,7 @@ export default defineComponent({
 
     const { limit } = toRefs(props)
     const page = ref(0)
-    // const tx_list_filtered = ref([])
+
     const amount = ref(25)
     const scroller = ref(null)
     const txDetails = ref(null)
@@ -167,21 +163,6 @@ export default defineComponent({
         await api.error("components/tx_list", "transaction_id_filterWatcher", error.stack || error)
       }
     })
-
-    // const txidWatcher = watch(txid, async (newVal, oldVal) => {
-    //   try {
-    //     if (newVal === oldVal) return
-    //     if (scroller.value) {
-    //       scroller.value.stop()
-    //       page.value = 0
-    //       scroller.value.reset()
-    //       scroller.value.resume()
-    //     }
-    //     filterTxList()
-    //   } catch (error) {
-    //     await api.error("components/tx_list", "txidWatcher", error.stack || error)
-    //   }
-    // })
 
     onMounted(() => {
       tx_list_filtered.value = $store.getters["gateway/filtered_transactions"]
@@ -295,16 +276,11 @@ export default defineComponent({
       theme,
       current_height,
       wallet_height,
-      // tx_list,
-      // wallet_heightWatcher,
       transaction_id_filterWatcher,
       tx_listWatcher,
       transactions_filterWatcher,
-      // typeWatcher,
-      // txidWatcher,
       transactionTypeToString,
       addmore,
-      // filterTxList,
       loadMore,
       details,
       formatHeight,

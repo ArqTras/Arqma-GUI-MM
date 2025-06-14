@@ -21,6 +21,7 @@
                 placeholder="0"
                 borderless
                 dense
+                @update:model-value="handleAmountInput"
                 @blur="v$.amount.$validate()"
               />
               <!-- @change="conversionFromXtri()" -->
@@ -196,8 +197,8 @@ export default defineComponent({
 
     const { showPasswordConfirmation } = usePasswordConfirmation()
 
-    let newTx = reactive({
-      amount: 0,
+    const newTx = reactive({
+      amount: "",
       address: "",
       payment_id: "",
       priority: 0,
@@ -338,9 +339,22 @@ export default defineComponent({
       }
     }
 
+    function resetNewTx () {
+      newTx.amount = ""
+      newTx.address = ""
+      newTx.payment_id = ""
+      newTx.priority = 0
+      newTx.address_book.save = false
+      newTx.address_book.name = ""
+      newTx.address_book.description = ""
+      newTx.note = ""
+    }
+
     // Watchers
     const tx_statusWatcher = watch(tx_status, async (newVal, oldVal) => {
       try {
+        if (!newVal || typeof newVal.code === "undefined") return
+        console.log("tx_statusWatcher", newVal, oldVal)
         const { code, message } = newVal
         switch (code) {
           case 200:
@@ -379,18 +393,7 @@ export default defineComponent({
               message
             })
             v$.value.$reset()
-            newTx = {
-              amount: 0,
-              address: "",
-              payment_id: "",
-              priority: 0,
-              address_book: {
-                save: false,
-                name: "",
-                description: ""
-              },
-              note: ""
-            }
+            resetNewTx()
             break
           case -200:
             $q.notify({
@@ -404,6 +407,17 @@ export default defineComponent({
         await api.error("/pages/wallet/send", "tx_statusWatcher", error.stack || error)
       }
     })
+
+    function handleAmountInput (val) {
+      // Only allow numbers, remove leading zeros, allow empty for editing
+      if (val === "" || val === null) {
+        newTx.amount = ""
+      } else {
+        // Remove leading zeros, but allow '0' as a valid value
+        const num = Number(val)
+        newTx.amount = isNaN(num) ? "" : num
+      }
+    }
 
     return {
       t,

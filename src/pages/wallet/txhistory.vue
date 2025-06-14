@@ -1,21 +1,5 @@
 <template>
   <q-page>
-    <!-- <div
-      class="row q-pt-sm q-mx-md q-mb-sm items-end"
-      style="margin-top:1em;"
-    >
-      <q-slider
-        v-model="daysOfTransactions"
-        :min="1"
-        :max="30"
-        color="positive"
-        label
-        label-always
-        dark
-        dense
-        :label-value="daysOfTransactions + ' day/s history'"
-      />
-    </div> -->
     <div
       class="row q-pt-sm q-mx-md q-mb-sm items-end non-selectable"
     >
