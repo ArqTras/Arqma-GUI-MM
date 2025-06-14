@@ -25,7 +25,7 @@
             <div>{{ $t('components.pool_list_tabular.operator') }}</div>
           </q-item-section>
 
-          <q-item-label class="col-4 main">
+          <q-item-label class="col-3 main">
             <q-item-label class="meta">
               {{ $t('components.pool_list_tabular.oracle_node_id') }}
             </q-item-label>
@@ -34,110 +34,13 @@
             </q-item-label>
           </q-item-label>
 
-          <q-item-label class="col-1 meta">
-            <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div>
-          </q-item-label>
-
-          <q-item-label class="col-1 meta">
-            <!-- <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div> -->
-            <div>Fee {{ item.operator_fee }}</div>
-          </q-item-label>
-
-          <q-item-label class="col-1 meta">
-            <!-- <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div> -->
-            <div>LRH {{ item.last_reward_block_height }}</div>
-          </q-item-label>
-
-          <q-item-label class="col-1 meta">
-            <div>
-              <template v-if="item.lockup.amount === ''">
-                {{ $t('components.pool_list_tabular.lock_up') }}
-              </template>
-              <template v-else>
-                {{ $t('components.pool_list_tabular.expiring') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
-              </template>
-            </div>
-          </q-item-label>
-
-          <q-item-label class="col-2 meta">
-            <div>{{ $t('components.pool_list_tabular.staked') }}{{ item.staked }} ARQ</div>
-          </q-item-label>
-
-          <q-item-label class="col-2 meta">
-            <div>{{ $t('components.pool_list_tabular.available') }}{{ item.available }} ARQ</div>
-          </q-item-label>
-
-          <q-item-label class="col-1 meta">
-            <div>{{ !!item.equity ? `${t('components.pool_list_tabular.equity')}${item.equity}%`: "" }}</div>
-          </q-item-label>
-
-          <q-menu
-            context-menu
-            transition-show="flip-up"
-            transition-hide="flip-down"
-          >
-            <q-list
-              separator
-              style="min-width: 150px; max-height: 300px"
-            >
-              <q-item
-                v-if="item.operator && item.requested_unlock_height === 0"
-                v-close-popup
-                clickable
-                @click="deregisterServiceNode(item.service_node_pubkey, $event)"
-              >
-                <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
-              </q-item>
-              <q-item
-                v-close-popup
-                clickable
-                @click="copyOracleNodeId(item.service_node_pubkey, $event)"
-              >
-                <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
-              </q-item>
-
-              <q-item
-                v-close-popup
-                clickable
-                @click="openExplorer(item.service_node_pubkey)"
-              >
-                <q-item-section>{{ $t('components.pool_list_tabular.view_on_explorer') }}</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
-        </q-item>
-      </q-list>
-    </template>
-
-    <template v-if="filtered_pools.length">
-      <q-list
-        link
-        no-border
-        :dark="theme == 'dark'"
-        class="column"
-      >
-        <q-item
-          v-for="item in filtered_pools"
-          :key="item.service_node_pubkey"
-          class="arqma-list-item transaction"
-          clickable
-          @click="handleClick(item)"
-        >
-          <q-item-section class="col-1 type">
-            <div>{{ item.is_contributor ? t('components.pool_list_tabular.contributor'): "&nbsp;" }}</div>
-          </q-item-section>
-
-          <q-item-label class="col-4 main">
-            <q-item-label class="meta">
-              {{ $t('components.pool_list_tabular.oracle_node_id') }}
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.stakers') }}</div>
             </q-item-label>
             <q-item-label caption>
-              {{ item.service_node_pubkey }}
+              <div>{{ item.contributors.length.toLocaleString() }}</div>
             </q-item-label>
-          </q-item-label>
-
-          <q-item-label class="col-1 meta">
-            <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div>
           </q-item-label>
 
           <q-item-label class="col-1 main1">
@@ -198,16 +101,206 @@
             </q-item-label>
           </q-item-label>
 
-          <q-item-label class="col-2 meta">
-            <div>{{ $t('components.pool_list_tabular.staked') }}{{ item.staked }} ARQ</div>
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.staked') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.staked }} ARQ</div>
+            </q-item-label>
           </q-item-label>
 
-          <q-item-label class="col-2 meta">
-            <div>{{ $t('components.pool_list_tabular.available') }}{{ item.available }} ARQ</div>
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.available') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.available }} ARQ</div>
+            </q-item-label>
           </q-item-label>
 
-          <q-item-label class="col-1 meta">
-            <div>{{ !!item.equity ? `${t('components.pool_list_tabular.equity')}${item.equity}%`: "" }}</div>
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="!!item.equity ">
+                  {{ t('components.pool_list_tabular.equity') }}
+                </template>
+              </div>
+            </q-item-label>
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="!!item.equity ">
+                  {{ `${item.equity} %` }}
+                </template>
+              </div>
+            </q-item-label>
+
+            <q-menu
+              context-menu
+              transition-show="flip-up"
+              transition-hide="flip-down"
+            >
+              <q-list
+                separator
+                style="min-width: 150px; max-height: 300px"
+              >
+                <q-item
+                  v-if="item.operator && item.requested_unlock_height === 0"
+                  v-close-popup
+                  clickable
+                  @click="deregisterServiceNode(item.service_node_pubkey, $event)"
+                >
+                  <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
+                </q-item>
+                <q-item
+                  v-close-popup
+                  clickable
+                  @click="copyOracleNodeId(item.service_node_pubkey, $event)"
+                >
+                  <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
+                </q-item>
+
+                <q-item
+                  v-close-popup
+                  clickable
+                  @click="openExplorer(item.service_node_pubkey)"
+                >
+                  <q-item-section>{{ $t('components.pool_list_tabular.view_on_explorer') }}</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-item-label>
+        </q-item>
+      </q-list>
+    </template>
+
+    <template v-if="filtered_pools.length">
+      <q-list
+        link
+        no-border
+        :dark="theme == 'dark'"
+        class="column"
+      >
+        <q-item
+          v-for="item in filtered_pools"
+          :key="item.service_node_pubkey"
+          class="arqma-list-item transaction"
+          clickable
+          @click="handleClick(item)"
+        >
+          <q-item-section class="col-1 type">
+            <div>{{ item.is_contributor ? t('components.pool_list_tabular.contributor'): "&nbsp;" }}</div>
+          </q-item-section>
+
+          <q-item-label class="col-3 main">
+            <q-item-label class="meta">
+              {{ $t('components.pool_list_tabular.oracle_node_id') }}
+            </q-item-label>
+            <q-item-label caption>
+              {{ item.service_node_pubkey }}
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.stakers') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.contributors.length.toLocaleString() }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.operator_fee') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.operator_fee }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.last_reward_height') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.last_reward_block_height }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="item.lockup.amount === ''">
+                  {{ $t('components.pool_list_tabular.lock_up') }}
+                </template>
+                <template v-else>
+                  {{ $t('components.pool_list_tabular.expiring') }}
+                </template>
+              </div>
+            </q-item-label>
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="item.lockup.amount !== ''">
+                  {{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
+                </template>
+                <template v-else>
+                  {{ item.lockup.amount }}
+                </template>
+              </div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.last_uptime_proof') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <template v-if="item.last_uptime_proof === 0">
+                <div>{{ $t('components.pool_list_tabular.notreceived') }}</div>
+              </template>
+              <template v-else>
+                <timeago
+                  :datetime="item.last_uptime_proof * 1000"
+                  :auto-update="60"
+                />
+              </template>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.staked') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.staked }} ARQ</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.available') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.available }} ARQ</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="!!item.equity ">
+                  {{ t('components.pool_list_tabular.equity') }}
+                </template>
+              </div>
+            </q-item-label>
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="!!item.equity ">
+                  {{ `${item.equity} %` }}
+                </template>
+              </div>
+            </q-item-label>
           </q-item-label>
 
           <q-menu
