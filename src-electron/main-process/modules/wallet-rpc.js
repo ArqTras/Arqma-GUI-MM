@@ -84,6 +84,7 @@ export class WalletRPC {
     ]
     this.queue = new PQueue({ concurrency: 1 })
     this.STAKING_SHARE_PARTS = new Decimal("18446744073709551612")
+    this.coinUnits = 10 ** 9
   }
 
   // this function will take an options object for testnet, data-dir, etc
@@ -1331,7 +1332,7 @@ export class WalletRPC {
         this.sendGateway("show_notification", {
           type: "positive",
           message: `Staked ${(
-            stake.amount / 1e9
+            stake.amount / this.coinUnits
           ).toLocaleString()} ARQ to: ${stake.service_node_key}`,
           timeout: 3000,
           origin
@@ -1387,7 +1388,7 @@ export class WalletRPC {
         return
       }
 
-      amount = parseFloat(amount).toFixed(9) * 1e9
+      amount = parseFloat(amount).toFixed(9) * this.coinUnits
       const data = await this.sendRPC("stake", {
         amount,
         destination,
@@ -1407,7 +1408,7 @@ export class WalletRPC {
       }
 
       if (data.result) {
-        const fee = data.result.fee / 1e9
+        const fee = data.result.fee / this.coinUnits
         this.tx_metadata_list.push({
           tx_metadata: data.result.tx_metadata,
           amount,
@@ -1677,7 +1678,7 @@ export class WalletRPC {
                 (sum, value) => sum + value,
                 0
               )
-              message = `${parseFloat(totalFees / 1e9).toFixed(9)}`
+              message = `${parseFloat(totalFees / this.coinUnits).toFixed(9)}`
               for (const item of data.result.tx_metadata_list) {
                 this.tx_metadata_list.push({
                   tx_metadata: item,
@@ -1774,7 +1775,7 @@ export class WalletRPC {
         reply.message = "Invalid password"
         reply.sending = false
       } else {
-        amount = parseFloat(amount).toFixed(9) * 1e9
+        amount = parseFloat(amount).toFixed(9) * this.coinUnits
         const rpc_endpoint = "transfer_split"
         const params = {
           destinations: [{ amount, address }],
@@ -1815,7 +1816,7 @@ export class WalletRPC {
             }
             reply.message =
                             "Fee " +
-                            (data.result.fee_list[0] / 1e9).toLocaleString()
+                            (data.result.fee_list[0] / this.coinUnits) // .toLocaleString()
             reply.code = 200
           }
 
@@ -2206,7 +2207,6 @@ export class WalletRPC {
     }
 
     try {
-      const coinUnits = 10 ** 9
       const check = await this.checkHeight("pools", height)
       if (!check) {
         return wallet
@@ -2220,7 +2220,7 @@ export class WalletRPC {
       const otherPools = []
       for (const pool of data.result.service_node_states) {
         pool.staked = (
-          pool.total_contributed / coinUnits
+          pool.total_contributed / this.coinUnits
         ).toLocaleString()
         pool.equity = ""
         pool.lockup = this.getUnLockTime(
@@ -2229,7 +2229,7 @@ export class WalletRPC {
         )
         pool.available = (
           (pool.staking_requirement - pool.total_contributed) /
-                    coinUnits
+                    this.coinUnits
         ).toLocaleString()
         if (pool.operator_address !== this.wallet_state.address) {
           if (
@@ -2372,12 +2372,12 @@ export class WalletRPC {
             headers.splice(3, 0, "destinations")
             writeStream.write(headers.join("|") + "\n")
           } else {
-            transaction.amount = transaction.amount / 1e9
+            transaction.amount = transaction.amount / this.coinUnits
             if ("destinations" in transaction && transaction.destinations.length > 0) {
               transaction.destinations = JSON.stringify(transaction.destinations)
             }
             if (transaction.fee > 0) {
-              transaction.fee = transaction.fee / 1e9
+              transaction.fee = transaction.fee / this.coinUnits
             }
             transaction.timestamp = new Date(
               transaction.timestamp * 1000
