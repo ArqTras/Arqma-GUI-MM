@@ -172,7 +172,6 @@ export default defineComponent({
     const status = computed(() => $store.state.gateway.wallet.status)
     const wallets_legacy = computed(() => $store.state.gateway.wallets.legacy)
     const wallet_path = computed(() => {
-      console.log($store.state.gateway.wallets)
       return "" // $store.state.gateway.wallets.legacy[legacy_type.value].path
     })
 

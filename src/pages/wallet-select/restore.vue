@@ -239,8 +239,6 @@ export default defineComponent({
       try {
         v$.value.$validate()
 
-        console.log(">>", wallet.seed, "<<")
-
         if (v$.value.name.$error && v$.value.seed.$error) {
           $q.notify({
             type: "negative",

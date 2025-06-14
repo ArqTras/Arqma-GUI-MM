@@ -170,7 +170,14 @@
               </div>
             </q-item-label>
             <q-item-label class="col-1 meta">
-              <div>{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}</div>
+              <div>
+                <template v-if="item.lockup.amount !== ''">
+                  {{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
+                </template>
+                <template v-else>
+                  {{ item.lockup.amount }}
+                </template>
+              </div>
             </q-item-label>
           </q-item-label>
 
@@ -402,7 +409,6 @@ export default defineComponent({
 
     const stake_statusWatcher = watch(stake_status, (newVal, oldVal) => {
       try {
-        console.log("stake_statusWatcher", newVal, oldVal)
         if (newVal.code === oldVal.code) return
         switch (newVal.code) {
           case 0:

@@ -1498,7 +1498,6 @@ export class WalletRPC {
           const data = await this.sendRPC("request_stake_unlock", {
             service_node_key
           })
-          //   console.log("unlockStake data", data)
           let unlock = {}
           if (data.result && typeof data.result === "object") {
             unlock = {
@@ -2223,11 +2222,6 @@ export class WalletRPC {
     }
 
     try {
-    //   const portions_for_operator = new Decimal("4611686018427388000")
-    //   //   const result = this.STAKING_SHARE_PARTS.div(portions_for_operator).mul(100)
-    //   const result = portions_for_operator.div(this.STAKING_SHARE_PARTS).mul(100)
-    //   console.log("Precise result:", result.toString())
-
       const check = await this.checkHeight("pools", height)
       if (!check) {
         return wallet
@@ -3031,7 +3025,6 @@ export class WalletRPC {
                 !data.hasOwnProperty("result")
       ) {
         logger.error(`wallet importKeyImages ${JSON.stringify(data.error)}`)
-        console.log(data.error)
         this.sendGateway("show_notification", {
           type: "negative",
           message: "Error importing key images. change to local daemon",

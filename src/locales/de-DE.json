@@ -369,6 +369,7 @@
         "operator_fee": "Operator-Gebühr",
         "last_reward_height": "Letzte Belohnungshöhe",
         "last_uptime_proof": "Letzter Betriebsnachweis",
+        "lock_up": "Sperrfrist: ",
         "expiring": "Läuft bald ab ~",
         "staked": "Abgesteckt: ",
         "available": "Verfügbar: ",
