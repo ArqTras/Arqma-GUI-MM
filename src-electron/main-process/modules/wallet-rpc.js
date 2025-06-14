@@ -2064,7 +2064,12 @@ export class WalletRPC {
       }
       const operator = new Decimal(portions_for_operator)
       if (operator === this.STAKING_SHARE_PARTS) return ""
-      result = `${operator.div(this.STAKING_SHARE_PARTS).mul(100).toFixed(0)} %`
+      const amount = operator.div(this.STAKING_SHARE_PARTS).mul(100)
+      if (amount.gte(100)) {
+        result = ""
+      } else {
+        result = `${amount.toFixed(0)} %`
+      }
     } catch (error) {
       logger.error(`wallet calculateOperatorFee ${error.stack || error}`)
     }
