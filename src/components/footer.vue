@@ -88,6 +88,7 @@ export default defineComponent({
       { value: "fr-FR", label: "Français" },
       { value: "ua-UA", label: "українська" },
       { value: "pl-PL", label: "Polski" },
+      { value: "es-ES", label: "Spanish" },
       { value: "cn-CN", label: "中國人" }, // Added Chinese
       { value: "jp-JP", label: "日本語" }, // Added Japanese
       { value: "ms-MY", label: "Bahasa Melayu" }, // Added Malay

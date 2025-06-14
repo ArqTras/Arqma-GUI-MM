@@ -39,6 +39,16 @@
           </q-item-label>
 
           <q-item-label class="col-1 meta">
+            <!-- <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div> -->
+            <div>Fee {{ item.operator_fee }}</div>
+          </q-item-label>
+
+          <q-item-label class="col-1 meta">
+            <!-- <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div> -->
+            <div>LRH {{ item.last_reward_block_height }}</div>
+          </q-item-label>
+
+          <q-item-label class="col-1 meta">
             <div>
               <template v-if="item.lockup.amount === ''">
                 {{ $t('components.pool_list_tabular.lock_up') }}
@@ -130,15 +140,55 @@
             <div>{{ $t('components.pool_list_tabular.stakers') }}{{ item.contributors.length.toLocaleString() }}</div>
           </q-item-label>
 
-          <q-item-label class="col-1 meta">
-            <div>
-              <template v-if="item.lockup.amount === ''">
-                {{ $t('components.pool_list_tabular.lock_up') }}
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.operator_fee') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.operator_fee }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.last_reward_height') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <div>{{ item.last_reward_block_height }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>
+                <template v-if="item.lockup.amount === ''">
+                  {{ $t('components.pool_list_tabular.lock_up') }}
+                </template>
+                <template v-else>
+                  {{ $t('components.pool_list_tabular.expiring') }}
+                </template>
+              </div>
+            </q-item-label>
+            <q-item-label class="col-1 meta">
+              <div>{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}</div>
+            </q-item-label>
+          </q-item-label>
+
+          <q-item-label class="col-1 main1">
+            <q-item-label class="col-1 meta">
+              <div>{{ $t('components.pool_list_tabular.last_uptime_proof') }}</div>
+            </q-item-label>
+            <q-item-label caption>
+              <template v-if="item.last_uptime_proof === 0">
+                <div>{{ $t('components.pool_list_tabular.notreceived') }}</div>
               </template>
               <template v-else>
-                {{ $t('components.pool_list_tabular.expiring') }}&nbsp;{{ item.lockup.amount }}&nbsp;{{ $t(item.lockup.i18n) }}
+                <timeago
+                  :datetime="item.last_uptime_proof * 1000"
+                  :auto-update="60"
+                />
               </template>
-            </div>
+            </q-item-label>
           </q-item-label>
 
           <q-item-label class="col-2 meta">
