@@ -68,7 +68,7 @@
           "import_file_path_message": "Entrez le chemin vers le fichier du compte",
           "import_account_name_message": "Entrez un nom de compte",
           "import_path_message": "Entrez le chemin vers le fichier du compte",
-          "passwords_dont_match": "Mot de passe erroné"
+          "passwords_dont_match": "Mot de passe érroné"
         },
         "import_view_only": {
           "account_name": "Nom du compte",
@@ -366,7 +366,12 @@
        "operator": "Opérateur",
        "oracle_node_id": "ID Noeud Oracle:",
        "stakers": "Stakers: ",
+              "notreceived": "Non reçu",
+       "operator_fee": "Frais de l'opérateur",
+       "last_reward_height": "Dernière hauteur de récompense",
+       "last_uptime_proof": "Dernière preuve de disponibilité",
        "lock_up": "Verrouillé: ",
+       "expiring": "Expire bientôt ~",
        "staked": "Staked : ",
        "available": "Disponible: ",
        "copy_oracle_node_id": "Copier ID Noeud Oracle",

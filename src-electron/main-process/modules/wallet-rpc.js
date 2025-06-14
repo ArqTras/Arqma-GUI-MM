@@ -2056,6 +2056,21 @@ export class WalletRPC {
     }
   }
 
+  calculateOperatorFee (portions_for_operator) {
+    let result = "0 %"
+    try {
+      if (portions_for_operator === 0) {
+        return 0
+      }
+      const operator = new Decimal(portions_for_operator)
+      if (operator === this.STAKING_SHARE_PARTS) return ""
+      result = `${operator.div(this.STAKING_SHARE_PARTS).mul(100).toFixed(0)} %`
+    } catch (error) {
+      logger.error(`wallet calculateOperatorFee ${error.stack || error}`)
+    }
+    return result
+  }
+
   /*
   {
     "status": "fulfilled",
@@ -2191,10 +2206,6 @@ export class WalletRPC {
     }
   */
   async getPools (height) {
-    // const portions_for_operator = new Decimal("2767011611056432600")
-    // const result = this.STAKING_SHARE_PARTS.div(portions_for_operator).mull(100)
-    // console.log("Precise result:", result.toString())
-
     logger.info("wallet  getPools")
     const pools = {
       pool_list: [],
@@ -2207,6 +2218,11 @@ export class WalletRPC {
     }
 
     try {
+    //   const portions_for_operator = new Decimal("4611686018427388000")
+    //   //   const result = this.STAKING_SHARE_PARTS.div(portions_for_operator).mul(100)
+    //   const result = portions_for_operator.div(this.STAKING_SHARE_PARTS).mul(100)
+    //   console.log("Precise result:", result.toString())
+
       const check = await this.checkHeight("pools", height)
       if (!check) {
         return wallet
@@ -2231,6 +2247,7 @@ export class WalletRPC {
           (pool.staking_requirement - pool.total_contributed) /
                     this.coinUnits
         ).toLocaleString()
+        pool.operator_fee = this.calculateOperatorFee(pool.portions_for_operator)
         if (pool.operator_address !== this.wallet_state.address) {
           if (
             pool.contributors.some(

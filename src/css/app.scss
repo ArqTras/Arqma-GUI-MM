@@ -620,9 +620,19 @@ footer,
             margin: 0;
             padding: 8px 10px;
             border-left: 1px solid #252525;
+
             div {
                     overflow: hidden;
                     text-overflow: ellipsis;
+                    }
+        }
+        .main1 {
+            margin: 0;
+            padding: 8px 10px;
+            div {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    text-align: center;
                     }
         }
         .type {
