@@ -56,7 +56,7 @@ export function useIPCMainHandler (browserWindow) {
       if (process.env.NODE_ENV === "development") {
         environmentFile = path.join(__resourceDirectory, ".env")
       } else {
-        const environmentDirectory = getAppDataPath.getAppDataPath("Arqma-Wallet")
+        const environmentDirectory = getAppDataPath("Arqma-Electron-Wallet")
         environmentFile = path.join(environmentDirectory, ".env")
       }
 

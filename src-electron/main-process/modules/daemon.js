@@ -69,17 +69,22 @@ export class Daemon {
     }
 
     try {
-      const data = await this.sendRPC("get_info", {}, {
+      const parameters = {
         protocol: "http://",
         hostname: daemon.remote_host,
         port: daemon.remote_port
-      })
+      }
+      logger.info(`daemon checkRemote ${JSON.stringify(parameters, null, 2)}`)
+      const data = await this.sendRPC("get_info", {}, parameters)
       if (data.error) {
+        logger.error(`daemon checkRemote ${data.error}`)
         return { error: data.error }
       }
-      return {
+      const result = {
         net_type: data.result.nettype
       }
+      logger.info(`daemon checkRemote ${JSON.stringify(result, null, 2)}`)
+      return result
     } catch (error) {
       logger.error(`daemon checkRemote ${error.stack || error}`)
       return { error }

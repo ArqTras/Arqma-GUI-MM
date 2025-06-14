@@ -2,6 +2,7 @@
 
 const { platform, homedir } = require("os")
 const { join } = require("path")
+const fs = require("fs")
 
 function getForWindows () {
   return join(homedir(), "AppData", "Roaming")
@@ -17,7 +18,6 @@ function getForLinux () {
 
 function getFallback () {
   if (platform().startsWith("win")) {
-    // Who knows, maybe its win64?
     return getForWindows()
   }
   return getForLinux()
@@ -42,18 +42,36 @@ function getAppDataPath (app) {
     }
   }
 
+  // Ensure the base directory exists
+  try {
+    if (!fs.existsSync(appDataPath)) {
+      fs.mkdirSync(appDataPath, { recursive: true })
+    }
+  } catch (e) {
+    // If creation fails, fallback to homedir
+    appDataPath = homedir()
+  }
+
   if (app === undefined) {
     return appDataPath
   }
 
   const normalizedAppName = appDataPath !== homedir() ? app : "." + app
-  return join(appDataPath, normalizedAppName)
+  const fullPath = join(appDataPath, normalizedAppName)
+
+  // Ensure the app directory exists
+  try {
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true })
+    }
+  } catch (e) {
+    // If creation fails, fallback to appDataPath
+    return appDataPath
+  }
+
+  return fullPath
 }
 
-module.exports = Object.assign(
-  getAppDataPath,
-  {
-    getAppDataPath,
-    default: getAppDataPath
-  }
-)
+module.exports = {
+  getAppDataPath
+}
