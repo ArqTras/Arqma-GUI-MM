@@ -25,17 +25,19 @@ export default defineComponent({
   },
   setup (props) {
     const { amount, round, asWei } = toRefs(props)
+    const coinUnits = 10 ** 9
 
     // Computed props
     const value = computed(() => {
       if (asWei.value) {
         return amount.value.toLocaleString()
       } else {
-        let value = amount.value / 1e9
+        let val = amount.value / coinUnits
         if (round.value) {
-          value = value.toFixed(9)
+          val = Number(val.toFixed(9))
+          return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 9 })
         }
-        return value.toLocaleString()
+        return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 9 })
       }
     })
 

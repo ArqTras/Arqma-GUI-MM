@@ -140,24 +140,30 @@ export default defineComponent({
       ) {
         return 99.9
       } else {
-        return Math.min(Number(pct.toFixed(1)), 100)
+        return Math.max(0, Math.min(Number(pct.toFixed(1)), 100))
       }
     })
 
     const wallet_pct = computed(() => {
       if (target_height.value && walletHeight.value) {
         const pct = (100 * walletHeight.value) / target_height.value
-        if (pct >= 100 && walletHeight.value < target_height.value) {
+        // If walletHeight is less than target but pct rounds to 100, show 99.9
+        if (
+          walletHeight.value < target_height.value &&
+          Math.round(pct * 10) / 10 >= 100
+        ) {
           return 99.9
-        } else {
-          return Math.min(Number(pct.toFixed(1)), 100)
         }
+        return Math.min(Number(pct.toFixed(1)), 100)
       }
       return 0
     })
 
     const status = computed(() => {
       let result = ""
+      if (!target_height.value) {
+        return result
+      }
       if (config_daemon.value.type === "local") {
         if (daemon.value.info.height_without_bootstrap < target_height.value) {
           result = t("components.footer.syncing")
@@ -184,7 +190,7 @@ export default defineComponent({
           result = t("components.footer.ready")
         }
       }
-      return result.toUpperCase()
+      return result ? result.toUpperCase() : ""
     })
 
     onMounted(async () => {
