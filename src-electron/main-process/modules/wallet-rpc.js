@@ -2642,7 +2642,7 @@ export class WalletRPC {
                             )
           }
         })
-
+        console.log(wallet.transactions.tx_list)
         for (let i = 0; i < wallet.transactions.tx_list.length; i++) {
           if (
             /^0*$/.test(wallet.transactions.tx_list[i].payment_id)

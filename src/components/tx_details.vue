@@ -440,9 +440,10 @@ export default defineComponent({
     })
     const in_tx_address_used = computed(() => {
       let i
-      const used_addresses = $store.state.gateway.wallet.address_list.primary.concat(
-        $store.state.gateway.wallet.address_list.used
-      )
+      const addressList = $store.state.gateway.wallet.address_list || {}
+      const primary = Array.isArray(addressList.primary) ? addressList.primary : []
+      const used = Array.isArray(addressList.used) ? addressList.used : []
+      const used_addresses = primary.concat(used)
       for (i = 0; i < used_addresses.length; i++) {
         if (used_addresses[i].address_index === tx.value.subaddr_index.minor) {
           let address_index_text = ""
@@ -450,7 +451,7 @@ export default defineComponent({
             address_index_text = t("components.tx_details.primary_address")
           } else {
             address_index_text =
-              `${t("components.tx_details.incoming_transaction")}${used_addresses[i].address_index})`
+              `${t("components.tx_details.incoming_transaction")} ${used_addresses[i].address_index}`
           }
           return {
             address: used_addresses[i].address,
