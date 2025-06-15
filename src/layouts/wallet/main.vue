@@ -30,7 +30,10 @@
               class="value"
               style="font-size: 30px"
             >
-              $<span><Formatarqma :amount="info.balance * price" /></span>
+              $<span><Formatarqma
+                :amount="info.balance * price"
+                :digits="2"
+              /></span>
               <q-btn
                 class="large-btn"
                 size="md"
