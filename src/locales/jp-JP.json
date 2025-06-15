@@ -282,6 +282,7 @@
                 "outgoing": "送信",
                 "pending": "保留中",
                 "service_node": "サービスノード",
+                "network": "ネットワーク",
                 "stake": "ステーク",
                 "failed": "失敗"
             }
@@ -516,6 +517,7 @@
             "pending": "保留中",
             "miner": "マイナー",
             "service_node": "サービス ノード",
+            "network": "ネットワーク",
             "stake": "ステーク",
             "height": "高さ:",
             "confirm": "確認",

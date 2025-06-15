@@ -282,6 +282,7 @@
                 "outgoing": "支出",
                 "pending": "待处理",
                 "service_node": "服务节点",
+                "network": "网络",
                 "stake": "质押",
                 "failed": "失败"
             }
@@ -516,6 +517,7 @@
             "pending": "待处理",
             "miner": "矿工",
             "service_node": "服务节点",
+            "network": "网络",
             "stake": "质押",
             "height": "高度：",
             "confirm": "确认",

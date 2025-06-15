@@ -282,6 +282,7 @@
                 "outgoing": "Saída",
                 "pending": "Pendente",
                 "service_node": "Nó de serviço",
+                "network": "Rede",
                 "stake": "Aposta",
                 "failed": "Falha"
             }
@@ -516,6 +517,7 @@
             "pending": "Pendente",
             "miner": "Mineiro",
             "service_node": "Nó de serviço",
+            "network": "Rede",
             "stake": "Aposta",
             "height": "Altura:",
             "confirm": "confirmar",

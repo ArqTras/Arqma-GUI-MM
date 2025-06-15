@@ -186,6 +186,8 @@ export default defineComponent({
           return t("components.tx_list.service_node")
         case "stake":
           return t("components.tx_list.stake")
+        case "net":
+          return t("components.tx_list.network")
         default:
           return "-"
       }

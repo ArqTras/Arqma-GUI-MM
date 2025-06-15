@@ -60,7 +60,7 @@
             class="row unlocked"
           >
             <span>{{ $t('layouts.wallet.main.temporarily_locked') }}
-              <Formatarqma :amount="info.balance - info.unlocked_balance" />
+              <Formatarqma :amount="Math.abs(info.balance - info.unlocked_balance)" />
               ARQ</span>
           </div>
         </div>
