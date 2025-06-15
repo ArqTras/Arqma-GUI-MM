@@ -282,6 +282,7 @@
                 "outgoing": "صادر",
                 "pending": "قيد الانتظار",
                 "service_node": "عقدة الخدمة",
+                "network": "الشبكة",
                 "stake": "استثمار",
                 "failed": "فشل"
             }
@@ -516,6 +517,7 @@
             "pending": "معلق",
             "miner": "عامل المنجم",
             "service_node": "خدمة العقدة",
+            "network": "الشبكة",
             "stake": "رهن",
             "height": "الارتفاع:",
             "confirm": "تأكيد",

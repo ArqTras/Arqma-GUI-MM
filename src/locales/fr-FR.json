@@ -282,6 +282,7 @@
                 "outgoing": "Sortante",
                 "pending": "En Attente",
                 "service_node": "Noeud de Service",
+                "network": "Réseau",
                 "stake": "Stake",
                 "failed": "Échoué"
             }
@@ -516,6 +517,7 @@
             "pending": "En attente",
             "miner": "Mineur",
             "service_node": "Noeud de Service",
+            "network": "Réseau",
             "stake": "Stake",
             "height": "Hauteur:",
             "confirm": "confirmation",

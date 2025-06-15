@@ -282,6 +282,7 @@
                 "outgoing": "Aufgeschlossen",
                 "pending": "Anhängig",
                 "service_node": "Service-Knoten",
+                "network": "Netzwerk",
                 "stake": "Anteil",
                 "failed": "Misslungen"
             }
@@ -516,6 +517,7 @@
             "pending": "Anhängig",
             "miner": "Bergarbeiter",
             "service_node": "Service-Knoten",
+            "network": "Netzwerk",
             "stake": "Anteil",
             "height": "Höhe:",
             "confirm": "bestätigen",

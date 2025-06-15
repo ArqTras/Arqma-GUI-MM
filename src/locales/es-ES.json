@@ -282,6 +282,7 @@
                 "outgoing": "Saliente",
                 "pending": "Pendiente",
                 "service_node": "Nodo de Servicio",
+                "network": "Red",
                 "stake": "Participación",
                 "failed": "Fallido"
             }
@@ -516,6 +517,7 @@
             "pending": "Pendiente",
             "miner": "Minero",
             "service_node": "Nodo de servicio",
+            "network": "Red",
             "stake": "Participación",
             "height": "Altura:",
             "confirm": "confirmar",

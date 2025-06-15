@@ -282,6 +282,7 @@
                 "outgoing": "Wychodzące",
                 "pending": "Oczekujące",
                 "service_node": "Węzeł usługowy",
+                "network": "Sieć",
                 "stake": "Blokada",
                 "failed": "Niepowodzenie"
             }
@@ -516,6 +517,7 @@
             "pending": "Oczekujące",
             "miner": "Górnik",
             "service_node": "Węzeł serwisowy",
+            "network": "Sieć",
             "stake": "Stawka",
             "height": "Wysokość:",
             "confirm": "Potwierdź",

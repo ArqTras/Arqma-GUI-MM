@@ -282,6 +282,7 @@
                 "outgoing": "Keluar",
                 "pending": "Pending",
                 "service_node": "Nod Perkhidmatan",
+                "network": "Rangkaian",
                 "stake": "Stake",
                 "failed": "Gagal"
             }
@@ -516,6 +517,7 @@
             "pending": "Pending",
             "miner": "Miner",
             "service_node": "Nod Perkhidmatan",
+            "network": "Rangkaian",
             "stake": "Stake",
             "height": "Ketinggian:",
             "ketinheightggian": "Ketinggian:",

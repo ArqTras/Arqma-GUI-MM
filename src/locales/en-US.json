@@ -282,6 +282,7 @@
                 "outgoing": "Outgoing",
                 "pending": "Pending",
                 "service_node": "Service Node",
+                "network": "Network",
                 "stake": "Stake",
                 "failed": "Failed"
             }
@@ -516,6 +517,7 @@
             "pending": "Pending",
             "miner": "Miner",
             "service_node": "Service Node",
+            "network": "Network",
             "stake": "Stake",
             "height": "Height:",
             "confirm": "confirm",
