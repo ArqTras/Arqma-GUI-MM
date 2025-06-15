@@ -17,6 +17,11 @@ export default defineComponent({
       required: false,
       default: false
     },
+    digits: {
+      type: Number,
+      required: false,
+      default: 9
+    },
     asWei: {
       type: Boolean,
       required: false,
@@ -24,7 +29,7 @@ export default defineComponent({
     }
   },
   setup (props) {
-    const { amount, round, asWei } = toRefs(props)
+    const { amount, round, digits, asWei } = toRefs(props)
     const coinUnits = 10 ** 9
 
     // Computed props
@@ -34,10 +39,10 @@ export default defineComponent({
       } else {
         let val = amount.value / coinUnits
         if (round.value) {
-          val = Number(val.toFixed(9))
-          return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 9 })
+          val = Number(val.toFixed(digits.value))
+          return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: digits.value })
         }
-        return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 9 })
+        return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: digits.value })
       }
     })
 
