@@ -643,7 +643,6 @@ export class WalletRPC {
 
       const actions = [
         this.getPools(height)
-        // this.getStake(this.wallet_state.address, height)
       ]
       const [rpcPoolList] = await Promise.allSettled(actions)
 
@@ -655,15 +654,6 @@ export class WalletRPC {
           pools = rpcPoolList.value
         }
       }
-
-      // if (rpcStaker && rpcStaker.status === "fulfilled") {
-      //   if (
-      //     !rpcStaker.value.hasOwnProperty("error") ||
-      //               rpcStaker.value.hasOwnProperty("result")
-      //   ) {
-      //     pools.staker = rpcStaker.value.staker
-      //   }
-      // }
       this.sendGateway("set_pools_data", pools)
     } catch (error) {
       logger.error(`pools getPoolsData ${error.stack || error}`)
@@ -2215,8 +2205,10 @@ export class WalletRPC {
       pool_list: [],
       staker: {
         stake: {
+          burnt_xeq: 0,
           total_staked: 0,
-          staked_nodes: 0
+          staked_nodes: 0,
+          num_operating: 0
         }
       }
     }
@@ -2295,7 +2287,6 @@ export class WalletRPC {
           otherPools.push(pool)
         }
       }
-
       otherPools.sort(this.poolListHeightSorter)
       contributorPools.sort(this.poolListHeightSorter)
       pools.pool_list = contributorPools.concat(otherPools)// .filter(c => c.last_uptime_proof > 0)
