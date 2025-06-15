@@ -49,7 +49,7 @@
               v-for="address in address_list.unused"
               :key="address.address"
               :address="address"
-              :sublabel="`${t('pages.wallet.receive.my_unused_addresses')}&nbsp;${address.address_index}`"
+              :sublabel="`${t('pages.wallet.receive.my_unused_address')}&nbsp;${address.address_index}`"
               :show-q-r="showQR"
               :copy-address="copyAddress"
               :details="details"

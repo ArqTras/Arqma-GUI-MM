@@ -354,7 +354,6 @@ export default defineComponent({
     const tx_statusWatcher = watch(tx_status, async (newVal, oldVal) => {
       try {
         if (!newVal || typeof newVal.code === "undefined") return
-        console.log("tx_statusWatcher", newVal, oldVal)
         const { code, message } = newVal
         switch (code) {
           case 200:
@@ -439,7 +438,8 @@ export default defineComponent({
       send,
       tx_statusWatcher,
       arqmaField,
-      showPasswordConfirmation
+      showPasswordConfirmation,
+      handleAmountInput
     }
   }
 })
