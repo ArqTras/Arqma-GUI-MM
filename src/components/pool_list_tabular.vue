@@ -134,42 +134,42 @@
                 </template>
               </div>
             </q-item-label>
-
-            <q-menu
-              context-menu
-              transition-show="flip-up"
-              transition-hide="flip-down"
-            >
-              <q-list
-                separator
-                style="min-width: 150px; max-height: 300px"
-              >
-                <q-item
-                  v-if="item.operator && item.requested_unlock_height === 0"
-                  v-close-popup
-                  clickable
-                  @click="deregisterServiceNode(item.service_node_pubkey, $event)"
-                >
-                  <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
-                </q-item>
-                <q-item
-                  v-close-popup
-                  clickable
-                  @click="copyOracleNodeId(item.service_node_pubkey, $event)"
-                >
-                  <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
-                </q-item>
-
-                <q-item
-                  v-close-popup
-                  clickable
-                  @click="openExplorer(item.service_node_pubkey)"
-                >
-                  <q-item-section>{{ $t('components.pool_list_tabular.view_on_explorer') }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
           </q-item-label>
+          <q-menu
+            context-menu
+            transition-show="flip-up"
+            transition-hide="flip-down"
+          >
+            <q-list
+              separator
+              style="min-width: 150px; max-height: 300px"
+            >
+              <q-item
+                v-close-popup
+                clickable
+                @click="copyOracleNodeId(item.service_node_pubkey, $event)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
+              </q-item>
+
+              <q-item
+                v-if="item.is_operator && item.requested_unlock_height === 0"
+                v-close-popup
+                clickable
+                @click="deregisterServiceNode(item.service_node_pubkey, $event)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
+              </q-item>
+
+              <q-item
+                v-close-popup
+                clickable
+                @click="openExplorer(item.service_node_pubkey)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.view_on_explorer') }}</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
         </q-item>
       </q-list>
     </template>
@@ -321,20 +321,20 @@
               </q-item>
 
               <q-item
+                v-close-popup
+                clickable
+                @click="copyOracleNodeId(item.service_node_pubkey, $event)"
+              >
+                <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
+              </q-item>
+
+              <q-item
                 v-if="item.is_contributor && item.requested_unlock_height === 0"
                 v-close-popup
                 clickable
                 @click="deregisterServiceNode(item.service_node_pubkey, $event)"
               >
                 <q-item-section>{{ $t('components.pool_list_tabular.deregister_oracle_node') }}</q-item-section>
-              </q-item>
-
-              <q-item
-                v-close-popup
-                clickable
-                @click="copyOracleNodeId(item.service_node_pubkey, $event)"
-              >
-                <q-item-section>{{ $t('components.pool_list_tabular.copy_oracle_node_id') }}</q-item-section>
               </q-item>
 
               <q-item
