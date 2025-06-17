@@ -57,6 +57,7 @@ See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-webpack/quas
 %APPDATE%\Roaming\Arqma-Electron-Wallet\logs\Arqma.log on Windows
 ~/.config/Arqma-Electron-Wallet/logs/Arqma.log on Linux
 ~/library/Application Support/Arqma-Electron-Wallet/logs/Arqma.log on macOS
+/System/Volumes/Data/Users/{user}/Library/Application Support/Arqma-Electron-Wallet/logs/Arqma.log
 
 
 ### Watching Logs
