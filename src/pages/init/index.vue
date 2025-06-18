@@ -218,6 +218,7 @@ export default defineComponent({
             settings.value.className = "grey"
             daemon.value.className = "grey"
             wallet.value.className = "grey"
+            await api.log("pages/init/index", "updateStatus", "connecting to backend")
             break
           case 2:
             backend.value.className = "solid"

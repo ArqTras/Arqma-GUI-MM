@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld("api", {
   error: (module, method, message) => {
     return ipcRenderer.invoke("foo:error", { module, method, message })
   },
+  info: (module, method, message) => {
+    return ipcRenderer.invoke("foo:info", { module, method, message })
+  },
   remotes: (data_dir, subdirectory, fileName) => {
     return ipcRenderer.invoke("foo:remotes", { data_dir, subdirectory, fileName })
   },

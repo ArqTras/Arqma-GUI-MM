@@ -128,6 +128,7 @@ function createWindow () {
   mainWindow.webContents.on("did-finish-load", async () => {
     backend = new Backend(mainWindow)
     await backend.init()
+    logger.info("electron-main did-finish-load, backend initialized")
     mainWindow.webContents.send("receive", { event: "initialize" })
     // logger.info("electron-main did-finish-load, calling checkForUpdatesAndNotify")
     // autoUpdater.checkForUpdatesAndNotify()
