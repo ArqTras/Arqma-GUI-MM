@@ -39,6 +39,7 @@
         <arqmaField
           class="col-8"
           :label="$t('components.general_settings.remote_node_host')"
+          :disable-menu="false"
         >
           <q-input
             v-model="config_daemon.remote_host"
@@ -77,6 +78,7 @@
         <arqmaField
           class="col-4"
           :label="$t('components.general_settings.remote_node_port')"
+          :disable-menu="false"
         >
           <q-input
             v-model="config_daemon.remote_port"

@@ -38,6 +38,7 @@
             <arqmaField
               :label="$t('pages.wallet.send.address')"
               :error="v$.address.$error"
+              :disable-menu="false"
             >
               <q-input
                 v-model="newTx.address"
@@ -63,6 +64,7 @@
           <arqmaField
             :label="$t('pages.wallet.send.notes')"
             optional
+            :disable-menu="false"
           >
             <q-input
               v-model="newTx.note"

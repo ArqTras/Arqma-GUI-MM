@@ -59,6 +59,7 @@
       <arqmaField
         class="col-5 q-px-sm"
         :label="$t('pages.wallet.staking_pools.filter_by_oracle_nodeid')"
+        :disable-menu="false"
       >
         <q-input
           v-model="node_id"
@@ -66,7 +67,7 @@
           :placeholder="$t('pages.wallet.staking_pools.filter_by_oracle_nodeid_placeholder')"
           borderless
           dense
-          clearable
+          :clearable="true"
         />
       </arqmaField>
 
@@ -80,7 +81,7 @@
           :dark="theme == 'dark'"
           borderless
           dense
-          clearable
+          :clearable="true"
         />
         <q-btn-dropdown
           class="remote-dropdown"

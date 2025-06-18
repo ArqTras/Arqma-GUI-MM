@@ -547,6 +547,7 @@
             class="col-auto"
             :label="$t('components.wallet_settings.service_node_command')"
             :error="v$.registration_string.$error"
+            :disable-menu="false"
           >
             <q-input
               v-model.trim="registration.registration_string"

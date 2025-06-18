@@ -15,10 +15,35 @@
       >(Optional)</span>
     </div>
     <div
+      ref="content"
       class="content row items-center"
       :class="{ error }"
+      @contextmenu.prevent="showMenu"
     >
       <slot />
+      <q-menu
+        v-if="!disableMenu"
+        v-model="menu"
+        :context-menu="true"
+      >
+        <q-list>
+          <q-item
+            v-if="hasSelection"
+            v-close-popup
+            clickable
+            @click="copyInput"
+          >
+            <q-item-section>Copy</q-item-section>
+          </q-item>
+          <q-item
+            v-close-popup
+            clickable
+            @click="pasteInput"
+          >
+            <q-item-section>Paste</q-item-section>
+          </q-item>
+        </q-list>
+      </q-menu>
     </div>
     <div
       v-if="error && errorLabel"
@@ -31,40 +56,65 @@
 </template>
 
 <script>
-import { defineComponent } from "vue"
+import { defineComponent, ref } from "vue"
+import { copyToClipboard } from "quasar"
 
 export default defineComponent({
   name: "ArqmaField",
   props: {
-    label: {
-      type: String,
-      required: false,
-      default: ""
-    },
-    error: {
-      type: Boolean,
-      required: false
-    },
-    errorLabel: {
-      type: String,
-      required: false,
-      default: ""
-    },
-    optional: {
-      type: Boolean,
-      required: false
-    },
-    disable: {
-      type: Boolean,
-      required: false
-    },
-    disableHover: {
-      type: Boolean,
-      required: false
-    }
+    label: { type: String, required: false, default: "" },
+    error: { type: Boolean, required: false },
+    errorLabel: { type: String, required: false, default: "" },
+    optional: { type: Boolean, required: false },
+    disable: { type: Boolean, required: false },
+    disableHover: { type: Boolean, required: false },
+    disableMenu: { type: Boolean, required: false, default: true } // <-- added
   },
   setup (props) {
-    return {}
+    const menu = ref(false)
+    const content = ref(null)
+    const hasSelection = ref(false)
+
+    function showMenu (e) {
+      if (!props.disableMenu) {
+        // Wait for the selection to update
+        setTimeout(() => {
+          const input = content.value.querySelector("input, textarea")
+          hasSelection.value = false
+          if (input) {
+            const selStart = input.selectionStart
+            const selEnd = input.selectionEnd
+            hasSelection.value = selStart !== selEnd
+          }
+          menu.value = true
+        }, 0)
+      }
+    }
+
+    function copyInput () {
+      const input = content.value.querySelector("input, textarea")
+      if (input) {
+        const selStart = input.selectionStart
+        const selEnd = input.selectionEnd
+        if (selStart !== selEnd) {
+          const selectedText = input.value.substring(selStart, selEnd)
+          copyToClipboard(selectedText)
+        }
+      }
+    }
+
+    async function pasteInput () {
+      const input = content.value.querySelector("input, textarea")
+      if (input) {
+        try {
+          const text = await navigator.clipboard.readText()
+          input.value = text
+          input.dispatchEvent(new Event("input"))
+        } catch (e) {}
+      }
+    }
+
+    return { menu, showMenu, copyInput, pasteInput, content, hasSelection }
   }
 })
 </script>
