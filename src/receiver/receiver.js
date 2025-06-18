@@ -159,6 +159,7 @@ export class Receiver extends EventEmitter {
               code: 2 // Loading config
             }
           })
+          api.info("receiver", "initialize", "before core init")
           api.send("core", "init")
           break
         case "daemon_version":

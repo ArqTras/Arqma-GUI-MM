@@ -44,6 +44,10 @@ export function useIPCMainHandler (browserWindow) {
     logger.error(`${message.module} ${message.method} ${message.message}`)
   })
 
+  ipcMain.handle("foo:info", (event, message) => {
+    logger.info(`${message.module} ${message.method} ${message.message}`)
+  })
+
   ipcMain.handle("foo:openDirectory", async (event, path) => {
     logger.info("electron-main foo:openDirectory")
     return await dialog.showOpenDialog(browserWindow, { properties: ["openDirectory"], defaultPath: path })
