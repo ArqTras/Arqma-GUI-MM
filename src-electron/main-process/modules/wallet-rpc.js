@@ -2239,6 +2239,25 @@ export class WalletRPC {
                     this.coinUnits
         ).toLocaleString()
         pool.operator_fee = this.calculateOperatorFee(pool.portions_for_operator)
+        // Build a new object with only the fields you want to return
+        const filteredPool = {
+          service_node_pubkey: pool.service_node_pubkey,
+          operator_address: pool.operator_address,
+          staked: pool.staked,
+          equity: "",
+          lockup: pool.lockup,
+          available: pool.available,
+          operator_fee: pool.operator_fee,
+          is_contributor: false,
+          is_operator: false,
+          contributors: pool.contributors,
+          requested_unlock_height: pool.requested_unlock_height,
+          last_reward_block_height: pool.last_reward_block_height,
+          last_uptime_proof: pool.last_uptime_proof,
+          staking_requirement: pool.staking_requirement,
+          total_contributed: pool.total_contributed
+        }
+
         if (pool.operator_address !== this.wallet_state.address) {
           if (
             pool.contributors.some(
@@ -2253,18 +2272,18 @@ export class WalletRPC {
                 (accumulator, item) => accumulator + item.amount,
                 0
               )
-            pool.equity = (
+            filteredPool.equity = (
               (amount / pool.total_contributed) *
                         100
             ).toLocaleString()
-            pool.is_contributor = true
-            pool.is_operator = false
+            filteredPool.is_contributor = true
+            filteredPool.is_operator = false
             pools.staker.stake.staked_nodes += 1
-            contributorPools.push(pool)
+            contributorPools.push(filteredPool)
           } else {
-            pool.is_contributor = false
-            pool.is_operator = false
-            otherPools.push(pool)
+            filteredPool.is_contributor = false
+            filteredPool.is_operator = false
+            otherPools.push(filteredPool)
           }
         } else {
           const amount = pool.contributors
@@ -2278,13 +2297,13 @@ export class WalletRPC {
           pools.staker.stake.num_operating += 1
           pools.staker.stake.total_staked += amount
           pools.staker.stake.staked_nodes += 1
-          pool.equity = (
+          filteredPool.equity = (
             (amount / pool.total_contributed) *
                         100
           ).toLocaleString()
-          pool.is_contributor = false
-          pool.is_operator = true
-          otherPools.push(pool)
+          filteredPool.is_contributor = false
+          filteredPool.is_operator = true
+          otherPools.push(filteredPool)
         }
       }
       otherPools.sort(this.poolListHeightSorter)
