@@ -364,6 +364,7 @@
         <arqmaField
           class="col-auto"
           :label="$t('components.tx_details.transaction_notes')"
+          :disable-menu="false"
         >
           <q-input
             v-model.trim="txNotes"

@@ -6,6 +6,7 @@
       <arqmaField
         class="col-10 q-px-sm"
         :label="$t('pages.wallet.txhistory.filter_by_transactionid')"
+        :disable-menu="false"
       >
         <q-input
           v-model="tx_txid"
@@ -13,6 +14,7 @@
           :placeholder="$t('pages.wallet.txhistory.filter_by_transactionid')"
           borderless
           dense
+          :clearable="true"
         />
       </arqmaField>
 

@@ -49,6 +49,7 @@
           <arqmaField
             :label="$t('components.address_book_details.address')"
             :error="v$.address.$error"
+            :disable-menu="false"
           >
             <q-input
               v-model.trim="newEntry.address"
@@ -69,6 +70,7 @@
           <arqmaField
             :label="$t('components.address_book_details.name')"
             :error="v$.name.$error"
+            :disable-menu="false"
           >
             <q-input
               v-model="newEntry.name"
@@ -97,6 +99,7 @@
             :label="$t('components.address_book_details.notes')"
             optional
             :error="v$.description.$error"
+            :disable-menu="false"
           >
             <q-input
               v-model="newEntry.description"
