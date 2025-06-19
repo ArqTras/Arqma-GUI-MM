@@ -2,14 +2,14 @@
   <q-page>
     <div>
       <div
-        class="row justify-evenly q-pt-sm q-mx-md q-mb-sm"
+        class="row justify-start q-gutter-x-md q-pt-sm q-mx-md q-mb-sm"
       >
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.network_stats') }}
         </p>
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.total_nodes') }}
-          {{ all_pools.length.toLocaleString() }}
+          {{ pool_count.toLocaleString() }}
         </p>
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.monthly_yield') }} {{ monthlyYield.toLocaleString() }}%
@@ -17,7 +17,7 @@
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.node_reward') }} ({{ nodeDuration }} days): {{ nodeReward.toLocaleString() }} ARQ
         </p>
-        <p class="col-xs-12 col-sm-6 col-md-4">
+        <p class="col-xs-12 col-sm-6 col-md-auto">
           {{ $t('pages.wallet.staking_pools.tvl') }} ${{ tvl.toLocaleString() }}
         </p>
       </div>
@@ -27,25 +27,25 @@
       v-if="stake_data.total_staked"
     >
       <div
-        class="row justify-evenly q-pt-sm q-mx-md q-mb-sm"
+        class="row justify-start q-gutter-x-md q-pt-sm q-mx-md q-mb-sm"
       >
         <p class="col-xs-12 col-sm-6 col-md-2">
-          {{ $t('pages.wallet.staking_pools.account_stats') }}
+          {{ $t('pages.wallet.staking_pools.operator_stats') }}
         </p>
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.total_staked') }}
-          {{ (stake_data.total_staked ? stake_data.total_staked / coinUnits : 0).toLocaleString() }} ARQ
+          {{ (stake_data.total_staked ? stake_data.total_staked : 0).toLocaleString() }} ARQ
         </p>
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.percentage_of_pool') }} {{ percentageOfPool.toLocaleString() }}%
         </p>
-        <p class="col-xs-12 col-sm-6 col-md-2">
+        <!-- <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.monthly_reward') }} {{ personalNodeRewards.toLocaleString() }} ARQ
-        </p>
-        <p class="col-xs-12 col-sm-6 col-md-2">
+        </p> -->
+        <!-- <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.nodes_staked_to') }}
           {{ stake_data.staked_nodes.toLocaleString() }}
-        </p>
+        </p> -->
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.nodes_operating') }}
           {{ stake_data.num_operating.toLocaleString() }}
@@ -176,24 +176,25 @@ export default defineComponent({
     const operator_id = ref("")
     const tvl = ref(0)
     const nodeDuration = ref(28)
-    // operator = vout[1].amount
     const operatorReward = 7.8076
-    // contributor = vout[2].amount
     const contributorReward = 3.6035
     const blocksPerDay = 720
     const serviceNodeReward = operatorReward + contributorReward
     const serviceNodeDurationReward = serviceNodeReward * nodeDuration.value
-    const coinUnits = 10 ** 9
     const nodeReward = ref(0)
     const personalNodeRewards = ref(0)
     const monthlyYield = ref(0)
     const percentageOfPool = ref(0)
+    const stakingRequirement = 100000
 
     const maxHeight = ref(`${Number(document.documentElement.clientHeight) - 425}px`)
 
     // // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
-    const all_pools = computed(() => $store.state.gateway.pools.pool_list) // .filter(x => x.requested_unlock_height !== 0))
+    const total_contributed = computed(() => $store.getters["gateway/total_contributed"] || 0)
+    const pool_count = computed(() => {
+      return $store.getters["gateway/pool_count"] || []
+    })
     const state = computed(() => {
       return $store.state
     })
@@ -204,8 +205,10 @@ export default defineComponent({
     const current_node_id_filter = computed(() => $store.getters["gateway/get_node_id_filter"])
     const current_operator_id_filter = computed(() => $store.getters["gateway/get_operator_id_filter"])
 
-    const staked_pools = computed(() => $store.getters["gateway/staked_pools"] || [])
     const stake_data = computed(() => state.value.gateway.pools.staker.stake)
+
+    const nonoperator_pools = computed(() => $store.getters["gateway/nonoperator_pools"])
+    const operator_pools = computed(() => $store.getters["gateway/operator_pools"] || [])
 
     const address_book = computed(() => $store.getters["gateway/get_address_list"])
 
@@ -228,8 +231,19 @@ export default defineComponent({
       await $store.dispatch("gateway/set_pools_filter", node_filter_option.value)
     })
 
-    const all_poolsWatcher = watch(all_pools, (newVal, oldVal) => {
-      const sumXeqStaked = getSumXeqStaked()
+    const nonoperator_poolsWatcher = watch(nonoperator_pools, (newVal, oldVal) => {
+      const sumXeqStaked = total_contributed.value
+      console.log("nonoperator_poolsWatcher", sumXeqStaked)
+      conversionFromXtri(sumXeqStaked)
+      getNodeReward()
+      getPersonalNodeRewards()
+      getMonthlyYield()
+      getPercentageOfPool(sumXeqStaked)
+    })
+
+    const operator_poolsWatcher = watch(operator_pools, (newVal, oldVal) => {
+      const sumXeqStaked = total_contributed.value
+      console.log("operator_poolsWatcher", sumXeqStaked)
       conversionFromXtri(sumXeqStaked)
       getNodeReward()
       getPersonalNodeRewards()
@@ -296,7 +310,7 @@ export default defineComponent({
     const getNodeReward = () => {
       try {
         let amount = 0
-        if (all_pools.value.length > 0) { amount = roundToTwo((blocksPerDay / all_pools.value.length) * serviceNodeDurationReward) }
+        if (pool_count.value > 0) { amount = roundToTwo((blocksPerDay / pool_count.value) * serviceNodeDurationReward) }
         nodeReward.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getNodeReward", error.stack || error)
@@ -305,7 +319,7 @@ export default defineComponent({
 
     const getPersonalNodeRewards = () => {
       try {
-        const amount = roundToTwo((stake_data.value.total_staked / coinUnits / tvl.value) * Number((blocksPerDay / all_pools.value.length) * nodeDuration.value * nodeDuration.value))
+        const amount = roundToTwo((stake_data.value.total_staked / tvl.value) * Number((blocksPerDay / pool_count.value) * nodeDuration.value * nodeDuration.value))
         personalNodeRewards.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getPersonalNodeRewards", error.stack || error)
@@ -315,8 +329,8 @@ export default defineComponent({
     const getMonthlyYield = () => {
       try {
         let amount = 0
-        if (all_pools.value && all_pools.value.length > 0) {
-          amount = roundToTwo((((blocksPerDay / all_pools.value.length) * operatorReward * nodeDuration.value) / (all_pools.value[0].staking_requirement / 1e9)) * 100)
+        if (pool_count.value > 0) {
+          amount = roundToTwo((((blocksPerDay / pool_count.value) * operatorReward * nodeDuration.value) / (stakingRequirement)) * 100)
         }
         monthlyYield.value = amount
       } catch (error) {
@@ -326,7 +340,7 @@ export default defineComponent({
 
     const getPercentageOfPool = (sumXeqStaked) => {
       try {
-        const amount = roundToTwo((stake_data.value.total_staked / coinUnits / sumXeqStaked) * 100)
+        const amount = roundToTwo((stake_data.value.total_staked / sumXeqStaked) * 100)
         percentageOfPool.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getPercentageOfPool", error.stack || error)
@@ -343,17 +357,17 @@ export default defineComponent({
       }
     }
 
-    const getSumXeqStaked = () => {
-      try {
-        let sum_xeq_staked = 0
-        for (let i = 0; i < all_pools.value.length; i++) {
-          sum_xeq_staked += all_pools.value[i].total_contributed
-        }
-        return sum_xeq_staked / 1e9
-      } catch (error) {
-        api.error("/pages/wallet/staking-pools", "getSumXeqStaked", error.stack || error)
-      }
-    }
+    // const getSumXeqStaked = () => {
+    //   try {
+    //     let sum_xeq_staked = 0
+    //     for (let i = 0; i < pool_count.value; i++) {
+    //       sum_xeq_staked += all_pools.value[i].total_contributed
+    //     }
+    //     return sum_xeq_staked / 1e9
+    //   } catch (error) {
+    //     api.error("/pages/wallet/staking-pools", "getSumXeqStaked", error.stack || error)
+    //   }
+    // }
 
     const setPreset = async (option) => {
       try {
@@ -365,9 +379,7 @@ export default defineComponent({
 
     return {
       t,
-      // all_poolsWatcher,
       setPreset,
-      coinUnits,
       nodeDuration,
       nodeReward,
       personalNodeRewards,
@@ -375,8 +387,6 @@ export default defineComponent({
       percentageOfPool,
       node_filter_options,
       node_filter_option,
-      // node_filterWatcher,
-      // node_idWatcher,
       confirmSend,
       oracleKey,
       oracleAddress,
@@ -386,10 +396,9 @@ export default defineComponent({
       stake_amount,
       tvl,
       stake_data,
-      staked_pools,
       current_price,
       theme,
-      all_pools,
+      pool_count,
       state,
       PoolListTabular,
       maxHeight,

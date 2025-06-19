@@ -16,24 +16,20 @@ export const ethereum_network = (state) => {
   return state.ethereum.networks[state.ethereum.ethereum_network_index]
 }
 
-export const filtered_pools = (state) => {
-  if (state.pools_filter.index === 0 && !state.node_id_filter.value & !state.operator_id_filter.value) {
-    return state.pools.pool_list
-  }
-  let partialSearch = state.pools.pool_list.filter(state.pools_filter.value)
-  if (!!state.node_id_filter.value) {
-    const f = (c) => c.service_node_pubkey.startsWith(state.node_id_filter.value)
-    partialSearch = partialSearch.filter(f)
-  }
-  if (!!state.operator_id_filter.value) {
-    const f = (c) => c.operator_address.startsWith(state.operator_id_filter.value)
-    partialSearch = partialSearch.filter(f)
-  }
-  return partialSearch
+export const pool_count = (state) => {
+  return state.pools.operator_pools.length + state.pools.nonoperator_pools.length
 }
 
-export const staked_pools = (state, getters) => {
-  return getters.filtered_pools.filter(pool => pool.is_operator)
+export const total_contributed = (state) => {
+  return state.pools.staker.stake.total_contributed || 0
+}
+
+export const nonoperator_pools = (state) => {
+  return filterPools(state, { poolType: "nonoperator_pools" })
+}
+
+export const operator_pools = (state) => {
+  return filterPools(state, { poolType: "operator_pools" })
 }
 
 export const signature_data = (state, getters) => {
@@ -96,4 +92,28 @@ export const isAbleToSend = (state) => {
 
 export const get_address_list = (state) => {
   return state.wallet.address_list.address_book.concat(state.wallet.address_list.address_book_starred)
+}
+
+function filterPools (state, { poolType = "nonoperator_pools" } = {}) {
+  // poolType: "operator_pools" or "nonoperator_pools"
+  let pools = []
+  if (poolType === "operator_pools") {
+    pools = state.pools.operator_pools || []
+  } else if (poolType === "nonoperator_pools") {
+    pools = state.pools.nonoperator_pools || []
+  } else {
+    pools = []
+  }
+
+  // Apply pools_filter if not default
+  if (!(state.pools_filter.index === 0 && !state.node_id_filter.value && !state.operator_id_filter.value)) {
+    pools = pools.filter(state.pools_filter.value)
+    if (state.node_id_filter.value) {
+      pools = pools.filter(c => c.service_node_pubkey.startsWith(state.node_id_filter.value))
+    }
+    if (state.operator_id_filter.value) {
+      pools = pools.filter(c => c.operator_address.startsWith(state.operator_id_filter.value))
+    }
+  }
+  return pools
 }

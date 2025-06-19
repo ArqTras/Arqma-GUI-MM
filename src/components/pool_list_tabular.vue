@@ -2,7 +2,7 @@
   <div
     class="pool-list-tabular"
   >
-    <template v-if="stakedPools.length === 0">
+    <template v-if="operator_pools.length === 0">
       <p class="q-pa-md q-mb-none">
         {{ $t('components.pool_list_tabular.no_staked_pools_found') }}
       </p>
@@ -16,7 +16,7 @@
         class="column"
       >
         <q-item
-          v-for="item in stakedPools"
+          v-for="item in operator_pools"
           :key="item.service_node_pubkey"
           class="arqma-list-item transaction"
           clickable
@@ -39,7 +39,7 @@
               <div>{{ $t('components.pool_list_tabular.stakers') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.contributors.length.toLocaleString() }}</div>
+              <div>{{ item.contributors.toLocaleString() }}</div>
             </q-item-label>
           </q-item-label>
 
@@ -174,7 +174,7 @@
       </q-list>
     </template>
 
-    <template v-if="filtered_pools.length">
+    <template v-if="nonoperator_pools.length">
       <q-list
         link
         no-border
@@ -182,7 +182,7 @@
         class="column"
       >
         <q-item
-          v-for="item in filtered_pools"
+          v-for="item in nonoperator_pools"
           :key="item.service_node_pubkey"
           class="arqma-list-item transaction"
           clickable
@@ -206,7 +206,7 @@
               <div>{{ $t('components.pool_list_tabular.stakers') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.contributors.length.toLocaleString() }}</div>
+              <div>{{ item.contributors.toLocaleString() }}</div>
             </q-item-label>
           </q-item-label>
 
@@ -461,13 +461,13 @@ export default defineComponent({
 
     // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
-    const all_pools = computed(() => $store.state.gateway.pools.pool_list)
-    const filtered_pools = computed(() => $store.getters["gateway/filtered_pools"])
+    // const all_pools = computed(() => $store.state.gateway.pools.pool_list)
+    const nonoperator_pools = computed(() => $store.getters["gateway/nonoperator_pools"])
     const tx_status = computed(() => $store.state.gateway.tx_status)
     const stake_status = computed(() => $store.state.gateway.service_node_status.stake)
     const deregister_status = computed(() => $store.state.gateway.service_node_status.unlock)
     const unlocked_balance = computed(() => $store.state.gateway.wallet.info.unlocked_balance / coinUnits)
-    const stakedPools = computed(() => $store.getters["gateway/staked_pools"] || [])
+    const operator_pools = computed(() => $store.getters["gateway/operator_pools"] || [])
     const info = computed(() => {
       return $store.state.gateway.wallet.info
     })
@@ -696,7 +696,7 @@ export default defineComponent({
       deregisterServiceNode,
       deregister_statusWatcher,
       openExplorer,
-      filtered_pools,
+      nonoperator_pools,
       tx_type,
       tx_txid,
       status,
@@ -706,7 +706,6 @@ export default defineComponent({
       tvl,
       stake_data,
       theme,
-      all_pools,
       tx_status,
       stake_status,
       unlocked_balance,
@@ -717,7 +716,7 @@ export default defineComponent({
       handleClick,
       stake,
       arqmaField,
-      stakedPools,
+      operator_pools,
       addToAddressBook
     }
   }

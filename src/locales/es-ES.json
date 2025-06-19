@@ -212,7 +212,7 @@
                 "monthly_yield": "Rendimiento Mensual:",
                 "node_reward": "Recompensa del Nodo",
                 "tvl": "Valor Total Bloqueado (TVL):",
-                "account_stats": "Estadísticas de la Cuenta",
+                "operator_stats": "Estadísticas de Operador",
                 "total_staked": "Total Apostado:",
                 "percentage_of_pool": "Porcentaje del Pool:",
                 "monthly_reward": "Recompensa Mensual:",
