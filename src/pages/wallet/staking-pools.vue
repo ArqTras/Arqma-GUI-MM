@@ -233,7 +233,6 @@ export default defineComponent({
 
     const nonoperator_poolsWatcher = watch(nonoperator_pools, (newVal, oldVal) => {
       const sumXeqStaked = total_contributed.value
-      console.log("nonoperator_poolsWatcher", sumXeqStaked)
       conversionFromXtri(sumXeqStaked)
       getNodeReward()
       getPersonalNodeRewards()
@@ -243,7 +242,6 @@ export default defineComponent({
 
     const operator_poolsWatcher = watch(operator_pools, (newVal, oldVal) => {
       const sumXeqStaked = total_contributed.value
-      console.log("operator_poolsWatcher", sumXeqStaked)
       conversionFromXtri(sumXeqStaked)
       getNodeReward()
       getPersonalNodeRewards()
