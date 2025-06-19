@@ -54,7 +54,7 @@
         </template>
 
         <div>
-          {{ $t("components.footer.wallet") }}: {{ walletHeight }} / {{ target_height }} ({{
+          {{ $t("components.footer.wallet") }}: {{ walletHeightDisplay }} / {{ target_height }} ({{
             wallet_pct
           }}%)
         </div>
@@ -193,6 +193,10 @@ export default defineComponent({
       return result ? result.toUpperCase() : ""
     })
 
+    const walletHeightDisplay = computed(() => {
+      return Math.min(walletHeight.value, target_height.value)
+    })
+
     onMounted(async () => {
       version.value = await api.version()
     })
@@ -208,6 +212,7 @@ export default defineComponent({
 
     return {
       t,
+      walletHeightDisplay,
       selectedLocale,
       locale,
       localeOptions,
