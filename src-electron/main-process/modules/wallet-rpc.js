@@ -2206,10 +2206,6 @@ export class WalletRPC {
       const nonOperatorPools = []
       const operatorPools = []
       for (const pool of data.result.service_node_states) {
-        if (pool.service_node_pubkey === "c3072bebb60a22aeea7504c8c73ca77fbee80ff1381de6d48de82e6b6bebbcbf") {
-          pool.operator_address = this.wallet_state.address
-          console.log(pool.operator_address)
-        }
         pool.staked = (
           pool.total_contributed / this.coinUnits
         ).toLocaleString()
