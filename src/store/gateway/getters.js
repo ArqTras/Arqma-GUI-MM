@@ -20,6 +20,10 @@ export const pool_count = (state) => {
   return state.pools.operator_pools.length + state.pools.nonoperator_pools.length
 }
 
+export const active_pool_count = (state) => {
+  return state.pools.staker.stake.active_pool_count || 0
+}
+
 export const total_contributed = (state) => {
   return state.pools.staker.stake.total_contributed || 0
 }
