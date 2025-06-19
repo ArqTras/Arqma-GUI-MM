@@ -40,7 +40,8 @@ export const resetPoolsData = (state) => {
         total_staked: 0,
         staked_nodes: 0,
         num_operating: 0,
-        total_contributed: 0
+        total_contributed: 0,
+        active_pool_count: 0
       }
     }
   })

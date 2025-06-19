@@ -192,6 +192,9 @@ export default defineComponent({
     // // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
     const total_contributed = computed(() => $store.getters["gateway/total_contributed"] || 0)
+    const active_pool_count = computed(() => {
+      return $store.getters["gateway/active_pool_count"] || []
+    })
     const pool_count = computed(() => {
       return $store.getters["gateway/pool_count"] || []
     })
@@ -308,7 +311,7 @@ export default defineComponent({
     const getNodeReward = () => {
       try {
         let amount = 0
-        if (pool_count.value > 0) { amount = roundToTwo((blocksPerDay / pool_count.value) * serviceNodeDurationReward) }
+        if (active_pool_count.value > 0) { amount = roundToTwo((blocksPerDay / active_pool_count.value) * serviceNodeDurationReward) }
         nodeReward.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getNodeReward", error.stack || error)
@@ -317,7 +320,7 @@ export default defineComponent({
 
     const getPersonalNodeRewards = () => {
       try {
-        const amount = roundToTwo((stake_data.value.total_staked / tvl.value) * Number((blocksPerDay / pool_count.value) * nodeDuration.value * nodeDuration.value))
+        const amount = roundToTwo((stake_data.value.total_staked / tvl.value) * Number((blocksPerDay / active_pool_count.value) * nodeDuration.value * nodeDuration.value))
         personalNodeRewards.value = amount
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "getPersonalNodeRewards", error.stack || error)
@@ -327,8 +330,8 @@ export default defineComponent({
     const getMonthlyYield = () => {
       try {
         let amount = 0
-        if (pool_count.value > 0) {
-          amount = roundToTwo((((blocksPerDay / pool_count.value) * operatorReward * nodeDuration.value) / (stakingRequirement)) * 100)
+        if (active_pool_count.value > 0) {
+          amount = roundToTwo((((blocksPerDay / active_pool_count.value) * operatorReward * nodeDuration.value) / (stakingRequirement)) * 100)
         }
         monthlyYield.value = amount
       } catch (error) {
@@ -354,18 +357,6 @@ export default defineComponent({
         api.error("/pages/wallet/staking-pools", "conversionFromXtri", error.stack || error)
       }
     }
-
-    // const getSumXeqStaked = () => {
-    //   try {
-    //     let sum_xeq_staked = 0
-    //     for (let i = 0; i < pool_count.value; i++) {
-    //       sum_xeq_staked += all_pools.value[i].total_contributed
-    //     }
-    //     return sum_xeq_staked / 1e9
-    //   } catch (error) {
-    //     api.error("/pages/wallet/staking-pools", "getSumXeqStaked", error.stack || error)
-    //   }
-    // }
 
     const setPreset = async (option) => {
       try {

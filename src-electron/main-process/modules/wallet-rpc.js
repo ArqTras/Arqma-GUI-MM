@@ -638,7 +638,8 @@ export class WalletRPC {
             total_staked: 0,
             staked_nodes: 0,
             num_operating: 0,
-            total_contributed: 0
+            total_contributed: 0,
+            active_pool_count: 0
           }
         }
       }
@@ -2188,7 +2189,8 @@ export class WalletRPC {
           total_staked: 0,
           staked_nodes: 0,
           num_operating: 0,
-          total_contributed: 0
+          total_contributed: 0,
+          active_pool_count: 0
         }
       }
     }
@@ -2220,6 +2222,7 @@ export class WalletRPC {
         ).toLocaleString()
         pool.operator_fee = this.calculateOperatorFee(pool.portions_for_operator)
         pools.staker.stake.total_contributed += pool.total_contributed / this.coinUnits
+        pools.staker.stake.active_pool_count += pool.funded === true ? 1 : 0
         // Build a new object with only the fields you want to return
         const filteredPool = {
           service_node_pubkey: pool.service_node_pubkey,
