@@ -58,7 +58,8 @@ export default {
     }
   },
   pools: {
-    pool_list: [],
+    operator_pools: [],
+    nonoperator_pools: [],
     staker: {
       stake: {}
     }

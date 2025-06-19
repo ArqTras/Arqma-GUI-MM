@@ -32,13 +32,15 @@ export const resetWalletData = (state) => {
 
 export const resetPoolsData = (state) => {
   state.commit("set_pools_data", {
-    pool_list: [],
+    operator_pools: [],
+    nonoperator_pools: [],
     staker: {
       stake: {
         burnt_xeq: 0,
         total_staked: 0,
         staked_nodes: 0,
-        num_operating: 0
+        num_operating: 0,
+        total_contributed: 0
       }
     }
   })

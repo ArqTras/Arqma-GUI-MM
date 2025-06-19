@@ -630,13 +630,15 @@ export class WalletRPC {
     try {
       logger.info("wallet getPoolsData")
       let pools = {
-        pool_list: [],
+        operator_pools: [],
+        nonoperator_pools: [],
         staker: {
           stake: {
             burnt_xeq: 0,
             total_staked: 0,
             staked_nodes: 0,
-            num_operating: 0
+            num_operating: 0,
+            total_contributed: 0
           }
         }
       }
@@ -1992,30 +1994,6 @@ export class WalletRPC {
     return wallet
   }
 
-  //   getLockTime (registration_height, height) {
-  //     const forecastedUnlockHeight = parseInt(registration_height) + 20160
-  //     const unlockHeightDifference = forecastedUnlockHeight - height
-  //     try {
-  //       if (unlockHeightDifference < 30) {
-  //         return {
-  //           amount: `${Math.round(unlockHeightDifference / 2)}`,
-  //           i18n: "components.pool_list_tabular.minutes"
-  //         }
-  //       } else if (unlockHeightDifference < 720) {
-  //         return {
-  //           amount: `${Math.round(unlockHeightDifference / 30)}`,
-  //           i18n: "components.pool_list_tabular.hours"
-  //         }
-  //       } else {
-  //         return {
-  //           amount: `${Math.round(unlockHeightDifference / 720)}`,
-  //           i18n: "components.pool_list_tabular.days"
-  //         }
-  //       }
-  //     } catch (error) {
-  //       logger.error(`wallet getLockTime ${error.stack || error}`)
-  //     }
-  //   }
   getUnLockTime (requested_unlock_height, height) {
     try {
       if (parseInt(requested_unlock_height) === 0) {
@@ -2202,13 +2180,15 @@ export class WalletRPC {
   async getPools (height) {
     logger.info("wallet  getPools")
     const pools = {
-      pool_list: [],
+      operator_pools: [],
+      nonoperator_pools: [],
       staker: {
         stake: {
           burnt_xeq: 0,
           total_staked: 0,
           staked_nodes: 0,
-          num_operating: 0
+          num_operating: 0,
+          total_contributed: 0
         }
       }
     }
@@ -2223,9 +2203,13 @@ export class WalletRPC {
       if (!data.result.service_node_states) {
         data.result.service_node_states = []
       }
-      const contributorPools = []
-      const otherPools = []
+      const nonOperatorPools = []
+      const operatorPools = []
       for (const pool of data.result.service_node_states) {
+        if (pool.service_node_pubkey === "c3072bebb60a22aeea7504c8c73ca77fbee80ff1381de6d48de82e6b6bebbcbf") {
+          pool.operator_address = this.wallet_state.address
+          console.log(pool.operator_address)
+        }
         pool.staked = (
           pool.total_contributed / this.coinUnits
         ).toLocaleString()
@@ -2239,6 +2223,7 @@ export class WalletRPC {
                     this.coinUnits
         ).toLocaleString()
         pool.operator_fee = this.calculateOperatorFee(pool.portions_for_operator)
+        pools.staker.stake.total_contributed += pool.total_contributed / this.coinUnits
         // Build a new object with only the fields you want to return
         const filteredPool = {
           service_node_pubkey: pool.service_node_pubkey,
@@ -2250,7 +2235,7 @@ export class WalletRPC {
           operator_fee: pool.operator_fee,
           is_contributor: false,
           is_operator: false,
-          contributors: pool.contributors,
+          contributors: pool.contributors.length,
           requested_unlock_height: pool.requested_unlock_height,
           last_reward_block_height: pool.last_reward_block_height,
           last_uptime_proof: pool.last_uptime_proof,
@@ -2279,11 +2264,11 @@ export class WalletRPC {
             filteredPool.is_contributor = true
             filteredPool.is_operator = false
             pools.staker.stake.staked_nodes += 1
-            contributorPools.push(filteredPool)
+            nonOperatorPools.push(filteredPool)
           } else {
             filteredPool.is_contributor = false
             filteredPool.is_operator = false
-            otherPools.push(filteredPool)
+            nonOperatorPools.push(filteredPool)
           }
         } else {
           const amount = pool.contributors
@@ -2295,7 +2280,7 @@ export class WalletRPC {
               0
             )
           pools.staker.stake.num_operating += 1
-          pools.staker.stake.total_staked += amount
+          pools.staker.stake.total_staked += amount / this.coinUnits
           pools.staker.stake.staked_nodes += 1
           filteredPool.equity = (
             (amount / pool.total_contributed) *
@@ -2303,12 +2288,11 @@ export class WalletRPC {
           ).toLocaleString()
           filteredPool.is_contributor = false
           filteredPool.is_operator = true
-          otherPools.push(filteredPool)
+          operatorPools.push(filteredPool)
         }
       }
-      otherPools.sort(this.poolListHeightSorter)
-      contributorPools.sort(this.poolListHeightSorter)
-      pools.pool_list = contributorPools.concat(otherPools)// .filter(c => c.last_uptime_proof > 0)
+      pools.operator_pools = operatorPools.sort(this.poolListHeightSorter)
+      pools.nonoperator_pools = nonOperatorPools.sort(this.poolListContributorSorter)
     } catch (error) {
       logger.error(`wallet getPools ${error.stack || error}`)
     }
@@ -2325,6 +2309,22 @@ export class WalletRPC {
         : 1
     } catch (error) {
       logger.error(`wallet poolListHeightSorter ${error.stack || error}`)
+    }
+  }
+
+  poolListContributorSorter (poolA, poolB) {
+    try {
+    // Sort by is_contributor true first, then by registration_height descending
+      if (poolA.is_contributor === poolB.is_contributor) {
+        if (poolA.registration_height === poolB.registration_height) {
+          return 0
+        }
+        return poolA.registration_height > poolB.registration_height ? -1 : 1
+      }
+      return poolA.is_contributor ? -1 : 1
+    } catch (error) {
+      logger.error(`wallet poolListContributorSorter ${error.stack || error}`)
+      return 0
     }
   }
 
