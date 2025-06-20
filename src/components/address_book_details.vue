@@ -245,7 +245,10 @@ export default defineComponent({
       }
     })
 
-    const mustNotContainDescriptionDelimiters = (value) => !value.includes("::")
+    const mustNotContainDescriptionDelimiters = (value) => {
+      if (!value) return true // Allow empty or undefined
+      return !value.includes("::")
+    }
 
     // Validations
     const rules = computed(() => {
