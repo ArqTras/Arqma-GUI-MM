@@ -3462,23 +3462,39 @@ export class WalletRPC {
     if (timeout > 0) {
       options.timeout = timeout
     }
+
+    const maxRetries = 3
+    const timeoutMs = timeout > 0 ? timeout : 10000 // fallback to 10s if not set
+
     return this.queue.add(async () => {
-      try {
-        const response = await this.axiosDigest.post(
-          `${this.protocol}${this.hostname}:${this.port}/json_rpc`,
-          options
-        )
-        const result = this.parseWalletResponse(response, params)
-        return result
-      } catch (error) {
-        return {
-          method,
-          params,
-          error: {
-            code: error.code ? error.code : "",
-            message: error.message,
-            cause: error.code ? error.code : ""
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await Promise.race([
+            this.axiosDigest.post(
+              `${this.protocol}${this.hostname}:${this.port}/json_rpc`,
+              options
+            ),
+            new Promise((resolve, reject) =>
+              setTimeout(() => reject(new Error("RPC request timed out")), timeoutMs)
+            )
+          ])
+          const result = this.parseWalletResponse(response, params)
+          return result
+        } catch (error) {
+          logger.error(`wallet, sendRPC, ${JSON.stringify(requestOptions, null, 2)} attempt: ${attempt} ${JSON.stringify(error)}`)
+          if (attempt === maxRetries) {
+            return {
+              method,
+              params,
+              error: {
+                code: error.code ? error.code : "",
+                message: error.message,
+                cause: error.code ? error.code : ""
+              }
+            }
           }
+          // Optionally, add a small delay before retrying
+          await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
     })

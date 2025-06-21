@@ -461,7 +461,7 @@ export class Daemon {
         throw error
       }
     } else {
-      logger.error(`wallet, parseDaemonResponse, ${JSON.stringify(res.error)}`)
+      logger.error(`daemon, parseDaemonResponse, ${JSON.stringify(res.error)}`)
       const error = new Error("HTTP Error!")
       error.code = res.status
       error.message = res.error // res.data
@@ -511,7 +511,7 @@ export class Daemon {
             result: data && data.result ? data.result : ""
           }
         } catch (error) {
-          logger.error(`wallet, sendRPC, attempt: ${attempt} ${JSON.stringify(error)}`)
+          logger.error(`daemon, sendRPC, ${JSON.stringify(requestOptions, null, 2)} attempt: ${attempt} ${JSON.stringify(error)}`)
           if (attempt === this.maxRetries) {
             return {
               method,
