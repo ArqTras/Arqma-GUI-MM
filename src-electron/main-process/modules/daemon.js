@@ -21,6 +21,8 @@ export class Daemon {
     this.isQuitting = false
     this.height_Subscription = null
     this.height = 0
+    this.maxRetries = 3
+    this.timeoutMs = 30000 // 30 seconds
   }
 
   async checkVersion () {
@@ -367,12 +369,6 @@ export class Daemon {
         this.heartbeatSlowAction()
       }, 60 * 1000) // 60 seconds
       this.heartbeatSlowAction()
-
-      // clearInterval(this.serviceNodeHeartbeat)
-      // this.serviceNodeHeartbeat = setInterval(async () => {
-      //     await this.updateServiceNodes()
-      // }, 5 * 60 * 1000) // 5 minutes
-      // this.updateServiceNodes()
     } catch (error) {
       logger.error(`daemon startHeartbeat ${error.stack || error}`)
     }
@@ -389,11 +385,6 @@ export class Daemon {
         clearInterval(this.heartbeat_slow)
         this.heartbeat_slow = null
       }
-      // depreciated wallet calls get_service_nodes
-      // if (this.serviceNodeHeartbeat) {
-      //     clearInterval(this.serviceNodeHeartbeat)
-      //     this.serviceNodeHeartbeat = null
-      // }
     } catch (error) {
       logger.error(`daemon stopHeartbeats ${error.stack || error}`)
     }
@@ -450,26 +441,6 @@ export class Daemon {
     }
   }
 
-  // depreciated wallet calls get_service_nodes
-  // async updateServiceNodes() {
-  //     logger.info('daemon updateServiceNodes')
-  //     try {
-  //         let service_nodes = {
-  //             fetching: true
-  //         }
-  //         this.sendGateway("set_daemon_data", { service_nodes })
-  //         let data = await this.getRPC("service_nodes")
-  //         if (!data.hasOwnProperty("result")) {
-  //             return
-  //         }
-  //         service_nodes.fetching = false
-  //         service_nodes.nodes = data.result.service_node_states
-  //         this.sendGateway("set_daemon_data", { service_nodes })
-  //     } catch (error) {
-  //         logger.error(`daemon ${error}`)
-  //     }
-  // }
-
   sendGateway (method, data) {
     try {
       logger.info("daemon sendGateway")
@@ -525,23 +496,35 @@ export class Daemon {
     }
 
     return this.queue.add(async () => {
-      try {
-        const response = await axios.post(url, requestOptions)
-        const data = this.parseDaemonResponse(response)
-        return {
-          method,
-          params,
-          result: data && data.result ? data.result : ""
-        }
-      } catch (error) {
-        return {
-          method,
-          params,
-          error: {
-            code: error.code ? error.code : "",
-            message: error.message,
-            cause: error.code ? error.code : ""
+      for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+        try {
+          const response = await Promise.race([
+            axios.post(url, requestOptions),
+            new Promise((resolve, reject) =>
+              setTimeout(() => reject(new Error("RPC request timed out")), this.timeoutMs)
+            )
+          ])
+          const data = this.parseDaemonResponse(response)
+          return {
+            method,
+            params,
+            result: data && data.result ? data.result : ""
           }
+        } catch (error) {
+          logger.error(`wallet, sendRPC, attempt: ${attempt} ${JSON.stringify(error)}`)
+          if (attempt === this.maxRetries) {
+            return {
+              method,
+              params,
+              error: {
+                code: error.code ? error.code : "",
+                message: error.message,
+                cause: error.code ? error.code : ""
+              }
+            }
+          }
+          // Optionally, add a small delay before retrying
+          await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
     })
