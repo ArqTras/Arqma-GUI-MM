@@ -497,6 +497,9 @@ export class Daemon {
 
     return this.queue.add(async () => {
       for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+        if (this.isQuitting) {
+          return
+        }
         try {
           const response = await Promise.race([
             axios.post(url, requestOptions),

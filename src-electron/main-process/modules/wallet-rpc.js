@@ -3464,15 +3464,18 @@ export class WalletRPC {
     }
 
     const maxRetries = 3
-    const timeoutMs = timeout > 0 ? timeout : 10000 // fallback to 10s if not set
+    const timeoutMs = timeout > 0 ? timeout : 30000 // fallback to 10s if not set
 
     return this.queue.add(async () => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (this.isQuitting) {
+          return
+        }
         try {
           const response = await Promise.race([
             this.axiosDigest.post(
-              `${this.protocol}${this.hostname}:${this.port}/json_rpc`,
-              options
+                `${this.protocol}${this.hostname}:${this.port}/json_rpc`,
+                options
             ),
             new Promise((resolve, reject) =>
               setTimeout(() => reject(new Error("RPC request timed out")), timeoutMs)
@@ -3499,6 +3502,46 @@ export class WalletRPC {
       }
     })
   }
+
+  //   async sendRPC (method, params = {}, timeout = 0) {
+  //     if (this.isQuitting) {
+  //       if (method !== "store" && method !== "close_wallet") {
+  //         return
+  //       }
+  //     }
+  //     const id = this.id++
+  //     const options = {
+  //       jsonrpc: "2.0",
+  //       id,
+  //       method
+  //     }
+  //     if (Object.keys(params).length !== 0) {
+  //       options.params = params
+  //     }
+  //     if (timeout > 0) {
+  //       options.timeout = timeout
+  //     }
+  //     return this.queue.add(async () => {
+  //       try {
+  //         const response = await this.axiosDigest.post(
+  //           `${this.protocol}${this.hostname}:${this.port}/json_rpc`,
+  //           options
+  //         )
+  //         const result = this.parseWalletResponse(response, params)
+  //         return result
+  //       } catch (error) {
+  //         return {
+  //           method,
+  //           params,
+  //           error: {
+  //             code: error.code ? error.code : "",
+  //             message: error.message,
+  //             cause: error.code ? error.code : ""
+  //           }
+  //         }
+  //       }
+  //     })
+  //   }
 
   getRPC (parameter, params = {}) {
     return this.sendRPC(`get_${parameter}`, params)
