@@ -207,35 +207,41 @@ export default defineComponent({
       try {
         switch (status.value.code) {
           case -1: // config not found, go to welcome screen
+            await api.info("pages/init/index", "updateStatus", "case -1")
             router.push({ path: "/welcome" })
             break
           case 0: // start-up complete, go to wallet-select
+            await api.info("pages/init/index", "updateStatus", "case 0")
             router.push({ path: "/wallet-select" })
             break
           case 1:
             message.value = t("pages.init.connecting_to_backend")
+            await api.info("pages/init/index", "updateStatus", `case 1: ${message.value}`)
             backend.value.className = "pulse"
             settings.value.className = "grey"
             daemon.value.className = "grey"
             wallet.value.className = "grey"
-            await api.log("pages/init/index", "updateStatus", "connecting to backend")
             break
           case 2:
+            await api.info("pages/init/index", "updateStatus", "case 2")
             backend.value.className = "solid"
             settings.value.className = "pulse"
             daemon.value.className = "grey"
             wallet.value.className = "grey"
             break
           case 3:
+            await api.info("pages/init/index", "updateStatus", "case 3")
             backend.value.className = "solid"
             settings.value.className = "solid2"
             daemon.value.className = "pulse"
             wallet.value.className = "grey"
             break
           case 4:
+            await api.info("pages/init/index", "updateStatus", `case 4: ${status.value.message}`)
             version.value = status.value.message
             break
           case 5:
+            await api.info("pages/init/index", "updateStatus", "case 5: daemon not found")
             $q.notify({
               type: "warning",
               timeout: 2000,
@@ -244,6 +250,7 @@ export default defineComponent({
             break
           case 6:
             message.value = t("pages.init.starting_wallet")
+            await api.info("pages/init/index", "updateStatus", `case 6: ${message.value}`)
             backend.value.className = "solid"
             settings.value.className = "solid2"
             daemon.value.className = "solid"
@@ -251,6 +258,7 @@ export default defineComponent({
             break
           case 7:
             message.value = t("pages.init.reading_wallet_list")
+            await api.info("pages/init/index", "updateStatus", `case 7: ${message.value}`)
             backend.value.className = "solid"
             settings.value.className = "solid2"
             daemon.value.className = "solid"
@@ -258,6 +266,7 @@ export default defineComponent({
             break
           case 8:
             message.value = t("pages.init.recalculating_service_nodes")
+            await api.info("pages/init/index", "updateStatus", `case 8: ${message.value}`)
             backend.value.className = "pulse"
             settings.value.className = "grey"
             daemon.value.className = "grey"
@@ -269,12 +278,14 @@ export default defineComponent({
       }
     }
 
-    onMounted(() => {
-      updateStatus(status)
+    onMounted(async () => {
+      await updateStatus(status)
     })
 
     // Watchers
-    const statusWatcher = watch(status, (newVal, oldVal) => updateStatus(newVal)
+    const statusWatcher = watch(status, async (newVal, oldVal) => {
+      await updateStatus(newVal)
+    }
     )
 
     return {
