@@ -33,6 +33,7 @@
     "axios-retry": "4.5.0",
     "bufferutil": "4.0.9",
     "core-js": "3.40.0",
+    "decimal.js": "10.4.0",
     "electron-progressbar": "2.2.1",
     "electron-store": "8.2.0",
     "electron-updater": "6.3.9",
@@ -50,8 +51,7 @@
     "vue-timeago3": "2.3.2",
     "vuex": "4.1.0",
     "web3": "4.16.0",
-    "winston": "3.17.0",
-    "decimal.js": "10.4.0"
+    "winston": "3.17.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "7.25.9",
