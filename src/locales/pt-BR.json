@@ -427,7 +427,9 @@
             "prompt_for_password": "Solicitar senha ao usuário durante operações da carteira",
             "debug_log_levels": "Níveis de log para depuração da carteira",
             "transactions_to_display": "Quantos dias de transações exibir",
+            "inactivity_timeout": "Tempo Limite de Inatividade",
             "days": " dias",
+            "minutes": " minutos",
             "advanced_options": "Opções avançadas",
             "remote_daemon_only": "Somente daemon remoto",
             "local_and_remote_daemon": "Daemon local + remoto",
@@ -632,7 +634,8 @@
                 "receive": "Receber",
                 "wxeq": "Swaps",
                 "staking_pools": "Pools de staking",
-                "address_book": "Catálogo de endereços"
+                "address_book": "Catálogo de endereços",
+                "wallet_inactivityMessage": "Você foi desconectado devido à inatividade."
             }
         }
     },

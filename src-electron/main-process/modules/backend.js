@@ -263,6 +263,13 @@ export class Backend {
           logger.error(`daemon set_daysOfTransactions ${error.stack || error}`)
         }
         break
+      case "set_inactivityTimeout":
+        try {
+          this.config_data.app.inactivityTimeout = params.inactivityTimeout
+        } catch (error) {
+          logger.error(`daemon set_inactivityTimeout ${error.stack || error}`)
+        }
+        break
       case "quick_save_config":
         try {
           // save only partial config settings

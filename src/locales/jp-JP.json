@@ -427,7 +427,9 @@
             "prompt_for_password": "ウォレット操作中にユーザーにパスワードの入力を求める",
             "debug_log_levels": "ウォレットのデバッグ用のログレベル",
             "transactions_to_display": "表示するトランザクションの日数",
+            "inactivity_timeout": "非アクティブタイムアウト",
             "days": "日",
+            "minutes": " 分",
             "advanced_options": "詳細オプション",
             "remote_daemon_only": "リモートデーモンのみ",
             "local_and_remote_daemon": "ローカル + リモートデーモン",
@@ -632,7 +634,8 @@
                 "receive": "受信",
                 "wxeq": "スワップ",
                 "staking_pools": "ステーキングプール",
-                "address_book": "アドレス帳"
+                "address_book": "アドレス帳",
+                "wallet_inactivityMessage": "非アクティブのため、ログアウトされました。"
             }
         }
     },

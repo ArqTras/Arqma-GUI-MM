@@ -427,7 +427,9 @@
             "prompt_for_password": "Запитувати в користувача пароль під час операцій гаманця",
             "debug_log_levels": "Рівні журналу для налагодження гаманця",
             "transactions_to_display": "Скільки днів транзакцій для відображення",
+            "inactivity_timeout": "Тайм-аут бездіяльності",
             "days": "Днів",
+            "minutes": " хвилини",
             "advanced_options": "Розширені опції",
             "remote_daemon_only": "Лише віддалений демон",
             "local_and_remote_daemon": "Локальний + віддалений демон",
@@ -632,7 +634,8 @@
                 "receive": "Отримати",
                 "wxeq": "Swaps",
                 "staking_pools": "Стейкінг-пули",
-                "address_book": "Адресна книга"
+                "address_book": "Адресна книга",
+                "wallet_inactivityMessage": "Ви були виведені з системи через бездіяльність."
             }
         }
     },

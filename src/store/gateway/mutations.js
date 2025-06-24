@@ -87,6 +87,9 @@ export const set_transaction_id_filter = (state, data) => {
 export const set_daysOfTransactions = (state, data) => {
   state.app.daysOfTransactions = data
 }
+export const set_inactivityTimeout = (state, data) => {
+  state.app.inactivityTimeout = data
+}
 export const set_processing_signature_data = (state, data) => {
   if (!state.processing_signature_data.includes(data)) {
     state.processing_signature_data.push(data)

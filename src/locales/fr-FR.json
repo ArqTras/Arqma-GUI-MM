@@ -427,7 +427,9 @@
             "prompt_for_password": "Demander le mot de passer pour les opérations à l'intérieur du portefeuille",
             "debug_log_levels": "Niveau de log pour dépannage du portefeuille",
             "transactions_to_display": "Nombre de jours de transactions à afficher",
+            "inactivity_timeout": "Délai d'inactivité",
             "days": " jours",
+            "minutes": " minutes",
             "advanced_options": "Options Avancées",
             "remote_daemon_only": "Daemon Distant Uniquement",
             "local_and_remote_daemon": "Daemon Local + Distant",
@@ -632,7 +634,8 @@
                 "receive": "Recevoir",
                 "wxeq": "Swaps",
                 "staking_pools": "Pools Staking",
-                "address_book": "Carnet Adresses"
+                "address_book": "Carnet Adresses",
+                "wallet_inactivityMessage": "Vous avez été déconnecté en raison de l'inactivité."
             }
         }
     },
