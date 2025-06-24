@@ -98,6 +98,10 @@ export const set_daysOfTransactions = (state, data) => {
   state.commit("set_daysOfTransactions", data)
 }
 
+export const set_inactivityTimeout = (state, data) => {
+  state.commit("set_inactivityTimeout", data)
+}
+
 export const set_processing_signature_data = (state, data) => {
   state.commit("set_processing_signature_data", data)
 }

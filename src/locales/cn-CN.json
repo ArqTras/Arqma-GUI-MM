@@ -427,7 +427,9 @@
             "prompt_for_password": "在钱包操作时提示用户输入密码",
             "debug_log_levels": "调试钱包的日志级别",
             "transactions_to_display": "显示多少天的交易",
+            "inactivity_timeout": "非活动超时",
             "days": " 天",
+            "minutes": " 分钟",
             "advanced_options": "高级选项",
             "remote_daemon_only": "仅远程守护进程",
             "local_and_remote_daemon": "本地 + 远程守护进程",
@@ -632,7 +634,8 @@
                 "receive": "接收",
                 "wxeq": "兑换",
                 "staking_pools": "质押池",
-                "address_book": "地址簿"
+                "address_book": "地址簿",
+                "wallet_inactivityMessage": "您因长时间未活动而已被登出。"
             }
         }
     },

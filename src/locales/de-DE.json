@@ -427,7 +427,9 @@
             "prompt_for_password": "Aufforderung des Benutzers zur Eingabe des Kennworts während des Wallet-Betriebs",
             "debug_log_levels": "Protokollebenen für das Debuggen der Brieftasche",
             "transactions_to_display": "Wie viele Tage an Transaktionen sollen angezeigt werden?",
+            "inactivity_timeout": "Inaktivitätszeitüberschreitung",
             "days": " Tage",
+            "minutes": " Minuten",
             "advanced_options": "Erweiterte Optionen",
             "remote_daemon_only": "Nur Remote-Daemon",
             "local_and_remote_daemon": "Lokaler + Remote-Daemon",
@@ -632,7 +634,8 @@
                 "receive": "Empfangen",
                 "wxeq": "Swaps",
                 "staking_pools": "Polnischer Streik",
-                "address_book": "Adressbuch"
+                "address_book": "Adressbuch",
+                "wallet_inactivityMessage": "Sie wurden aufgrund von Inaktivität abgemeldet."
             }
         }
     },

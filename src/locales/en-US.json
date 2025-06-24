@@ -427,7 +427,9 @@
             "prompt_for_password": "Prompt user for password during wallet operations",
             "debug_log_levels": "Log levels for debugging the wallet",
             "transactions_to_display": "How many days of transactions to display",
+            "inactivity_timeout": "Inactivity Timeout",
             "days": " days",
+            "minutes": " minutes",
             "advanced_options": "Advanced Options",
             "remote_daemon_only": "Remote Daemon Only",
             "local_and_remote_daemon": "Local + Remote Daemon",
@@ -632,7 +634,8 @@
                 "receive": "Receive",
                 "wxeq": "Swaps",
                 "staking_pools": "Staking Pools",
-                "address_book": "Address Book"
+                "address_book": "Address Book",
+                "wallet_inactivityMessage": "You have been logged out due to inactivity."
             }
         }
     },

@@ -76,6 +76,10 @@ export const daysOfTransactions = (state) => {
   return state.app.pending_config.app.daysOfTransactions
 }
 
+export const inactivityTimeout = (state) => {
+  return state.app.inactivityTimeout
+}
+
 export const isAbleToSend = (state) => {
   const { daemons, app } = state.app.config
   const config_daemon = daemons[app.net_type]

@@ -427,7 +427,9 @@
             "prompt_for_password": "Gesa pengguna untuk kata laluan semasa operasi dompet",
             "debug_log_levels": "Log tahap untuk menyahpepijat dompet",
             "transactions_to_display": "Berapa hari transaksi untuk dipaparkan",
+            "inactivity_timeout": "Tamat Masa Tidak Aktif",
             "days": "hari",
+            "minutes": " minit",
             "advanced_options": "Pilihan Lanjutan",
             "remote_daemon_only": "Daemon Jauh Sahaja",
             "local_and_remote_daemon": "Daemon Tempatan + Jauh",
@@ -633,7 +635,8 @@
                 "receive": "Terima",
                 "wxeq": "Pertukaran",
                 "staking_pools": "Kolam Staking",
-                "address_book": "Buku Alamat"
+                "address_book": "Buku Alamat",
+                "wallet_inactivityMessage": "Anda telah keluar kerana tiada aktiviti."
             }
         }
     },

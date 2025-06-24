@@ -427,7 +427,9 @@
             "prompt_for_password": "اطلب من المستخدم إدخال كلمة المرور أثناء عمليات المحفظة",
             "debug_log_levels": "مستويات السجل لتصحيح أخطاء المحفظة",
             "transactions_to_display": "عدد أيام المعاملات التي سيتم عرضها",
+            "inactivity_timeout": "مهلة عدم النشاط",
             "days": " أيام",
+            "minutes": " دقائق",
             "advanced_options": "خيارات متقدمة",
             "remote_daemon_only": "الواجهة البعيدة فقط",
             "local_and_remote_daemon": "الواجهة المحلية + البعيدة",
@@ -621,7 +623,8 @@
                 "wallet_import_legacy": "استيراد الحساب من واجهة المستخدم القديمة",
                 "wallet_import_old_gui": "استيراد الحساب من واجهة المستخدم القديمة",
                 "wallet_created": "تم إنشاء/استعادة الحساب",
-                "wallet_select": "إكويليبرينيا"
+                "wallet_select": "إكويليبرينيا",
+                "wallet_inactivityMessage": "لقد تم تسجيل خروجك بسبب عدم النشاط."
             }
         },
         "wallet": {

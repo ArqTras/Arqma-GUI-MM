@@ -3484,7 +3484,9 @@ export class WalletRPC {
           const result = this.parseWalletResponse(response, params)
           return result
         } catch (error) {
-          logger.error(`wallet, sendRPC, ${JSON.stringify(options, null, 2)} attempt: ${attempt} ${JSON.stringify(error)}`)
+          if (options.method !== "get_languages") {
+            logger.error(`wallet, sendRPC, ${JSON.stringify(options, null, 2)} attempt: ${attempt} ${JSON.stringify(error)}`)
+          }
           if (attempt === maxRetries) {
             return {
               method,

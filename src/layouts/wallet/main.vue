@@ -175,7 +175,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, onMounted } from "vue"
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount } from "vue"
 import { useQuasar } from "quasar"
 import { useStore } from "vuex"
 import Formatarqma from "components/format_arqma"
@@ -183,6 +183,8 @@ import WalletSettings from "components/wallet_settings"
 import StatusFooter from "components/footer"
 import MainMenu from "components/mainmenu"
 import { useI18n } from "vue-i18n"
+import { useDebounce } from "src/composables/debounce"
+import { useRouter } from "vue-router"
 
 export default defineComponent({
   name: "LayoutDefault",
@@ -196,6 +198,8 @@ export default defineComponent({
     const $q = useQuasar()
     const $store = useStore()
     const { t } = useI18n()
+    const { debounce } = useDebounce()
+    const router = useRouter()
 
     const selectedTab = ref("tab-1")
 
@@ -203,17 +207,59 @@ export default defineComponent({
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
     const info = computed(() => $store.state.gateway.wallet.info)
     const price = computed(() => $store.state.gateway.coin_price)
+    const inactivityTimeout = computed(() => {
+      return ($store.state.gateway.app.config.app.inactivityTimeout * 60000)
+    })
+    const is_able_to_send = computed(() => {
+      return $store.getters["gateway/isAbleToSend"]
+    })
+    const events = ["mousemove", "touchmove", "keypress"]
+    const inactivityTimerFn = ref(null)
+    let listenersAdded = false
 
     onMounted(async () => {
       try {
-        api.send("wallet", "get_coin_price", {})
+        if (!listenersAdded) {
+          for (const event of events) {
+            window.addEventListener(event, resetInactiveTimeoutFn)
+          }
+          listenersAdded = true
+        }
+        resetInactiveTimeoutFn()
       } catch (error) {
         await api.error("layouts/wallet/main", "onMounted", error.stack || error)
       }
     })
 
+    onBeforeUnmount(() => {
+      if (listenersAdded) {
+        for (const event of events) {
+          window.removeEventListener(event, resetInactiveTimeoutFn)
+        }
+        listenersAdded = false
+      }
+    })
+
     // Methods
     $q.openURL
+
+    const resetInactiveTimeoutFn = debounce(() => {
+      if (inactivityTimerFn.value !== null) {
+        clearTimeout(inactivityTimerFn.value)
+      }
+      inactivityTimerFn.value = setTimeout(() => {
+        if (is_able_to_send.value) {
+          switchWallet()
+          $q.notify({
+            type: "positive",
+            timeout: 3000,
+            message: t("layouts.wallet.main.wallet_inactivityMessage")
+          })
+        } else {
+          resetInactiveTimeoutFn()
+        }
+      }, inactivityTimeout.value)
+    }, 300)
 
     const refresh_coin_price = async () => {
       try {
@@ -221,6 +267,16 @@ export default defineComponent({
       } catch (error) {
         await api.error("layouts/wallet/main", "refresh_coin_price", error.stack || error)
       }
+    }
+
+    const switchWallet = () => {
+      router.push({ path: "/wallet-select" })
+      api.send("wallet", "close_wallet")
+      setTimeout(() => {
+        // short delay to prevent wallet data reaching the
+        // websocket moments after we close and reset data
+        $store.dispatch("gateway/resetWalletData")
+      }, 250)
     }
 
     return {
@@ -233,7 +289,9 @@ export default defineComponent({
       StatusFooter,
       MainMenu,
       WalletSettings,
-      Formatarqma
+      Formatarqma,
+      resetInactiveTimeoutFn,
+      switchWallet
     }
   }
 })

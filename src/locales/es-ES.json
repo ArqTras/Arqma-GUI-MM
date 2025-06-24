@@ -427,7 +427,9 @@
             "prompt_for_password": "Solicitar al usuario una contraseña durante las operaciones de la billetera",
             "debug_log_levels": "Niveles de registro para depurar la billetera",
             "transactions_to_display": "Cuántos días de transacciones mostrar",
+            "inactivity_timeout": "Tiempo de espera por inactividad",
             "days": " días",
+            "minutes": " minutos",
             "advanced_options": "Opciones Avanzadas",
             "remote_daemon_only": "Solo Daemon Remoto",
             "local_and_remote_daemon": "Daemon Local + Remoto",
@@ -632,7 +634,8 @@
                 "receive": "Recibir",
                 "wxeq": "Intercambios",
                 "staking_pools": "Grupos de Staking",
-                "address_book": "Libreta de Direcciones"
+                "address_book": "Libreta de Direcciones",
+                "wallet_inactivityMessage": "Te has desconectado por inactividad."
             }
         }
     },

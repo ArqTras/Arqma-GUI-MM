@@ -427,7 +427,9 @@
             "prompt_for_password": "Proś użytkownika o hasło podczas operacji portfela",
             "debug_log_levels": "Poziomy logowania do debugowania portfela",
             "transactions_to_display": "Ile dni transakcji wyświetlić",
+            "inactivity_timeout": "Limit Czasu Braku Aktywności",
             "days": " dni",
+            "minutes": " minuty",
             "advanced_options": "Opcje zaawansowane",
             "remote_daemon_only": "Tylko zdalny demon",
             "local_and_remote_daemon": "Lokalny + zdalny demon",
@@ -632,7 +634,8 @@
                 "receive": "Odbierz",
                 "wxeq": "Wymiany",
                 "staking_pools": "Pula stakingowa",
-                "address_book": "Książka adresowa"
+                "address_book": "Książka adresowa",
+                "wallet_inactivityMessage": "Zostałeś wylogowany z powodu braku aktywności."
             }
         }
     },
