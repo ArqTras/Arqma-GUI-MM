@@ -1077,25 +1077,7 @@ export class WalletRPC {
         return
       }
 
-      const address_txt_path = path.join(
-        this.wallet_dir,
-        filename + ".address.txt"
-      )
-      if (!existsSync(address_txt_path)) {
-        const data = await this.sendRPC("get_address", {
-          account_index: 0
-        })
-        if (
-          data.hasOwnProperty("error") ||
-                    !data.hasOwnProperty("result")
-        ) {
-          return
-        }
-        await writeFile(address_txt_path, data.result.address, "utf8")
-        await this.listWallets()
-      }
-
-      // store hash of the password so we can check against it later when requesting private keys, or for sending txs
+      // Set wallet state first
       this.wallet_state.password_hash = crypto
         .pbkdf2Sync(password, this.auth[2], 1000, 64, "sha512")
         .toString("hex")
@@ -1109,6 +1091,25 @@ export class WalletRPC {
         txs: 0
       }
       this.startHeartbeat()
+
+      // Now handle address file
+      const address_txt_path = path.join(
+        this.wallet_dir,
+        filename + ".address.txt"
+      )
+      if (!existsSync(address_txt_path)) {
+        const addrData = await this.sendRPC("get_address", {
+          account_index: 0
+        })
+        if (
+          addrData.hasOwnProperty("result") &&
+          addrData.result.address
+        ) {
+          await writeFile(address_txt_path, addrData.result.address, "utf8")
+          await this.listWallets()
+        }
+        // If get_address fails, just skip writing the file, but don't return early
+      }
 
       // Check if we have a view only wallet by querying the spend key
       data = await this.sendRPC("query_key", { key_type: "spend_key" })
@@ -3555,14 +3556,21 @@ export class WalletRPC {
     this.stopHeartbeat()
     this.endStakeAcquisition()
     this.backend = null
-    for (
-      let index = this.walletRPCProcesses.length - 1;
-      index >= 0;
-      index--
-    ) {
-      const walletRPCProcess = this.walletRPCProcesses[index]
-      await this.closeWallet()
-      walletRPCProcess.kill("SIGKILL")
-    }
+
+    // Attempt to close all wallets in parallel, handling errors per process
+    const closePromises = this.walletRPCProcesses.map(async (walletRPCProcess, index) => {
+      try {
+        await this.closeWallet()
+      } catch (error) {
+        logger.error(`wallet quit: closeWallet failed for process ${index}: ${error.stack || error}`)
+      }
+      try {
+        walletRPCProcess.kill("SIGKILL")
+      } catch (error) {
+        logger.error(`wallet quit: kill failed for process ${index}: ${error.stack || error}`)
+      }
+    })
+
+    await Promise.all(closePromises)
   }
 }
