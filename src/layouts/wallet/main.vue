@@ -219,6 +219,7 @@ export default defineComponent({
 
     onMounted(async () => {
       try {
+        api.send("wallet", "get_coin_price", {})
         if (!listenersAdded) {
           for (const event of events) {
             window.addEventListener(event, resetInactiveTimeoutFn)
