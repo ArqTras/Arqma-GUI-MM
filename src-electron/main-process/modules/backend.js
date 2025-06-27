@@ -169,6 +169,10 @@ export class Backend {
       this.config_data.app.daysOfTransactions = 1
     }
 
+    if (this.config_data.app.inactivityTimeout === undefined) {
+      this.config_data.app.inactivityTimeout = 1
+    }
+
     this.config_data.app.loggingLevel = process.env.LOG_LEVEL
 
     let remotes
