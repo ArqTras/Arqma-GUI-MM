@@ -9,11 +9,10 @@ import {
   unlink,
   copyFile,
   readdir,
-  constants,
   rename,
   rmdir
 } from "node:fs/promises"
-import { existsSync, mkdirSync } from "node:fs"
+import { existsSync, mkdirSync, createWriteStream, constants } from "node:fs"
 const { default: PQueue } = require("p-queue")
 const axiosDigest = require("./axiosDigest")
 const os = require("os")
@@ -21,7 +20,7 @@ const path = require("upath")
 const crypto = require("crypto")
 const logger = require("./logger")
 const axios = require("axios")
-const fs = require("fs")
+// const fs = require("fs")
 // const zmq = require("zeromq")
 const { Observable, Subject, fromEvent } = require("rxjs")
 const Decimal = require("decimal.js")
@@ -219,11 +218,11 @@ export class WalletRPC {
         logger.error(
           `wallet start: RPCProcess error ${error.stack || error}`
         )
-        process.stderr.write(`Wallet: ${error}`)
+        // process.stderr.write(`Wallet: ${error}`)
       })
       walletRPCProcess.on("close", (code) => {
         logger.info(`wallet start: RPCProcess close ${code}`)
-        process.stderr.write(`Wallet: exited with code ${code} \n`)
+        // process.stderr.write(`Wallet: exited with code ${code} \n`)
       })
 
       // To let caller know when the wallet is ready
@@ -909,13 +908,13 @@ export class WalletRPC {
       }
 
       try {
-        await copyFile(import_path, destination, fs.constants.COPYFILE_EXCL)
+        await copyFile(import_path, destination, constants.COPYFILE_EXCL)
 
         if (existsSync(import_path + ".keys")) {
           await copyFile(
             import_path + ".keys",
             destination + ".keys",
-            fs.constants.COPYFILE_EXCL
+            constants.COPYFILE_EXCL
           )
         }
       } catch (e) {
@@ -1076,14 +1075,12 @@ export class WalletRPC {
         this.sendGateway("set_wallet_error", { status: data.error })
         return
       }
-
       // Set wallet state first
       this.wallet_state.password_hash = crypto
         .pbkdf2Sync(password, this.auth[2], 1000, 64, "sha512")
         .toString("hex")
       this.wallet_state.name = filename
       this.wallet_state.open = true
-
       this.height_check = {
         address: 0,
         pools: 0,
@@ -2383,7 +2380,7 @@ export class WalletRPC {
       } else {
         const allTransactions = await this.getTransactions(0, true)
         const filename = path.join(params.path, "transactions.csv")
-        const writeStream = fs.createWriteStream(filename)
+        const writeStream = createWriteStream(filename)
         for (
           let index = 0;
           index < allTransactions.transactions.tx_list.length;
@@ -3424,6 +3421,9 @@ export class WalletRPC {
   }
 
   parseWalletResponse (res, params) {
+    if (params.method === "open_wallet") {
+      console.log(res)
+    }
     if (res.status === 200) {
       if ("result" in res.data) {
         res.data.params = params

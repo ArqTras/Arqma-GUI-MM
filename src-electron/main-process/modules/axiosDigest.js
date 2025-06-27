@@ -12,32 +12,39 @@ axiosDigest.createHttpClient = function (opts) {
     httpsAgent: new https.Agent({ keepAlive: true })
   })
   let httpDigest
-  let wwwAuth = ""
   instance.defaults.digestHandlerEnabled = false
   if (typeof opts.username !== "undefined" && typeof opts.password !== "undefined") {
     httpDigest = digest.createHttpDigest(opts)
     instance.defaults.digestHandlerEnabled = true
-    instance.defaults._retry = false
   }
 
   instance.interceptors.response.use(function (response) {
-    if (instance.defaults.digestHandlerEnabled) {
-      instance.defaults.headers.Authorization = httpDigest.handleResponse(response.request.method, response.request.path, wwwAuth)
-      httpDigest.incNonce()
-    }
+    // No need to set Authorization header here; it's handled on retry
     return response
   }, function (error) {
-    if (instance.defaults.digestHandlerEnabled && error.response && error.response.status === 401 && instance.defaults._retry === false) {
-      wwwAuth = error.response.headers["www-authenticate"]
-      instance.defaults.headers.Authorization = httpDigest.handleResponse(error.request.method, error.request.path, wwwAuth)
+    if (
+      instance.defaults.digestHandlerEnabled &&
+      error.response &&
+      error.response.status === 401 &&
+      !error.config._retry &&
+      httpDigest
+    ) {
+      const wwwAuth = error.response.headers["www-authenticate"]
+      error.config.headers = error.config.headers || {}
+      error.config.headers.Authorization = httpDigest.handleResponse(
+        error.request.method,
+        error.request.path,
+        wwwAuth
+      )
       httpDigest.incNonce()
-      instance.defaults._retry = true
+      error.config._retry = true
       return instance(error.config)
     }
     return Promise.reject(error)
   })
+
   instance.resetNonces = function () {
-    return httpDigest.resetNonces()
+    if (httpDigest) return httpDigest.resetNonces()
   }
   return instance
 }
