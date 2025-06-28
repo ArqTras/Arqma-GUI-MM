@@ -293,6 +293,7 @@
             <q-btn
               color="positive"
               :label="modals.sweep_all.proceedLabel"
+              :disable="modals.sweep_all.loading"
               @click="modals.sweep_all.proceed()"
             />
           </q-card-actions>
@@ -629,7 +630,8 @@ export default defineComponent({
         proceed: async () => await sweepAll(),
         proceedLabel: t("components.wallet_settings.sweep_all_proceed_label"),
         cancel: async () => await hideModal("sweep_all"),
-        cancelLabel: t("components.wallet_settings.close")
+        cancelLabel: t("components.wallet_settings.close"),
+        loading: false
       },
       key_image: {
         visible: false,
@@ -721,6 +723,7 @@ export default defineComponent({
             break
           case 99:
             if (modals.value.sweep_all.visible) {
+              modals.value.sweep_all.loading = false
               modals.value.sweep_all.message = `${t("components.wallet_settings.sweep_all_fee")} ${message}`
               modals.value.sweep_all.title = t("components.wallet_settings.sweep_all_proceed")
               modals.value.sweep_all.proceed = async () => await sweepAllConfirmed()
@@ -975,6 +978,7 @@ export default defineComponent({
           modals.value.sweep_all.proceed = () => sweepAllProceed()
           modals.value.sweep_all.proceedLabel = t("components.wallet_settings.sweep_all_ok_label")
           modals.value.sweep_all.cancelLabel = t("components.wallet_settings.sweep_all_cancel_label")
+          modals.value.sweep_all.loading = true // Disable button
           api.send("wallet", "sweepAll", { password, do_not_relay: true, origin: "wallet_settings" })
         })
           .onDismiss(() => {})
@@ -982,6 +986,7 @@ export default defineComponent({
             hideModal("sweep_all")
           })
       } catch (error) {
+        modals.value.sweep_all.loading = false
         await api.error("components/wallet_settings", "sweepAll", error.stack || error)
       }
     }
