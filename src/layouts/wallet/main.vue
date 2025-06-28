@@ -214,7 +214,7 @@ export default defineComponent({
       return $store.getters["gateway/isAbleToSend"]
     })
     const events = ["mousemove", "touchmove", "keypress"]
-    const inactivityTimerFn = ref(null)
+    let inactivityTimerFn = null
     let listenersAdded = false
 
     onMounted(async () => {
@@ -245,10 +245,11 @@ export default defineComponent({
     $q.openURL
 
     const resetInactiveTimeoutFn = debounce(() => {
-      if (inactivityTimerFn.value !== null) {
-        clearTimeout(inactivityTimerFn.value)
+      if (inactivityTimerFn !== null) {
+        clearTimeout(inactivityTimerFn)
+        inactivityTimerFn = null
       }
-      inactivityTimerFn.value = setTimeout(() => {
+      inactivityTimerFn = setTimeout(() => {
         if (is_able_to_send.value) {
           switchWallet()
           $q.notify({
@@ -292,7 +293,8 @@ export default defineComponent({
       WalletSettings,
       Formatarqma,
       resetInactiveTimeoutFn,
-      switchWallet
+      switchWallet,
+      inactivityTimeout
     }
   }
 })
