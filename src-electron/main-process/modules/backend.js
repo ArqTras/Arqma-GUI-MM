@@ -467,7 +467,6 @@ export class Backend {
     try {
       const data = await readFile(this.config_file, "utf8")
       disk_config_data = JSON.parse(data)
-      console.log(`disk_config_data: ${JSON.stringify(disk_config_data, null, 2)}`)
       try {
         if (JSON.stringify(disk_config_data.ethereum.networks[0]) !== JSON.stringify(this.ethereum.networks[0])) {
           disk_config_data.ethereum.networks[0] = this.ethereum.networks[0]
