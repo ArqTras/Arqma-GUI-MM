@@ -140,7 +140,12 @@ export class Backend {
       app: {
         data_dir: this.config_dir,
         wallet_data_dir: this.wallet_dir,
-        net_type: "mainnet"
+        net_type: "mainnet",
+        scan: false,
+        promptForPassword: true,
+        daysOfTransactions: 1,
+        loggingLevel: "error",
+        inactivityTimeout: 5
       },
       wallet: {
         rpc_bind_port: 9999,
@@ -155,22 +160,6 @@ export class Backend {
         theme: "dark"
       },
       ...objectAssignDeep({}, { ethereum: this.ethereum })
-    }
-    // this is too long
-    if (this.config_data.app.scan === undefined) {
-      this.config_data.app.scan = false
-    }
-
-    if (this.config_data.app.promptForPassword === undefined) {
-      this.config_data.app.promptForPassword = true
-    }
-
-    if (this.config_data.app.daysOfTransactions === undefined) {
-      this.config_data.app.daysOfTransactions = 1
-    }
-
-    if (this.config_data.app.inactivityTimeout === undefined) {
-      this.config_data.app.inactivityTimeout = 1
     }
 
     this.config_data.app.loggingLevel = process.env.LOG_LEVEL
@@ -478,6 +467,7 @@ export class Backend {
     try {
       const data = await readFile(this.config_file, "utf8")
       disk_config_data = JSON.parse(data)
+      console.log(`disk_config_data: ${JSON.stringify(disk_config_data, null, 2)}`)
       try {
         if (JSON.stringify(disk_config_data.ethereum.networks[0]) !== JSON.stringify(this.ethereum.networks[0])) {
           disk_config_data.ethereum.networks[0] = this.ethereum.networks[0]
@@ -500,12 +490,12 @@ export class Backend {
       return
     }
 
-    // semi-shallow object merge
-    Object.keys(disk_config_data).map(key => {
-      if (!this.config_data.key) {
-        this.config_data[key] = {}
+    Object.keys(disk_config_data).forEach(key => {
+      if (typeof this.config_data[key] === "object" && typeof disk_config_data[key] === "object") {
+        this.config_data[key] = objectAssignDeep({}, this.config_data[key], disk_config_data[key])
+      } else {
+        this.config_data[key] = disk_config_data[key]
       }
-      this.config_data[key] = Object.assign(this.config_data[key], disk_config_data[key])
     })
 
     let port = ""

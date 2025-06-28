@@ -572,7 +572,7 @@ export default defineComponent({
         if (pending_config.value.app.promptForPassword === undefined) { pending_config.value.app.promptForPassword = true }
         if (pending_config.value.app.loggingLevel === undefined) { pending_config.value.app.loggingLevel = "error" }
         if (pending_config.value.app.daysOfTransactions === undefined) { pending_config.value.app.daysOfTransactions = 1 }
-        if (pending_config.value.app.inactivityTimeout === undefined) { pending_config.value.app.inactivityTimeout = 1 }
+        if (pending_config.value.app.inactivityTimeout === undefined) { pending_config.value.app.inactivityTimeout = 5 }
         defaults.value = extend(true, {}, $store.state.gateway.app.defaults)
         remotes.value = extend(true, [], $store.state.gateway.app.remotes)
         ethereum_config.value = extend(true, {}, $store.state.gateway.ethereum)

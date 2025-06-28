@@ -16,7 +16,8 @@ export default {
     net_type: "local",
     promptForPassword: true,
     loggingLevel: "info",
-    daysOfTransactions: 1
+    daysOfTransactions: 1,
+    inactivityTimeout: 5
   },
   ethereum: {},
   wallets: {
