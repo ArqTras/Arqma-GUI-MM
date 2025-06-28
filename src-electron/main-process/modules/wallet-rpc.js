@@ -2008,10 +2008,19 @@ export class WalletRPC {
           i18n: "components.pool_list_tabular.days"
         }
       }
-      const days = Math.ceil(blocks_remaining / 720)
-      return {
-        amount: days.toString(),
-        i18n: "components.pool_list_tabular.days"
+      // 720 blocks per day, 30 blocks per hour
+      if (blocks_remaining < 720) {
+        const hours = blocks_remaining / 30
+        return {
+          amount: hours.toFixed(1),
+          i18n: "components.pool_list_tabular.hours"
+        }
+      } else {
+        const days = Math.ceil(blocks_remaining / 720)
+        return {
+          amount: days.toString(),
+          i18n: "components.pool_list_tabular.days"
+        }
       }
     } catch (error) {
       logger.error(`wallet getUnLockTime ${error.stack || error}`)
