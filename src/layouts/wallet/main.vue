@@ -242,6 +242,10 @@ export default defineComponent({
         }
         listenersAdded = false
       }
+      if (inactivityTimerFn !== null) {
+        clearTimeout(inactivityTimerFn)
+        inactivityTimerFn = null
+      }
     })
 
     // Methods
