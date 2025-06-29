@@ -69,7 +69,10 @@
     </q-header>
 
     <q-page-container>
-      <!-- <AddressHeader :address="info.address" :title="info.name" /> -->
+      <!-- <AddressHeader :address="
+        info.address"
+        :title="info.name"
+      /> -->
       <!--        <WalletDetails />-->
       <div
         class="app-content"
@@ -251,6 +254,8 @@ export default defineComponent({
       }
       inactivityTimerFn = setTimeout(() => {
         if (is_able_to_send.value) {
+          clearTimeout(inactivityTimerFn)
+          inactivityTimerFn = null
           switchWallet()
           $q.notify({
             type: "positive",
