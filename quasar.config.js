@@ -266,7 +266,7 @@ module.exports = configure(function (ctx) {
         // https://www.electron.build/configuration/configuration
         appId: "com.arqma.wallet",
         productName: "Arqma-Wallet",
-        copyright: "Copyright © 2018-2024 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
+        copyright: "Copyright © 2018-2025 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
         buildVersion: "3.2.0",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
         afterSign: "build/notarize.js",
