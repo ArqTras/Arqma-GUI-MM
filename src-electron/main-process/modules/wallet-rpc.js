@@ -30,6 +30,7 @@ export class WalletRPC {
     this.subscriber = null
     this.heightEmitter = null
     this.timeout = 5000
+    this.twoMinuteTimeout = 120000 // 120 seconds
     this.stakeAcquisition = null
     this.isQuitting = false
     this.tx_metadata_list = []
@@ -1656,7 +1657,7 @@ export class WalletRPC {
             get_tx_hex: true
           }
 
-          data = await this.sendRPC(rpc_endpoint, params)
+          data = await this.sendRPC(rpc_endpoint, params, this.twoMinuteTimeout)
           if (data.hasOwnProperty("error")) {
             reply.message = `${data.error.message
               .charAt(0)
