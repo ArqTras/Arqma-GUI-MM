@@ -57,7 +57,7 @@ jobs:
         run: echo "$RUNNER_OS"
 
       - name: Extract binaries
-        if: runner.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           tar -xvf ${{ github.workspace }}/downloads/latest.gz --directory ${{ github.workspace }}
           ls ${{ github.workspace }}/bin
