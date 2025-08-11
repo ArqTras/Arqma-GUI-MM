@@ -93,7 +93,8 @@ export default defineComponent({
       { value: "jp-JP", label: "日本語" }, // Added Japanese
       { value: "ms-MY", label: "Bahasa Melayu" }, // Added Malay
       { value: "ar-SA", label: "العربية" }, // Added Arabic
-      { value: "pt-BR", label: "Português (Brasil)" } // Added Brazilian Portuguese
+      { value: "pt-BR", label: "Português (Brasil)" }, // Added Brazilian Portuguese
+      { value: "ru-RU", label: "Русский" } // Added Russian
     ]
 
     const selectedLocale = computed(() => localeOptions.find(c => c.value === locale.value))
