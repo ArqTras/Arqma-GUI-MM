@@ -1,6 +1,6 @@
 # Quasar App (quasar-project)
 
-A Quasar Project 3.8.0
+A Quasar Project 3.8.1
 
 ## Notice Win 10 support
 
