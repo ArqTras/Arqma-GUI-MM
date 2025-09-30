@@ -149,7 +149,7 @@ export class Backend {
       },
       wallet: {
         rpc_bind_port: 9999,
-        log_level: 0
+        log_level: 1
       }
     }
 

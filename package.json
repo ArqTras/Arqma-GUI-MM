@@ -18,7 +18,7 @@
     "build": "quasar build -m electron",
     "build-mac-x64": "quasar build -m electron -T darwin -A x64",
     "build-mac-arm64": "quasar build -m electron -T darwin -A arm64",
-    "build-windows": "quasar build -m electron -T win32",
+    "build-windows": "quasar build -m electron -T win32 -A x64",
     "build-armv7": "quasar build -m electron -T linux -A armv7l",
     "build-armv8": "quasar build -m electron -T linux -A arm64",
     "lint": "eslint --ext .js,.vue ./",
