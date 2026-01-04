@@ -267,7 +267,7 @@ module.exports = configure(function (ctx) {
         appId: "com.arqma.wallet",
         productName: "Arqma-Wallet",
         copyright: "Copyright © 2018-2025 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
-        buildVersion: "3.8.1",
+        buildVersion: "3.9.0",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
         afterSign: "build/notarize.js",
 
