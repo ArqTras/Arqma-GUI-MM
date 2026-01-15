@@ -272,9 +272,15 @@ module.exports = configure(function (ctx) {
         afterSign: "build/notarize.js",
 
         linux: {
-          target: ["AppImage", "tar.xz"],
+          target: ["AppImage", "tar.xz", "snap"],
           icon: "src-electron/icons/icon_512x512.png",
           category: "Finance"
+        },
+        snap: {
+          confinement: "strict",
+          grade: "stable",
+          summary: "Modern Electron Wallet for Arqma",
+          description: "Modern Electron Wallet for Arqma."
         },
 
         mac: {
