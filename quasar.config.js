@@ -269,7 +269,7 @@ module.exports = configure(function (ctx) {
         copyright: "Copyright © 2018-2025 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
         buildVersion: "3.8.1",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
-        afterSign: "build/notarize.js",
+        // afterSign: "build/notarize.js", // Wyłączone - wygasłe konto deweloperskie
 
         linux: {
           target: ["AppImage", "tar.xz"],
@@ -281,10 +281,9 @@ module.exports = configure(function (ctx) {
           target: ["dmg", "zip"],
           icon: "src-electron/icons/icon.icns",
           category: "public.app-category.finance",
-          hardenedRuntime: true,
-          gatekeeperAssess: false,
-          entitlements: "build/entitlements.mac.plist",
-          entitlementsInherit: "build/entitlements.mac.plist"
+          identity: null, // Wyłączone podpisywanie - wygasłe konto deweloperskie
+          hardenedRuntime: false,
+          gatekeeperAssess: false
         },
 
         dmg: {
