@@ -4,7 +4,7 @@ const electron = require("electron")
 const winston = require("winston")
 const { combine, timestamp, printf, align } = winston.format
 const { getAppDataPath } = require("../../app-data-path")
-const VERSION = "3.8.1"
+const VERSION = "4.0.0"
 
 const dotenv = require("dotenv")
 let environmentFile = ""
