@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - "main"
+      - "dev"
   pull_request:
     branches:
       - "main"
+      - "dev"
 
 jobs:
   build:
@@ -17,6 +19,7 @@ jobs:
         os:
           - windows-latest
           - ubuntu-latest
+          - macos-latest
 
     steps:
       - name: Checkout git repo
@@ -30,23 +33,18 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@latest
 
-      - name: Patch node gyp on self hosted windows 10 to support Visual Studio 2019
-        if: matrix.os == 'Windows'
+      - name: Patch node gyp (Windows)
+        if: matrix.os == 'windows-latest'
         shell: powershell
-        run: |
-            yarn global add node-gyp
+        run: npm install -g node-gyp
 
-#      - name: Configure CMake #need to be installed manually by visual studio
-#        if: matrix.os == 'Windows'
-#        run: npm install --global --production windows-build-tools --vs2015
-
-      - name: npm Linux
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies
         run: npm i --force
-
-      - name: Install dependencies by yarn for Windows 10
-        if: matrix.os == 'Windows'
-        run: yarn
+        env:
+          npm_config_registry: https://registry.npmjs.org/
+          npm_config_fetch_retries: 5
+          npm_config_fetch_retry_mintimeout: 20000
+          npm_config_fetch_retry_maxtimeout: 120000
 
       - name: Download Arqma binaries
         run: node ./build/download-binaries.js
@@ -63,11 +61,24 @@ jobs:
           ls ${{ github.workspace }}/bin
 
       - name: Extract Windows binaries
-        if: runner.os == 'Windows'
+        if: matrix.os == 'windows-latest'
         run: |
           mkdir ${{ github.workspace }}\bin
           tar -xvf ${{ github.workspace }}\downloads\latest.zip -C ${{ github.workspace }}\bin
           dir ${{ github.workspace }}\bin
+
+      - name: Extract macOS binaries
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p bin
+          unzip -o downloads/latest.zip -d bin
+          ls -la bin
+
+      - name: Build macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run build-mac-arm64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish Linux binaries
         if: matrix.os == 'ubuntu-latest'
@@ -76,13 +87,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
       - name: Publish Windows binaries
-        if: matrix.os == 'Windows'
+        if: matrix.os == 'windows-latest'
         run: npm run build-windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB }}
 
   #    - name: Remove un-needed Windows artifacts
-  #      if: matrix.os == 'Windows'
+  #      if: matrix.os == 'windows-latest'
   #      run: |
   #        ls
         #   rm -r -fo win-unpacked
@@ -90,12 +101,12 @@ jobs:
 
       - name: Remove un-needed Linux artifacts
         if: matrix.os == 'ubuntu-latest'
-        run: rm -r -- ./*/
+        run: rm -rf ./*/
         working-directory: ./dist/electron/Packaged
 
 
 #      - name: Upload artifacts Windows
-#        if: matrix.os == 'Windows'
+#        if: matrix.os == 'windows-latest'
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: ${{ runner.os }}
@@ -121,7 +132,7 @@ jobs:
 #         strip_components: 3
 
 #     - name: Copy folder content recursively to remote Windows
-#       if: matrix.os == 'Windows'
+#       if: matrix.os == 'windows-latest'
 #       uses: garygrossgarten/github-action-scp@release
 #       with:
 #         local: ${{ github.workspace }}\dist\electron\Packaged\

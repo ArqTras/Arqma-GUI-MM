@@ -35,8 +35,11 @@ async function download () {
       .map(asset => asset.browser_download_url)
       .find(url => {
         if (platform === "darwin") {
-          return url.includes("osx-x64")
-        } else if (platform === "win32") {
+          return process.arch === "arm64"
+            ? url.includes("build-depends-macOS-arm64")
+            : url.includes("osx-x64") || url.includes("macOS-x64")
+        }
+        if (platform === "win32") {
           return url.includes("win64")
         }
         return url.includes("build-depends-x86_64-linux")

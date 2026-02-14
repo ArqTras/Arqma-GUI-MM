@@ -70,6 +70,15 @@ module.exports = configure(function (ctx) {
       chainWebpack (chain) {
         const nodePolyfillWebpackPlugin = require("node-polyfill-webpack-plugin")
         chain.plugin("node-polyfill").use(nodePolyfillWebpackPlugin)
+        // Axios in renderer uses Buffer; provide it globally so resolve never sees "buffer" as path
+        chain.plugin("provide-buffer").use(require("webpack").ProvidePlugin, [
+          { Buffer: ["buffer", "Buffer"] }
+        ])
+        chain.resolve.merge({
+          fallback: {
+            buffer: require.resolve("buffer/")
+          }
+        })
         chain
           .plugin("eslint-webpack-plugin")
           .use(ESLintPlugin, [{ extensions: ["js", "vue"] }])
@@ -266,8 +275,8 @@ module.exports = configure(function (ctx) {
         // https://www.electron.build/configuration/configuration
         appId: "com.arqma.wallet",
         productName: "Arqma-Wallet",
-        copyright: "Copyright © 2018-2026 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
-        buildVersion: "4.0.0",
+        copyright: "Copyright © 2018-2025 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
+        buildVersion: "4.0.1",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
         // afterSign: "build/notarize.js", // Wyłączone - wygasłe konto deweloperskie
 

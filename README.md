@@ -1,6 +1,6 @@
 # Quasar App (quasar-project)
 
-A Quasar Project 4.0.0
+A Quasar Project 4.0.1
 
 ## Notice Win 10 support
 
@@ -12,6 +12,17 @@ For win 10 x64
 
 https://aka.ms/vs/17/release/vc_redist.x64.exe
 
+## macOS – running on other Macs
+
+The Mac build is distributed without an Apple signature (no active developer account). The app runs on any Mac; on **first launch** the system may show an "unidentified developer" message.
+
+**How to run:**
+1. Open the folder containing the app (e.g. after unzipping the ZIP or mounting the DMG).
+2. Right-click (or Control + click) on **Arqma-Wallet.app**.
+3. Choose **Open** and confirm **Open** in the dialog.
+
+After this one-time step, the app will launch normally with a double-click. You can also allow it in **System Settings → Privacy & Security** if needed.
+
 ## Install the dependencies
 
 ```bash
@@ -19,6 +30,8 @@ yarn
 # or
 npm install
 ```
+
+Dependencies are kept on current minor/patch versions for security fixes while preserving backward compatibility (Node >= 18.19, same major versions of Vue/Quasar/Electron). To check for updates: `npm outdated`; to apply safe fixes: `npm audit fix`.
 
 ### Start the app in development mode (hot-code reloading, error reporting, etc.)
 
