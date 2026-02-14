@@ -107,9 +107,16 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: List artifacts for upload
+      - name: Prepare release files
+        id: release_files
         run: |
-          find artifacts -type f -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.tar.xz" -o -name "*.blockmap" | head -100
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.tar.xz" \) ! -name "*.blockmap" -exec cp {} release-files/ \;
+          COUNT=$(find release-files -type f | wc -l)
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Found $COUNT binaries"
+          ls -la release-files/
+          if [ "$COUNT" -eq 0 ]; then echo "::error::No build artifacts found"; exit 1; fi
 
       - name: Create or update Release
         uses: softprops/action-gh-release@v2
@@ -123,7 +130,7 @@ jobs:
 
             If this release already existed, existing assets have been replaced with new binaries.
           replace_assets: true
-          files: artifacts/**/*
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
