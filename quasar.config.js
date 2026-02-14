@@ -276,7 +276,7 @@ module.exports = configure(function (ctx) {
         appId: "com.arqma.wallet",
         productName: "Arqma-Wallet",
         copyright: "Copyright © 2018-2025 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
-        buildVersion: "4.0.0",
+        buildVersion: "4.0.1",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
         // afterSign: "build/notarize.js", // Wyłączone - wygasłe konto deweloperskie
 
