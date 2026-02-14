@@ -1,5 +1,6 @@
-# On tag push v*: build all platforms and create or update the GitHub release.
-# If the release for this tag already exists, assets are replaced with new binaries.
+# On tag push v*: build all platforms, create/update release here, and add wallet binaries to arqma/arqma latest release.
+# - This repo (Arqma-GUI-MM): release for the tag is created or updated; existing assets are replaced.
+# - github.com/arqma/arqma: wallet binaries are uploaded to that repo's latest release (requires ARQMA_REPO_TOKEN).
 name: Release
 
 on:
@@ -125,3 +126,46 @@ jobs:
           files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Add wallet binaries to the latest release on github.com/arqma/arqma.
+  # Requires repo secret ARQMA_REPO_TOKEN (PAT with repo scope for arqma/arqma).
+  release-arqma-upstream:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ secrets.ARQMA_REPO_TOKEN != '' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Get latest release from arqma/arqma
+        id: arqma_release
+        run: |
+          RESP=$(curl -sS -H "Authorization: token ${{ secrets.ARQMA_REPO_TOKEN }}" \
+            "https://api.github.com/repos/arqma/arqma/releases/latest")
+          echo "upload_url=$(echo "$RESP" | jq -r '.upload_url | split("{")[0]')" >> $GITHUB_OUTPUT
+          echo "tag_name=$(echo "$RESP" | jq -r '.tag_name')" >> $GITHUB_OUTPUT
+          echo "Release: $(echo "$RESP" | jq -r '.tag_name')"
+
+      - name: Upload wallet binaries to arqma/arqma latest release
+        env:
+          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
+          UPLOAD_URL: ${{ steps.arqma_release.outputs.upload_url }}
+        run: |
+          set -e
+          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.AppImage" -o -name "*.tar.xz" \) ! -name "*.blockmap" | while read -r f; do
+            name=$(basename "$f")
+            echo "Uploading $name to arqma/arqma latest release..."
+            curl -sS -f -X POST \
+              -H "Authorization: token $ARQMA_REPO_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary "@$f" \
+              "$UPLOAD_URL?name=$name"
+            echo ""
+          done
+          echo "Done uploading wallet binaries to github.com/arqma/arqma latest release."
