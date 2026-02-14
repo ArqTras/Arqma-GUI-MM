@@ -17,6 +17,7 @@ jobs:
         os:
           - windows-latest
           - ubuntu-latest
+          - macos-latest
 
     steps:
       - name: Checkout git repo
@@ -40,12 +41,12 @@ jobs:
 #        if: matrix.os == 'Windows'
 #        run: npm install --global --production windows-build-tools --vs2015
 
-      - name: npm Linux
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install dependencies (Linux / macOS)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
         run: npm i --force
 
-      - name: Install dependencies by yarn for Windows 10
-        if: matrix.os == 'Windows'
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
         run: yarn
 
       - name: Download Arqma binaries
@@ -63,11 +64,24 @@ jobs:
           ls ${{ github.workspace }}/bin
 
       - name: Extract Windows binaries
-        if: runner.os == 'Windows'
+        if: matrix.os == 'windows-latest'
         run: |
           mkdir ${{ github.workspace }}\bin
           tar -xvf ${{ github.workspace }}\downloads\latest.zip -C ${{ github.workspace }}\bin
           dir ${{ github.workspace }}\bin
+
+      - name: Extract macOS binaries
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p bin
+          unzip -o downloads/latest.zip -d bin
+          ls -la bin
+
+      - name: Build macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run build-mac-arm64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish Linux binaries
         if: matrix.os == 'ubuntu-latest'
@@ -90,7 +104,7 @@ jobs:
 
       - name: Remove un-needed Linux artifacts
         if: matrix.os == 'ubuntu-latest'
-        run: rm -r -- ./*/
+        run: rm -rf ./*/
         working-directory: ./dist/electron/Packaged
 
 

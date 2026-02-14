@@ -12,6 +12,17 @@ For win 10 x64
 
 https://aka.ms/vs/17/release/vc_redist.x64.exe
 
+## macOS – running on other Macs
+
+The Mac build is distributed without an Apple signature (no active developer account). The app runs on any Mac; on **first launch** the system may show an "unidentified developer" message.
+
+**How to run:**
+1. Open the folder containing the app (e.g. after unzipping the ZIP or mounting the DMG).
+2. Right-click (or Control + click) on **Arqma-Wallet.app**.
+3. Choose **Open** and confirm **Open** in the dialog.
+
+After this one-time step, the app will launch normally with a double-click. You can also allow it in **System Settings → Privacy & Security** if needed.
+
 ## Install the dependencies
 
 ```bash
