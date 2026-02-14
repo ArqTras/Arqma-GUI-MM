@@ -128,7 +128,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Add wallet binaries to the latest release on github.com/arqma/arqma.
-  # Requires repo secret ARQMA_REPO_TOKEN (PAT with repo scope for arqma/arqma). Job fails if secret is missing.
+  # Requires repo secret ARQMA_REPO_TOKEN (PAT with repo scope for arqma/arqma).
+  # Note: Cannot use secrets in job-level "if" (GitHub does not allow it).
   release-arqma-upstream:
     needs: build
     runs-on: ubuntu-latest
