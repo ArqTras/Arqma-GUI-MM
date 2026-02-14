@@ -31,6 +31,8 @@ yarn
 npm install
 ```
 
+Dependencies are kept on current minor/patch versions for security fixes while preserving backward compatibility (Node >= 18.19, same major versions of Vue/Quasar/Electron). To check for updates: `npm outdated`; to apply safe fixes: `npm audit fix`.
+
 ### Start the app in development mode (hot-code reloading, error reporting, etc.)
 
 ```bash
