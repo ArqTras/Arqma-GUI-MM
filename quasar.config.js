@@ -70,8 +70,15 @@ module.exports = configure(function (ctx) {
       chainWebpack (chain) {
         const nodePolyfillWebpackPlugin = require("node-polyfill-webpack-plugin")
         chain.plugin("node-polyfill").use(nodePolyfillWebpackPlugin)
-        // Ensure "buffer" resolves to npm package (axios/toFormData in renderer; Linux/macOS CI)
-        chain.resolve.alias.set("buffer", path.join(__dirname, "node_modules/buffer"))
+        // Axios in renderer uses Buffer; provide it globally so resolve never sees "buffer" as path
+        chain.plugin("provide-buffer").use(require("webpack").ProvidePlugin, [
+          { Buffer: ["buffer", "Buffer"] }
+        ])
+        chain.resolve.merge({
+          fallback: {
+            buffer: require.resolve("buffer/")
+          }
+        })
         chain
           .plugin("eslint-webpack-plugin")
           .use(ESLintPlugin, [{ extensions: ["js", "vue"] }])
