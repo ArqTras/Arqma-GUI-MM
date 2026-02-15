@@ -152,14 +152,23 @@ jobs:
 
       - name: Get latest release from arqma/arqma
         id: arqma_release
+        env:
+          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
         run: |
-          RESP=$(curl -sS -H "Authorization: token ${{ secrets.ARQMA_REPO_TOKEN }}" \
+          if [ -z "$ARQMA_REPO_TOKEN" ]; then
+            echo "::warning::ARQMA_REPO_TOKEN not set — skipping upload to arqma/arqma. Add repo secret to enable."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          RESP=$(curl -sS -H "Authorization: token $ARQMA_REPO_TOKEN" \
             "https://api.github.com/repos/arqma/arqma/releases/latest")
           echo "upload_url=$(echo "$RESP" | jq -r '.upload_url | split("{")[0]')" >> $GITHUB_OUTPUT
           echo "tag_name=$(echo "$RESP" | jq -r '.tag_name')" >> $GITHUB_OUTPUT
           echo "Release: $(echo "$RESP" | jq -r '.tag_name')"
+          echo "skip=false" >> $GITHUB_OUTPUT
 
       - name: Upload wallet binaries to arqma/arqma latest release
+        if: steps.arqma_release.outputs.skip != 'true'
         env:
           ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
           UPLOAD_URL: ${{ steps.arqma_release.outputs.upload_url }}
