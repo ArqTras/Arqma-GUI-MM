@@ -50,7 +50,6 @@ jobs:
         run: node ./build/download-binaries.js
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
 
       - name: Display
         run: echo "$RUNNER_OS"

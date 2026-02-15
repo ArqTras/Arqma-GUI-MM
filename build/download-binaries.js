@@ -25,9 +25,8 @@ async function download () {
     const headers = {
       "Content-Type": "application/json"
     }
-    const token = env.ARQMA_REPO_TOKEN || env.GH_TOKEN
-    if (token) {
-      headers.Authorization = `token ${token}`
+    if (env.GH_TOKEN) {
+      headers.Authorization = `token ${env.GH_TOKEN}`
     }
 
     const { data } = await axios.get(repoUrl, { headers })
@@ -50,7 +49,7 @@ async function download () {
     // Use API asset URL so Authorization is accepted (browser_download_url redirects and can 403)
     const downloadHeaders = {
       Accept: "application/octet-stream",
-      ...(token ? { Authorization: `token ${token}` } : {})
+      ...(env.GH_TOKEN ? { Authorization: `token ${env.GH_TOKEN}` } : {})
     }
     console.log("Downloading binary: " + asset.name)
     const { data: artifact } = await axios.get(asset.url, { responseType: "stream", headers: downloadHeaders })

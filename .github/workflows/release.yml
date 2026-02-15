@@ -1,6 +1,4 @@
-# On tag push v*: build all platforms, create/update release here, and add wallet binaries to arqma/arqma latest release.
-# - This repo (Arqma-GUI-MM): release for the tag is created or updated; existing assets are replaced.
-# - github.com/arqma/arqma: wallet binaries are uploaded to that repo's latest release (requires ARQMA_REPO_TOKEN).
+# On tag push v*: build all platforms and create/update release in this repo.
 name: Release
 
 on:
@@ -46,7 +44,6 @@ jobs:
         run: node ./build/download-binaries.js
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
 
       - name: Extract Linux binaries
         if: matrix.os == 'ubuntu-latest'
@@ -135,61 +132,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Add wallet binaries to the latest release on github.com/arqma/arqma.
-  # Requires repo secret ARQMA_REPO_TOKEN (PAT with repo scope for arqma/arqma).
-  # Note: Cannot use secrets in job-level "if" (GitHub does not allow it).
-  release-arqma-upstream:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Get latest release from arqma/arqma
-        id: arqma_release
-        env:
-          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
-        run: |
-          if [ -z "$ARQMA_REPO_TOKEN" ]; then
-            echo "::warning::ARQMA_REPO_TOKEN not set — skipping upload to arqma/arqma. Add repo secret to enable."
-            echo "skip=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          RESP=$(curl -sS -H "Authorization: token $ARQMA_REPO_TOKEN" \
-            "https://api.github.com/repos/arqma/arqma/releases/latest")
-          UPLOAD_URL=$(echo "$RESP" | jq -r 'if .upload_url then (.upload_url | split("{")[0]) else "" end')
-          TAG_NAME=$(echo "$RESP" | jq -r '.tag_name // ""')
-          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
-          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "Release: $TAG_NAME"
-          if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
-            echo "::warning::No valid latest release in arqma/arqma (upload_url empty). Skipping upload."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Upload wallet binaries to arqma/arqma latest release
-        if: steps.arqma_release.outputs.skip != 'true'
-        env:
-          ARQMA_REPO_TOKEN: ${{ secrets.ARQMA_REPO_TOKEN }}
-          UPLOAD_URL: ${{ steps.arqma_release.outputs.upload_url }}
-        run: |
-          set -e
-          find artifacts -type f -name "Arqma-Wallet.*.*.*" ! -name "*.blockmap" | while read -r f; do
-            name=$(basename "$f")
-            echo "Uploading $name to arqma/arqma latest release..."
-            curl -sS -f -X POST \
-              -H "Authorization: token $ARQMA_REPO_TOKEN" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$f" \
-              "$UPLOAD_URL?name=$name"
-            echo ""
-          done
-          echo "Done uploading wallet binaries to github.com/arqma/arqma latest release."
