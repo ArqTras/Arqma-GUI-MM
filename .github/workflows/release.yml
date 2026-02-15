@@ -111,7 +111,7 @@ jobs:
         id: release_files
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.tar.xz" \) ! -name "*.blockmap" -exec cp {} release-files/ \;
+          find artifacts -type f -name "Arqma-Wallet.*.*.*" ! -name "*.blockmap" -exec cp {} release-files/ \;
           COUNT=$(find release-files -type f | wc -l)
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           echo "Found $COUNT binaries"
@@ -165,7 +165,7 @@ jobs:
           UPLOAD_URL: ${{ steps.arqma_release.outputs.upload_url }}
         run: |
           set -e
-          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.AppImage" -o -name "*.tar.xz" \) ! -name "*.blockmap" | while read -r f; do
+          find artifacts -type f -name "Arqma-Wallet.*.*.*" ! -name "*.blockmap" | while read -r f; do
             name=$(basename "$f")
             echo "Uploading $name to arqma/arqma latest release..."
             curl -sS -f -X POST \
