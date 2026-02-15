@@ -49,7 +49,7 @@ async function download () {
     const filePath = path.join(downloadDir, "latest" + extension)
     // Use API asset URL so Authorization is accepted (browser_download_url redirects and can 403)
     const downloadHeaders = {
-      "Accept": "application/octet-stream",
+      Accept: "application/octet-stream",
       ...(token ? { Authorization: `token ${token}` } : {})
     }
     console.log("Downloading binary: " + asset.name)

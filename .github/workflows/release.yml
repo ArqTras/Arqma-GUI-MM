@@ -130,7 +130,7 @@ jobs:
             Fix for macOS build (renderer Buffer resolution and CI).
 
             If this release already existed, existing assets have been replaced with new binaries.
-          replace_assets: true
+          overwrite_files: true
           files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
