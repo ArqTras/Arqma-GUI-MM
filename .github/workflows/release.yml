@@ -162,10 +162,17 @@ jobs:
           fi
           RESP=$(curl -sS -H "Authorization: token $ARQMA_REPO_TOKEN" \
             "https://api.github.com/repos/arqma/arqma/releases/latest")
-          echo "upload_url=$(echo "$RESP" | jq -r '.upload_url | split("{")[0]')" >> $GITHUB_OUTPUT
-          echo "tag_name=$(echo "$RESP" | jq -r '.tag_name')" >> $GITHUB_OUTPUT
-          echo "Release: $(echo "$RESP" | jq -r '.tag_name')"
-          echo "skip=false" >> $GITHUB_OUTPUT
+          UPLOAD_URL=$(echo "$RESP" | jq -r 'if .upload_url then (.upload_url | split("{")[0]) else "" end')
+          TAG_NAME=$(echo "$RESP" | jq -r '.tag_name // ""')
+          echo "upload_url=$UPLOAD_URL" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Release: $TAG_NAME"
+          if [ -z "$UPLOAD_URL" ] || [ "$UPLOAD_URL" = "null" ]; then
+            echo "::warning::No valid latest release in arqma/arqma (upload_url empty). Skipping upload."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload wallet binaries to arqma/arqma latest release
         if: steps.arqma_release.outputs.skip != 'true'
