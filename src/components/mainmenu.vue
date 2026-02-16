@@ -218,12 +218,10 @@ export default defineComponent({
             style: "min-width: 500px; overflow-wrap: break-word;",
             dark: theme.value === "dark"
           })
-          .onOk(() => {
+          .onOk(async () => {
+            await api.send("wallet", "close_wallet")
             router.push({ path: "/wallet-select" })
-            api.send("wallet", "close_wallet")
             setTimeout(() => {
-              // short delay to prevent wallet data reaching the
-              // websocket moments after we close and reset data
               $store.dispatch("gateway/resetWalletData")
             }, 250)
           })

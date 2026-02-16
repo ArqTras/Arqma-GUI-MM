@@ -188,9 +188,11 @@ ipcMain.handle("confirmClose", (event, restart) => {
   })
 })
 
-ipcMain.handle("foo:send", (event, message) => {
+ipcMain.handle("foo:send", async (event, message) => {
   logger.info(`electron-main foo:send ${JSON.stringify(message)}`)
-  backend.receive(message)
+  if (backend) {
+    await backend.receive(message)
+  }
 })
 
 ipcMain.handle("foo:isDevelopment", (event, message) => {

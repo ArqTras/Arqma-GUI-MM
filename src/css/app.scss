@@ -456,9 +456,9 @@ footer,
     }
 
     .router-link-exact-active > .q-btn {
-        background: $arqma-green;
+        background: $arqma-black-90;
+        border-bottom: 3px solid #333;
     }
-
 }
 .wallet-list {
     .q-item-label {

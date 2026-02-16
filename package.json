@@ -75,6 +75,9 @@
     "husky": "9.1.4",
     "jest": "29.3.1"
   },
+  "overrides": {
+    "@paulmillr/qr": "qr"
+  },
   "browserslist": [
     "last 10 Chrome versions",
     "last 10 Firefox versions",

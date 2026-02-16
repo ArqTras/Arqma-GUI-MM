@@ -280,12 +280,10 @@ export default defineComponent({
       }
     }
 
-    const switchWallet = () => {
+    const switchWallet = async () => {
+      await api.send("wallet", "close_wallet")
       router.push({ path: "/wallet-select" })
-      api.send("wallet", "close_wallet")
       setTimeout(() => {
-        // short delay to prevent wallet data reaching the
-        // websocket moments after we close and reset data
         $store.dispatch("gateway/resetWalletData")
       }, 250)
     }
