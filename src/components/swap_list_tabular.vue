@@ -71,7 +71,7 @@
             <div>
               <q-btn
                 size="sm"
-                color="green"
+                color="positive"
                 :label="$t('pages.wallet.swap.accept_transfer')"
                 @click="completeExchange(item)"
               />
@@ -97,7 +97,7 @@
             <div>
               <q-btn
                 size="sm"
-                color="green"
+                color="positive"
                 :label="$t('pages.wallet.swap.processing')"
                 class="no-pointer-events"
               />

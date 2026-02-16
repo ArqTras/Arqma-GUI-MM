@@ -31,7 +31,7 @@
           <q-btn
             class="col-auto"
             :disable="disconnected"
-            color="green"
+            color="positive"
             :label="$t('pages.wallet.swap.add_asset_to_wallet')"
             @click="requestAddAsset()"
           />&nbsp;&nbsp;

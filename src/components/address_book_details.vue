@@ -8,8 +8,7 @@
   >
     <q-layout v-if="mode == 'edit' || mode == 'new'">
       <q-header
-        class="row justify-between items-center"
-        style="border-bottom: 1px solid white"
+        class="row justify-between items-center header-border-bottom"
       >
         <q-toolbar
           color="dark"
@@ -126,8 +125,7 @@
 
     <q-layout v-else>
       <q-header
-        class="row justify-between items-center"
-        style="border-bottom: 1px solid white"
+        class="row justify-between items-center header-border-bottom"
       >
         <q-toolbar
           color="dark"
