@@ -322,14 +322,8 @@ module.exports = configure(function (ctx) {
         extraResources: [
           "bin"
         ],
-        publish: {
-          provider: "github",
-          repo: "Arqma-GUI-MM",
-          owner: "ArqTras",
-          releaseType: "release",
-          publishAutoUpdate: true,
-          private: true
-        }
+        // Publikacja release przez GitHub Actions; lokalny build bez GH_TOKEN
+        publish: null
       },
 
       // "chain" is a webpack-chain object https://github.com/neutrinojs/webpack-chain
