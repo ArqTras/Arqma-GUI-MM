@@ -1,6 +1,6 @@
 {
   "name": "arqma-wallet",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Modern Electron Wallet for Arqma",
   "productName": "Arqma-Electron-Wallet",
   "repository": {

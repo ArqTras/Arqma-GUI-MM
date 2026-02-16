@@ -108,6 +108,7 @@ export class WalletRPC {
         auth.slice(128, 32) // password salt
       ]
 
+      const logLevel = options.wallet.log_level !== undefined ? options.wallet.log_level : 1
       const args = [
         "--rpc-login",
         this.auth[0] + ":" + this.auth[1],
@@ -115,10 +116,8 @@ export class WalletRPC {
         options.wallet.rpc_bind_port,
         "--daemon-address",
         daemon_address,
-        // "--log-level", options.wallet.log_level,
         "--log-level",
-        // "--trusted-daemon",
-        "*:WARNING,net*:FATAL,net.http:DEBUG,global:INFO,verify:FATAL,stacktrace:INFO"
+        String(logLevel)
       ]
 
       this.net_type = net_type
@@ -1090,6 +1089,14 @@ export class WalletRPC {
       }
       this.startHeartbeat()
 
+      // Od razu wyślij aktualną wysokość do UI, żeby w stopce widać było postęp skanowania
+      this.sendRPC("getheight", {}, this.timeout).then((rpcHeight) => {
+        if (rpcHeight && !rpcHeight.error && rpcHeight.result && rpcHeight.result.height !== undefined) {
+          this.wallet_state.height = rpcHeight.result.height
+          this.sendGateway("set_wallet_info", { name: this.wallet_state.name, height: rpcHeight.result.height })
+        }
+      }).catch(() => {})
+
       // Now handle address file
       const address_txt_path = path.join(
         this.wallet_dir,
@@ -1283,7 +1290,8 @@ export class WalletRPC {
           }
         }
       }
-      if (hasHeightChange || hasBalanceChange) {
+      // Zawsze wysyłaj set_wallet_info gdy mamy height, żeby stopka pokazywała postęp skanowania
+      if (info.height !== undefined || hasBalanceChange) {
         this.sendGateway("set_wallet_info", info)
         this.sendGateway("reset_wallet_status", {
           code: 0,
