@@ -1089,6 +1089,9 @@ export class WalletRPC {
       }
       this.startHeartbeat()
 
+      // Unblock UI immediately so user is not stuck on spinner (loading hides and navigates to /wallet)
+      this.sendGateway("reset_wallet_status", { code: 0, message: "OK" })
+
       // Send current wallet height to UI immediately so footer shows scanning progress (including height 0)
       this.sendRPC("getheight", {}, this.timeout).then((rpcHeight) => {
         if (rpcHeight && !rpcHeight.error && rpcHeight.result && rpcHeight.result.height !== undefined) {

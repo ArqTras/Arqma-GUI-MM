@@ -5,10 +5,21 @@ import { LocalStorage } from "quasar"
 
 export const SUPPORT_LOCALES = ["en-US", "de-DE", "fr-FR", "ua-UA", "pl-PL"]
 
+function normalizeLocale (locale) {
+  if (!locale || typeof locale !== "string") return "en-US"
+  const parts = locale.split("-")
+  if (parts.length >= 2) {
+    parts[0] = parts[0].toLowerCase()
+    parts[1] = parts[1].toUpperCase()
+    return parts.join("-")
+  }
+  return locale
+}
+
 let language = "en-US"
 try {
   if (LocalStorage.has("language")) {
-    language = LocalStorage.getItem("language")
+    language = normalizeLocale(LocalStorage.getItem("language"))
   }
 } catch (error) {}
 
@@ -38,13 +49,13 @@ export function setI18nLanguage (i18n, locale) {
 }
 
 export async function loadLocaleMessages (i18n, locale) {
-  // load locale messages with dynamic import
+  const normalized = normalizeLocale(locale)
   const messages = await import(
-    /* webpackChunkName: "locale-[request]" */ `src/locales/${locale}.json`
+    /* webpackChunkName: "locale-[request]" */ `src/locales/${normalized}.json`
   )
-  // set locale and locale message
-  i18n.global.setLocaleMessage(locale, messages)
-  LocalStorage.set("language", locale)
+  i18n.global.setLocaleMessage(normalized, messages)
+  setI18nLanguage(i18n, normalized)
+  LocalStorage.set("language", normalized)
   return nextTick()
 }
 
