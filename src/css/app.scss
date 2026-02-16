@@ -257,7 +257,6 @@ footer,
     }
 
     .status-bars {
-
         div {
             height: 3px;
             position: absolute;
@@ -265,24 +264,7 @@ footer,
             left: 0;
             -webkit-transition: width 0.5s ease-out;
             transition: width 0.5s ease-out;
-        }
-
-        div:first-child {
-            background-color: $arqma-green-dark-solid;
-        }
-
-        div:last-child {
-            background-color: $arqma-green-solid;
-        }
-    }
-
-    .status-bars.syncing, .status-bars.scanning {
-        div:first-child {
-            background-color: #bc8f1c;
-        }
-
-        div:last-child {
-            background-color:goldenrod;
+            background-color: #333;
         }
     }
 
