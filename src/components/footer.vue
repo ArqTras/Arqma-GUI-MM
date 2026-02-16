@@ -146,18 +146,16 @@ export default defineComponent({
     })
 
     const wallet_pct = computed(() => {
-      if (target_height.value && walletHeight.value) {
-        const pct = (100 * walletHeight.value) / target_height.value
-        // If walletHeight is less than target but pct rounds to 100, show 99.9
-        if (
-          walletHeight.value < target_height.value &&
-          Math.round(pct * 10) / 10 >= 100
-        ) {
-          return 99.9
-        }
-        return Math.min(Number(pct.toFixed(1)), 100)
+      if (!target_height.value) return 0
+      const wh = Number(walletHeight.value) || 0
+      const target = Number(target_height.value)
+      const pct = (100 * wh) / target
+      if (wh < target && Math.round(pct * 10) / 10 >= 100) {
+        return 99.9
       }
-      return 0
+      // Show 2 decimals when < 100% so scanning progress is visible near the end
+      const decimals = pct >= 100 ? 1 : 2
+      return Math.min(Number(pct.toFixed(decimals)), 100)
     })
 
     const status = computed(() => {
@@ -165,26 +163,23 @@ export default defineComponent({
       if (!target_height.value) {
         return result
       }
+      const wh = Number(walletHeight.value)
+      const target = Number(target_height.value)
+      const walletBehind = wh < target - 1
       if (config_daemon.value.type === "local") {
-        if (daemon.value.info.height_without_bootstrap < target_height.value) {
+        if (daemon.value.info.height_without_bootstrap < target) {
           result = t("components.footer.syncing")
-        } else if (
-          walletHeight.value < target_height.value - 1 &&
-          walletHeight.value !== 0
-        ) {
+        } else if (walletBehind) {
           result = t("components.footer.scanning")
         } else {
           result = t("components.footer.ready")
         }
       } else {
-        if (
-          walletHeight.value < target_height.value - 1 &&
-          walletHeight.value !== 0
-        ) {
+        if (walletBehind) {
           result = t("components.footer.scanning")
         } else if (
           config_daemon.value.type === "local_remote" &&
-          daemon.value.info.height_without_bootstrap < target_height.value
+          daemon.value.info.height_without_bootstrap < target
         ) {
           result = t("components.footer.syncing")
         } else {

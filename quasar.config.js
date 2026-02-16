@@ -47,6 +47,18 @@ module.exports = configure(function (ctx) {
     build: {
       vueRouterMode: "hash", // available values: 'hash', 'history'
 
+      // Silence Sass deprecations (import, legacy-js-api) for Quasar/deps; cross-platform (Linux, Windows, macOS)
+      scssLoaderOptions: {
+        sassOptions: {
+          silenceDeprecations: ["import", "legacy-js-api"]
+        }
+      },
+      sassLoaderOptions: {
+        sassOptions: {
+          silenceDeprecations: ["import", "legacy-js-api"]
+        }
+      },
+
       // transpile: false,
       // publicPath: '/',
 

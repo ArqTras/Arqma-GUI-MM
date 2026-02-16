@@ -1,5 +1,5 @@
-// app global css
-@import 'quasar.variables';
+// app global css (use @use for Dart Sass 2.x compatibility; cross-platform)
+@use 'quasar.variables' as *;
 
 @font-face {
     font-family: 'Roboto-Light';
@@ -484,29 +484,33 @@ footer,
     }
 
     .q-item {
-        background: $secondary;
+        background: $arqma-list-accent;
+        border-bottom: 1px solid $arqma-black-90;
         .wallet-icon {
-            color: $tertiary;
-            g,path {
-                fill: $tertiary;
+            color: $arqma-black-90;
+            g, path {
+                fill: $arqma-black-90;
             }
         }
     }
 
+    .q-item:last-child {
+        border-bottom: none;
+    }
+
     .q-item:hover, .q-item.selected {
-        background: $primary !important;
+        background: $arqma-green-solid !important;
 
         .wallet-icon {
-            color:$primary;
-            g,path {
-                fill: $primary;
+            color: $arqma-black-90;
+            g, path {
+                fill: $arqma-black-90;
             }
         }
 
         .q-icon {
             color: white;
         }
-
     }
 }
 

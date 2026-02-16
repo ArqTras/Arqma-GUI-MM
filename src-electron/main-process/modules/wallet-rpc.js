@@ -206,12 +206,12 @@ export class WalletRPC {
         }
 
         const now = Date.now() / 1000
-        if (height && now - this.last_height_send_time >= 5) {
-          // NOTE: we divided by 1000 so seconds are not expressed as 1000 anymore. duh!
+        if (height != null && now - this.last_height_send_time >= 2) {
           this.last_height_send_time = now
-          this.sendGateway("set_wallet_info", {
-            height
-          })
+          const heightNum = parseInt(height, 10)
+          if (!Number.isNaN(heightNum)) {
+            this.sendGateway("set_wallet_info", { height: heightNum })
+          }
         }
       })
       walletRPCProcess.on("error", (error) => {
@@ -1089,11 +1089,12 @@ export class WalletRPC {
       }
       this.startHeartbeat()
 
-      // Od razu wyślij aktualną wysokość do UI, żeby w stopce widać było postęp skanowania
+      // Send current wallet height to UI immediately so footer shows scanning progress (including height 0)
       this.sendRPC("getheight", {}, this.timeout).then((rpcHeight) => {
         if (rpcHeight && !rpcHeight.error && rpcHeight.result && rpcHeight.result.height !== undefined) {
-          this.wallet_state.height = rpcHeight.result.height
-          this.sendGateway("set_wallet_info", { name: this.wallet_state.name, height: rpcHeight.result.height })
+          const h = Number(rpcHeight.result.height)
+          this.wallet_state.height = h
+          this.sendGateway("set_wallet_info", { name: this.wallet_state.name, height: h })
         }
       }).catch(() => {})
 
