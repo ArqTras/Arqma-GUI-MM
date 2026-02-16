@@ -290,7 +290,7 @@ module.exports = configure(function (ctx) {
         copyright: "Copyright © 2018-2026 Arqma Project, 2020 Ryo Currency Project, 2020 Loki Network",
         buildVersion: "4.0.2",
         artifactName: "Arqma-Wallet.${version}.${os}.${arch}.${ext}",
-        // afterSign: "build/notarize.js", // disabled — expired dev signing account
+        // afterSign: "build/notarize.js", // Wyłączone - wygasłe konto deweloperskie
 
         linux: {
           target: ["AppImage", "tar.xz"],
@@ -302,7 +302,7 @@ module.exports = configure(function (ctx) {
           target: ["dmg", "zip"],
           icon: "src-electron/icons/icon.icns",
           category: "public.app-category.finance",
-          identity: null, // code signing off — expired dev account
+          identity: null, // Wyłączone podpisywanie - wygasłe konto deweloperskie
           hardenedRuntime: false,
           gatekeeperAssess: false
         },
@@ -322,14 +322,8 @@ module.exports = configure(function (ctx) {
         extraResources: [
           "bin"
         ],
-        publish: {
-          provider: "github",
-          repo: "Arqma-GUI-MM",
-          owner: "ArqTras",
-          releaseType: "release",
-          publishAutoUpdate: true,
-          private: true
-        }
+        // Publikacja release przez GitHub Actions; lokalny build bez GH_TOKEN
+        publish: null
       },
 
       // "chain" is a webpack-chain object https://github.com/neutrinojs/webpack-chain
