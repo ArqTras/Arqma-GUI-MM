@@ -79,7 +79,7 @@
           {{ daemonVersion }}
         </p>
         <p class="q-my-sm">
-          Copyright (c) 2018-2025, Arqma Project
+          Copyright (c) 2018-2026, Arqma Project
         </p>
         <p class="q-my-sm">
           Copyright (c) 2018-2019, Loki Project

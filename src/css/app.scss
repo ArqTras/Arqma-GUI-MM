@@ -282,10 +282,10 @@ footer,
     .q-item.tx-snode,
     .q-item.tx-gov {
         .amount span {
-            color: #43bd43;
+            color: $arqma-green-solid;
             &:before {
                 content: "+";
-                color: #43bd43;
+                color: $arqma-green-solid;
             }
         }
     }
@@ -445,8 +445,17 @@ footer,
 
 .hr-separator {
     height: 2px;
-    background: $secondary;
-    opacity: 0.4;
+    background: $arqma-green-dark-solid;
+    opacity: 0.6;
+}
+
+.header-border-bottom {
+    border-bottom: 1px solid $arqma-green-dark-solid !important;
+}
+
+.q-separator {
+    background: $arqma-green-dark-solid !important;
+    opacity: 0.6;
 }
 
 .navigation {
@@ -502,8 +511,8 @@ footer,
     }
 
     .q-separator-component {
-        background-color: $secondary;
-        opacity: 0.4;
+        background: $arqma-green-dark-solid;
+        opacity: 0.6;
     }
 
     .primary-address {

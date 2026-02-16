@@ -1,8 +1,7 @@
 <template>
   <q-layout view="hHh Lpr lFf">
     <q-header
-      class="row justify-between items-center"
-      style="border-bottom: 1px solid white"
+      class="row justify-between items-center header-border-bottom"
     >
       <div class="col-2">
         <div
