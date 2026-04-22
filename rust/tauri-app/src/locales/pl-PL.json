@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Sprawdź opłatę",
                 "tx_status_title": "Potwierdź opłatę",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "ANULUJ"
+                "tx_status_cancel_label": "ANULUJ",
+                "calculating_fee": "Obliczanie opłaty…"
             },
             "staking_pools": {
                 "network_stats": "Statystyki sieci",

@@ -1,9 +1,9 @@
-//! Wspólne szukanie `arqmad` / `arqma-wallet-rpc` w `resource/bin` (bundle) albo lokalnie w dev.
+//! Resolve `arqmad` / `arqma-wallet-rpc` in `resource/bin` (bundle) or locally in dev.
 use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri::Manager;
 
-/// Ścieżka do pliku w `.../resource/bin/`, a w dev: `./bin` lub `./binaries`.
+/// Path to a file under `.../resource/bin/`, or in dev `./bin` or `./binaries`.
 pub fn find_resource_bin (app: &AppHandle, win: &str, unix: &str) -> Option<PathBuf> {
   if let Ok(res) = app.path().resource_dir() {
     let p = if cfg!(windows) {

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-/// Ścieżki danych użytkownika (odpowiednik `Backend.config_dir` / `wallet_dir` z `backend.js`).
+/// User data paths (same idea as `Backend.config_dir` / `wallet_dir` in `backend.js`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArqmaPaths {
     pub config_dir: String,
     pub wallet_dir: String,
 }
 
-/// Domyślne węzły zdalne (z `Backend.defaultRemotes` w starym backendzie).
+/// Default remote nodes (from `Backend.defaultRemotes` in the legacy backend).
 pub fn default_remote_nodes() -> Vec<RemoteNode> {
     (1..=5)
         .map(|n| RemoteNode {
@@ -23,7 +23,7 @@ pub struct RemoteNode {
     pub port: u16,
 }
 
-/// Migawka pól, które UI ładowało z `set_app_data` (uproszczona; będzie rozszerzana przy porcie `WalletRPC`).
+/// Snapshot of fields the UI loaded via `set_app_data` (simplified; extended when porting `WalletRPC`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigSnapshot {
     pub net_type: String,
@@ -41,7 +41,7 @@ impl AppConfigSnapshot {
     }
 }
 
-/// Oblicz domyślne ścieżki dla bieżącego OS (Windows vs reszta).
+/// Compute default paths for the current OS (Windows vs Unix).
 pub fn default_paths() -> ArqmaPaths {
     if cfg!(target_os = "windows") {
         let home = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".into());

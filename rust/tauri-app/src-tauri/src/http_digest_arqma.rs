@@ -1,4 +1,4 @@
-//! Logika `httpDigest.js` (MD5, qop) — wymagana przez `arqma-wallet-rpc` (HTTP digest).
+//! `httpDigest.js` logic (MD5, qop) — required by `arqma-wallet-rpc` (HTTP digest).
 
 use md5;
 use rand::Rng;
@@ -87,7 +87,7 @@ pub fn response_hash (
   }
 }
 
-/// Buduje nagłówek `Authorization: Digest ...` (wzorowane na `renderDigest`).
+/// Build `Authorization: Digest ...` header (based on `renderDigest`).
 pub fn build_digest_header (
   method: &str,
   path: &str,
@@ -124,7 +124,7 @@ pub fn build_digest_header (
   Ok(format!("Digest {}", parts.join(", ")))
 }
 
-/// Zwiększa `nc` jak `incNonce` w `httpDigest.js` (8 cyfr szesnastkowych).
+/// Increment `nc` like `incNonce` in `httpDigest.js` (8 hex digits).
 pub fn inc_nc (nc: &str) -> String {
   if nc == "ffffffff" {
     return "00000001".to_string();

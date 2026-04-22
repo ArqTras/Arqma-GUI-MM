@@ -13,7 +13,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-/// Sekwencja startu (`Backend.startup` w Node): config, węzeł, `daemon_heartbeat`, opcjonalnie `arqma-wallet-rpc`, lista portfeli.
+/// Startup sequence (`Backend.startup` in Node): config, daemon, `daemon_heartbeat`, optional `arqma-wallet-rpc`, wallet list.
 pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, http: &Client) -> Result<(), String> {
   let snap = load_config_snapshot(&st.paths).map_err(|e| e.to_string())?;
   st.defaults = snap.defaults.clone();

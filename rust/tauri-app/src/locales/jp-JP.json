@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "手数料を確認",
                 "tx_status_title": "手数料の確認",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "キャンセル"
+                "tx_status_cancel_label": "キャンセル",
+                "calculating_fee": "手数料を計算しています…"
             },
             "staking_pools": {
                 "network_stats": "ネットワーク統計",

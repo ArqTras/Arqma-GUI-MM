@@ -11,7 +11,7 @@ use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
 
-/// Obsługa `module == "core"` w `Backend.handle` (IPC jak w Node: init, config, URL, eksport SVG/PNG, explorer).
+/// Handles `module == "core"` in `Backend.handle` (IPC like Node: init, config, URL, SVG/PNG export, explorer).
 pub async fn handle_core (
   app: &AppHandle,
   st: &mut WalletBackendState,
@@ -149,7 +149,7 @@ pub async fn handle_core (
       let u = params
         .get("url")
         .and_then(|x| x.as_str())
-        .ok_or_else(|| "open_url: brak url".to_string())?;
+        .ok_or_else(|| "open_url: missing url".to_string())?;
       open::that(u).map_err(|e| e.to_string())?;
     }
     "open_explorer" => {
@@ -171,7 +171,7 @@ pub async fn handle_core (
       let id = params
         .get("id")
         .and_then(|i| i.as_str())
-        .ok_or_else(|| "open_explorer: brak id".to_string())?;
+        .ok_or_else(|| "open_explorer: missing id".to_string())?;
       let url = format!("https://explorer.arqma.com/{end}/{id}");
       open::that(&url).map_err(|e| e.to_string())?;
     }
@@ -187,7 +187,7 @@ pub async fn handle_core (
       let svg = params
         .get("svg")
         .and_then(|s| s.as_str())
-        .ok_or_else(|| "save_svg: brak svg".to_string())?
+        .ok_or_else(|| "save_svg: missing svg".to_string())?
         .to_string();
       let path = rfd::FileDialog::new()
         .set_title(&title)
@@ -223,7 +223,7 @@ pub async fn handle_core (
       let img = params
         .get("img")
         .and_then(|i| i.as_str())
-        .ok_or_else(|| "save_png: brak img".to_string())?;
+        .ok_or_else(|| "save_png: missing img".to_string())?;
       let b64 = img
         .strip_prefix("data:image/png;base64,")
         .or_else(|| img.strip_prefix("data:image/png;base64;"))
@@ -256,7 +256,7 @@ pub async fn handle_core (
       }
     }
     _ => {
-      eprintln!("[core] nieobsługiwane: {method}");
+      eprintln!("[core] unsupported method: {method}");
     }
   }
   Ok(Value::Null)
@@ -266,7 +266,7 @@ fn empty_data () -> Value {
   json!({})
 }
 
-/// Nowy węzeł zdalny `mainnet` → dopisanie do `remotes.json` (jak w `backend.js` przy `save_config`).
+/// New remote `mainnet` node → append to `remotes.json` (as in `backend.js` on `save_config`).
 fn maybe_push_mainnet_remote_to_disk (
   st: &mut WalletBackendState,
   params: &Value,
@@ -306,7 +306,7 @@ fn maybe_push_mainnet_remote_to_disk (
   Ok(())
 }
 
-/// Argument `invoke("backend_send", { message: ... })` z frontu.
+/// Payload for `invoke("backend_send", { message: ... })` from the frontend.
 #[derive(Deserialize)]
 pub struct IpcMessage {
   pub module: String,

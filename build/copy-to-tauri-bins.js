@@ -1,6 +1,6 @@
 /**
- * Kopiuje binaria z katalogu ./bin (po rozpakowaniu w CI) do
- * rust/tauri-app/src-tauri/bin/ aby `tauri build` dołączył je jako resources.
+ * Copy binaries from ./bin (after CI extract) into rust/tauri-app/src-tauri/bin/
+ * so `tauri build` bundles them as resources.
  */
 const fs = require("fs")
 const path = require("path")
@@ -11,7 +11,7 @@ const dstDir = path.join(root, "rust", "tauri-app", "src-tauri", "bin")
 
 function main () {
   if (!fs.existsSync(srcDir)) {
-    console.log("[copy-to-tauri-bins] brak katalogu bin — pomijam (build bez zewn. binariów).")
+    console.log("[copy-to-tauri-bins] no ./bin directory — skipping (build without external binaries).")
     return
   }
   fs.mkdirSync(dstDir, { recursive: true })
@@ -25,7 +25,7 @@ function main () {
     fs.copyFileSync(s, path.join(dstDir, name))
     n++
   }
-  console.log(`[copy-to-tauri-bins] skopiowano ${n} plik(ów) do ${dstDir}`)
+  console.log(`[copy-to-tauri-bins] copied ${n} file(s) to ${dstDir}`)
 }
 
 main()

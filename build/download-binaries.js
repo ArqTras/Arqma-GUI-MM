@@ -1,6 +1,6 @@
 /**
- * Pobiera binaria z GitHub Releases (API Arqma).
- * Używa wyłącznie Node 20 (fetch, fs) — bez axios/fs-extra, żeby działało w CI przed npm install.
+ * Download Arqma binaries from GitHub Releases (Arqma API).
+ * Uses Node 20+ only (fetch, fs) — no axios/fs-extra so CI can run this before npm install.
  */
 const { createWriteStream } = require("fs")
 const fsp = require("fs/promises")

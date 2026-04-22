@@ -1,4 +1,4 @@
-//! Opcjonalne narzędzia CLI — rozszerzenia (logi, status daemona) można dodać tutaj.
+//! Optional CLI utilities — extend here (logs, daemon status, etc.).
 
 use arqma_wallet_core::default_remote_nodes;
 

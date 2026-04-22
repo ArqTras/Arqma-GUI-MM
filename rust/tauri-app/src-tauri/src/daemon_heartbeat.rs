@@ -1,4 +1,4 @@
-//! Pętla `get_info` / `get_connections` / `get_bans` jak `Daemon.heartbeat` w Electron.
+//! `get_info` / `get_connections` / `get_bans` loop like `Daemon.heartbeat` in Electron.
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
@@ -10,7 +10,7 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tokio::time::{interval, MissedTickBehavior};
 
-/// Uruchomienie tła po udanym `ensure_daemon_for_startup` (5 s lokal / 60 s zdal, slow co 60 s tylko lokal).
+/// Start background loop after successful `ensure_daemon_for_startup` (5s local / 60s remote; slow path every 60s, local only).
 pub fn start (app: &AppHandle, st: &mut WalletBackendState, is_local: bool, http: &Client) {
   if let Some(h) = st.daemon_heartbeat.take() {
     h.abort();

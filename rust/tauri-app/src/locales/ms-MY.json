@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Semak Yuran",
                 "tx_status_title": "Sahkan Yuran",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "BATAL"
+                "tx_status_cancel_label": "BATAL",
+                "calculating_fee": "Mengira yuran…"
             },
             "staking_pools": {
                 "network_stats": "Statistik Rangkaian",

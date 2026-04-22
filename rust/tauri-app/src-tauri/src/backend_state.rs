@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tokio::task::JoinHandle;
 
-/// Metadane oczekującego `relay_tx` (jak `tx_metadata_list` w `wallet-rpc.js`).
+/// Metadata pending `relay_tx` (like `tx_metadata_list` in `wallet-rpc.js`).
 #[derive(Debug, Clone, Serialize)]
 pub struct WalletTxMetadata {
   pub tx_metadata: String,
@@ -20,7 +20,7 @@ pub struct WalletTxMetadata {
   pub service_node_key: Option<String>
 }
 
-/// Stan odpowiadający `this.config_data` / `this.remotes` w `Backend` (Node).
+/// Backend state matching `this.config_data` / `this.remotes` in Node `Backend`.
 pub struct WalletBackendState {
   pub paths: ArqmaPaths,
   pub config_data: Value,
@@ -28,30 +28,30 @@ pub struct WalletBackendState {
   pub remotes: Value,
   pub ethereum: Value,
   pub startup_seq_done: bool,
-  /// Sól PBKDF2 (hex) do porównań haseł — jak `this.auth[2]` w `wallet-rpc.js`.
+  /// PBKDF2 salt (hex) for password checks — like `this.auth[2]` in `wallet-rpc.js`.
   pub wallet_salt: String,
-  /// Odcisk hasła (hex 128 znaków), jak `this.wallet_state.password_hash` w Node.
+  /// Password hash (128 hex chars), like `this.wallet_state.password_hash` in Node.
   pub wallet_password_hash_hex: Option<String>,
   pub wallet: Option<WalletRpcClient>,
   pub wallet_process: Option<std::process::Child>,
-  /// Lokalny `arqmad` (pusty w trybie `type: remote`).
+  /// Local `arqmad` child process (none when `type: remote`).
   pub daemon_process: Option<std::process::Child>,
-  /// Pętla `get_info` (anulowana przy `shutdown_subprocesses` / wyjściu).
+  /// `get_info` heartbeat loop (cancelled on shutdown / exit).
   pub daemon_heartbeat: Option<JoinHandle<()>>,
-  /// Ostatnia wysłana wysokość bloku w heartbeat (żeby nie spamować UI).
+  /// Last block height sent to UI from daemon heartbeat (avoid spamming).
   pub daemon_last_height: u64,
-  /// Odpowiednik `WalletRPC.heartbeat` — `getheight` + saldo w tle (fork klienta RPC).
+  /// Like `WalletRPC.heartbeat` — `getheight` + balance in background (forked RPC client).
   pub wallet_heartbeat: Option<JoinHandle<()>>,
   /// Otwarty plik portfela (nazwa) do `set_wallet_info`.
   pub wh_display_name: String,
   pub wh_stored_height: u64,
   pub wh_stored_balance: u64,
   pub wh_stored_unlocked: u64,
-  /// Pierwszy rozszerzony tick (jak `extended` w `heartbeatAction` — m.in. `get_address_book`).
+  /// First extended tick (like `extended` in `heartbeatAction`, e.g. `get_address_book`).
   pub wh_heartbeat_ext_pending: bool,
-  /// Oczekujące `relay_tx` (sweep / transfer / stake).
+  /// Pending `relay_tx` payloads (sweep / transfer / stake).
   pub tx_metadata_list: Vec<WalletTxMetadata>,
-  /// Pętla `getPoolsData` po wysokości (jak `begin_Stake_Acquisition`).
+  /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
   pub stake_acquisition_task: Option<JoinHandle<()>>,
   pub next_rpc_id: u64
 }
@@ -91,7 +91,7 @@ impl Default for WalletBackendState {
 }
 
 impl WalletBackendState {
-  /// Zatrzymanie `arqmad` / `arqma-wallet-rpc` przed ponownym `run_core_startup` (jak restart w Node).
+  /// Stop `arqmad` / `arqma-wallet-rpc` before another `run_core_startup` (like restart in Node).
   pub fn shutdown_subprocesses (&mut self) {
     if let Some(h) = self.daemon_heartbeat.take() {
       h.abort();

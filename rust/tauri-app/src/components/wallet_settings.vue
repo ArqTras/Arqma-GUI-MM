@@ -714,6 +714,7 @@ export default defineComponent({
         if (origin !== "wallet_settings") return
         switch (code) {
           case 100:
+          case 200:
             $q.notify({
               type: "positive",
               timeout: 3000,

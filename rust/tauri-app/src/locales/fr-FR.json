@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Voir les frais",
                 "tx_status_title": "Accepter les frais",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "ANNULER"
+                "tx_status_cancel_label": "ANNULER",
+                "calculating_fee": "Calcul des frais…"
             },
             "staking_pools": {
                 "network_stats": "Stats du réseau",

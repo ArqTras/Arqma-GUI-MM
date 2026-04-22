@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 
 use crate::config::ArqmaPaths;
 
-/// `Backend.defaults` (bez `appearance` / `ethereum` — tylko do walidacji).
+/// `Backend.defaults` (without `appearance` / `ethereum` — validation baseline only).
 pub fn build_defaults (paths: &ArqmaPaths) -> Value {
   let d = |extra: Value| {
     let base = json!({
@@ -43,7 +43,7 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
   })
 }
 
-/// Obiekt `this.ethereum` z `backend.js` (pierwsza wersja sieci; UI może nadpisać z dysku).
+/// `this.ethereum` from `backend.js` (initial network list; UI may override from disk).
 pub fn default_ethereum () -> Value {
   json!({
     "ethereum_network_index": "0",
@@ -72,7 +72,7 @@ pub fn default_ethereum () -> Value {
   })
 }
 
-/// Początkowe `this.config_data` (defaults + appearance + ethereum), jak w `init`.
+/// Initial `this.config_data` (defaults + appearance + ethereum), like `init`.
 pub fn build_initial_config_data (paths: &ArqmaPaths) -> Value {
   let def = build_defaults(paths);
   let a = json!({ "appearance": { "theme": "dark" } });

@@ -2,7 +2,7 @@ use serde_json::json;
 use std::fs;
 use std::path::Path;
 
-/// Odpowiednik `listWallets` w `wallet-rpc.js` (pętla po plikach, bez katalogu legacy w pierwszej wersji).
+/// Same as `listWallets` in `wallet-rpc.js` (file scan; legacy dir omitted in first version).
 pub fn list_wallet_files (wallet_dir: &Path) -> Result<serde_json::Value, String> {
   let mut list = vec![];
   let mut directories = vec![];

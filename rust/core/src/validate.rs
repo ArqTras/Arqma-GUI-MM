@@ -4,7 +4,7 @@ fn is_object (v: &Value) -> bool {
   v.as_object().is_some()
 }
 
-/// Odpowiednik `Backend.validate_values` — iteruje po polach `values` (merged), dopasowuje do `defaults`.
+/// Same as `Backend.validate_values` — walks `values` (merged) and checks against `defaults`.
 pub fn validate_values (values: &Value, defaults: &Value) -> Value {
   let (Some(m), Some(d)) = (values.as_object(), defaults.as_object()) else {
     return values.clone();
@@ -33,7 +33,7 @@ pub fn validate_values (values: &Value, defaults: &Value) -> Value {
   Value::Object(out)
 }
 
-/// `daemons` / `app` / `wallet` – osobne validate_values względem `defaults`.
+/// `daemons` / `app` / `wallet` — separate `validate_values` passes against `defaults`.
 pub fn validate_config_against_defaults (config_data: &Value, defaults: &Value) -> Value {
   if !is_object(config_data) || !is_object(defaults) {
     return config_data.clone();

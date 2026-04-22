@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "检查费用",
                 "tx_status_title": "确认费用",
                 "tx_status_ok_label": "确定",
-                "tx_status_cancel_label": "取消"
+                "tx_status_cancel_label": "取消",
+                "calculating_fee": "正在计算手续费…"
             },
             "staking_pools": {
                 "network_stats": "网络统计",

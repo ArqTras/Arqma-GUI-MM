@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 const PATH_JSON_RPC: &str = "/json_rpc";
 
-/// Niestandardowy `WalletRPC.sendRPC` (kolejka=1) z powtórką 401 (jak w `axiosDigest.js`).
+/// Custom `WalletRPC.sendRPC` (queue=1) with 401 retry (like `axiosDigest.js`).
 pub struct WalletRpcClient {
   pub base: String, // "http://127.0.0.1:9999"
   pub user: String,
@@ -28,7 +28,7 @@ impl WalletRpcClient {
     }
   }
 
-  /// Osobna sesja JSON-RPC (inne `id` + digest) do heartbeatu, żeby nie kolidować z wywołaniami z UI.
+  /// Separate JSON-RPC session (different `id` + digest) for heartbeat so it does not clash with UI calls.
   pub fn fork_for_heartbeat (&self) -> Self {
     Self {
       base: self.base.clone(),
@@ -45,7 +45,7 @@ impl WalletRpcClient {
     self.next_id.fetch_add(1, Ordering::SeqCst)
   }
 
-  /// POST JSON-RPC (digest); zwraca pełną odpowiedź JSON (jak `parseWalletResponse` — uproszczone do `Value`).
+  /// POST JSON-RPC (digest); returns full JSON response (like `parseWalletResponse`, simplified to `Value`).
   pub async fn call (&self, method: &str, params: &Value) -> Result<Value, String> {
     let id = self.next_id();
     let mut body = json!({ "jsonrpc": "2.0", "id": id, "method": method });
@@ -76,7 +76,7 @@ impl WalletRpcClient {
         .and_then(|h| h.to_str().ok())
         .map(|s| s.to_string());
       let _ = first.text().await;
-      let www = www.ok_or_else(|| "brak WWW-Authenticate".to_string())?;
+      let www = www.ok_or_else(|| "missing WWW-Authenticate".to_string())?;
       let nc = { self.nc.lock().map_err(|e| e.to_string())?.clone() };
       let path = PATH_JSON_RPC;
       let header = build_digest_header(
@@ -118,7 +118,7 @@ impl WalletRpcClient {
   }
 }
 
-/// `Daemon.sendRPC` — bez autoryzacji (zwykły POST).
+/// `Daemon.sendRPC` — unauthenticated plain POST.
 pub async fn daemon_post (
   client: &reqwest::Client,
   host: &str,

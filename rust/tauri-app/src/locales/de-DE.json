@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Scheckgebühr",
                 "tx_status_title": "Gebühr bestätigen",
                 "tx_status_ok_label": "OKAY",
-                "tx_status_cancel_label": "ABBRECHEN"
+                "tx_status_cancel_label": "ABBRECHEN",
+                "calculating_fee": "Gebühr wird berechnet…"
             },
             "staking_pools": {
                 "network_stats": "Netzwerk-Statistiken",

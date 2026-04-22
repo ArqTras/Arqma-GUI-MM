@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Błędy domeny core (I/O, konfiguracja, walidacja). RPC zwraca własne kody; tutaj tylko warstwa rdzenia.
+/// Core domain errors (I/O, configuration, validation). RPC uses its own codes; this is the core layer only.
 #[derive(Error, Debug)]
 pub enum CoreError {
     #[error("JSON: {0}")]

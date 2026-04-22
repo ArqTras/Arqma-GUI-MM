@@ -11,7 +11,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "ci:tauri": "npm run build && npm run tauri:build"
+    "ci:tauri": "npm run build && npm run tauri:build",
+    "pack:linux-tarball": "bash scripts/pack-linux-tarball.sh"
   },
   "dependencies": {
     "@quasar/extras": "1.16.15",

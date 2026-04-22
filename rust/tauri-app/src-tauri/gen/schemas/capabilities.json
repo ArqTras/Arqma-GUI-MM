@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Tauri Arqma Wallet — domyślne uprawnienia","local":true,"windows":["main"],"permissions":["core:default","core:event:default"]}}
+{"default":{"identifier":"default","description":"Arqma Wallet — default permissions","local":true,"windows":["main"],"permissions":["core:default","core:event:default"]}}

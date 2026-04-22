@@ -1,3 +1,3 @@
 # `web/`
 
-Miejsce na przyszłą wersję webową (Vite/SSR lub wasm) współdzielącą `../core` z aplikacją Tauri. Na razie pusto — nie mieszać z `tauri-app/`.
+Reserved for a future **web** variant (Vite/SSR or WASM) that shares `../core` with the Tauri app. Currently empty — do not mix this tree with `tauri-app/`.

@@ -1,4 +1,4 @@
-//! Pętla `getheight` / `getbalance` / `get_transfers` jak `WalletRPC.heartbeatAction` w Electron.
+//! `getheight` / `getbalance` / `get_transfers` loop like `WalletRPC.heartbeatAction` in Electron.
 use crate::json_rpc_client::WalletRpcClient;
 use crate::gateway_emit::emit_receive;
 use crate::AppData;
@@ -46,7 +46,7 @@ async fn run (app: &AppHandle, client: WalletRpcClient, period_secs: u64) {
   }
 }
 
-/// `true` = przerwij pętlę.
+/// `true` means stop the loop.
 async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let Some(adata) = app.try_state::<AppData>() else {
     return true;
@@ -220,7 +220,7 @@ fn merge_transfers_list (result: &Value) -> Vec<Value> {
   out
 }
 
-/// `get_address` + `getbalance` → `{ primary, used, unused }` (jak `getAddressList` w Node, bez `create_address`).
+/// `get_address` + `getbalance` → `{ primary, used, unused }` (like `getAddressList` in Node, without `create_address`).
 fn build_address_list_object (ga: &Value, gb: &Value) -> Option<Value> {
   let res_a = ga.get("result")?;
   let res_b = gb.get("result")?;
@@ -293,7 +293,7 @@ fn index_u64 (v: Option<&Value>) -> Option<u64> {
     .or_else(|| v.as_f64().map(|f| f as u64))
 }
 
-/// Dopełnienie nieużywanych subadresów do 10 (jak w `wallet-rpc.js`).
+/// Pad unused subaddresses up to 10 (as in `wallet-rpc.js`).
 async fn top_up_unused_subaddresses (
   c: &WalletRpcClient,
   al: Value,
@@ -328,7 +328,7 @@ async fn top_up_unused_subaddresses (
   Some(json!({ "primary": primary, "used": used, "unused": unused }))
 }
 
-/// Zwraca obiekt do `set_wallet_address_book` (`address_book` + `address_book_starred`).
+/// Build payload for `set_wallet_address_book` (`address_book` + `address_book_starred`).
 async fn fetch_address_book_map (c: &WalletRpcClient) -> Result<Value, String> {
   let r = c.call("get_address_book", &json!({})).await?;
   if r.get("error").is_some() {

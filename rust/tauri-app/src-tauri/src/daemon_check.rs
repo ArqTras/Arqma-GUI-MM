@@ -1,18 +1,18 @@
-//! Odpowiednik `Daemon.checkRemote` — `get_info` po HTTP (tryb zdalny / `local_remote`).
+//! Same role as `Daemon.checkRemote` — `get_info` over HTTP (remote / `local_remote` mode).
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::json_rpc_client::daemon_post;
 use reqwest::Client;
 use serde_json::Value;
 
-/// Rozłączenie: przy `Inaccessible` backend może przełączyć `local_remote` → `local`.
+/// When remote is `Inaccessible`, backend may flip `local_remote` → `local`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RemoteNodeIssue {
   Inaccessible,
   NetMismatch
 }
 
-/// Dla `type: local` zwraca Ok (Node nie weryfikuje RPC przed spawem).
-/// Dla `remote` / `local_remote` — musi odpowiedzieć `get_info` i zgodna sieć.
+/// For `type: local` returns Ok (Node does not verify RPC before spawn).
+/// For `remote` / `local_remote` — `get_info` must succeed and the network must match.
 pub async fn check_daemon_reachable (http: &Client, config: &Value) -> Result<(), RemoteNodeIssue> {
   let net = config
     .get("app")

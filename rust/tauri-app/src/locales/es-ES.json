@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Verificar Tarifa",
                 "tx_status_title": "Confirmar Tarifa",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "CANCELAR"
+                "tx_status_cancel_label": "CANCELAR",
+                "calculating_fee": "Calculando comisión…"
             },
             "staking_pools": {
                 "network_stats": "Estadísticas de la Red",

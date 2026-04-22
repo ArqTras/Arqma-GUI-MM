@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Verificar taxa",
                 "tx_status_title": "Confirmar taxa",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "CANCELAR"
+                "tx_status_cancel_label": "CANCELAR",
+                "calculating_fee": "Calculando taxa…"
             },
             "staking_pools": {
                 "network_stats": "Estatísticas da rede",

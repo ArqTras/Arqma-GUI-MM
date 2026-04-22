@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 use tauri::AppHandle;
 use tauri::Emitter;
 
-/// Odpowiednik `Backend.send` — `webContents.send("receive", { event, data })`.
+/// Same as `Backend.send` — `webContents.send("receive", { event, data })` in Electron.
 pub fn emit_receive (app: &AppHandle, event: &str, data: Value) -> Result<(), String> {
   app
     .emit(

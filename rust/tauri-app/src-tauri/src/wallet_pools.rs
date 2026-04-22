@@ -1,4 +1,4 @@
-//! `getPools` / `getPoolsData` — daemon `get_service_nodes` + adres portfela (z `wallet-rpc.js`).
+//! `getPools` / `getPoolsData` — daemon `get_service_nodes` + wallet address (from `wallet-rpc.js`).
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::{WalletRpcClient, daemon_post};
@@ -11,7 +11,7 @@ use tauri::Manager;
 
 const STAKING_SHARE: f64 = 18446744073709551612.0;
 
-/// Odpowiednik `Number.prototype.toLocaleString("en-US")` dla kwot w ARQ.
+/// Like `Number.prototype.toLocaleString("en-US")` for ARQ amounts.
 fn en_us_group_u64 (n: u64) -> String {
   if n == 0 {
     return "0".into();
@@ -27,7 +27,7 @@ fn en_us_group_u64 (n: u64) -> String {
   acc.chars().rev().collect()
 }
 
-/// Format z separatorami tysięcy i maks. 9 miejsc po przecinku (obcięte zera) — jak `toLocaleString` dla liczb ułamkowych.
+/// Thousands separators and up to 9 fractional digits (trailing zeros trimmed) — like fractional `toLocaleString`.
 fn en_us_format_amount (n: f64) -> String {
   if !n.is_finite() {
     return "0".into();
@@ -55,7 +55,7 @@ fn en_us_format_amount (n: f64) -> String {
   }
 }
 
-/// Procent własności w puli (jak `toLocaleString` w `getPools`).
+/// Pool ownership percentage (like `toLocaleString` in `getPools`).
 fn en_us_format_percent (n: f64) -> String {
   if !n.is_finite() || n == 0.0 {
     return String::new();
@@ -93,7 +93,7 @@ fn operator_fee (portions: f64) -> Value {
   json!(format!("{:.0} %", x))
 }
 
-/// `poolListHeightSorter` — malejąco po `registration_height` (`wallet-rpc.js`).
+/// `poolListHeightSorter` — descending by `registration_height` (`wallet-rpc.js`).
 fn sort_operator_pools (pools: &mut [Value]) {
   fn reg_h (v: &Value) -> u64 {
     v
@@ -104,7 +104,7 @@ fn sort_operator_pools (pools: &mut [Value]) {
   pools.sort_by(|a, b| reg_h(b).cmp(&reg_h(a)));
 }
 
-/// `poolListContributorSorter` — najpierw `is_contributor`, potem malejąco `registration_height`.
+/// `poolListContributorSorter` — `is_contributor` first, then descending `registration_height`.
 fn sort_nonoperator_pools (pools: &mut [Value]) {
   use std::cmp::Ordering;
   fn reg_h (v: &Value) -> u64 {

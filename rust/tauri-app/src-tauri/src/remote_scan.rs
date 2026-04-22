@@ -1,7 +1,7 @@
 use serde_json::json;
 use std::time::Duration;
 
-/// Szybki węzeł (jak `app.scan` + POST `get_info` w `Backend.startup`).
+/// Pick fastest remote (like `app.scan` + POST `get_info` in `Backend.startup`).
 pub async fn pick_fastest_remote (remotes: &[(String, u16)], scan: bool) -> Option<(String, u16)> {
   if !scan || remotes.is_empty() {
     return None

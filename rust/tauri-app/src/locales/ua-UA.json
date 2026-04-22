@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Перевірити комісію",
                 "tx_status_title": "Підтвердити комісію",
                 "tx_status_ok_label": "ТАК",
-                "tx_status_cancel_label": "СКАСУВАТИ"
+                "tx_status_cancel_label": "СКАСУВАТИ",
+                "calculating_fee": "Розрахунок комісії…"
             },
             "staking_pools": {
                 "network_stats": "Статистика мережі",

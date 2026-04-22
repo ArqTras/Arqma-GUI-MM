@@ -12,3 +12,4 @@ repository = "https://github.com/ArqTras/Arqma-GUI-MM"
 panic = "abort"
 lto = true
 codegen-units = 1
+strip = "symbols"

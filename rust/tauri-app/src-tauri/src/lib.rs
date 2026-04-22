@@ -1,4 +1,4 @@
-//! Backend Tauri: routing `backend_send` (jak `foo:send` w Electron) i komendy z preloadu.
+//! Tauri backend: routes `backend_send` (same idea as `foo:send` in Electron) plus preload-style commands.
 
 mod arqma_paths_config;
 mod backend_state;
@@ -17,6 +17,7 @@ mod wallet_list_fs;
 mod wallet_password;
 mod wallet_process;
 mod native_bin;
+mod subprocess;
 mod daemon_heartbeat;
 mod wallet_heartbeat;
 mod wallet_relay_ops;
@@ -184,7 +185,7 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
       crate::wallet_handler::handle_wallet(&app, &mut b, http, &message.method, data).await?;
     }
     _ => {
-      eprintln!("[backend_send] nieznany moduł: {}", message.module);
+      eprintln!("[backend_send] unknown module: {}", message.module);
     }
   }
 
@@ -236,7 +237,7 @@ pub fn run () {
       backend_send
     ])
     .build(tauri::generate_context!())
-    .expect("Błąd Tauri (Builder)")
+    .expect("Tauri Builder error")
     .run(|app, event| {
       if let RunEvent::Exit = event {
         tauri::async_runtime::block_on(async {

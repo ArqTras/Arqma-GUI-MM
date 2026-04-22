@@ -1,4 +1,4 @@
-//! Relay / anulowanie / ceny / stake acquisition (logika z `wallet-rpc.js`).
+//! Relay / cancel / prices / stake acquisition (from `wallet-rpc.js`).
 use crate::backend_state::{WalletBackendState, WalletTxMetadata};
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::WalletRpcClient;
@@ -271,7 +271,7 @@ pub async fn get_coin_and_conversion (app: &AppHandle, http: &Client) {
   );
 }
 
-/// Po udanym `open_wallet` / `sweepAll` itd. — wyciąga `tx_metadata` z odpowiedzi.
+/// After successful `open_wallet` / `sweepAll` etc. — extract `tx_metadata` from the RPC response.
 pub fn push_sweep_metadata (st: &mut WalletBackendState, p: &Value, r: &Value) {
   let do_not = p
     .get("do_not_relay")

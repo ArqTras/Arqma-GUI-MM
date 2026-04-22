@@ -136,10 +136,18 @@
         :showing="tx_status.sending"
         :dark="theme == 'dark'"
       >
-        <q-spinner
-          color="primary"
-          size="60"
-        />
+        <div class="column items-center q-pa-md">
+          <q-spinner
+            color="primary"
+            size="60px"
+          />
+          <div
+            class="q-mt-md text-body2 text-center"
+            :class="theme == 'dark' ? 'text-white' : 'text-dark'"
+          >
+            {{ $t('pages.wallet.send.calculating_fee') }}
+          </div>
+        </div>
       </q-inner-loading>
 
       <!-- <q-dialog v-model="confirmXEQSend"               transition-show="flip-up"
@@ -332,6 +340,11 @@ export default defineComponent({
         dialog.onOk((password) => {
           password = password || ""
           const copy = extend(true, {}, newTx, { password })
+          $store.commit("gateway/set_tx_status", {
+            code: 0,
+            message: "",
+            sending: true
+          })
           api.send("wallet", "transfer", copy)
         })
           .onDismiss(() => {})

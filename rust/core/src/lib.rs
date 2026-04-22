@@ -1,4 +1,4 @@
-//! Logika domeny portfela Arqma — wspólna dla Tauri, daemona i ewentualnego web.
+//! Arqma wallet domain logic — shared by Tauri, daemon tooling, and any future web build.
 
 pub mod config;
 pub mod defaults;

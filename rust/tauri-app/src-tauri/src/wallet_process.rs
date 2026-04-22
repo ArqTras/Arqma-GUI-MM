@@ -1,12 +1,13 @@
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::WalletRpcClient;
 use crate::native_bin::find_resource_bin;
+use crate::subprocess::new_child_command;
 use rand::RngCore;
 use serde_json::Value;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use tauri::AppHandle;
 
-/// Losowe `rpc-login` (160 B → 320 znaków hex) — poprawiony rozkład względem `Buffer.toString("hex")`.
+/// Random `rpc-login` (160 B → 320 hex chars) — distribution aligned with `Buffer.toString("hex")`.
 fn generate_auth_triple () -> (String, String, String) {
   let mut b = [0u8; 64 + 64 + 32];
   rand::thread_rng().fill_bytes(&mut b);
@@ -27,7 +28,7 @@ fn wallet_daemon_addr (config: &Value) -> Option<String> {
   Some(format!("{h}:{p}"))
 }
 
-/// Uruchomienie `arqma-wallet-rpc` (jeśli binarka istnieje) i utworzenie `WalletRpcClient` po odpowiedzi `get_languages`.
+/// Start `arqma-wallet-rpc` when the binary exists and create `WalletRpcClient` after `get_languages` succeeds.
 pub async fn try_start_wallet_rpc (
   app: &AppHandle,
   st: &mut WalletBackendState,
@@ -39,11 +40,11 @@ pub async fn try_start_wallet_rpc (
   st.wallet = None;
   st.wallet_salt = String::new();
   let Some(exe) = find_resource_bin(app, "arqma-wallet-rpc.exe", "arqma-wallet-rpc") else {
-    eprintln!("[wallet] brak pliku arqma-wallet-rpc w resource/bin (opcjonalny)");
+    eprintln!("[wallet] arqma-wallet-rpc not found in resource/bin (optional)");
     return;
   };
   let Some(daemon_addr) = wallet_daemon_addr(&st.config_data) else {
-    eprintln!("[wallet] brak danych daemona w config");
+    eprintln!("[wallet] missing daemon data in config");
     return;
   };
   let (user, pass, salt) = generate_auth_triple();
@@ -58,7 +59,7 @@ pub async fn try_start_wallet_rpc (
   let wdir = match wdir {
     Some(p) => p,
     None => {
-      eprintln!("[wallet] brak katalogu portfela");
+      eprintln!("[wallet] missing wallet directory");
       return;
     }
   };
@@ -113,7 +114,7 @@ pub async fn try_start_wallet_rpc (
     }
     _ => {}
   }
-  let ch = match Command::new(&exe)
+  let ch = match new_child_command(&exe)
     .args(&args)
     .stdout(Stdio::null())
     .stderr(Stdio::null())
@@ -139,6 +140,6 @@ pub async fn try_start_wallet_rpc (
       }
     }
   }
-  eprintln!("[wallet] timeout — brak odpowiedzi get_languages (sprawdź katalog resource/bin i daemona)");
+  eprintln!("[wallet] timeout — no get_languages response (check resource/bin and daemon)");
   st.wallet = None;
 }

@@ -1,4 +1,4 @@
-# Budowa instalatorów Arqma Wallet (Tauri) — Windows, Linux, macOS. Wersja w package.json / tauri.conf / workspace Rust.
+# Build Arqma Wallet (Tauri) installers — Windows, Linux, macOS. Version: package.json / tauri.conf / Rust workspace.
 name: Tauri app
 
 on:
@@ -7,11 +7,17 @@ on:
       - "rust/**"
       - "build/copy-to-tauri-bins.js"
       - "build/download-binaries.js"
+      - "rust/tauri-app/scripts/pack-linux-tarball.sh"
+      - "rust/README.md"
+      - "CONTRIBUTING.md"
       - ".github/workflows/tauri-app.yml"
   pull_request:
     paths:
       - "rust/**"
       - "build/copy-to-tauri-bins.js"
+      - "rust/tauri-app/scripts/pack-linux-tarball.sh"
+      - "rust/README.md"
+      - "CONTRIBUTING.md"
       - ".github/workflows/tauri-app.yml"
   workflow_dispatch:
 
@@ -38,7 +44,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Linux — zależności Tauri (WebKit, itp.)
+      - name: Linux — Install Tauri dependencies (WebKit, etc.)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
@@ -50,18 +56,18 @@ jobs:
             build-essential \
             curl
 
-      - name: Pobierz binaria Arqma (demon / wallet-rpc)
+      - name: Download Arqma binaries (daemon / wallet-rpc)
         run: node ./build/download-binaries.js
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rozpakuj (Linux)
+      - name: Extract archive (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           tar -xvf "${{ github.workspace }}/downloads/latest.gz" --directory "${{ github.workspace }}"
           ls -la "${{ github.workspace }}/bin" || true
 
-      - name: Rozpakuj (Windows)
+      - name: Extract archive (Windows)
         if: matrix.os == 'windows-latest'
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\bin" | Out-Null
@@ -75,7 +81,7 @@ jobs:
           unzip -o downloads/latest.zip -d bin
           ls -la bin
 
-      - name: Skopiuj binaria do src-tauri/bin
+      - name: Copy binaries into src-tauri/bin
         run: node build/copy-to-tauri-bins.js
 
       - name: npm install + Vite + tauri build
@@ -86,7 +92,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artefaktów Tauri
+      - name: Linux — Create tar.gz (binary + resources, no RPM/.deb)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: rust/tauri-app
+        run: bash scripts/pack-linux-tarball.sh
+
+      # Linux: large .AppImage (bundled WebKitGTK) plus a smaller .tar.gz of the release binary + resources.
+      # Windows/macOS: NSIS/MSI or app/dmg — artifact sizes differ mainly because of AppImage bundling.
+      - name: Upload Tauri bundle artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Tauri-bundle-${{ matrix.os }}

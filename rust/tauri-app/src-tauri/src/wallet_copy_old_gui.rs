@@ -1,4 +1,4 @@
-//! Port `copyOldGuiWallets` z `wallet-rpc.js` (import katalogów „starego” GUI do `wallets` + `old-gui`).
+//! Port of `copyOldGuiWallets` from `wallet-rpc.js` (import legacy GUI wallet dirs into `wallets` + `old-gui`).
 
 use serde_json::Value;
 use std::fs;
@@ -8,10 +8,10 @@ fn path_plus_ext (p: &Path, ext: &str) -> PathBuf {
   PathBuf::from(format!("{}{}", p.display(), ext))
 }
 
-/// Zwraca listę katalogów, dla których import się nie udał (jak `failed_wallets` w Node).
+/// Returns wallet directory names that failed to import (like `failed_wallets` in Node).
 pub fn run_copy_old_gui_wallets (config: &Value, wallets: &[Value]) -> Result<Vec<String>, String> {
   let wallet_dir = crate::arqma_paths_config::wallet_files_dir(config).ok_or_else(|| {
-    "copy_old_gui_wallets: brak wallet_data_dir / net_type w konfiguracji".to_string()
+    "copy_old_gui_wallets: missing wallet_data_dir or net_type in configuration".to_string()
   })?;
   let old_gui_path = wallet_dir.join("old-gui");
   let mut failed = Vec::new();

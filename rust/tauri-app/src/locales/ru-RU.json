@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "Проверить комиссию",
                 "tx_status_title": "Подтвердить комиссию",
                 "tx_status_ok_label": "OK",
-                "tx_status_cancel_label": "ОТМЕНА"
+                "tx_status_cancel_label": "ОТМЕНА",
+                "calculating_fee": "Расчёт комиссии…"
             },
             "staking_pools": {
                 "network_stats": "Статистика сети",

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-/// Głębokie scalanie obiektów JSON (zagnieżdżone klucze) — zgodne z `object-assign-deep` dla obiektów.
+/// Deep-merge JSON objects (nested keys) — object behaviour aligned with `object-assign-deep`.
 pub fn merge_json (a: &Value, b: &Value) -> Value {
   match (a, b) {
     (Value::Object(oa), Value::Object(ob)) => {

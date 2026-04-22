@@ -204,7 +204,8 @@
                 "show_password_confirmation_ok_label": "تحقق من الرسوم",
                 "tx_status_title": "تأكيد الرسوم",
                 "tx_status_ok_label": "حسناً",
-                "tx_status_cancel_label": "إلغاء"
+                "tx_status_cancel_label": "إلغاء",
+                "calculating_fee": "جاري حساب الرسوم…"
             },
             "staking_pools": {
                 "network_stats": "إحصائيات الشبكة",

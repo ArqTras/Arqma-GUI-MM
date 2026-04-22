@@ -1,4 +1,4 @@
-# Automatyczna kompilacja i analiza workspace Rust (core, daemon, Tauri).
+# Rust workspace — compile check and Clippy (core, daemon, Tauri).
 name: Rust
 
 on:
@@ -6,11 +6,13 @@ on:
     branches: [main, dev]
     paths:
       - "rust/**"
+      - "rust/README.md"
       - ".github/workflows/rust.yml"
   pull_request:
     branches: [main, dev]
     paths:
       - "rust/**"
+      - "rust/README.md"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
 
@@ -34,7 +36,7 @@ jobs:
       - name: Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Linux — biblioteki dla Tauri (linkowanie WebKit)
+      - name: Linux — Install Tauri link libraries (WebKit)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update

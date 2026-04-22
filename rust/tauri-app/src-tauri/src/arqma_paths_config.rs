@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-/// Adres publicznego (lub lokalnego) daemona z `config_data.daemons[net]`.
+/// Public (or local) daemon RPC endpoint from `config_data.daemons[net]`.
 pub fn daemon_rpc_host_port (config: &Value) -> Option<(String, u16)> {
   let a = config
     .get("app")?
@@ -22,7 +22,7 @@ pub fn daemon_rpc_host_port (config: &Value) -> Option<(String, u16)> {
   Some((h, p))
 }
 
-/// Katalog `wallets` dla podanej sieci (jak `this.dirs[type]/wallets` w `wallet-rpc.js`).
+/// `wallets` directory for the given network (like `this.dirs[type]/wallets` in `wallet-rpc.js`).
 pub fn wallet_files_dir_for_net (config: &Value, net: &str) -> Option<PathBuf> {
   let wdata = config
     .get("app")?
@@ -36,7 +36,7 @@ pub fn wallet_files_dir_for_net (config: &Value, net: &str) -> Option<PathBuf> {
   Some(sub)
 }
 
-/// Katalog plików portfela — jak `WalletRPC.wallet_dir` (wg `app.net_type`).
+/// Wallet files directory — like `WalletRPC.wallet_dir` (from `app.net_type`).
 pub fn wallet_files_dir (config: &Value) -> Option<PathBuf> {
   let net = config
     .get("app")?
@@ -45,7 +45,7 @@ pub fn wallet_files_dir (config: &Value) -> Option<PathBuf> {
   wallet_files_dir_for_net(config, net)
 }
 
-/// Port lokalnego `arqma-wallet-rpc` w konfiguracji.
+/// Local `arqma-wallet-rpc` bind port from configuration.
 pub fn wallet_rpc_bind_port (config: &Value) -> u16 {
   config
     .get("wallet")
@@ -54,7 +54,7 @@ pub fn wallet_rpc_bind_port (config: &Value) -> u16 {
     .unwrap_or(9999) as u16
 }
 
-/// Adres `arqmad` w trybie lokalnym (dla wersji z linii komend) — tylko `check_version`.
+/// `arqmad` address in local mode (CLI version) — only for `check_version`.
 #[allow(dead_code)]
 pub fn local_daemon_addr (config: &Value) -> Option<(String, u16)> {
   let a = config

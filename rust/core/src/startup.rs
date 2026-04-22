@@ -44,7 +44,7 @@ fn default_remotes_array () -> Vec<Value> {
     .collect()
 }
 
-/// Odpowiednik ładowania / zapisu `remotes.json` w `init`.
+/// Load / persist `remotes.json` like `init` in the legacy backend.
 pub fn load_and_persist_remotes (config_dir: &Path) -> Result<Value, CoreError> {
   let path = remotes_path(config_dir);
   let def_vec = default_remotes_array();
@@ -54,7 +54,7 @@ pub fn load_and_persist_remotes (config_dir: &Path) -> Result<Value, CoreError> 
     let v: Value = serde_json::from_str(&s)?;
     let a = v
       .as_array()
-      .ok_or_else(|| CoreError::InvalidConfig("remotes.json musi być tablicą".into()))?
+      .ok_or_else(|| CoreError::InvalidConfig("remotes.json must be a JSON array".into()))?
       .clone();
     if a.is_empty() {
       def_vec.clone()
@@ -96,7 +96,7 @@ pub fn load_and_persist_remotes (config_dir: &Path) -> Result<Value, CoreError> 
   Ok(out)
 }
 
-/// Sklejanie danych z `config.json` w `this.config_data` (pętla forEach w `startup` JS).
+/// Fold on-disk `config.json` into `this.config_data` (forEach loop in `startup` JS).
 pub fn fold_disk_into_config (config_data: &Value, disk: &Value) -> Value {
   let (Some(c), Some(d)) = (config_data.as_object(), disk.as_object()) else {
     return config_data.clone();
@@ -120,7 +120,7 @@ pub fn fold_disk_into_config (config_data: &Value, disk: &Value) -> Value {
 
 pub struct StartupSnapshot {
   pub defaults: Value,
-  /// Stan jak `this.config_data` po ładowaniu dysku i walidacji.
+  /// State like `this.config_data` after disk load and validation.
   pub config_data: Value,
   pub remotes: Value,
   /// `this.ethereum` z dysku (lub `default_ethereum` po fuzji w startup).
@@ -128,7 +128,7 @@ pub struct StartupSnapshot {
   pub had_config_file: bool,
 }
 
-/// Wczytanie `config.json`, merge, walidacja — etap odpowiadający środkowi `Backend.startup()`.
+/// Read `config.json`, merge, validate — middle stage of `Backend.startup()`.
 pub fn load_config_snapshot (paths: &ArqmaPaths) -> Result<StartupSnapshot, CoreError> {
   let config_dir = Path::new(&paths.config_dir);
   ensure_gui_dir(config_dir)?;
@@ -163,7 +163,7 @@ pub fn load_config_snapshot (paths: &ArqmaPaths) -> Result<StartupSnapshot, Core
   })
 }
 
-/// Zapis bieżącego `config_data` w `config.json` (2 spacje, jak Node).
+/// Write current `config_data` to `config.json` (pretty-printed, like Node).
 pub fn write_config_file (paths: &ArqmaPaths, config_data: &Value) -> Result<(), CoreError> {
   let p = config_path(Path::new(&paths.config_dir));
   if let Some(parent) = p.parent() {
@@ -173,7 +173,7 @@ pub fn write_config_file (paths: &ArqmaPaths, config_data: &Value) -> Result<(),
   fs::write(p, s).map_err(CoreError::Io)
 }
 
-/// Tworzy `wallet_data_dir`, `app.data_dir` / stagenet / testnet, `logs` (jak w `startup` JS).
+/// Create `wallet_data_dir`, `app.data_dir` / stagenet / testnet, `logs` (as in `startup` JS).
 pub fn ensure_datadir_layout (config_data: &Value) -> Result<(), CoreError> {
   let (Some(app), Some(net)) = (
     config_data.get("app"),
@@ -203,7 +203,7 @@ pub fn ensure_datadir_layout (config_data: &Value) -> Result<(), CoreError> {
   Ok(())
 }
 
-/// Czy wymagane katalogi istnieją (sprawdzenie jak pętla `dirs_to_check` w `startup` JS).
+/// Whether required directories exist (`dirs_to_check` loop in `startup` JS).
 pub fn required_dirs_exist (config_data: &Value) -> Result<(), String> {
   let app = config_data
     .get("app")
