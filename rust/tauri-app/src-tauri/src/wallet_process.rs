@@ -1,38 +1,10 @@
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::WalletRpcClient;
+use crate::native_bin::find_resource_bin;
 use rand::RngCore;
 use serde_json::Value;
-use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use tauri::AppHandle;
-use tauri::Manager;
-
-/// `bin` obok plików Tauri (bundle) lub w katalogu roboczym w dev, jeśli ręcznie skopiowano.
-fn wallet_rpc_binary_path (app: &AppHandle) -> Option<PathBuf> {
-  if let Ok(res) = app.path().resource_dir() {
-    let p = if cfg!(windows) {
-      res.join("bin").join("arqma-wallet-rpc.exe")
-    } else {
-      res.join("bin").join("arqma-wallet-rpc")
-    };
-    if p.is_file() {
-      return Some(p);
-    }
-  }
-  if cfg!(debug_assertions) {
-    for base in [PathBuf::from("bin"), PathBuf::from("binaries")] {
-      let p = if cfg!(windows) {
-        base.join("arqma-wallet-rpc.exe")
-      } else {
-        base.join("arqma-wallet-rpc")
-      };
-      if p.is_file() {
-        return Some(p);
-      }
-    }
-  }
-  None
-}
 
 /// Losowe `rpc-login` (160 B → 320 znaków hex) — poprawiony rozkład względem `Buffer.toString("hex")`.
 fn generate_auth_triple () -> (String, String, String) {
@@ -61,12 +33,12 @@ pub async fn try_start_wallet_rpc (
   st: &mut WalletBackendState,
   http: &reqwest::Client,
 ) {
-  st.wallet = None;
-  st.wallet_salt = String::new();
   if st.wallet_process.is_some() {
     return;
   }
-  let Some(exe) = wallet_rpc_binary_path(app) else {
+  st.wallet = None;
+  st.wallet_salt = String::new();
+  let Some(exe) = find_resource_bin(app, "arqma-wallet-rpc.exe", "arqma-wallet-rpc") else {
     eprintln!("[wallet] brak pliku arqma-wallet-rpc w resource/bin (opcjonalny)");
     return;
   };

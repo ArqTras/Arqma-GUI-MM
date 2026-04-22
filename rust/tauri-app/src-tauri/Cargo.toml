@@ -1,10 +1,11 @@
 [package]
 name = "arqma-tauri"
-version = "0.1.0"
+version.workspace = true
 description = "Shell Tauri (Rust) — most Electron MainProcess"
 authors = ["Arqma"]
 build = "build.rs"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
 rust-version = "1.70"
 
 [lib]
@@ -19,7 +20,7 @@ path = "src/main.rs"
 tauri-build = { version = "2.0.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.9", default-features = true }
+tauri = { version = "2.0.9", default-features = true , features = [] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.40.0", features = ["time", "rt", "rt-multi-thread", "macros"] }

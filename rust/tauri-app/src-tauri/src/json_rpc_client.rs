@@ -28,6 +28,19 @@ impl WalletRpcClient {
     }
   }
 
+  /// Osobna sesja JSON-RPC (inne `id` + digest) do heartbeatu, żeby nie kolidować z wywołaniami z UI.
+  pub fn fork_for_heartbeat (&self) -> Self {
+    Self {
+      base: self.base.clone(),
+      user: self.user.clone(),
+      pass: self.pass.clone(),
+      next_id: AtomicU64::new(50_000_000),
+      nc: std::sync::Mutex::new("00000001".to_string()),
+      cnonce: generate_cnonce(),
+      http: self.http.clone()
+    }
+  }
+
   fn next_id (&self) -> u64 {
     self.next_id.fetch_add(1, Ordering::SeqCst)
   }

@@ -2,11 +2,10 @@ use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::daemon_post;
+use crate::native_bin::find_resource_bin;
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use std::process::Command;
 use tauri::AppHandle;
-use tauri::Manager;
 
 fn next_daemon_id (st: &mut WalletBackendState) -> u64 {
   let n = st.next_rpc_id;
@@ -14,34 +13,8 @@ fn next_daemon_id (st: &mut WalletBackendState) -> u64 {
   n
 }
 
-fn arqmad_binary (app: &AppHandle) -> Option<PathBuf> {
-  if let Ok(res) = app.path().resource_dir() {
-    let p = if cfg!(windows) {
-      res.join("bin").join("arqmad.exe")
-    } else {
-      res.join("bin").join("arqmad")
-    };
-    if p.is_file() {
-      return Some(p);
-    }
-  }
-  if cfg!(debug_assertions) {
-    for base in [PathBuf::from("bin"), PathBuf::from("binaries")] {
-      let p = if cfg!(windows) {
-        base.join("arqmad.exe")
-      } else {
-        base.join("arqmad")
-      };
-      if p.is_file() {
-        return Some(p);
-      }
-    }
-  }
-  None
-}
-
 fn arqmad_version_string (app: &AppHandle) -> Option<String> {
-  let exe = arqmad_binary(app)?;
+  let exe = find_resource_bin(app, "arqmad.exe", "arqmad")?;
   let o = Command::new(&exe).arg("--version").output().ok()?;
   if o.status.success() {
     return Some(String::from_utf8_lossy(&o.stdout).to_string());
@@ -114,7 +87,9 @@ pub async fn handle_daemon (
         json!({ "type": "positive", "message": msg, "timeout": 3000 }),
       )?;
     }
-    _ => {}
+    _ => {
+      eprintln!("[daemon] nieobsługiwane: {method}");
+    }
   }
   Ok(Value::Null)
 }

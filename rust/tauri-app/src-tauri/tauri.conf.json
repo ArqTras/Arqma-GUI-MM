@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "Arqma Wallet",
-  "version": "0.1.0",
-  "identifier": "com.arqma.wallet",
+  "productName": "Tauri Arqma Wallet",
+  "version": "5.0.0",
+  "identifier": "com.arqma.wallet.tauri",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Arqma Wallet",
+        "title": "Tauri Arqma Wallet",
         "width": 1000,
         "height": 600,
         "resizable": true

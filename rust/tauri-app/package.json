@@ -1,6 +1,6 @@
 {
   "name": "arqma-tauri-app",
-  "version": "0.1.0",
+  "version": "5.0.0",
   "private": true,
   "type": "module",
   "description": "Arqma Desktop — UI (Vue + Quasar) + Tauri",
@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "ci:tauri": "npm run build && npm run tauri:build"
   },
   "dependencies": {
     "@quasar/extras": "1.16.15",

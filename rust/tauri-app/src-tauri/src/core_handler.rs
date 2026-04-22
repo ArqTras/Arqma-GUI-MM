@@ -1,15 +1,17 @@
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::startup_run::run_core_startup;
-use reqwest::Client;
+use arqma_wallet_core::validate::validate_config_against_defaults;
 use arqma_wallet_core::{default_paths, merge_json, remotes_path, write_config_file};
+use base64::Engine;
+use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
 
-/// Obsługa `module == "core"` w `Backend.handle` (uproszczona; dalej: pełne `save_config` jak w Node).
+/// Obsługa `module == "core"` w `Backend.handle` (IPC jak w Node: init, config, URL, eksport SVG/PNG, explorer).
 pub async fn handle_core (
   app: &AppHandle,
   st: &mut WalletBackendState,
@@ -100,13 +102,22 @@ pub async fn handle_core (
         json!({ "config": params, "pending_config": params }),
       )?;
     }
-    "save_config" | "save_config_init" => {
+    "save_config" => {
+      maybe_push_mainnet_remote_to_disk(st, params)?;
+      let old = st.config_data.clone();
       st.config_data = merge_json(&st.config_data, params);
       st.ethereum = st
         .config_data
         .get("ethereum")
         .cloned()
         .unwrap_or_else(|| json!({}));
+      st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
+      let config_changed = serde_json::to_string(&old)
+        .ok()
+        .as_ref()
+        .zip(serde_json::to_string(&st.config_data).ok().as_ref())
+        .map(|(a, b)| a != b)
+        .unwrap_or(true);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
       emit_receive(
         app,
@@ -116,6 +127,23 @@ pub async fn handle_core (
           "pending_config": st.config_data
         }),
       )?;
+      if config_changed {
+        emit_receive(app, "settings_changed_reboot", json!({}))?;
+      }
+    }
+    "save_config_init" => {
+      maybe_push_mainnet_remote_to_disk(st, params)?;
+      st.config_data = merge_json(&st.config_data, params);
+      st.ethereum = st
+        .config_data
+        .get("ethereum")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+      st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
+      write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
+      st.shutdown_subprocesses();
+      st.startup_seq_done = false;
+      run_core_startup(app, st, http).await?;
     }
     "open_url" => {
       let u = params
@@ -184,13 +212,98 @@ pub async fn handle_core (
         )?;
       }
     }
-    _ => {}
+    "save_png" => {
+      let title = format!(
+        "Zapisz {}",
+        params
+          .get("type")
+          .and_then(|t| t.as_str())
+          .unwrap_or("Identicon")
+      );
+      let img = params
+        .get("img")
+        .and_then(|i| i.as_str())
+        .ok_or_else(|| "save_png: brak img".to_string())?;
+      let b64 = img
+        .strip_prefix("data:image/png;base64,")
+        .or_else(|| img.strip_prefix("data:image/png;base64;"))
+        .unwrap_or(img);
+      let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("save_png: base64: {e}"))?;
+      let home = default_paths();
+      let path = rfd::FileDialog::new()
+        .set_title(&title)
+        .add_filter("PNG", &["png"])
+        .set_file_name("arqma-identicon.png")
+        .set_directory(&home.wallet_dir)
+        .save_file();
+      if let Some(p) = path {
+        fs::write(&p, &bytes).map_err(|e| e.to_string())?;
+        let msg = format!(
+          "{} zapisano do {}",
+          params
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("Plik"),
+          p.display()
+        );
+        emit_receive(
+          app,
+          "show_notification",
+          json!({ "type": "positive", "message": msg, "timeout": 3000 }),
+        )?;
+      }
+    }
+    _ => {
+      eprintln!("[core] nieobsługiwane: {method}");
+    }
   }
   Ok(Value::Null)
 }
 
 fn empty_data () -> Value {
   json!({})
+}
+
+/// Nowy węzeł zdalny `mainnet` → dopisanie do `remotes.json` (jak w `backend.js` przy `save_config`).
+fn maybe_push_mainnet_remote_to_disk (
+  st: &mut WalletBackendState,
+  params: &Value,
+) -> Result<(), String> {
+  let Some(host) = params
+    .get("daemons")
+    .and_then(|d| d.get("mainnet"))
+    .and_then(|m| m.get("remote_host"))
+    .and_then(|h| h.as_str())
+  else {
+    return Ok(());
+  };
+  let port = params
+    .get("daemons")
+    .and_then(|d| d.get("mainnet"))
+    .and_then(|m| m.get("remote_port"))
+    .and_then(|p| p.as_u64())
+    .unwrap_or(19_994);
+  let arr = st
+    .remotes
+    .as_array_mut()
+    .ok_or_else(|| "remotes: oczekiwano tablicy".to_string())?;
+  let exists = arr.iter().any(|n| {
+    n.get("host").and_then(|h| h.as_str()) == Some(host)
+      && n.get("port").and_then(|p| p.as_u64()) == Some(port)
+  });
+  if exists {
+    return Ok(());
+  }
+  arr.push(json!({ "host": host, "port": port }));
+  let rpath = remotes_path(Path::new(&st.paths.config_dir));
+  fs::write(
+    &rpath,
+    serde_json::to_string_pretty(&st.remotes).map_err(|e| e.to_string())?,
+  )
+  .map_err(|e| e.to_string())?;
+  Ok(())
 }
 
 /// Argument `invoke("backend_send", { message: ... })` z frontu.

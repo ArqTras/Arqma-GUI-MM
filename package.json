@@ -1,8 +1,8 @@
 {
   "name": "arqma-wallet",
-  "version": "4.0.2",
-  "description": "Modern Electron Wallet for Arqma",
-  "productName": "Arqma-Electron-Wallet",
+  "version": "5.0.0",
+  "description": "Arqma Wallet — desktop (Electron + Tauri).",
+  "productName": "Arqma Wallet",
   "repository": {
     "type": "git",
     "url": "https://github.com/ArqTras/Arqma-GUI-MM.git"

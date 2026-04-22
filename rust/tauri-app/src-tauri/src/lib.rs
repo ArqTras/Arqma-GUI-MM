@@ -3,7 +3,9 @@
 mod arqma_paths_config;
 mod backend_state;
 mod core_handler;
+mod daemon_check;
 mod daemon_handler;
+mod daemon_process;
 mod gateway_emit;
 mod http_digest_arqma;
 mod json_rpc_client;
@@ -14,6 +16,11 @@ mod wallet_handler;
 mod wallet_list_fs;
 mod wallet_password;
 mod wallet_process;
+mod native_bin;
+mod daemon_heartbeat;
+mod wallet_heartbeat;
+mod wallet_relay_ops;
+mod wallet_pools;
 
 use backend_state::WalletBackendState;
 use core_handler::handle_core;
@@ -26,7 +33,7 @@ use tauri::Manager;
 
 use arqma_wallet_core::merge_json as merge_json_value;
 
-struct AppData {
+pub(crate) struct AppData {
   backend: Mutex<WalletBackendState>,
   http: reqwest::Client
 }
@@ -92,8 +99,50 @@ fn image_from_data_url (data: String) -> String {
 }
 
 #[tauri::command]
-fn app_save_log_level (value: String) {
-  eprintln!("[config] save LOG_LEVEL (stub) = {value}")
+fn app_save_log_level (app: tauri::AppHandle, value: String) -> Result<(), String> {
+  use std::fs;
+  use std::io::Read;
+  use std::io::Write;
+  let dir = if cfg!(debug_assertions) {
+    app.path().resource_dir().map_err(|e| e.to_string())?
+  } else {
+    app
+      .path()
+      .app_data_dir()
+      .map_err(|e| e.to_string())?
+  };
+  if let Err(e) = fs::create_dir_all(&dir) {
+    eprintln!("[config] app_save_log_level mkdir: {e}");
+  }
+  let p = dir.join(".env");
+  let mut s = String::new();
+  if p.exists() {
+    let _ = fs::File::open(&p)
+      .and_then(|mut f| f.read_to_string(&mut s));
+  }
+  let mut lines: Vec<String> = if s.is_empty() {
+    vec![format!("LOG_LEVEL={value}")]
+  } else {
+    s.lines().map(String::from).collect()
+  };
+  if lines.is_empty() || lines[0].is_empty() {
+    lines[0] = format!("LOG_LEVEL={value}");
+  } else {
+    let mut found = false;
+    for line in &mut lines {
+      if line.starts_with("LOG_LEVEL") {
+        *line = format!("LOG_LEVEL={value}");
+        found = true;
+        break;
+      }
+    }
+    if !found {
+      lines.insert(0, format!("LOG_LEVEL={value}"));
+    }
+  }
+  let mut f = fs::File::create(&p).map_err(|e| e.to_string())?;
+  f.write_all(lines.join("\n").as_bytes()).map_err(|e| e.to_string())?;
+  Ok(())
 }
 
 #[tauri::command]
@@ -132,9 +181,11 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
       crate::daemon_handler::handle_daemon(&app, &mut b, http, &message.method, data).await?;
     }
     "wallet" => {
-      crate::wallet_handler::handle_wallet(&app, &mut b, &message.method, data).await?;
+      crate::wallet_handler::handle_wallet(&app, &mut b, http, &message.method, data).await?;
     }
-    _ => {}
+    _ => {
+      eprintln!("[backend_send] nieznany moduł: {}", message.module);
+    }
   }
 
   let _ = app.emit("backend-ping", "ok");
@@ -191,10 +242,7 @@ pub fn run () {
         tauri::async_runtime::block_on(async {
           if let Some(st) = app.try_state::<AppData>() {
             let mut b = st.backend.lock().await;
-            if let Some(mut ch) = b.wallet_process.take() {
-              let _ = ch.kill();
-              let _ = ch.wait();
-            }
+            b.shutdown_subprocesses();
           }
         });
       }

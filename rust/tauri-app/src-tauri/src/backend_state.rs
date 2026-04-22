@@ -1,6 +1,24 @@
 use arqma_wallet_core::ArqmaPaths;
 use crate::json_rpc_client::WalletRpcClient;
+use serde::Serialize;
 use serde_json::Value;
+use tokio::task::JoinHandle;
+
+/// Metadane oczekującego `relay_tx` (jak `tx_metadata_list` w `wallet-rpc.js`).
+#[derive(Debug, Clone, Serialize)]
+pub struct WalletTxMetadata {
+  pub tx_metadata: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub tx_hash: Option<String>,
+  /// `sweepAll` | `transfer_split` | `stake`
+  pub kind: String,
+  #[serde(default, skip_serializing_if = "String::is_empty")]
+  pub note: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub amount: Option<u64>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub service_node_key: Option<String>
+}
 
 /// Stan odpowiadający `this.config_data` / `this.remotes` w `Backend` (Node).
 pub struct WalletBackendState {
@@ -16,6 +34,25 @@ pub struct WalletBackendState {
   pub wallet_password_hash_hex: Option<String>,
   pub wallet: Option<WalletRpcClient>,
   pub wallet_process: Option<std::process::Child>,
+  /// Lokalny `arqmad` (pusty w trybie `type: remote`).
+  pub daemon_process: Option<std::process::Child>,
+  /// Pętla `get_info` (anulowana przy `shutdown_subprocesses` / wyjściu).
+  pub daemon_heartbeat: Option<JoinHandle<()>>,
+  /// Ostatnia wysłana wysokość bloku w heartbeat (żeby nie spamować UI).
+  pub daemon_last_height: u64,
+  /// Odpowiednik `WalletRPC.heartbeat` — `getheight` + saldo w tle (fork klienta RPC).
+  pub wallet_heartbeat: Option<JoinHandle<()>>,
+  /// Otwarty plik portfela (nazwa) do `set_wallet_info`.
+  pub wh_display_name: String,
+  pub wh_stored_height: u64,
+  pub wh_stored_balance: u64,
+  pub wh_stored_unlocked: u64,
+  /// Pierwszy rozszerzony tick (jak `extended` w `heartbeatAction` — m.in. `get_address_book`).
+  pub wh_heartbeat_ext_pending: bool,
+  /// Oczekujące `relay_tx` (sweep / transfer / stake).
+  pub tx_metadata_list: Vec<WalletTxMetadata>,
+  /// Pętla `getPoolsData` po wysokości (jak `begin_Stake_Acquisition`).
+  pub stake_acquisition_task: Option<JoinHandle<()>>,
   pub next_rpc_id: u64
 }
 
@@ -37,7 +74,49 @@ impl Default for WalletBackendState {
       wallet_password_hash_hex: None,
       wallet: None,
       wallet_process: None,
+      daemon_process: None,
+      daemon_heartbeat: None,
+      daemon_last_height: 0,
+      wallet_heartbeat: None,
+      wh_display_name: String::new(),
+      wh_stored_height: 0,
+      wh_stored_balance: 0,
+      wh_stored_unlocked: 0,
+      wh_heartbeat_ext_pending: false,
+      tx_metadata_list: Vec::new(),
+      stake_acquisition_task: None,
       next_rpc_id: 0
     }
+  }
+}
+
+impl WalletBackendState {
+  /// Zatrzymanie `arqmad` / `arqma-wallet-rpc` przed ponownym `run_core_startup` (jak restart w Node).
+  pub fn shutdown_subprocesses (&mut self) {
+    if let Some(h) = self.daemon_heartbeat.take() {
+      h.abort();
+    }
+    if let Some(h) = self.stake_acquisition_task.take() {
+      h.abort();
+    }
+    if let Some(h) = self.wallet_heartbeat.take() {
+      h.abort();
+    }
+    if let Some(mut ch) = self.wallet_process.take() {
+      let _ = ch.kill();
+      let _ = ch.wait();
+    }
+    if let Some(mut ch) = self.daemon_process.take() {
+      let _ = ch.kill();
+      let _ = ch.wait();
+    }
+    self.wallet = None;
+    self.wallet_salt.clear();
+    self.wh_display_name.clear();
+    self.wh_stored_height = 0;
+    self.wh_stored_balance = 0;
+    self.wh_stored_unlocked = 0;
+    self.wh_heartbeat_ext_pending = false;
+    self.tx_metadata_list.clear();
   }
 }

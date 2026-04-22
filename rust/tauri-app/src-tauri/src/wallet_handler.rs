@@ -1,6 +1,7 @@
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::wallet_list_fs::list_wallet_files;
+use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
@@ -8,6 +9,7 @@ use tauri::AppHandle;
 pub async fn handle_wallet (
   app: &AppHandle,
   st: &mut WalletBackendState,
+  http: &Client,
   method: &str,
   data: &Value,
 ) -> Result<Value, String> {
@@ -82,20 +84,73 @@ pub async fn handle_wallet (
         emit_receive(app, "wallet_list", w)?;
       }
     }
-    "validate_address" | "open_wallet" | "close_wallet" | "create_wallet" | "restore_wallet"
-    | "restore_view_wallet" | "import_wallet" | "stake" | "relay_stake" | "relay_sweepAll"
-    | "sweepAll" | "cancelTransaction" | "register_service_node" | "transfer" | "relay_transfer"
-    | "add_address_book" | "delete_address_book" | "save_tx_notes" | "rescan_blockchain"
-    | "rescan_spent" | "get_private_keys" | "export_key_images" | "import_key_images"
-    | "change_wallet_password" | "delete_wallet" | "export_transactions" | "get_coin_price"
-    | "begin_Stake_Acquisition" | "end_Stake_Acquisition" | "unsubscribe_for_signature_data"
-    | "remove_signature_data" => {
+    "get_coin_price" => {
+      crate::wallet_relay_ops::get_coin_and_conversion(app, http).await;
+    }
+    "cancelTransaction" => {
+      crate::wallet_relay_ops::cancel_transaction(st, p);
+    }
+    "unsubscribe_for_signature_data" => {
+      emit_receive(app, "set_signature_data", json!([]))?;
+    }
+    "subscribe_for_signature_data" => {
+      eprintln!("[wallet] subscribe_for_signature_data: brak ZMQ (w Node zakomentowane — no-op w Tauri)");
+    }
+    "remove_signature_data" => {
+      eprintln!("[wallet] remove_signature_data: brak kanału ZMQ (jako w Node — no-op w Tauri)");
+    }
+    "cancel_stake" => {}
+    "relay_sweepAll" => {
       let w = st
         .wallet
         .as_ref()
+        .map(|c| c.fork_for_heartbeat())
         .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
+      crate::wallet_relay_ops::relay_sweep_all(app, st, &w, p).await;
+    }
+    "relay_transfer" => {
+      let w = st
+        .wallet
+        .as_ref()
+        .map(|c| c.fork_for_heartbeat())
+        .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
+      crate::wallet_relay_ops::relay_transfer(app, st, &w).await;
+    }
+    "relay_stake" => {
+      let w = st
+        .wallet
+        .as_ref()
+        .map(|c| c.fork_for_heartbeat())
+        .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
+      crate::wallet_relay_ops::relay_stake(app, st, &w, p).await;
+    }
+    "begin_Stake_Acquisition" => {
+      crate::wallet_pools::start_stake_acquisition(app, st, http);
+    }
+    "end_Stake_Acquisition" => {
+      crate::wallet_pools::end_stake_acquisition(st);
+    }
+    "unlock_stake" => {
+      let w = st
+        .wallet
+        .as_ref()
+        .map(|c| c.fork_for_heartbeat())
+        .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
+      unlock_stake(app, st, &w, p).await?;
+    }
+    "validate_address" | "open_wallet" | "close_wallet" | "create_wallet" | "restore_wallet"
+    | "restore_view_wallet" | "import_wallet" | "stake" | "sweepAll" | "register_service_node"
+    | "transfer" | "add_address_book" | "delete_address_book" | "save_tx_notes"
+    | "rescan_blockchain" | "rescan_spent" | "get_private_keys" | "export_key_images"
+    | "import_key_images" | "change_wallet_password" | "delete_wallet" | "export_transactions" => {
       let (rpc, params) = map_wallet_rpc(method, p)?;
-      let r = w.call(&rpc, &params).await?;
+      let r = {
+        let w = st
+          .wallet
+          .as_ref()
+          .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
+        w.call(&rpc, &params).await?
+      };
       if r.get("error").is_some() {
         emit_receive(
           app,
@@ -104,8 +159,27 @@ pub async fn handle_wallet (
         )?;
         return Ok(Value::Null);
       }
-      // Dla kilku akcji front oczekuje dodatkowych zdarzeń — na razie tylko sukces RPC.
+      if method == "sweepAll" {
+        crate::wallet_relay_ops::push_sweep_metadata(st, p, &r);
+      } else if method == "transfer" {
+        crate::wallet_relay_ops::push_transfer_metadata(st, p, &r);
+      } else if method == "stake" {
+        crate::wallet_relay_ops::push_stake_metadata(st, p, &r);
+      } else if method == "change_wallet_password" {
+        if !st.wallet_salt.is_empty() {
+          if let Some(np) = p.get("new_password").and_then(|x| x.as_str()) {
+            if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(np, &st.wallet_salt) {
+              st.wallet_password_hash_hex = Some(h);
+            }
+          }
+        }
+      }
+      // Dla kilku akcji front oczekuje dodatkowych zdarzeń.
       if method == "open_wallet" {
+        let w = st
+          .wallet
+          .as_ref()
+          .ok_or_else(|| "Brak lokalnego arqma-wallet-rpc (dodaj bin do resource/bin albo skonfiguruj węzeł).".to_string())?;
         if !st.wallet_salt.is_empty() {
           if let Some(pass) = p.get("password").and_then(|x| x.as_str()) {
             if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(pass, &st.wallet_salt) {
@@ -137,6 +211,11 @@ pub async fn handle_wallet (
             )?;
           }
         }
+        st.wh_display_name = name.to_string();
+        st.wh_stored_height = 0;
+        st.wh_stored_balance = 0;
+        st.wh_stored_unlocked = 0;
+        crate::wallet_heartbeat::start(app, st, is_local_net(st));
       } else if matches!(
         method,
         "create_wallet" | "restore_wallet" | "import_wallet" | "restore_view_wallet"
@@ -148,8 +227,20 @@ pub async fn handle_wallet (
             }
           }
         }
+        let wname = p
+          .get("name")
+          .or_else(|| p.get("filename"))
+          .and_then(|n| n.as_str())
+          .unwrap_or("");
+        st.wh_display_name = wname.to_string();
+        st.wh_stored_height = 0;
+        st.wh_stored_balance = 0;
+        st.wh_stored_unlocked = 0;
+        crate::wallet_heartbeat::start(app, st, is_local_net(st));
       } else if method == "close_wallet" {
         st.wallet_password_hash_hex = None;
+        st.wh_display_name.clear();
+        crate::wallet_heartbeat::stop(st);
       }
     }
     _ => {
@@ -157,6 +248,136 @@ pub async fn handle_wallet (
     }
   }
   Ok(Value::Null)
+}
+
+/// `wallet-rpc.js::unlockStake` — `can_request_stake_unlock` / `request_stake_unlock`.
+async fn unlock_stake (
+  app: &AppHandle,
+  st: &WalletBackendState,
+  w: &crate::json_rpc_client::WalletRpcClient,
+  p: &Value,
+) -> Result<(), String> {
+  emit_receive(
+    app,
+    "set_snode_status_unlock",
+    json!({ "code": 0, "message": "", "sending": false }),
+  )?;
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  let service_node_key = p
+    .get("service_node_key")
+    .and_then(|x| x.as_str())
+    .unwrap_or("");
+  if service_node_key.is_empty() {
+    return Ok(());
+  }
+  if !wallet_password_matches(st, password) {
+    emit_receive(
+      app,
+      "set_snode_status_unlock",
+      json!({ "code": -400, "message": "invalidPassword", "sending": false }),
+    )?;
+    return Ok(());
+  }
+  let confirmed = p
+    .get("confirmed")
+    .and_then(|c| c.as_bool())
+    .unwrap_or(false);
+  let params = json!({ "service_node_key": service_node_key });
+  let r = if confirmed {
+    w.call("request_stake_unlock", &params).await?
+  } else {
+    w.call("can_request_stake_unlock", &params).await?
+  };
+  if let Some(e) = r.get("error") {
+    let msg = e
+      .get("message")
+      .and_then(|m| m.as_str())
+      .unwrap_or("Unknown error");
+    emit_receive(
+      app,
+      "set_snode_status_unlock",
+      json!({ "code": -400, "message": msg, "sending": false }),
+    )?;
+    return Ok(());
+  }
+  if confirmed {
+    if let Some(res) = r.get("result") {
+      if res.is_object() {
+        let msg = res
+          .get("msg")
+          .or_else(|| res.get("message"))
+          .and_then(|m| m.as_str())
+          .unwrap_or("");
+        let code = if res.get("unlocked").and_then(|u| u.as_bool()) == Some(true) {
+          400i64
+        } else {
+          -400
+        };
+        emit_receive(
+          app,
+          "set_snode_status_unlock",
+          json!({ "code": code, "message": msg, "sending": false }),
+        )?;
+        return Ok(());
+      }
+    }
+    emit_receive(
+      app,
+      "set_snode_status_unlock",
+      json!({ "code": -400, "message": "Unknown error", "sending": false }),
+    )?;
+  } else {
+    let (can, msg) = r
+      .get("result")
+      .map(|res| {
+        let can = res
+          .get("can_unlock")
+          .and_then(|b| b.as_bool())
+          .unwrap_or(false);
+        let msg = res
+          .get("msg")
+          .or_else(|| res.get("message"))
+          .and_then(|m| m.as_str())
+          .unwrap_or("");
+        (can, msg.to_string())
+      })
+      .unwrap_or((false, String::new()));
+    let code = if can { 400i64 } else { -400 };
+    emit_receive(
+      app,
+      "set_snode_status_unlock",
+      json!({ "code": code, "message": msg, "sending": false }),
+    )?;
+  }
+  Ok(())
+}
+
+fn wallet_password_matches (st: &WalletBackendState, password: &str) -> bool {
+  if st.wallet_salt.is_empty() {
+    return true;
+  }
+  let Some(want) = st.wallet_password_hash_hex.as_deref() else {
+    return false;
+  };
+  let Ok(got) = crate::wallet_password::pbkdf2_password_hex(password, &st.wallet_salt) else {
+    return false;
+  };
+  got == want
+}
+
+fn is_local_net (st: &WalletBackendState) -> bool {
+  let net = st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+    .unwrap_or("mainnet");
+  st.config_data
+    .get("daemons")
+    .and_then(|d| d.get(net))
+    .and_then(|x| x.get("type"))
+    .and_then(|t| t.as_str())
+    != Some("remote")
 }
 
 /// Mapa front → JSON-RPC (nazwa metody, parametry).
@@ -199,9 +420,6 @@ fn map_wallet_rpc (method: &str, p: &Value) -> Result<(String, Value), String> {
     }
     "rescan_blockchain" => Ok(v("rescan_blockchain", json!({}))),
     "rescan_spent" => Ok(v("rescan_spent", json!({}))),
-    "relay_sweepAll" | "cancelTransaction" | "relay_transfer" | "get_coin_price"
-    | "begin_Stake_Acquisition" | "end_Stake_Acquisition" | "unsubscribe_for_signature_data"
-    | "remove_signature_data" => Err(format!("{method}: wymaga pełnej logiki (jeszcze nie)")),
     _ => Err(format!("niewspierany wallet.method: {method}"))
   }
 }
@@ -210,6 +428,7 @@ fn map_wallet_rpc (method: &str, p: &Value) -> Result<(String, Value), String> {
 fn wallet_rpc_method_name (m: &str) -> String {
   match m {
     "sweepAll" => "sweep_all".to_string(),
+    "transfer" => "transfer_split".to_string(),
     _ => m.to_string()
   }
 }

@@ -1,4 +1,7 @@
 use crate::backend_state::WalletBackendState;
+use crate::daemon_check::{check_daemon_reachable, RemoteNodeIssue};
+use crate::daemon_handler::arqmad_version_probe_str;
+use crate::daemon_process::{ensure_daemon_for_startup, set_current_net_to_remote};
 use crate::gateway_emit::emit_receive;
 use crate::remote_scan::pick_fastest_remote;
 use crate::wallet_list_fs::list_wallet_files;
@@ -10,7 +13,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
-/// Pełna sekwencja `Backend.startup()` (stub kroków 3–7, potem ewent. spawn `arqma-wallet-rpc` i lista plików).
+/// Sekwencja startu (`Backend.startup` w Node): config, węzeł, `daemon_heartbeat`, opcjonalnie `arqma-wallet-rpc`, lista portfeli.
 pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, http: &Client) -> Result<(), String> {
   let snap = load_config_snapshot(&st.paths).map_err(|e| e.to_string())?;
   st.defaults = snap.defaults.clone();
@@ -68,22 +71,115 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
 
   ensure_datadir_layout(&st.config_data).map_err(|e| e.to_string())?;
 
-  // Stub (bez subprocessów): odtwarzanie kodów `status` z oryginalnego `startup`.
+  let net = st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+    .unwrap_or("mainnet")
+    .to_string();
+  let daemon_typ = st
+    .config_data
+    .get("daemons")
+    .and_then(|d| d.get(&net))
+    .and_then(|x| x.get("type"))
+    .and_then(|t| t.as_str())
+    .unwrap_or("remote")
+    .to_string();
+
   emit_receive(app, "set_app_data", json!({ "status": { "code": 3 } }))?;
-  emit_receive(
-    app,
-    "set_app_data",
-    json!({ "status": { "code": 4, "message": "Ładowanie portfela…" } }),
-  )?;
-  emit_receive(
-    app,
-    "set_app_data",
-    json!({
-      "status": { "code": 5 },
-      "config": st.config_data,
-      "pending_config": st.config_data
-    }),
-  )?;
+
+  match check_daemon_reachable(http, &st.config_data).await {
+    Ok(()) => {}
+    Err(RemoteNodeIssue::NetMismatch) => {
+      emit_show_notification(
+        app,
+        "negative",
+        "Error: Remote node is using a different nettype",
+      )?;
+      emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+      st.startup_seq_done = true;
+      return Ok(());
+    }
+    Err(RemoteNodeIssue::Inaccessible) => {
+      if daemon_typ == "local_remote" {
+        if let Some(dm) = st.config_data.get_mut("daemons").and_then(|d| d.get_mut(&net)) {
+          if let Some(o) = dm.as_object_mut() {
+            o.insert("type".into(), json!("local"));
+          }
+        }
+        write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
+        emit_receive(
+          app,
+          "show_notification",
+          json!({
+            "type": "warning",
+            "textColor": "black",
+            "message": "Warning: Could not access remote node, switching to local only",
+            "timeout": 3000
+          }),
+        )?;
+        emit_receive(
+          app,
+          "set_app_data",
+          json!({ "config": st.config_data, "pending_config": st.config_data }),
+        )?;
+      } else {
+        emit_show_notification(
+          app,
+          "negative",
+          "Error: Could not access remote node, please try another remote node",
+        )?;
+        emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+        st.startup_seq_done = true;
+        return Ok(());
+      }
+    }
+  }
+
+  let ver = arqmad_version_probe_str(app);
+  if ver != "unknown" {
+    emit_receive(
+      app,
+      "set_app_data",
+      json!({ "status": { "code": 4, "message": ver } }),
+    )?;
+  } else {
+    set_current_net_to_remote(st);
+    emit_receive(
+      app,
+      "set_app_data",
+      json!({
+        "status": { "code": 5 },
+        "config": st.config_data,
+        "pending_config": st.config_data
+      }),
+    )?;
+  }
+
+  if let Err(e) = ensure_daemon_for_startup(app, st, http).await {
+    eprintln!("[startup] daemon: {e}");
+    let is_remote = st
+      .config_data
+      .get("daemons")
+      .and_then(|d| d.get(&net))
+      .and_then(|x| x.get("type"))
+      .and_then(|t| t.as_str())
+      == Some("remote");
+    let msg = if is_remote {
+      "Remote daemon can not be reached"
+    } else {
+      "Local daemon internal error"
+    };
+    emit_show_notification(app, "negative", msg)?;
+    emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+    st.startup_seq_done = true;
+    return Ok(());
+  }
+
+  let is_local = daemon_typ != "remote";
+  crate::daemon_heartbeat::start(app, st, is_local, http);
+
   emit_receive(app, "set_app_data", json!({ "status": { "code": 6 } }))?;
   emit_receive(app, "set_app_data", json!({ "status": { "code": 7 } }))?;
   let wallets = if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
