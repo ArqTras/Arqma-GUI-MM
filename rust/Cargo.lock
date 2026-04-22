@@ -76,7 +76,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "arqma-tauri"
+name = "arqma-wallet"
 version = "5.0.0"
 dependencies = [
  "arboard",

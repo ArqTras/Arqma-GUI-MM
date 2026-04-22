@@ -1,19 +1,20 @@
 [package]
-name = "arqma-tauri"
+name = "arqma-wallet"
 version.workspace = true
-description = "Shell Tauri (Rust) — most Electron MainProcess"
+description = "Arqma Wallet — Tauri desktop shell (Rust)"
 authors = ["Arqma"]
 build = "build.rs"
 edition.workspace = true
 license.workspace = true
 rust-version = "1.70"
+default-run = "arqma-wallet"
 
 [lib]
 name = "arqma_wallet_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "arqma-tauri"
+name = "arqma-wallet"
 path = "src/main.rs"
 
 [build-dependencies]

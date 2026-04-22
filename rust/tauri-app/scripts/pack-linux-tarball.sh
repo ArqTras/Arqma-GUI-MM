@@ -15,14 +15,14 @@ STAGE_NAME="Arqma-Wallet_${VERSION}_linux_${ARCH}"
 STAGE="${STAGE_ROOT}/${STAGE_NAME}"
 
 BIN=""
-for c in "${TARGET_DIR}/Arqma Wallet" "${TARGET_DIR}/arqma-tauri"; do
+for c in "${TARGET_DIR}/Arqma Wallet" "${TARGET_DIR}/arqma-wallet"; do
   if [[ -f "${c}" ]]; then
     BIN="${c}"
     break
   fi
 done
 if [[ -z "${BIN}" ]]; then
-  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma Wallet' or arqma-tauri) — run tauri build on Linux first." >&2
+  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma Wallet' or arqma-wallet) — run tauri build on Linux first." >&2
   exit 1
 fi
 
