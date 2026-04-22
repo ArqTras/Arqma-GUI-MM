@@ -26,9 +26,39 @@ pub async fn handle_wallet (
       }
     }
     "has_password" => {
-      // W Electron `hasPassword` sprawdza lokalne pliki — uproszczenie: false.
-      let _ = p;
-      emit_receive(app, "set_password_status", json!({ "has": false }))?;
+      // Odpowiednik `hasPassword` w `wallet-rpc.js` (event: `set_has_password`, bool).
+      if st.wallet_password_hash_hex.is_none() {
+        emit_receive(app, "set_has_password", json!(false))?;
+        return Ok(Value::Null);
+      }
+      let prompt = st
+        .config_data
+        .get("app")
+        .and_then(|a| a.get("promptForPassword"))
+        .and_then(|v| v.as_bool())
+        == Some(true);
+      if !prompt {
+        emit_receive(app, "set_has_password", json!(true))?;
+        return Ok(Value::Null);
+      }
+      if st.wallet_salt.is_empty() {
+        emit_receive(app, "set_has_password", json!(false))?;
+        return Ok(Value::Null);
+      }
+      let stored = st
+        .wallet_password_hash_hex
+        .as_deref()
+        .unwrap_or("");
+      let empty_h = match crate::wallet_password::pbkdf2_password_hex("", &st.wallet_salt) {
+        Ok(s) => s,
+        Err(_) => {
+          emit_receive(app, "set_has_password", json!(false))?;
+          return Ok(Value::Null);
+        }
+      };
+      let same_as_empty = stored == empty_h.as_str();
+      emit_receive(app, "set_has_password", json!(same_as_empty))?;
+      return Ok(Value::Null);
     }
     "copy_old_gui_wallets" => {
       emit_receive(
@@ -76,6 +106,13 @@ pub async fn handle_wallet (
       }
       // Dla kilku akcji front oczekuje dodatkowych zdarzeń — na razie tylko sukces RPC.
       if method == "open_wallet" {
+        if !st.wallet_salt.is_empty() {
+          if let Some(pass) = p.get("password").and_then(|x| x.as_str()) {
+            if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(pass, &st.wallet_salt) {
+              st.wallet_password_hash_hex = Some(h);
+            }
+          }
+        }
         let name = p
           .get("name")
           .or_else(|| p.get("filename"))
@@ -100,6 +137,19 @@ pub async fn handle_wallet (
             )?;
           }
         }
+      } else if matches!(
+        method,
+        "create_wallet" | "restore_wallet" | "import_wallet" | "restore_view_wallet"
+      ) {
+        if !st.wallet_salt.is_empty() {
+          if let Some(pass) = p.get("password").and_then(|x| x.as_str()) {
+            if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(pass, &st.wallet_salt) {
+              st.wallet_password_hash_hex = Some(h);
+            }
+          }
+        }
+      } else if method == "close_wallet" {
+        st.wallet_password_hash_hex = None;
       }
     }
     _ => {

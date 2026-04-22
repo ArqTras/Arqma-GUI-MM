@@ -12,6 +12,8 @@ pub struct WalletBackendState {
   pub startup_seq_done: bool,
   /// Sól PBKDF2 (hex) do porównań haseł — jak `this.auth[2]` w `wallet-rpc.js`.
   pub wallet_salt: String,
+  /// Odcisk hasła (hex 128 znaków), jak `this.wallet_state.password_hash` w Node.
+  pub wallet_password_hash_hex: Option<String>,
   pub wallet: Option<WalletRpcClient>,
   pub wallet_process: Option<std::process::Child>,
   pub next_rpc_id: u64
@@ -32,6 +34,7 @@ impl Default for WalletBackendState {
       ethereum,
       startup_seq_done: false,
       wallet_salt: String::new(),
+      wallet_password_hash_hex: None,
       wallet: None,
       wallet_process: None,
       next_rpc_id: 0

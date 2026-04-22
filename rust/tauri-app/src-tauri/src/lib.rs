@@ -12,6 +12,7 @@ mod startup_run;
 mod wallet_copy_old_gui;
 mod wallet_handler;
 mod wallet_list_fs;
+mod wallet_password;
 mod wallet_process;
 
 use backend_state::WalletBackendState;
