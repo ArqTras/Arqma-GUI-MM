@@ -1,8 +1,13 @@
 /dist
+/dist/electron
 /src-bex/www
 /src-capacitor
 /src-cordova
 /.quasar
 /node_modules
+/downloads
+/rust/target
+/rust/tauri-app/node_modules
+/rust/tauri-app/dist
 .eslintrc.js
 babel.config.js

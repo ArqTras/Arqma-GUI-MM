@@ -1,2 +1,5 @@
-npx eslint --fix --ext .js,.vue ./
-npx jest
+#!/usr/bin/env sh
+set -e
+# Use project-local ESLint/Jest (avoid `npx eslint`, which can resolve to ESLint 9 without flat config).
+npm run lint
+npm test

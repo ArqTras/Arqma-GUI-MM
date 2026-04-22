@@ -21,7 +21,8 @@
     "build-windows": "quasar build -m electron -T win32 -A x64",
     "build-armv7": "quasar build -m electron -T linux -A armv7l",
     "build-armv8": "quasar build -m electron -T linux -A arm64",
-    "lint": "eslint --ext .js,.vue ./",
+    "lint": "eslint --ext .js,.vue ./src ./src-electron ./build",
+    "test": "jest --passWithNoTests",
     "prepare": "husky"
   },
   "dependencies": {
