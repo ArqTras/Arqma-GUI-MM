@@ -1,3 +1,4 @@
+import { api } from "@/bridge/api"
 import { Notify, Dialog, Loading } from "quasar"
 import { EventEmitter } from "events"
 import { i18n, loadLocaleMessages } from "src/boot/i18n"

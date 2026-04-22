@@ -5,6 +5,8 @@ import { quasar, transformAssetUrls } from "@quasar/vite-plugin"
 import AutoImport from "unplugin-auto-import/vite"
 
 export default defineConfig({
+  // Tauri: ścieżki względne w buildzie — bez tego /assets/... daje 404 w WebView (biały ekran)
+  base: "./",
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   preview: { port: 1420, strictPort: true },
@@ -36,7 +38,13 @@ export default defineConfig({
     vue({ template: { transformAssetUrls } }),
     quasar({ sassVariables: fileURLToPath(new URL("src/css/quasar.variables.scss", import.meta.url)) })
   ],
-  build: { target: "es2020", outDir: "dist", sourcemap: false, chunkSizeWarningLimit: 2000 },
+  build: {
+    target: "es2020",
+    outDir: "dist",
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    commonjsOptions: { transformMixedEsModules: true }
+  },
   optimizeDeps: {
     include: ["quasar", "@quasar/extras", "buffer"]
   }

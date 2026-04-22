@@ -20,19 +20,19 @@ export const api = {
   daemonVersion: () => invokeSimple("daemon_version_probe"),
   send: (module, method, data = {}) => backendSend(module, method, data),
   receive: (data) => {
-    listen("backend-receive", (ev) => {
+    void listen("backend-receive", (ev) => {
       if (typeof data === "function") { data({ }, ev.payload) }
-    })
+    }).catch((e) => console.error("[api] listen backend-receive", e))
   },
   autoUpdater: (data) => {
-    listen("auto-updater", (ev) => {
+    void listen("auto-updater", (ev) => {
       if (typeof data === "function") { data({ }, ev.payload) }
-    })
+    }).catch((e) => console.error("[api] listen auto-updater", e))
   },
   receiveConfirmClose: (data) => {
-    listen("confirm-close", (ev) => {
+    void listen("confirm-close", (ev) => {
       if (typeof data === "function") { data({ }, ev.payload) }
-    })
+    }).catch((e) => console.error("[api] listen confirm-close", e))
   },
   confirmClose: (data) => invokeSimple("confirm_close", { restart: data }),
   openDirectory: (p) => invokeSimple("dialog_open_dir", { defaultPath: p }),

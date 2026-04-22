@@ -1,18 +1,27 @@
-const axios = require("axios").default
-const fs = require("fs-extra")
+/**
+ * Pobiera binaria z GitHub Releases (API Arqma).
+ * Używa wyłącznie Node 20 (fetch, fs) — bez axios/fs-extra, żeby działało w CI przed npm install.
+ */
+const { createWriteStream } = require("fs")
+const fsp = require("fs/promises")
 const path = require("path")
-const axiosRetry = require("axios-retry").default
+const { pipeline } = require("stream/promises")
+const { Readable } = require("stream")
 
-axiosRetry(axios, {
-  retries: 5, // number of retries
-  retryDelay: (retryCount) => {
-    console.log(`retry attempt: ${retryCount}`)
-    return retryCount * 5000 // time interval between retries
-  },
-  retryCondition: (error) => {
-    return error.response && error.response.status === 403
+async function fetchWithRetry403 (url, init = {}, maxRetries = 5) {
+  let lastRes = null
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    lastRes = await fetch(url, init)
+    if (lastRes.status !== 403) {
+      return lastRes
+    }
+    if (attempt < maxRetries) {
+      console.log(`retry attempt: ${attempt}`)
+      await new Promise((resolve) => setTimeout(resolve, attempt * 5000))
+    }
   }
-})
+  return lastRes
+}
 
 async function download () {
   const { platform, env } = process
@@ -20,7 +29,7 @@ async function download () {
   try {
     const pwd = process.cwd()
     const downloadDir = path.join(pwd, "downloads")
-    await fs.ensureDir(downloadDir)
+    await fsp.mkdir(downloadDir, { recursive: true })
 
     const headers = {
       "Content-Type": "application/json"
@@ -29,7 +38,12 @@ async function download () {
       headers.Authorization = `token ${env.GH_TOKEN}`
     }
 
-    const { data } = await axios.get(repoUrl, { headers })
+    const metaRes = await fetchWithRetry403(repoUrl, { headers })
+    if (!metaRes.ok) {
+      throw new Error(`GitHub API: ${metaRes.status} ${metaRes.statusText}`)
+    }
+    const data = await metaRes.json()
+
     const asset = (data.assets || []).find(a => {
       const url = a.browser_download_url || ""
       if (platform === "darwin") {
@@ -46,20 +60,20 @@ async function download () {
     if (!asset) { throw new Error("Download url not found for " + process.platform + "/" + process.arch) }
     const extension = path.extname(asset.browser_download_url)
     const filePath = path.join(downloadDir, "latest" + extension)
-    // Use API asset URL so Authorization is accepted (browser_download_url redirects and can 403)
     const downloadHeaders = {
       Accept: "application/octet-stream",
       ...(env.GH_TOKEN ? { Authorization: `token ${env.GH_TOKEN}` } : {})
     }
     console.log("Downloading binary: " + asset.name)
-    const { data: artifact } = await axios.get(asset.url, { responseType: "stream", headers: downloadHeaders })
-    const writer = fs.createWriteStream(filePath)
-    artifact.pipe(writer)
-    await new Promise((resolve, reject) => {
-      writer.on("finish", resolve)
-      writer.on("error", reject)
-      artifact.on("error", reject)
-    })
+    const binRes = await fetchWithRetry403(asset.url, { headers: downloadHeaders })
+    if (!binRes.ok) {
+      throw new Error(`Download: ${binRes.status} ${binRes.statusText}`)
+    }
+    if (!binRes.body) {
+      throw new Error("Download: empty body")
+    }
+    const nodeReadable = Readable.fromWeb(binRes.body)
+    await pipeline(nodeReadable, createWriteStream(filePath))
     console.log("Downloaded binary to: " + filePath)
   } catch (err) {
     console.error("Failed to download file: " + err)
