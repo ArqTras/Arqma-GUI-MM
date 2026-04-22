@@ -38,3 +38,9 @@ package-lock.json
 # .notenv
 /downloads
 .sdk-comm
+
+# Rust workspace (Tauri, core, daemon)
+/rust/target
+/rust/**/target
+/rust/tauri-app/node_modules
+/rust/tauri-app/dist
