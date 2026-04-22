@@ -12,6 +12,7 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "ci:tauri": "npm run build && npm run tauri:build",
+    "release:win": "npm run build && cargo build --release -p arqma-wallet && node scripts/postbuild-rename-windows.mjs",
     "pack:linux-tarball": "bash scripts/pack-linux-tarball.sh"
   },
   "dependencies": {
