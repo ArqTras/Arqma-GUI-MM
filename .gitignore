@@ -44,3 +44,6 @@ package-lock.json
 /rust/**/target
 /rust/tauri-app/node_modules
 /rust/tauri-app/dist
+/rust/tauri-app/src-tauri/bin/*.exe
+/rust/tauri-app/src-tauri/bin/arqmad
+/rust/tauri-app/src-tauri/bin/arqma-wallet-rpc

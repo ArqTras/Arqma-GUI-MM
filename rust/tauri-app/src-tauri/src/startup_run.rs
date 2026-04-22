@@ -73,7 +73,7 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   emit_receive(
     app,
     "set_app_data",
-    json!({ "status": { "code": 4, "message": "tauri-stub" } }),
+    json!({ "status": { "code": 4, "message": "Ładowanie portfela…" } }),
   )?;
   emit_receive(
     app,

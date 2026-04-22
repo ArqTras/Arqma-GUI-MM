@@ -32,6 +32,9 @@
       "../public/icon_512x512.png",
       "../public/icon_32x32.png",
       "../public/icon.ico"
+    ],
+    "resources": [
+      "bin/"
     ]
   },
   "plugins": {}
