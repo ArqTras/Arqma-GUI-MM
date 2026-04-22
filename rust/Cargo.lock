@@ -82,6 +82,7 @@ dependencies = [
  "arboard",
  "arqma-wallet-core",
  "base64 0.22.1",
+ "chrono",
  "hex",
  "hmac",
  "md5",

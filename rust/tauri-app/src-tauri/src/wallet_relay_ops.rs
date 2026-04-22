@@ -20,7 +20,7 @@ fn rpc_err_text (e: &Value) -> String {
     .unwrap_or_else(|| "RPC error".to_string())
 }
 
-/// Usuwa wpisy `tx_metadata_list` o danym `type` (Node: `cancelTransaction`).
+/// Remove `tx_metadata_list` entries matching `type` (Node: `cancelTransaction`).
 pub fn cancel_transaction (st: &mut WalletBackendState, p: &Value) {
   let t = p
     .get("type")

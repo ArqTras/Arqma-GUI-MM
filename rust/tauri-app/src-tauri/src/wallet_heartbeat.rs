@@ -188,7 +188,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   false
 }
 
-fn merge_transfers_list (result: &Value) -> Vec<Value> {
+pub fn merge_transfers_list (result: &Value) -> Vec<Value> {
   let mut out: Vec<Value> = Vec::new();
   for k in [
     "in", "out", "pending", "failed", "pool", "miner", "snode", "gov", "stake"
@@ -330,7 +330,7 @@ async fn top_up_unused_subaddresses (
 }
 
 /// Build payload for `set_wallet_address_book` (`address_book` + `address_book_starred`).
-async fn fetch_address_book_map (c: &WalletRpcClient) -> Result<Value, String> {
+pub async fn fetch_address_book_map (c: &WalletRpcClient) -> Result<Value, String> {
   let r = c.call("get_address_book", &json!({})).await?;
   if r.get("error").is_some() {
     return Ok(json!({ "address_book": [], "address_book_starred": [] }));

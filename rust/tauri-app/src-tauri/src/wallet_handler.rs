@@ -2,7 +2,10 @@ use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::wallet_list_fs::list_wallet_files;
 use reqwest::Client;
+use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 /// When `arqma-wallet-rpc` is not running (missing bundled binary / no remote setup).
@@ -145,11 +148,53 @@ pub async fn handle_wallet (
     "sweepAll" => {
       wallet_sweep_all(app, st, p).await?;
     }
-    "validate_address" | "open_wallet" | "close_wallet" | "create_wallet" | "restore_wallet"
-    | "restore_view_wallet" | "import_wallet" | "stake" | "register_service_node"
-    | "transfer" | "add_address_book" | "delete_address_book" | "save_tx_notes"
-    | "rescan_blockchain" | "rescan_spent" | "get_private_keys" | "export_key_images"
-    | "import_key_images" | "change_wallet_password" | "delete_wallet" | "export_transactions" => {
+    "add_address_book" => {
+      wallet_add_address_book(app, st, http, p).await?;
+    }
+    "delete_address_book" => {
+      wallet_delete_address_book(app, st, http, p).await?;
+    }
+    "restore_wallet" => {
+      wallet_restore_wallet(app, st, http, p).await?;
+    }
+    "restore_view_wallet" => {
+      wallet_restore_view_wallet(app, st, http, p).await?;
+    }
+    "import_wallet" => {
+      wallet_import_wallet(app, st, http, p).await?;
+    }
+    "stake" => {
+      wallet_stake(app, st, http, p).await?;
+    }
+    "register_service_node" => {
+      wallet_register_service_node(app, st, http, p).await?;
+    }
+    "save_tx_notes" => {
+      wallet_save_tx_notes(app, st, http, p).await?;
+    }
+    "get_private_keys" => {
+      wallet_get_private_keys(app, st, http, p).await?;
+    }
+    "export_key_images" => {
+      wallet_export_key_images(app, st, http, p).await?;
+    }
+    "import_key_images" => {
+      wallet_import_key_images(app, st, http, p).await?;
+    }
+    "change_wallet_password" => {
+      wallet_change_wallet_password(app, st, http, p).await?;
+    }
+    "delete_wallet" => {
+      wallet_delete_wallet(app, st, http, p).await?;
+    }
+    "export_transactions" => {
+      wallet_export_transactions(app, st, http, p).await?;
+    }
+    "validate_address" | "open_wallet" | "close_wallet" | "create_wallet"
+    | "transfer"
+    | "rescan_blockchain" | "rescan_spent" => {
+      // After `close_wallet` we stop `arqma-wallet-rpc`; respawn before any RPC that needs it.
+      crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
       let (rpc, params) = map_wallet_rpc(method, p)?;
       let r = {
         let w = st
@@ -219,6 +264,29 @@ pub async fn handle_wallet (
             "set_tx_status",
             json!({ "code": 200, "message": fee_msg, "sending": false }),
           )?;
+          if p
+            .get("address_book")
+            .and_then(|ab| ab.get("save"))
+            .and_then(|v| v.as_bool())
+            == Some(true)
+          {
+            if let Some(addr) = p.get("address").and_then(|a| a.as_str()) {
+              if !addr.is_empty() {
+                let ab = p.get("address_book").cloned().unwrap_or_else(|| json!({}));
+                let add_p = json!({
+                  "address": addr,
+                  "payment_id": p.get("payment_id").and_then(|x| x.as_str()).unwrap_or(""),
+                  "name": ab.get("name").and_then(|x| x.as_str()).unwrap_or(""),
+                  "description": ab.get("description").and_then(|x| x.as_str()).unwrap_or(""),
+                  "starred": false,
+                  "index": false
+                });
+                if let Err(e) = wallet_add_address_book(app, st, http, &add_p).await {
+                  eprintln!("[wallet] transfer save address_book: {e}");
+                }
+              }
+            }
+          }
         } else {
           emit_receive(
             app,
@@ -229,16 +297,6 @@ pub async fn handle_wallet (
               "sending": false
             }),
           )?;
-        }
-      } else if method == "stake" {
-        crate::wallet_relay_ops::push_stake_metadata(st, p, &r);
-      } else if method == "change_wallet_password" {
-        if !st.wallet_salt.is_empty() {
-          if let Some(np) = p.get("new_password").and_then(|x| x.as_str()) {
-            if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(np, &st.wallet_salt) {
-              st.wallet_password_hash_hex = Some(h);
-            }
-          }
         }
       }
       // Some actions expect extra gateway events from the backend.
@@ -284,31 +342,24 @@ pub async fn handle_wallet (
         st.wh_stored_balance = 0;
         st.wh_stored_unlocked = 0;
         crate::wallet_heartbeat::start(app, st, is_local_net(st));
-      } else if matches!(
-        method,
-        "create_wallet" | "restore_wallet" | "import_wallet" | "restore_view_wallet"
-      ) {
-        if !st.wallet_salt.is_empty() {
-          if let Some(pass) = p.get("password").and_then(|x| x.as_str()) {
-            if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(pass, &st.wallet_salt) {
-              st.wallet_password_hash_hex = Some(h);
-            }
-          }
-        }
+      } else if method == "create_wallet" {
+        refresh_wallet_password_hash_from_params(st, p);
         let wname = p
           .get("name")
           .or_else(|| p.get("filename"))
           .and_then(|n| n.as_str())
           .unwrap_or("");
         st.wh_display_name = wname.to_string();
-        st.wh_stored_height = 0;
-        st.wh_stored_balance = 0;
-        st.wh_stored_unlocked = 0;
-        crate::wallet_heartbeat::start(app, st, is_local_net(st));
+        if let Some(w) = st.wallet.as_ref() {
+          let wf = w.fork_for_heartbeat();
+          let _ = finalize_new_wallet_like_electron(app, st, &wf, wname).await;
+        }
       } else if method == "close_wallet" {
         st.wallet_password_hash_hex = None;
         st.wh_display_name.clear();
         crate::wallet_heartbeat::stop(st);
+        // `close_wallet` RPC closed the wallet file; exit the RPC daemon cleanly (not a stray kill on app exit).
+        crate::wallet_process::graceful_shutdown_wallet_rpc(st).await;
       }
     }
     _ => {
@@ -318,7 +369,1087 @@ pub async fn handle_wallet (
   Ok(Value::Null)
 }
 
-/// `wallet-rpc.js::sweepAll` — first `get_address`, then `sweep_all` with `address` (frontend only sends password / do_not_relay).
+/// Row index for `delete_address_book` / replace-before-add (`false` / missing = none).
+fn address_book_row_index (p: &Value) -> Option<u64> {
+  match p.get("index") {
+    None => None,
+    Some(v) if v.is_null() => None,
+    Some(v) if v.is_boolean() => None,
+    Some(v) => v
+      .as_u64()
+      .or_else(|| v.as_i64().filter(|&i| i >= 0).map(|i| i as u64)),
+  }
+}
+
+/// Same as `wallet-rpc.js::addAddressBook` RPC params (`description` = `starred::name::notes` with `::`).
+fn map_add_address_book_rpc_params (p: &Value) -> Result<Value, String> {
+  let address = p
+    .get("address")
+    .and_then(|a| a.as_str())
+    .ok_or_else(|| "add_address_book: address".to_string())?
+    .to_string();
+  let name = p
+    .get("name")
+    .and_then(|n| n.as_str())
+    .unwrap_or("")
+    .to_string();
+  let description = p
+    .get("description")
+    .and_then(|d| d.as_str())
+    .unwrap_or("")
+    .to_string();
+  let starred = p.get("starred").and_then(|s| s.as_bool()).unwrap_or(false);
+  let mut parts: Vec<String> = Vec::new();
+  if starred {
+    parts.push("starred".into());
+  }
+  parts.push(name);
+  parts.push(description);
+  let desc = parts.join("::");
+  let mut out = serde_json::Map::new();
+  out.insert("address".into(), json!(address));
+  out.insert("description".into(), json!(desc));
+  if let Some(pid) = p.get("payment_id").and_then(|x| x.as_str()) {
+    if !pid.is_empty() {
+      out.insert("payment_id".into(), json!(pid));
+    }
+  }
+  Ok(Value::Object(out))
+}
+
+/// `wallet-rpc.js::addAddressBook` — optional delete-by-index, `add_address_book`, `store`, refresh UI list.
+async fn wallet_add_address_book (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let display_addr = p
+    .get("address")
+    .and_then(|a| a.as_str())
+    .unwrap_or("")
+    .to_string();
+  if let Some(idx) = address_book_row_index(p) {
+    let dr = w.call("delete_address_book", &json!({ "index": idx })).await?;
+    if dr.get("error").is_some() {
+      eprintln!(
+        "[wallet] add_address_book: delete before replace: {:?}",
+        dr.get("error")
+      );
+    }
+  }
+  let params = map_add_address_book_rpc_params(p)?;
+  let r = w.call("add_address_book", &params).await?;
+  if r.get("error").is_some() {
+    let err = r.get("error").cloned().unwrap_or(Value::Null);
+    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    emit_receive(
+      app,
+      "show_notification",
+      json!({
+        "type": "negative",
+        "message": "Wallet RPC Error, Address Rejected",
+        "timeout": 3000
+      }),
+    )?;
+    return Ok(());
+  }
+  let _ = w.call("store", &json!({})).await;
+  let bk = crate::wallet_heartbeat::fetch_address_book_map(w).await?;
+  emit_receive(app, "set_wallet_address_book", bk)?;
+  emit_receive(
+    app,
+    "show_notification",
+    json!({
+      "type": "positive",
+      "message": format!("Address Book updated with {display_addr}"),
+      "timeout": 3000
+    }),
+  )?;
+  Ok(())
+}
+
+/// `wallet-rpc.js::deleteAddressBook` — `delete_address_book`, `store`, refresh UI list.
+async fn wallet_delete_address_book (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let Some(idx) = address_book_row_index(p) else {
+    return Ok(());
+  };
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let r = w
+    .call("delete_address_book", &json!({ "index": idx }))
+    .await?;
+  if r.get("error").is_some() {
+    let err = r.get("error").cloned().unwrap_or(Value::Null);
+    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    return Ok(());
+  }
+  let _ = w.call("store", &json!({})).await;
+  let bk = crate::wallet_heartbeat::fetch_address_book_map(w).await?;
+  emit_receive(app, "set_wallet_address_book", bk)?;
+  Ok(())
+}
+
+fn normalize_restore_seed (seed: &str) -> String {
+  seed.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn wallet_filename_from_params (p: &Value) -> Option<&str> {
+  p
+    .get("name")
+    .or_else(|| p.get("filename"))
+    .and_then(|n| n.as_str())
+    .filter(|s| !s.is_empty())
+}
+
+fn prompt_password_enabled (st: &WalletBackendState) -> bool {
+  st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("promptForPassword"))
+    .and_then(|v| v.as_bool())
+    == Some(true)
+}
+
+/// `promptForPasswordCheck` + `isValidPasswordHash` when `app.promptForPassword` is true.
+fn wallet_password_ok_for_tx (st: &WalletBackendState, password: &str) -> bool {
+  if !prompt_password_enabled(st) {
+    return true;
+  }
+  wallet_password_matches(st, password)
+}
+
+fn refresh_wallet_password_hash_from_password (st: &mut WalletBackendState, password: &str) {
+  if st.wallet_salt.is_empty() {
+    return;
+  }
+  if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(password, &st.wallet_salt) {
+    st.wallet_password_hash_hex = Some(h);
+  }
+}
+
+fn refresh_wallet_password_hash_from_params (st: &mut WalletBackendState, p: &Value) {
+  if let Some(pw) = p.get("password").and_then(|x| x.as_str()) {
+    refresh_wallet_password_hash_from_password(st, pw);
+  }
+}
+
+fn trim_wallet_import_path (path_str: &str) -> String {
+  let t = path_str.trim();
+  if t.ends_with(".keys") {
+    t[..t.len() - ".keys".len()].to_string()
+  } else if t.ends_with(".address.txt") {
+    t[..t.len() - ".address.txt".len()].to_string()
+  } else {
+    t.to_string()
+  }
+}
+
+fn rpc_error_message_capitalized (err: &Value) -> String {
+  err
+    .get("message")
+    .and_then(|m| m.as_str())
+    .map(|s| {
+      let mut c = s.chars();
+      match c.next() {
+        None => s.to_string(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+      }
+    })
+    .unwrap_or_else(|| "Unknown error".to_string())
+}
+
+async fn emit_wallet_list (app: &AppHandle, st: &WalletBackendState) -> Result<(), String> {
+  if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
+    let w = list_wallet_files(&dir)?;
+    emit_receive(app, "wallet_list", w)?;
+  }
+  Ok(())
+}
+
+/// `wallet-rpc.js::finalizeNewWallet` — `store`, `.address.txt`, `wallet_list`, `set_wallet_info`, `set_wallet_secret` (mnemonic), heartbeat.
+async fn finalize_new_wallet_like_electron (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  w: &crate::json_rpc_client::WalletRpcClient,
+  filename: &str,
+) -> Result<(), String> {
+  let p_addr = json!({ "account_index": 0 });
+  let p_empty = json!({});
+  let p_bal = json!({ "account_index": 0 });
+  let p_mn = json!({ "key_type": "mnemonic" });
+  let p_sp = json!({ "key_type": "spend_key" });
+  let (ga, gh, gb, qm, qs) = tokio::join!(
+    w.call("get_address", &p_addr),
+    w.call("getheight", &p_empty),
+    w.call("getbalance", &p_bal),
+    w.call("query_key", &p_mn),
+    w.call("query_key", &p_sp),
+  );
+  let mut info = json!({
+    "name": filename,
+    "address": "",
+    "balance": 0,
+    "unlocked_balance": 0,
+    "height": 0,
+    "view_only": false
+  });
+  if let Ok(ref a) = ga {
+    if a.get("error").is_none() {
+      if let Some(addr) = a.pointer("/result/address").and_then(|x| x.as_str()) {
+        info["address"] = json!(addr);
+      }
+    }
+  }
+  if let Ok(ref h) = gh {
+    if h.get("error").is_none() {
+      if let Some(height) = h
+        .pointer("/result/height")
+        .and_then(|v| crate::json_util::value_as_u64(v))
+      {
+        info["height"] = json!(height);
+      }
+    }
+  }
+  if let Ok(ref b) = gb {
+    if b.get("error").is_none() {
+      if let Some(r) = b.get("result") {
+        if let Some(bal) = r.get("balance").and_then(|v| crate::json_util::value_as_u64(v)) {
+          info["balance"] = json!(bal);
+        }
+        if let Some(ub) = r
+          .get("unlocked_balance")
+          .and_then(|v| crate::json_util::value_as_u64(v))
+        {
+          info["unlocked_balance"] = json!(ub);
+        }
+      }
+    }
+  }
+  if let Ok(ref m) = qm {
+    if m.get("error").is_none() {
+      if let Some(key) = m.pointer("/result/key").and_then(|x| x.as_str()) {
+        emit_receive(
+          app,
+          "set_wallet_secret",
+          json!({ "mnemonic": key, "spend_key": "", "view_key": "" }),
+        )?;
+      }
+    }
+  }
+  if let Ok(ref s) = qs {
+    if s.get("error").is_none() {
+      if let Some(key) = s.pointer("/result/key").and_then(|x| x.as_str()) {
+        if key.chars().all(|c| c == '0') {
+          info["view_only"] = json!(true);
+        }
+      }
+    }
+  }
+  let _ = w.call("store", &json!({})).await;
+  if let Some(wdir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
+    let addr_path = wdir.join(format!("{filename}.address.txt"));
+    if !addr_path.exists() {
+      if let Some(addr) = info.get("address").and_then(|x| x.as_str()) {
+        let _ = std::fs::write(&addr_path, addr);
+      }
+    }
+    emit_wallet_list(app, st).await?;
+  }
+  emit_receive(app, "set_wallet_info", info)?;
+  st.wh_stored_height = 0;
+  st.wh_stored_balance = 0;
+  st.wh_stored_unlocked = 0;
+  crate::wallet_heartbeat::start(app, st, is_local_net(st));
+  Ok(())
+}
+
+async fn wallet_restore_wallet (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  emit_receive(app, "reset_wallet_error", json!({}))?;
+  let rh = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
+    Ok(h) => h,
+    Err(e) => {
+      emit_receive(
+        app,
+        "set_wallet_error",
+        json!({ "status": { "code": -1, "message": e } }),
+      )?;
+      return Ok(());
+    }
+  };
+  let mut p2 = p.clone();
+  if let Some(seed) = p.get("seed").and_then(|s| s.as_str()) {
+    if let Some(o) = p2.as_object_mut() {
+      o.insert("seed".into(), json!(normalize_restore_seed(seed)));
+    }
+  }
+  let params = crate::wallet_rpc_electron::map_restore_deterministic_wallet(&p2, rh)?;
+  let r = {
+    let w = st
+      .wallet
+      .as_ref()
+      .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+    w.call("restore_deterministic_wallet", &params).await?
+  };
+  if r.get("error").is_some() {
+    let err = r.get("error").cloned().unwrap_or(Value::Null);
+    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    return Ok(());
+  }
+  refresh_wallet_password_hash_from_params(st, p);
+  let filename = wallet_filename_from_params(p).unwrap_or("");
+  st.wh_display_name = filename.to_string();
+  let wf = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?
+    .fork_for_heartbeat();
+  finalize_new_wallet_like_electron(app, st, &wf, filename).await?;
+  Ok(())
+}
+
+async fn wallet_restore_view_wallet (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  emit_receive(app, "reset_wallet_error", json!({}))?;
+  let mut refresh_h = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
+    Ok(h) => h,
+    Err(e) => {
+      emit_receive(
+        app,
+        "set_wallet_error",
+        json!({ "status": { "code": -1, "message": e } }),
+      )?;
+      return Ok(());
+    }
+  };
+  if p
+    .get("refresh_type")
+    .and_then(|t| t.as_str())
+    .unwrap_or("height")
+    == "height"
+  {
+    let raw = p.get("refresh_start_height");
+    let is_int = raw
+      .and_then(|v| {
+        v.as_u64()
+          .map(|_| true)
+          .or_else(|| v.as_i64().map(|_| true))
+      })
+      .unwrap_or(false);
+    if !is_int {
+      refresh_h = 0;
+    }
+  }
+  let params = crate::wallet_rpc_electron::map_generate_from_keys(p, refresh_h)?;
+  let r = {
+    let w = st
+      .wallet
+      .as_ref()
+      .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+    w.call("generate_from_keys", &params).await?
+  };
+  if r.get("error").is_some() {
+    let err = r.get("error").cloned().unwrap_or(Value::Null);
+    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    return Ok(());
+  }
+  refresh_wallet_password_hash_from_params(st, p);
+  let filename = wallet_filename_from_params(p).unwrap_or("");
+  st.wh_display_name = filename.to_string();
+  let wf = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?
+    .fork_for_heartbeat();
+  finalize_new_wallet_like_electron(app, st, &wf, filename).await?;
+  Ok(())
+}
+
+async fn wallet_import_wallet (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  emit_receive(app, "reset_wallet_error", json!({}))?;
+  let filename = wallet_filename_from_params(p).ok_or_else(|| "import_wallet: name".to_string())?;
+  let import_path_raw = p
+    .get("path")
+    .and_then(|x| x.as_str())
+    .ok_or_else(|| "import_wallet: path".to_string())?;
+  let import_base = trim_wallet_import_path(import_path_raw);
+  let import_src = PathBuf::from(&import_base);
+  if !import_src.exists() {
+    emit_receive(
+      app,
+      "set_wallet_error",
+      json!({ "status": { "code": -1, "message": "Invalid wallet path" } }),
+    )?;
+    return Ok(());
+  }
+  let Some(wdir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) else {
+    return Ok(());
+  };
+  let destination = wdir.join(filename);
+  if destination.exists() || wdir.join(format!("{filename}.keys")).exists() {
+    emit_receive(
+      app,
+      "set_wallet_error",
+      json!({ "status": { "code": -1, "message": "Wallet with name already exists" } }),
+    )?;
+    return Ok(());
+  }
+  let keys_src = PathBuf::from(format!("{import_base}.keys"));
+  let dest_keys = wdir.join(format!("{filename}.keys"));
+  if let Err(e) = std::fs::copy(&import_src, &destination) {
+    eprintln!("[wallet] import copy: {e}");
+    emit_receive(
+      app,
+      "set_wallet_error",
+      json!({ "status": { "code": -1, "message": "Failed to copy wallet" } }),
+    )?;
+    return Ok(());
+  }
+  if keys_src.exists() {
+    if let Err(e) = std::fs::copy(&keys_src, &dest_keys) {
+      eprintln!("[wallet] import copy keys: {e}");
+      let _ = std::fs::remove_file(&destination);
+      emit_receive(
+        app,
+        "set_wallet_error",
+        json!({ "status": { "code": -1, "message": "Failed to copy wallet" } }),
+      )?;
+      return Ok(());
+    }
+  }
+  let password = p
+    .get("password")
+    .and_then(|x| x.as_str())
+    .ok_or_else(|| "import_wallet: password".to_string())?;
+  let open_r = {
+    let w = st
+      .wallet
+      .as_ref()
+      .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+    w
+      .call(
+        "open_wallet",
+        &json!({ "filename": filename.to_string(), "password": password }),
+      )
+      .await?
+  };
+  if open_r.get("error").is_some() {
+    let _ = std::fs::remove_file(&destination);
+    let _ = std::fs::remove_file(&dest_keys);
+    emit_receive(
+      app,
+      "set_wallet_error",
+      json!({ "status": open_r.get("error").cloned().unwrap_or(Value::Null) }),
+    )?;
+    return Ok(());
+  }
+  refresh_wallet_password_hash_from_params(st, p);
+  st.wh_display_name = filename.to_string();
+  let wf = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?
+    .fork_for_heartbeat();
+  finalize_new_wallet_like_electron(app, st, &wf, filename).await?;
+  Ok(())
+}
+
+async fn wallet_stake (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let origin = p.get("origin").cloned().unwrap_or(Value::Null);
+  let reply_note = |msg: &str| {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({
+        "type": "negative",
+        "message": msg,
+        "timeout": 3000,
+        "origin": origin.clone()
+      }),
+    )
+  };
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    reply_note("Password Error")?;
+    return Ok(());
+  }
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let params = crate::wallet_rpc_electron::map_stake_rpc(p)?;
+  let r = w.call("stake", &params).await?;
+  if r.get("error").is_some() {
+    let msg = r
+      .get("error")
+      .map(|e| rpc_error_message_capitalized(e))
+      .unwrap_or_else(|| "Unknown error".to_string());
+    emit_receive(
+      app,
+      "set_tx_status",
+      json!({ "code": -300, "message": msg, "sending": false }),
+    )?;
+    return Ok(());
+  }
+  if r.get("result").is_some() {
+    let fee_msg = r
+      .get("result")
+      .and_then(|res| res.get("fee"))
+      .and_then(crate::json_util::value_as_u64)
+      .map(|atoms| {
+        let fee_ui = atoms as f64 / crate::wallet_relay_ops::COIN_UNITS;
+        format!("Fee {fee_ui:.9}")
+      })
+      .unwrap_or_else(|| "Fee".to_string());
+    emit_receive(
+      app,
+      "set_tx_status",
+      json!({
+        "code": 300,
+        "message": fee_msg,
+        "sending": false
+      }),
+    )?;
+    crate::wallet_relay_ops::push_stake_metadata(st, p, &r);
+  }
+  Ok(())
+}
+
+async fn wallet_register_service_node (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    emit_receive(
+      app,
+      "set_snode_status",
+      json!({ "registration": { "code": -1, "sending": false } }),
+    )?;
+    return Ok(());
+  }
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let params = crate::wallet_rpc_electron::map_register_service_node(p)?;
+  let r = w.call("register_service_node", &params).await?;
+  if r.get("error").is_some() {
+    let msg = r
+      .get("error")
+      .map(|e| rpc_error_message_capitalized(e))
+      .unwrap_or_else(|| "Unknown error".to_string());
+    emit_receive(
+      app,
+      "set_snode_status",
+      json!({ "registration": { "code": -1, "message": msg, "sending": false } }),
+    )?;
+    return Ok(());
+  }
+  emit_receive(
+    app,
+    "set_snode_status",
+    json!({ "registration": { "code": 0, "sending": false } }),
+  )?;
+  Ok(())
+}
+
+async fn wallet_save_tx_notes (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let params = crate::wallet_rpc_electron::map_set_tx_notes(p)?;
+  let _ = w.call("set_tx_notes", &params).await;
+  let txid = p.get("txid").and_then(|t| t.as_str()).unwrap_or("");
+  if txid.is_empty() {
+    return Ok(());
+  }
+  let tr = w
+    .call("get_transfer_by_txid", &json!({ "txid": txid }))
+    .await?;
+  if let Some(xfer) = tr.pointer("/result/transfer") {
+    emit_receive(app, "set_wallet_transaction", xfer.clone())?;
+  }
+  Ok(())
+}
+
+async fn wallet_get_private_keys (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let mut secret = json!({ "mnemonic": "", "spend_key": "", "view_key": "" });
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    emit_receive(
+      app,
+      "set_wallet_secret",
+      json!({ "mnemonic": "Invalid password", "spend_key": -1, "view_key": -1 }),
+    )?;
+    return Ok(());
+  }
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let pk_m = json!({ "key_type": "mnemonic" });
+  let pk_s = json!({ "key_type": "spend_key" });
+  let pk_v = json!({ "key_type": "view_key" });
+  let (m, s, v) = tokio::join!(
+    w.call("query_key", &pk_m),
+    w.call("query_key", &pk_s),
+    w.call("query_key", &pk_v),
+  );
+  for (res, key_field) in [(m, "mnemonic"), (s, "spend_key"), (v, "view_key")] {
+    if let Ok(ref ok) = res {
+      if ok.get("error").is_none() {
+        if let Some(k) = ok.pointer("/result/key") {
+          if let Some(o) = secret.as_object_mut() {
+            o.insert(key_field.into(), k.clone());
+          }
+        }
+      }
+    }
+  }
+  emit_receive(app, "set_wallet_secret", secret)?;
+  Ok(())
+}
+
+fn wallet_data_dir_path (st: &WalletBackendState) -> Option<PathBuf> {
+  st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("wallet_data_dir"))
+    .and_then(|d| d.as_str())
+    .map(PathBuf::from)
+}
+
+async fn wallet_export_key_images (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let name = st.wh_display_name.as_str();
+  let out_path = if let Some(dir) = p.get("path").and_then(|x| x.as_str()) {
+    PathBuf::from(dir).join("key_image_export")
+  } else {
+    wallet_data_dir_path(st)
+      .unwrap_or_default()
+      .join("images")
+      .join(name)
+      .join("key_image_export")
+  };
+  let images_dir = wallet_data_dir_path(st)
+    .unwrap_or_default()
+    .join("images")
+    .join(name);
+  let _ = std::fs::create_dir_all(&images_dir);
+  let params = crate::wallet_rpc_electron::map_export_key_images(p)?;
+  let data = w.call("export_key_images", &params).await?;
+  if data.get("error").is_some() || data.get("result").is_none() {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Error exporting key images", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  if let Some(ski) = data.pointer("/result/signed_key_images") {
+    let body = serde_json::to_string(ski).unwrap_or_else(|_| "{}".into());
+    if let Err(e) = std::fs::write(&out_path, body) {
+      eprintln!("[wallet] export key images write: {e}");
+      emit_receive(
+        app,
+        "show_notification",
+        json!({ "type": "negative", "message": "Error exporting key images", "timeout": 3000 }),
+      )?;
+      return Ok(());
+    }
+    emit_receive(
+      app,
+      "show_notification",
+      json!({
+        "message": format!("Key images exported to {}", out_path.display()),
+        "timeout": 3000
+      }),
+    )?;
+  } else {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({
+        "type": "warning",
+        "textColor": "black",
+        "message": "No key images found to export",
+        "timeout": 3000
+      }),
+    )?;
+  }
+  Ok(())
+}
+
+async fn wallet_import_key_images (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let name = st.wh_display_name.as_str();
+  let file_path = if let Some(dir) = p.get("path").and_then(|x| x.as_str()) {
+    PathBuf::from(dir).join("key_image_export")
+  } else {
+    wallet_data_dir_path(st)
+      .unwrap_or_default()
+      .join("images")
+      .join(name)
+      .join("key_image_export")
+  };
+  let text = match std::fs::read_to_string(&file_path) {
+    Ok(t) => t,
+    Err(_) => {
+      emit_receive(
+        app,
+        "show_notification",
+        json!({ "type": "negative", "message": "Error parsing key images as JSON", "timeout": 3000 }),
+      )?;
+      return Ok(());
+    }
+  };
+  let signed: Value = match serde_json::from_str(&text) {
+    Ok(v) => v,
+    Err(_) => {
+      emit_receive(
+        app,
+        "show_notification",
+        json!({ "type": "negative", "message": "Error parsing key images as JSON", "timeout": 3000 }),
+      )?;
+      return Ok(());
+    }
+  };
+  let data = w
+    .call("import_key_images", &json!({ "signed_key_images": signed }))
+    .await?;
+  if data.get("error").is_some() || data.get("result").is_none() {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({
+        "type": "negative",
+        "message": "Error importing key images. change to local daemon",
+        "timeout": 3000
+      }),
+    )?;
+    return Ok(());
+  }
+  emit_receive(
+    app,
+    "show_notification",
+    json!({ "message": "Key images imported", "timeout": 3000 }),
+  )?;
+  Ok(())
+}
+
+async fn wallet_change_wallet_password (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let old_password = p.get("old_password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, old_password) {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Invalid old password", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let params = crate::wallet_rpc_electron::map_change_wallet_password(p)?;
+  let data = w.call("change_wallet_password", &params).await?;
+  if data.get("error").is_some() || data.get("result").is_none() {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Error changing password", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  if let Some(np) = p.get("new_password").and_then(|x| x.as_str()) {
+    refresh_wallet_password_hash_from_password(st, np);
+  }
+  emit_receive(
+    app,
+    "show_notification",
+    json!({ "message": "Password updated", "timeout": 3000 }),
+  )?;
+  Ok(())
+}
+
+async fn wallet_delete_wallet (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  _http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    emit_receive(
+      app,
+      "show_notification",
+      json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
+    )?;
+    return Ok(());
+  }
+  let wallet_name = st.wh_display_name.clone();
+  if wallet_name.is_empty() {
+    return Ok(());
+  }
+  emit_receive(
+    app,
+    "show_loading",
+    json!({ "message": "Deleting wallet" }),
+  )?;
+  if let Some(ref w) = st.wallet {
+    let _ = w.call("store", &json!({})).await;
+    let _ = w.call("close_wallet", &json!({})).await;
+  }
+  st.wallet_password_hash_hex = None;
+  st.wh_display_name.clear();
+  crate::wallet_heartbeat::stop(st);
+  crate::wallet_process::graceful_shutdown_wallet_rpc(st).await;
+  if let Some(wdir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
+    let base = wdir.join(&wallet_name);
+    let _ = std::fs::remove_file(&base);
+    let _ = std::fs::remove_file(base.with_extension("keys"));
+    let _ = std::fs::remove_file(wdir.join(format!("{wallet_name}.address.txt")));
+  }
+  emit_wallet_list(app, st).await?;
+  emit_receive(app, "hide_loading", json!({}))?;
+  emit_receive(app, "return_to_wallet_select", json!({}))?;
+  Ok(())
+}
+
+/// Same `payment_id` rules as `wallet-rpc.js::getTransactions` before CSV export.
+fn normalize_payment_id_for_export (pid: &str) -> String {
+  let t = pid.trim();
+  if t.chars().all(|c| c == '0' || c.is_whitespace()) {
+    return String::new();
+  }
+  if t.len() >= 16 {
+    let tail = &t[16..];
+    if tail.chars().all(|c| c == '0' || c.is_whitespace()) {
+      return t.chars().take(16).collect();
+    }
+  }
+  t.to_string()
+}
+
+async fn wallet_export_transactions (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+  p: &Value,
+) -> Result<(), String> {
+  let mut reply = json!({
+    "code": -99,
+    "message": "backend.transaction_export_failed",
+    "origin": "wallet_settings"
+  });
+  let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
+  if !wallet_password_ok_for_tx(st, password) {
+    reply["message"] = json!("backend.Invalid_password");
+    emit_receive(app, "set_tx_status", reply)?;
+    return Ok(());
+  }
+  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let w = st
+    .wallet
+    .as_ref()
+    .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+  let min_height = 0u64;
+  let gt_params = json!({
+    "in": true,
+    "out": true,
+    "pending": true,
+    "failed": true,
+    "pool": false,
+    "filter_by_height": true,
+    "min_height": min_height
+  });
+  let gt = w.call("get_transfers", &gt_params).await?;
+  let mut list = if let Some(r) = gt.get("result") {
+    crate::wallet_heartbeat::merge_transfers_list(r)
+  } else {
+    Vec::new()
+  };
+  for tx in &mut list {
+    if let Some(o) = tx.as_object_mut() {
+      if let Some(s) = o.get("payment_id").and_then(|v| v.as_str()) {
+        let np = normalize_payment_id_for_export(s);
+        o.insert("payment_id".into(), json!(np));
+      }
+    }
+  }
+  let export_dir = p
+    .get("path")
+    .and_then(|x| x.as_str())
+    .ok_or_else(|| "export_transactions: path".to_string())?;
+  let csv_path = Path::new(export_dir).join("transactions.csv");
+  let file = std::fs::File::create(&csv_path).map_err(|e| e.to_string())?;
+  let mut bw = std::io::BufWriter::new(file);
+  for (index, mut transaction) in list.iter().cloned().enumerate() {
+    if let Some(o) = transaction.as_object_mut() {
+      o.remove("subaddr_index");
+      o.remove("subaddr_indices");
+      o.remove("suggested_confirmations_threshold");
+    }
+    if index == 0 {
+      if let Some(o) = transaction.as_object() {
+        let mut headers: Vec<String> = o.keys().cloned().collect();
+        headers.insert(3, "destinations".into());
+        writeln!(bw, "{}", headers.join("|")).map_err(|e| e.to_string())?;
+      }
+    } else {
+      if let Some(o) = transaction.as_object_mut() {
+        if let Some(am) = o.get("amount") {
+          if let Some(a) = crate::json_util::value_as_u64(am) {
+            o.insert(
+              "amount".into(),
+              json!(a as f64 / crate::wallet_relay_ops::COIN_UNITS),
+            );
+          }
+        }
+        if let Some(dest) = o.get("destinations").and_then(|d| d.as_array()) {
+          if !dest.is_empty() {
+            o.insert("destinations".into(), json!(serde_json::to_string(dest).unwrap_or_default()));
+          }
+        }
+        if let Some(fee_v) = o.get("fee").and_then(crate::json_util::value_as_u64) {
+          if fee_v > 0 {
+            o.insert(
+              "fee".into(),
+              json!(fee_v as f64 / crate::wallet_relay_ops::COIN_UNITS),
+            );
+          }
+        }
+        if let Some(ts) = o.get("timestamp").and_then(|t| t.as_u64()) {
+          let dt = DateTime::<Utc>::from_timestamp(ts as i64, 0)
+            .map(|d| d.format("%m/%d/%y %I:%M:%S %p").to_string())
+            .unwrap_or_default()
+            .replace(',', "");
+          o.insert("timestamp".into(), json!(dt));
+        }
+      }
+      let vals: Vec<String> = if let Some(o) = transaction.as_object() {
+        o.values()
+          .map(|v| match v {
+            Value::String(s) => s.clone(),
+            Value::Number(n) => n.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Null => String::new(),
+            _ => v.to_string(),
+          })
+          .collect()
+      } else {
+        vec![]
+      };
+      let mut foo = vals;
+      if foo.len() == 13 {
+        foo.insert(3, "[]".into());
+      }
+      writeln!(bw, "{}", foo.join("|")).map_err(|e| e.to_string())?;
+    }
+  }
+  reply["code"] = json!(100);
+  reply["message"] = json!("backend.transaction_export_complete");
+  emit_receive(app, "set_tx_status", reply)?;
+  Ok(())
+}
+
+/// `wallet-rpc.js::sweepAll` — `get_address` then `sweep_all` with the same fields as Node (`address`, `account_index`,
+/// `priority`, `ring_size`, `do_not_relay`, `get_tx_metadata`, `get_tx_hex`). UI sends `do_not_relay: true` then `relay_sweepAll`.
 async fn wallet_sweep_all (
   app: &AppHandle,
   st: &mut WalletBackendState,
@@ -597,6 +1728,43 @@ fn is_local_net (st: &WalletBackendState) -> bool {
     != Some("remote")
 }
 
+/// UI `amount` (number / string) → `f64`.
+fn json_amount_as_f64 (v: &Value) -> Option<f64> {
+  v.as_f64()
+    .or_else(|| v.as_u64().map(|u| u as f64))
+    .or_else(|| v.as_i64().map(|i| i as f64))
+    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+}
+
+/// Same shape as `wallet-rpc.js::transfer` → `transfer_split` (destinations in atomic units).
+fn map_transfer_split_params (p: &Value) -> Result<Value, String> {
+  let amount_ui = p
+    .get("amount")
+    .and_then(json_amount_as_f64)
+    .ok_or_else(|| "transfer: amount".to_string())?;
+  let address = p
+    .get("address")
+    .and_then(|a| a.as_str())
+    .ok_or_else(|| "transfer: address".to_string())?
+    .to_string();
+  let amount_fixed: f64 = format!("{:.9}", amount_ui)
+    .parse()
+    .map_err(|_| "transfer: amount parse".to_string())?;
+  let atoms = (amount_fixed * crate::wallet_relay_ops::COIN_UNITS).round() as u64;
+  let priority = p
+    .get("priority")
+    .and_then(|v| v.as_u64())
+    .or_else(|| p.get("priority").and_then(|v| v.as_i64()).map(|i| i.max(0) as u64))
+    .unwrap_or(0);
+  Ok(json!({
+    "destinations": [{ "amount": atoms, "address": address }],
+    "priority": priority,
+    "ring_size": 16,
+    "do_not_relay": true,
+    "get_tx_metadata": true
+  }))
+}
+
 /// Map frontend method → JSON-RPC (method name, params).
 fn map_wallet_rpc (method: &str, p: &Value) -> Result<(String, Value), String> {
   let v = |s: &str, x: Value| (s.to_string(), x);
@@ -629,23 +1797,9 @@ fn map_wallet_rpc (method: &str, p: &Value) -> Result<(String, Value), String> {
         json!({ "filename": name, "password": password, "language": language }),
       ))
     }
-    "restore_wallet" | "restore_view_wallet" | "import_wallet" | "stake" | "relay_stake"
-    | "register_service_node" | "transfer" | "add_address_book" | "delete_address_book"
-    | "save_tx_notes" | "get_private_keys" | "export_key_images" | "import_key_images"
-    | "change_wallet_password" | "delete_wallet" | "export_transactions" => {
-      Ok((wallet_rpc_method_name(method), p.clone()))
-    }
+    "transfer" => Ok(("transfer_split".to_string(), map_transfer_split_params(p)?)),
     "rescan_blockchain" => Ok(v("rescan_blockchain", json!({}))),
     "rescan_spent" => Ok(v("rescan_spent", json!({}))),
-    _ => Err(format!("unsupported wallet.method: {method}"))
-  }
-}
-
-/// JSON-RPC `method` name (Monero/Arqma stack).
-fn wallet_rpc_method_name (m: &str) -> String {
-  match m {
-    "sweepAll" => "sweep_all".to_string(),
-    "transfer" => "transfer_split".to_string(),
-    _ => m.to_string()
+    _ => Err(format!("unsupported wallet.method: {method}")),
   }
 }

@@ -141,7 +141,7 @@ pub async fn handle_core (
         .unwrap_or_else(|| json!({}));
       st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      st.shutdown_subprocesses();
+      st.shutdown_subprocesses_async().await;
       st.startup_seq_done = false;
       run_core_startup(app, st, http).await?;
     }

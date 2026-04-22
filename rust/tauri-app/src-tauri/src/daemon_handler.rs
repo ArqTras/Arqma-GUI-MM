@@ -22,7 +22,7 @@ fn arqmad_version_string (app: &AppHandle) -> Option<String> {
   None
 }
 
-/// Jedna linia wersji (stdout `arqmad --version`) albo `unknown` — m.in. dla `daemon_version_probe` w Tauri.
+/// Single-line version string from `arqmad --version` stdout, or `unknown` (for `daemon_version_probe` in Tauri).
 pub fn arqmad_version_probe_str (app: &AppHandle) -> String {
   arqmad_version_string(app)
     .map(|s| s.trim().to_string())

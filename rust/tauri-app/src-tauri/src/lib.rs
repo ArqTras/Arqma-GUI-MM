@@ -14,6 +14,7 @@ mod remote_scan;
 mod startup_run;
 mod wallet_copy_old_gui;
 mod wallet_handler;
+mod wallet_rpc_electron;
 mod wallet_list_fs;
 mod wallet_password;
 mod wallet_process;
@@ -244,7 +245,7 @@ pub fn run () {
         tauri::async_runtime::block_on(async {
           if let Some(st) = app.try_state::<AppData>() {
             let mut b = st.backend.lock().await;
-            b.shutdown_subprocesses();
+            b.shutdown_subprocesses_async().await;
           }
         });
       }

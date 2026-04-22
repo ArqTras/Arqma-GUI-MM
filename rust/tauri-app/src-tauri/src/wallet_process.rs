@@ -143,3 +143,39 @@ pub async fn try_start_wallet_rpc (
   eprintln!("[wallet] timeout — no get_languages response (check resource/bin and daemon)");
   st.wallet = None;
 }
+
+/// Flush wallet, ask `arqma-wallet-rpc` to exit (`stop_wallet` — same as Monero docs), wait for the child;
+/// falls back to `kill` if the process does not exit in time. Avoids orphaned RPC after app/wallet close.
+pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
+  if let Some(ref w) = st.wallet {
+    let _ = w.call("store", &Value::Null).await;
+    let _ = w.call("stop_wallet", &Value::Null).await;
+  }
+  st.wallet = None;
+  let Some(mut ch) = st.wallet_process.take() else {
+    st.wallet_salt.clear();
+    return;
+  };
+  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(12);
+  loop {
+    match ch.try_wait() {
+      Ok(Some(_status)) => break,
+      Ok(None) => {
+        if std::time::Instant::now() >= deadline {
+          eprintln!("[wallet] stop_wallet: child still running, sending kill");
+          let _ = ch.kill();
+          let _ = ch.wait();
+          break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+      }
+      Err(e) => {
+        eprintln!("[wallet] try_wait: {e}, killing wallet-rpc child");
+        let _ = ch.kill();
+        let _ = ch.wait();
+        break;
+      }
+    }
+  }
+  st.wallet_salt.clear();
+}

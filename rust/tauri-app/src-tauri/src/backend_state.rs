@@ -42,7 +42,7 @@ pub struct WalletBackendState {
   pub daemon_last_height: u64,
   /// Like `WalletRPC.heartbeat` — `getheight` + balance in background (forked RPC client).
   pub wallet_heartbeat: Option<JoinHandle<()>>,
-  /// Otwarty plik portfela (nazwa) do `set_wallet_info`.
+  /// Open wallet display name (filename) for `set_wallet_info` / heartbeat.
   pub wh_display_name: String,
   pub wh_stored_height: u64,
   pub wh_stored_balance: u64,
@@ -91,8 +91,8 @@ impl Default for WalletBackendState {
 }
 
 impl WalletBackendState {
-  /// Stop `arqmad` / `arqma-wallet-rpc` before another `run_core_startup` (like restart in Node).
-  pub fn shutdown_subprocesses (&mut self) {
+  /// Stop heartbeats, exit `arqma-wallet-rpc` via RPC (`stop_wallet`), stop local daemon child, clear wallet UI state.
+  pub async fn shutdown_subprocesses_async (&mut self) {
     if let Some(h) = self.daemon_heartbeat.take() {
       h.abort();
     }
@@ -102,16 +102,12 @@ impl WalletBackendState {
     if let Some(h) = self.wallet_heartbeat.take() {
       h.abort();
     }
-    if let Some(mut ch) = self.wallet_process.take() {
-      let _ = ch.kill();
-      let _ = ch.wait();
-    }
+    crate::wallet_process::graceful_shutdown_wallet_rpc(self).await;
     if let Some(mut ch) = self.daemon_process.take() {
       let _ = ch.kill();
       let _ = ch.wait();
     }
-    self.wallet = None;
-    self.wallet_salt.clear();
+    self.wallet_password_hash_hex = None;
     self.wh_display_name.clear();
     self.wh_stored_height = 0;
     self.wh_stored_balance = 0;
