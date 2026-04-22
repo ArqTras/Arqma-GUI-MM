@@ -31,7 +31,26 @@ pub async fn handle_wallet (
       emit_receive(app, "set_password_status", json!({ "has": false }))?;
     }
     "copy_old_gui_wallets" => {
-      eprintln!("[wallet] copy_old_gui_wallets — niezaimplementowane (Tauri)");
+      emit_receive(
+        app,
+        "set_old_gui_import_status",
+        json!({ "code": 1, "failed_wallets": [] }),
+      )?;
+      let list = p
+        .get("wallets")
+        .and_then(|x| x.as_array())
+        .map(|a| a.as_slice())
+        .unwrap_or(&[]);
+      let failed = crate::wallet_copy_old_gui::run_copy_old_gui_wallets(&st.config_data, list)?;
+      emit_receive(
+        app,
+        "set_old_gui_import_status",
+        json!({ "code": 0, "failed_wallets": failed }),
+      )?;
+      if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
+        let w = list_wallet_files(&dir)?;
+        emit_receive(app, "wallet_list", w)?;
+      }
     }
     "validate_address" | "open_wallet" | "close_wallet" | "create_wallet" | "restore_wallet"
     | "restore_view_wallet" | "import_wallet" | "stake" | "relay_stake" | "relay_sweepAll"

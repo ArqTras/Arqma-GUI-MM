@@ -22,15 +22,11 @@ pub fn daemon_rpc_host_port (config: &Value) -> Option<(String, u16)> {
   Some((h, p))
 }
 
-/// Katalog plików portfela — jak `WalletRPC.wallet_dir` (mainnet: `.../wallets`).
-pub fn wallet_files_dir (config: &Value) -> Option<PathBuf> {
+/// Katalog `wallets` dla podanej sieci (jak `this.dirs[type]/wallets` w `wallet-rpc.js`).
+pub fn wallet_files_dir_for_net (config: &Value, net: &str) -> Option<PathBuf> {
   let wdata = config
     .get("app")?
     .get("wallet_data_dir")?
-    .as_str()?;
-  let net = config
-    .get("app")?
-    .get("net_type")?
     .as_str()?;
   let sub = match net {
     "stagenet" => PathBuf::from(wdata).join("stagenet").join("wallets"),
@@ -38,6 +34,15 @@ pub fn wallet_files_dir (config: &Value) -> Option<PathBuf> {
     _ => PathBuf::from(wdata).join("wallets")
   };
   Some(sub)
+}
+
+/// Katalog plików portfela — jak `WalletRPC.wallet_dir` (wg `app.net_type`).
+pub fn wallet_files_dir (config: &Value) -> Option<PathBuf> {
+  let net = config
+    .get("app")?
+    .get("net_type")?
+    .as_str()?;
+  wallet_files_dir_for_net(config, net)
 }
 
 /// Port lokalnego `arqma-wallet-rpc` w konfiguracji.

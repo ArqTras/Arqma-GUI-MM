@@ -9,6 +9,7 @@ mod http_digest_arqma;
 mod json_rpc_client;
 mod remote_scan;
 mod startup_run;
+mod wallet_copy_old_gui;
 mod wallet_handler;
 mod wallet_list_fs;
 mod wallet_process;
