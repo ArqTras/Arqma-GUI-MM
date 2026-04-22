@@ -33,11 +33,11 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20.17.0"
+          node-version: "24"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -100,7 +100,7 @@ jobs:
       # Linux: large .AppImage (bundled WebKitGTK) plus a smaller .tar.gz of the release binary + resources.
       # Windows/macOS: NSIS/MSI or app/dmg — artifact sizes differ mainly because of AppImage bundling.
       - name: Upload Tauri bundle artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Tauri-bundle-${{ matrix.os }}
           path: |
