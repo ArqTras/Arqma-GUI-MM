@@ -5,7 +5,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TARGET_DIR="$(cd "${APP_DIR}/../.." && pwd)/target/release"
+# Cargo workspace root is `rust/` (see rust/Cargo.toml), so artifacts are under rust/target/release — not <repo>/target/release.
+RUST_ROOT="$(cd "${APP_DIR}/.." && pwd)"
+TARGET_DIR="${RUST_ROOT}/target/release"
 VERSION="$(node -p "require('${APP_DIR}/package.json').version")"
 ARCH="$(uname -m)"
 OUT_SUBDIR="bundle/tgz"
@@ -15,14 +17,20 @@ STAGE_NAME="Arqma-Wallet_${VERSION}_linux_${ARCH}"
 STAGE="${STAGE_ROOT}/${STAGE_NAME}"
 
 BIN=""
-for c in "${TARGET_DIR}/Arqma Wallet" "${TARGET_DIR}/arqma-wallet"; do
+for c in \
+  "${TARGET_DIR}/Arqma Wallet" \
+  "${TARGET_DIR}/arqma-wallet" \
+  "${TARGET_DIR}/arqma-tauri"
+do
   if [[ -f "${c}" ]]; then
     BIN="${c}"
     break
   fi
 done
 if [[ -z "${BIN}" ]]; then
-  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma Wallet' or arqma-wallet) — run tauri build on Linux first." >&2
+  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma Wallet', arqma-wallet, or arqma-tauri)." >&2
+  echo "pack-linux-tarball: listing ${TARGET_DIR} (first 40 entries):" >&2
+  ls -la "${TARGET_DIR}" 2>&1 | head -n 40 >&2 || true
   exit 1
 fi
 
