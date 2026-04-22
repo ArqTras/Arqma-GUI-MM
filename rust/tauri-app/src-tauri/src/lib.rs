@@ -1,5 +1,6 @@
 //! Tauri backend: routes `backend_send` (same idea as `foo:send` in Electron) plus preload-style commands.
 
+mod json_util;
 mod arqma_paths_config;
 mod backend_state;
 mod core_handler;

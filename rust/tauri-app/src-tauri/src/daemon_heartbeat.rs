@@ -3,6 +3,7 @@ use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::daemon_post;
+use crate::json_util::value_as_u64;
 use crate::AppData;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -72,20 +73,21 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
   if r.get("error").is_some() {
     return;
   }
-  let Some(h) = r.pointer("/result/height").and_then(|v| v.as_u64()) else {
+  let Some(h) = r.pointer("/result/height").and_then(value_as_u64) else {
     return;
   };
-  let mut b = adata.backend.lock().await;
-  if h > b.daemon_last_height {
+  let result = r.get("result").cloned().unwrap_or(Value::Null);
+  {
+    let mut b = adata.backend.lock().await;
     b.daemon_last_height = h;
-    let result = r.get("result").cloned().unwrap_or(Value::Null);
-    drop(b);
-    let _ = emit_receive(
-      app,
-      "set_daemon_data",
-      json!({ "info": result }),
-    );
   }
+  // Emit on every successful poll so `target_height`, `height_without_bootstrap`, `is_ready`
+  // stay fresh (wallet footer / sync logic); not only when `height` increases.
+  let _ = emit_receive(
+    app,
+    "set_daemon_data",
+    json!({ "info": result }),
+  );
 }
 
 async fn tick_slow (app: &AppHandle, http: &Client) {

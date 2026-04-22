@@ -266,15 +266,16 @@ pub async fn handle_wallet (
           json!({ "code": 0, "message": "OK" }),
         )?;
         if let Ok(h) = w.call("getheight", &json!({})).await {
-          if let Some(height) = h
+          if let Some(height_u) = h
             .get("result")
             .and_then(|x| x.get("height"))
             .or_else(|| h.pointer("/result/height"))
+            .and_then(|v| crate::json_util::value_as_u64(v))
           {
             emit_receive(
               app,
               "set_wallet_info",
-              json!({ "name": name, "height": height }),
+              json!({ "name": name, "height": height_u }),
             )?;
           }
         }

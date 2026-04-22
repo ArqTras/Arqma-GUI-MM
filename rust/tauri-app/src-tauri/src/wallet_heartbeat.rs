@@ -1,6 +1,7 @@
 //! `getheight` / `getbalance` / `get_transfers` loop like `WalletRPC.heartbeatAction` in Electron.
 use crate::json_rpc_client::WalletRpcClient;
 use crate::gateway_emit::emit_receive;
+use crate::json_util::value_as_u64;
 use crate::AppData;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -89,7 +90,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
 
   if let Ok(ref v) = gh {
     if v.get("error").is_none() {
-      if let Some(h) = v.pointer("/result/height").and_then(|x| x.as_u64()) {
+      if let Some(h) = v.pointer("/result/height").and_then(value_as_u64) {
         new_h = h;
         info["height"] = json!(h);
       }
@@ -106,10 +107,10 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   if let Ok(ref v) = gb {
     if v.get("error").is_none() {
       if let (Some(bal), Some(unl)) = (
-        v.pointer("/result/balance").and_then(|x| x.as_u64()),
+        v.pointer("/result/balance").and_then(value_as_u64),
         v.pointer("/result/unlocked_balance")
           .or_else(|| v.pointer("/result/unlocked"))
-          .and_then(|x| x.as_u64()),
+          .and_then(value_as_u64),
       ) {
         has_balance_change = !(b0 == bal && u0 == unl);
         new_b = bal;
@@ -125,7 +126,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   if has_balance_change {
     if let (Ok(ghv), Ok(gbv)) = (&gh, &gb) {
       if ghv.get("error").is_none() && gbv.get("error").is_none() {
-        if let Some(cur_h) = ghv.pointer("/result/height").and_then(|x| x.as_u64()) {
+        if let Some(cur_h) = ghv.pointer("/result/height").and_then(value_as_u64) {
           let min_height = cur_h.saturating_sub(days_window);
           let p = json!({
             "in": true,
