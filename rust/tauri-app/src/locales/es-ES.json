@@ -228,7 +228,14 @@
                 "open": "Abierto",
                 "closed": "Cerrado",
                 "operator": "Operador",
-                "contributor": "Contribuyente"
+                "contributor": "Contribuyente",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Ocurrió un error, revisa los registros",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "Desregistrar Nodo Arq-Net Trust",
             "deregister_service_node_message": "¿Deseas desregistrar?",
             "deregister_service_node_ok_label": "Desregistrar",
-            "deregister_service_node_cancel_label": "CANCELAR"
+            "deregister_service_node_cancel_label": "CANCELAR",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Mostrar Código QR",
@@ -588,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "CANCELAR",
             "sweep_all_sweeping_all": "Consolidando Todo",
             "sweep_all_calculating_label": "Calculando tarifas......",
+            "sweep_all_progress_outputs_counted": "Se encontraron {count} transferencia(s) entrante(s) gastable(s).",
+            "sweep_all_progress_building": "Construyendo transacción de barrido ({count} salidas). Transcurrido ~{elapsed}s…",
             "copy_private_key_message": "Error al copiar la clave privada",
             "copy": "Copiar",
             "write_text_message": "Tenga cuidado a quién envía sus claves privadas, ya que controlan sus fondos.",

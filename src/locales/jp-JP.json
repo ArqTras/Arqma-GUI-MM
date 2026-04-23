@@ -227,7 +227,14 @@
                 "open": "オープン",
                 "closed": "クローズ",
                 "operator": "オペレーター",
-                "contributor": "貢献者"
+                "contributor": "貢献者",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "エラーが発生しました。ログを確認してください。",
@@ -404,7 +411,8 @@
             "deregister_service_node_title": "Arq-Net Trust ノード登録解除",
             "deregister_service_node_message": "登録解除しますか？",
             "deregister_service_node_ok_label": "登録解除",
-            "deregister_service_node_cancel_label": "キャンセル"
+            "deregister_service_node_cancel_label": "キャンセル",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "QR コードを表示",
@@ -587,6 +595,8 @@
             "sweep_all_consolidate_cancel_label": "キャンセル",
             "sweep_all_sweeping_all": "すべてスイープ",
             "sweep_all_calculating_label": "手数料を計算しています......",
+            "sweep_all_progress_outputs_counted": "使用可能な着金送金が {count} 件見つかりました。",
+            "sweep_all_progress_building": "sweep トランザクションを構築中（{count} 出力）。経過約 {elapsed} 秒…",
             "copy_private_key_message": "秘密鍵のコピー中にエラーが発生しました",
             "copy": "コピー",
             "write_text_message": "秘密鍵を誰に送信するかは注意してください。その人があなたの資金を管理します。",

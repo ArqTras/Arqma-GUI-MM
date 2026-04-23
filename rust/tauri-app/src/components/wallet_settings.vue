@@ -679,6 +679,7 @@ export default defineComponent({
       return $store.getters["gateway/isReady"]
     })
     const registration_status = computed(() => $store.state.gateway.service_node_status.registration)
+    const sweep_all_progress = computed(() => $store.state.gateway.sweep_all_progress)
 
     // Watchers
     const secretWatcher = watch(secret, async (newVal, oldVal) => {
@@ -715,6 +716,7 @@ export default defineComponent({
         switch (code) {
           case 100:
           case 200:
+            $store.commit("gateway/set_sweep_all_progress", null)
             $q.notify({
               type: "positive",
               timeout: 3000,
@@ -724,6 +726,7 @@ export default defineComponent({
             break
           case 99:
             if (modals.value.sweep_all.visible) {
+              $store.commit("gateway/set_sweep_all_progress", null)
               modals.value.sweep_all.loading = false
               modals.value.sweep_all.message = `${t("components.wallet_settings.sweep_all_fee")} ${message}`
               modals.value.sweep_all.title = t("components.wallet_settings.sweep_all_proceed")
@@ -736,6 +739,7 @@ export default defineComponent({
             }
             break
           case -99:
+            $store.commit("gateway/set_sweep_all_progress", null)
             $q.notify({
               type: "negative",
               timeout: 3000,
@@ -743,6 +747,7 @@ export default defineComponent({
             })
             break
           case -100:
+            $store.commit("gateway/set_sweep_all_progress", null)
             $q.notify({
               type: "negative",
               timeout: 3000,
@@ -753,6 +758,31 @@ export default defineComponent({
         }
       } catch (error) {
         await api.error("components/wallet_settings", "tx_statusWatcher", error.stack || error)
+      }
+    })
+
+    const sweepProgressWatcher = watch(sweep_all_progress, (pg) => {
+      try {
+        if (!modals.value.sweep_all.visible || !modals.value.sweep_all.loading) return
+        if (pg == null) return
+        if (pg.origin !== "wallet_settings") return
+        if (pg.stage === "outputs_counted") {
+          const c = Number(pg.total) || 0
+          modals.value.sweep_all.message = t(
+            "components.wallet_settings.sweep_all_progress_outputs_counted",
+            { count: c }
+          )
+        } else if (pg.stage === "building_tx") {
+          const c = Number(pg.total) || 0
+          const wr = Number(pg.wait_round) || 0
+          const elapsed = wr * 3
+          modals.value.sweep_all.message = t(
+            "components.wallet_settings.sweep_all_progress_building",
+            { count: c, elapsed }
+          )
+        }
+      } catch (error) {
+        void api.error("components/wallet_settings", "sweepProgressWatcher", error.stack || error)
       }
     })
 
@@ -1013,6 +1043,7 @@ export default defineComponent({
     }
 
     const resetSweepAll = async () => {
+      $store.commit("gateway/set_sweep_all_progress", null)
       modals.value.sweep_all.title = t("components.wallet_settings.sweep_all")
       modals.value.sweep_all.message = t("components.wallet_settings.sweep_all_inputs")
       modals.value.sweep_all.proceed = async () => await sweepAll()
@@ -1306,6 +1337,7 @@ export default defineComponent({
       is_ready,
       secretWatcher,
       tx_statusWatcher,
+      sweepProgressWatcher,
       showModal,
       hideModal,
       copyPrivateKey,

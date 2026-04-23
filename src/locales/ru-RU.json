@@ -227,7 +227,14 @@
                 "open": "Открыт",
                 "closed": "Закрыт",
                 "operator": "Оператор",
-                "contributor": "Участник"
+                "contributor": "Участник",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Произошла ошибка, проверьте логи",
@@ -404,7 +411,8 @@
             "deregister_service_node_title": "Дерегистрировать узел Arq-Net Trust",
             "deregister_service_node_message": "Хотите дерегистрировать?",
             "deregister_service_node_ok_label": "Дерегистрировать",
-            "deregister_service_node_cancel_label": "ОТМЕНА"
+            "deregister_service_node_cancel_label": "ОТМЕНА",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Показать QR-код",
@@ -587,6 +595,8 @@
             "sweep_all_consolidate_cancel_label": "ОТМЕНА",
             "sweep_all_sweeping_all": "Сметание всех",
             "sweep_all_calculating_label": "Расчет комиссий......",
+            "sweep_all_progress_outputs_counted": "Найдено расходуемых входящих переводов: {count}.",
+            "sweep_all_progress_building": "Формирование транзакции sweep ({count} выходов). Прошло ~{elapsed} с…",
             "copy_private_key_message": "Ошибка копирования приватного ключа",
             "copy": "Копировать",
             "write_text_message": "Будьте осторожны, кому вы отправляете свои приватные ключи, так как они контролируют ваши средства.",

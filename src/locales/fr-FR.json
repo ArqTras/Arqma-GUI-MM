@@ -227,7 +227,14 @@
                 "open": "Ouvert",
                 "closed": "Fermé",
                 "operator": "Opérateur",
-                "contributor": "donateur"
+                "contributor": "donateur",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Une erreur s'est produite dans les journaux de vérification",
@@ -404,7 +411,8 @@
             "deregister_service_node_title": "Désinscrire le nœud Arq-Net Trust",
             "deregister_service_node_message": "Voulez-vous désinscrire ?",
             "deregister_service_node_ok_label": "Désinscrire",
-            "deregister_service_node_cancel_label": "ANNULER"
+            "deregister_service_node_cancel_label": "ANNULER",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Voir Code QR",
@@ -587,6 +595,8 @@
             "sweep_all_consolidate_cancel_label": "ANNULER",
             "sweep_all_sweeping_all": "Consolider",
             "sweep_all_calculating_label": "Calcul des frais......",
+            "sweep_all_progress_outputs_counted": "{count} transfert(s) entrant(s) dépensable(s) trouvé(s).",
+            "sweep_all_progress_building": "Construction de la transaction de balayage ({count} sorties). Écoulé ~{elapsed}s…",
             "copy_private_key_message": "Erreur lors de la copie de la clé privée",
             "copy": "Copier",
             "write_text_message": "Soyez prudent à qui vous donner vos clés privées, ils pourront utiliser vos fonds.",

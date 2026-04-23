@@ -227,7 +227,14 @@
                 "open": "Otwarte",
                 "closed": "Zamknięte",
                 "operator": "Operator",
-                "contributor": "Współpracownik"
+                "contributor": "Współpracownik",
+                "all_description": "Wszystkie pule węzłów usługowych.",
+                "open_description": "Pule nadal otwarte na wpłaty (nie osiągnięto jeszcze wymaganego stake).",
+                "closed_description": "Pule, w których zebrano wymaganą kwotę stake.",
+                "operator_description": "Pule, w których ten portfel jest operatorem.",
+                "contributor_description": "Pule, w których ten portfel jest współtwórcą (nie operatorem).",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Wystąpił błąd, sprawdź dzienniki",
@@ -404,7 +411,8 @@
             "deregister_service_node_title": "Wyrejestruj węzeł Arq-Net Trust",
             "deregister_service_node_message": "Czy chcesz wyrejestrować?",
             "deregister_service_node_ok_label": "Wyrejestruj",
-            "deregister_service_node_cancel_label": "ANULUJ"
+            "deregister_service_node_cancel_label": "ANULUJ",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Pokaż kod QR",
@@ -587,6 +595,8 @@
             "sweep_all_consolidate_cancel_label": "ANULUJ",
             "sweep_all_sweeping_all": "Zbieranie wszystkiego",
             "sweep_all_calculating_label": "Obliczanie opłat......",
+            "sweep_all_progress_outputs_counted": "Znaleziono {count} dostępnych transferów przychodzących.",
+            "sweep_all_progress_building": "Budowanie transakcji sweep ({count} outputów). Minęło ~{elapsed}s…",
             "copy_private_key_message": "Błąd kopiowania klucza prywatnego",
             "copy": "Kopiuj",
             "write_text_message": "Uważaj, komu wysyłasz swoje klucze prywatne, ponieważ kontrolują twoje środki.",

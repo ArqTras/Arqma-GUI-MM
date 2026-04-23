@@ -228,7 +228,14 @@
                 "open": "开放",
                 "closed": "关闭",
                 "operator": "操作员",
-                "contributor": "贡献者"
+                "contributor": "贡献者",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "发生错误，请检查日志",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "注销 Arq-Net Trust 节点",
             "deregister_service_node_message": "您要注销吗？",
             "deregister_service_node_ok_label": "注销",
-            "deregister_service_node_cancel_label": "取消"
+            "deregister_service_node_cancel_label": "取消",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "显示二维码",
@@ -588,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "取消",
             "sweep_all_sweeping_all": "正在清理所有",
             "sweep_all_calculating_label": "正在计算费用......",
+            "sweep_all_progress_outputs_counted": "找到 {count} 笔可花费的转入。",
+            "sweep_all_progress_building": "正在构建归集交易（{count} 个输出）。已用时约 {elapsed} 秒…",
             "copy_private_key_message": "复制私钥时出错",
             "copy": "复制",
             "write_text_message": "请小心发送私钥，因为它们控制着您的资金。",

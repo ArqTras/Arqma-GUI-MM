@@ -228,7 +228,14 @@
                 "open": "Відкриті",
                 "closed": "Закриті",
                 "operator": "Оператор",
-                "contributor": "вкладник"
+                "contributor": "вкладник",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Сталася помилка перевірки журналів",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "Видалити вузол Oracle",
             "deregister_service_node_message": "Бажаєте видалити вузол?",
             "deregister_service_node_ok_label": "Видалити",
-            "deregister_service_node_cancel_label": "СКАСУВАТИ"
+            "deregister_service_node_cancel_label": "СКАСУВАТИ",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Показати QR-код",
@@ -588,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "СКАСУВАТИ",
             "sweep_all_sweeping_all": "З'єднати дрібні транзакції",
             "sweep_all_calculating_label": "Розраховую комісію......",
+            "sweep_all_progress_outputs_counted": "Знайдено {count} витратних вхідних переказів.",
+            "sweep_all_progress_building": "Формування транзакції sweep ({count} виходів). Минуло ~{elapsed} с…",
             "copy_private_key_message": "Помилка копіювання приватного ключа",
             "copy": "Копіювати",
             "write_text_message": "Будьте обережні, кому ви надсилаєте свої особисті ключі, оскільки вони контролюють ваші кошти.",

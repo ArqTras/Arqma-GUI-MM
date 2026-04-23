@@ -28,6 +28,7 @@ export const resetWalletData = (state) => {
       address_book: []
     }
   })
+  state.commit("set_sweep_all_progress", null)
 }
 
 export const resetPoolsData = (state) => {

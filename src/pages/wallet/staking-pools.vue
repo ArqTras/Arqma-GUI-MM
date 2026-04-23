@@ -20,6 +20,13 @@
         <p class="col-xs-12 col-sm-6 col-md-auto">
           {{ $t('pages.wallet.staking_pools.tvl') }} ${{ tvl.toLocaleString() }}
         </p>
+        <p
+          v-if="current_price > 0"
+          class="col-xs-12 col-sm-6 col-md-2"
+        >
+          {{ $t('pages.wallet.staking_pools.arq_spot_price') }}
+          ${{ spotUsdDisplay }}
+        </p>
       </div>
     </div>
 
@@ -35,6 +42,10 @@
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.total_staked') }}
           {{ (stake_data.total_staked ? stake_data.total_staked : 0).toLocaleString() }} ARQ
+          <span
+            v-if="operatorStakedUsd != null"
+            class="text-caption text-grey q-ml-xs"
+          >{{ $t('pages.wallet.staking_pools.fiat_approx', { amount: operatorStakedUsd.toLocaleString() }) }}</span>
         </p>
         <p class="col-xs-12 col-sm-6 col-md-2">
           {{ $t('pages.wallet.staking_pools.percentage_of_pool') }} {{ percentageOfPool.toLocaleString() }}%
@@ -125,7 +136,29 @@
           dense
           transition-show="flip-up"
           transition-hide="flip-down"
-        />
+        >
+          <template #option="scope">
+            <q-item v-bind="scope.itemProps">
+              <q-item-section>
+                <q-item-label>{{ $t(scope.opt.label) }}</q-item-label>
+                <q-item-label caption>
+                  {{ scope.opt.description ? $t(scope.opt.description) : '' }}
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </template>
+          <template #selected>
+            <div class="column">
+              <div>{{ $t(node_filter_option.label) }}</div>
+              <div
+                v-if="node_filter_option.description"
+                class="text-caption text-grey"
+              >
+                {{ $t(node_filter_option.description) }}
+              </div>
+            </div>
+          </template>
+        </q-select>
       </arqmaField>
     </div>
 
@@ -159,13 +192,13 @@ export default defineComponent({
 
     const { debounce } = useDebounce()
     const node_filter_options = ref([
-      { index: 0, label: "pages.wallet.staking_pools.all", value: (c) => true },
-      { index: 1, label: "pages.wallet.staking_pools.open", value: (c) => c.total_contributed < c.staking_requirement },
-      { index: 2, label: "pages.wallet.staking_pools.closed", value: (c) => c.total_contributed === c.staking_requirement },
-      { index: 3, label: "pages.wallet.staking_pools.operator", value: (c) => c.is_operator === true },
-      { index: 3, label: "pages.wallet.staking_pools.contributor", value: (c) => c.is_contributor === true }
+      { index: 0, label: "pages.wallet.staking_pools.all", description: "pages.wallet.staking_pools.all_description", value: (c) => true },
+      { index: 1, label: "pages.wallet.staking_pools.open", description: "pages.wallet.staking_pools.open_description", value: (c) => c.total_contributed < c.staking_requirement },
+      { index: 2, label: "pages.wallet.staking_pools.closed", description: "pages.wallet.staking_pools.closed_description", value: (c) => c.total_contributed === c.staking_requirement },
+      { index: 3, label: "pages.wallet.staking_pools.operator", description: "pages.wallet.staking_pools.operator_description", value: (c) => c.is_operator === true },
+      { index: 4, label: "pages.wallet.staking_pools.contributor", description: "pages.wallet.staking_pools.contributor_description", value: (c) => c.is_contributor === true }
     ])
-    const node_filter_option = ref({ index: 1, label: "pages.wallet.staking_pools.open", value: (c) => c.total_contributed < c.staking_requirement })
+    const node_filter_option = ref({ index: 1, label: "pages.wallet.staking_pools.open", description: "pages.wallet.staking_pools.open_description", value: (c) => c.total_contributed < c.staking_requirement })
     const standardFilters = node_filter_options.value.map(filter => filter.index)
     const confirmSend = ref(false)
     const oracleKey = ref("")
@@ -210,10 +243,13 @@ export default defineComponent({
 
     const stake_data = computed(() => state.value.gateway.pools.staker.stake)
 
-    const nonoperator_pools = computed(() => $store.getters["gateway/nonoperator_pools"])
-    const operator_pools = computed(() => $store.getters["gateway/operator_pools"] || [])
-
     const address_book = computed(() => $store.getters["gateway/get_address_list"])
+
+    const spotUsdDisplay = computed(() => {
+      const p = current_price.value
+      if (!p || p <= 0) return ""
+      return Number(p).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+    })
 
     // Watchers
     const node_idWatcher = watch(node_id, async (newVal, oldVal) => {
@@ -234,24 +270,6 @@ export default defineComponent({
       await $store.dispatch("gateway/set_pools_filter", node_filter_option.value)
     })
 
-    const nonoperator_poolsWatcher = watch(nonoperator_pools, (newVal, oldVal) => {
-      const sumXeqStaked = total_contributed.value
-      conversionFromXtri(sumXeqStaked)
-      getNodeReward()
-      getPersonalNodeRewards()
-      getMonthlyYield()
-      getPercentageOfPool(sumXeqStaked)
-    })
-
-    const operator_poolsWatcher = watch(operator_pools, (newVal, oldVal) => {
-      const sumXeqStaked = total_contributed.value
-      conversionFromXtri(sumXeqStaked)
-      getNodeReward()
-      getPersonalNodeRewards()
-      getMonthlyYield()
-      getPercentageOfPool(sumXeqStaked)
-    })
-
     const debouncedFn = debounce(() => {
       const clientHeight = document.documentElement.clientHeight
       maxHeight.value = `${Number(clientHeight) - 425}px`
@@ -262,11 +280,23 @@ export default defineComponent({
       try {
         window.addEventListener("resize", debouncedFn)
         api.send("wallet", "begin_Stake_Acquisition", {})
+        api.send("wallet", "get_coin_price", {})
 
         if (!standardFilters.includes(currentFilter.value.index)) {
           node_filter_option.value = node_filter_options.value[1]
         } else {
-          node_filter_option.value = currentFilter.value
+          const fromStore = currentFilter.value
+          let canonical = fromStore.label
+            ? node_filter_options.value.find(f => f.label === fromStore.label)
+            : undefined
+          if (!canonical) {
+            canonical = node_filter_options.value.find(f => f.index === fromStore.index)
+          }
+          const resolved = canonical || fromStore
+          node_filter_option.value = resolved
+          if (canonical && canonical.index !== fromStore.index) {
+            void $store.dispatch("gateway/set_pools_filter", resolved)
+          }
         }
         if (!!current_node_id_filter.value) {
           node_id.value = current_node_id_filter.value.value
@@ -308,6 +338,13 @@ export default defineComponent({
       }
     }
 
+    const operatorStakedUsd = computed(() => {
+      const ts = stake_data.value?.total_staked
+      const p = current_price.value
+      if (!p || p <= 0 || !ts || ts <= 0) return null
+      return roundToTwo(ts * p)
+    })
+
     const getNodeReward = () => {
       try {
         let amount = 0
@@ -320,6 +357,10 @@ export default defineComponent({
 
     const getPersonalNodeRewards = () => {
       try {
+        if (!tvl.value || active_pool_count.value <= 0) {
+          personalNodeRewards.value = 0
+          return
+        }
         const amount = roundToTwo((stake_data.value.total_staked / tvl.value) * Number((blocksPerDay / active_pool_count.value) * nodeDuration.value * nodeDuration.value))
         personalNodeRewards.value = amount
       } catch (error) {
@@ -351,12 +392,41 @@ export default defineComponent({
 
     const conversionFromXtri = (amount) => {
       try {
-        // Do conversion with current currency
-        tvl.value = roundToTwo(amount * conversion_data.value.currentPrice * conversion_data.value.sats)
+        const cd = conversion_data.value
+        const viaBtc = amount * (cd.currentPrice || 0) * (cd.sats || 0)
+        if (Number.isFinite(viaBtc) && viaBtc > 0) {
+          tvl.value = roundToTwo(viaBtc)
+          return
+        }
+        const spot = current_price.value
+        if (Number.isFinite(amount) && spot > 0) {
+          tvl.value = roundToTwo(amount * spot)
+          return
+        }
+        tvl.value = roundToTwo(Number.isFinite(viaBtc) ? viaBtc : 0)
       } catch (error) {
         api.error("/pages/wallet/staking-pools", "conversionFromXtri", error.stack || error)
       }
     }
+
+    const refreshStakingMetrics = () => {
+      try {
+        const sumXeqStaked = total_contributed.value
+        conversionFromXtri(sumXeqStaked)
+        getNodeReward()
+        getPersonalNodeRewards()
+        getMonthlyYield()
+        getPercentageOfPool(sumXeqStaked)
+      } catch (error) {
+        api.error("/pages/wallet/staking-pools", "refreshStakingMetrics", error.stack || error)
+      }
+    }
+
+    watch(
+      [total_contributed, conversion_data, current_price],
+      refreshStakingMetrics,
+      { deep: true, immediate: true }
+    )
 
     const setPreset = async (option) => {
       try {
@@ -386,6 +456,8 @@ export default defineComponent({
       tvl,
       stake_data,
       current_price,
+      spotUsdDisplay,
+      operatorStakedUsd,
       theme,
       pool_count,
       state,

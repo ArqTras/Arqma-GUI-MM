@@ -1669,11 +1669,62 @@ export class WalletRPC {
             get_tx_hex: true
           }
 
-          data = await this.sendRPC(rpc_endpoint, params, this.twoMinuteTimeout)
-          if (data.hasOwnProperty("error")) {
-            reply.message = `${data.error.message
-              .charAt(0)
-              .toUpperCase()}${data.error.message.slice(1)}`
+          let outputCount = 0
+          try {
+            const inc = await this.sendRPC("incoming_transfers", {
+              transfer_type: "available",
+              account_index: 0
+            })
+            if (!inc.error && inc.result && Array.isArray(inc.result.transfers)) {
+              outputCount = inc.result.transfers.length
+            } else {
+              const gb = await this.sendRPC("getbalance", { account_index: 0 })
+              if (gb.result && Array.isArray(gb.result.per_subaddress)) {
+                outputCount = gb.result.per_subaddress.reduce(
+                  (sum, row) => sum + (row.num_unspent_outputs || 0),
+                  0
+                )
+              }
+            }
+          } catch (e) {
+            logger.warn(`wallet sweepAll output count: ${e.stack || e}`)
+          }
+          this.sendGateway("sweep_all_progress", {
+            origin,
+            stage: "outputs_counted",
+            total: outputCount
+          })
+          this.sendGateway("sweep_all_progress", {
+            origin,
+            stage: "building_tx",
+            total: outputCount,
+            wait_round: 0
+          })
+          let waitRound = 0
+          const tickMs = 3000
+          const tickId = setInterval(() => {
+            waitRound += 1
+            this.sendGateway("sweep_all_progress", {
+              origin,
+              stage: "building_tx",
+              total: outputCount,
+              wait_round: waitRound
+            })
+          }, tickMs)
+          let sweepData
+          try {
+            sweepData = await this.sendRPC(rpc_endpoint, params, this.twoMinuteTimeout)
+          } finally {
+            clearInterval(tickId)
+            this.sendGateway("sweep_all_progress", null)
+          }
+          data = sweepData
+          if (!data || data.hasOwnProperty("error")) {
+            reply.message = data && data.error
+              ? `${data.error.message
+                .charAt(0)
+                .toUpperCase()}${data.error.message.slice(1)}`
+              : "Internal error"
           } else {
             let message = "sweep_all_rpc_success_message"
             if (do_not_relay) {

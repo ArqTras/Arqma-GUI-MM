@@ -228,7 +228,14 @@
                 "open": "Aberto",
                 "closed": "Fechado",
                 "operator": "Operador",
-                "contributor": "Contribuidor"
+                "contributor": "Contribuidor",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Ocorreu um erro nos logs de verificação",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "Desregistrar nó Arq-Net Trust",
             "deregister_service_node_message": "Você deseja desregistrar?",
             "deregister_service_node_ok_label": "Desregistrar",
-            "deregister_service_node_cancel_label": "CANCELAR"
+            "deregister_service_node_cancel_label": "CANCELAR",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Mostrar código QR",
@@ -588,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "CANCELAR",
             "sweep_all_sweeping_all": "Varrendo tudo",
             "sweep_all_calculating_label": "Calculando taxas...",
+            "sweep_all_progress_outputs_counted": "Encontrada(s) {count} transferência(s) recebida(s) gastável(is).",
+            "sweep_all_progress_building": "Montando transação de varredura ({count} saídas). Decorrido ~{elapsed}s…",
             "copy_private_key_message": "Erro ao copiar a chave privada",
             "copy": "Copiar",
             "write_text_message": "Tenha cuidado para quem você envia suas chaves privadas, pois elas controlam seus fundos.",

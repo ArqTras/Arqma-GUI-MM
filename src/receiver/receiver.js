@@ -107,6 +107,10 @@ export class Receiver extends EventEmitter {
           this.store.commit("gateway/set_tx_status", message.data)
           break
 
+        case "sweep_all_progress":
+          this.store.commit("gateway/set_sweep_all_progress", message.data)
+          break
+
         case "set_snode_status":
           this.store.commit("gateway/set_snode_status", message.data)
           break

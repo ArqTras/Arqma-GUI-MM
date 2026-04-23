@@ -70,6 +70,8 @@ export default {
     message: "",
     sending: false
   },
+  /** `sweep_all_progress` from Tauri during `sweepAll` (output count + long RPC wait). */
+  sweep_all_progress: null,
   service_node_status: {
     stake: {
       code: 0,
@@ -114,7 +116,7 @@ export default {
   },
   daemon_version: "",
   coin_price: 0,
-  pools_filter: { index: 1, label: "pages.wallet.staking_pools.open", value: (c) => c.total_contributed < c.staking_requirement },
+  pools_filter: { index: 1, label: "pages.wallet.staking_pools.open", description: "pages.wallet.staking_pools.open_description", value: (c) => c.total_contributed < c.staking_requirement },
   node_id_filter: { index: 3, label: "Transaction", value: "" },
   operator_id_filter: { index: 4, label: "Operator", value: "" },
   transactions_filter: { index: 0, label: "pages.wallet.txhistory.all", value: (c) => true },

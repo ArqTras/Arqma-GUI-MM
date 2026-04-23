@@ -6,7 +6,9 @@ use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tauri::AppHandle;
+use tokio::time::MissedTickBehavior;
 
 /// When `arqma-wallet-rpc` is not running (missing bundled binary / no remote setup).
 const ERR_NO_LOCAL_WALLET_RPC: &str =
@@ -1448,6 +1450,35 @@ async fn wallet_export_transactions (
   Ok(())
 }
 
+/// Count spendable incoming transfers (`incoming_transfers`); fallback to sum of `num_unspent_outputs` from `getbalance`.
+async fn count_spendable_outputs_for_sweep (w: &crate::json_rpc_client::WalletRpcClient) -> u64 {
+  let inc = w
+    .call(
+      "incoming_transfers",
+      &json!({ "transfer_type": "available", "account_index": 0 }),
+    )
+    .await
+    .unwrap_or(Value::Null);
+  if inc.get("error").is_none() {
+    if let Some(arr) = inc.pointer("/result/transfers").and_then(|x| x.as_array()) {
+      return arr.len() as u64;
+    }
+  }
+  let gb = w
+    .call("getbalance", &json!({ "account_index": 0 }))
+    .await
+    .unwrap_or(Value::Null);
+  gb.pointer("/result/per_subaddress")
+    .and_then(|x| x.as_array())
+    .map(|rows| {
+      rows
+        .iter()
+        .filter_map(|row| row.get("num_unspent_outputs").and_then(|v| v.as_u64()))
+        .sum()
+    })
+    .unwrap_or(0)
+}
+
 /// `wallet-rpc.js::sweepAll` — `get_address` then `sweep_all` with the same fields as Node (`address`, `account_index`,
 /// `priority`, `ring_size`, `do_not_relay`, `get_tx_metadata`, `get_tx_hex`). UI sends `do_not_relay: true` then `relay_sweepAll`.
 async fn wallet_sweep_all (
@@ -1513,6 +1544,27 @@ async fn wallet_sweep_all (
     .get("do_not_relay")
     .and_then(|v| v.as_bool())
     .unwrap_or(false);
+  let origin = p.get("origin").cloned().unwrap_or(Value::Null);
+  let output_count = count_spendable_outputs_for_sweep(w).await;
+  let _ = emit_receive(
+    app,
+    "sweep_all_progress",
+    json!({
+      "origin": origin.clone(),
+      "stage": "outputs_counted",
+      "total": output_count
+    }),
+  );
+  let _ = emit_receive(
+    app,
+    "sweep_all_progress",
+    json!({
+      "origin": origin.clone(),
+      "stage": "building_tx",
+      "total": output_count,
+      "wait_round": 0u32
+    }),
+  );
   let params = json!({
     "address": my_address,
     "account_index": 0,
@@ -1522,7 +1574,36 @@ async fn wallet_sweep_all (
     "get_tx_metadata": true,
     "get_tx_hex": true
   });
-  let r = w.call("sweep_all", &params).await?;
+  let r = {
+    let sweep = w.call("sweep_all", &params);
+    let mut sweep = Box::pin(sweep);
+    let mut interval = tokio::time::interval(Duration::from_secs(3));
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    interval.tick().await;
+    let mut wait_round: u32 = 0;
+    loop {
+      tokio::select! {
+        biased;
+        res = &mut sweep => {
+          break res;
+        }
+        _ = interval.tick() => {
+          wait_round = wait_round.saturating_add(1);
+          let _ = emit_receive(
+            app,
+            "sweep_all_progress",
+            json!({
+              "origin": origin.clone(),
+              "stage": "building_tx",
+              "total": output_count,
+              "wait_round": wait_round
+            }),
+          );
+        }
+      }
+    }
+  };
+  let r = r?;
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
     emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
@@ -1537,7 +1618,7 @@ async fn wallet_sweep_all (
         }
       })
       .unwrap_or_else(|| "Unknown error".to_string());
-    let origin = p.get("origin").cloned().unwrap_or(Value::Null);
+    let _ = emit_receive(app, "sweep_all_progress", Value::Null);
     emit_receive(
       app,
       "set_tx_status",
@@ -1551,7 +1632,6 @@ async fn wallet_sweep_all (
     return Ok(());
   }
   crate::wallet_relay_ops::push_sweep_metadata(st, p, &r);
-  let origin = p.get("origin").cloned().unwrap_or(Value::Null);
   if let Some(res) = r.get("result") {
     let sum_fees = res
       .get("fee_list")
@@ -1595,6 +1675,7 @@ async fn wallet_sweep_all (
       }),
     )?;
   }
+  let _ = emit_receive(app, "sweep_all_progress", Value::Null);
   Ok(())
 }
 

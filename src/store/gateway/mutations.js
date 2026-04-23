@@ -51,6 +51,9 @@ export const set_old_gui_import_status = (state, data) => {
 export const set_tx_status = (state, data) => {
   state.tx_status = data
 }
+export const set_sweep_all_progress = (state, data) => {
+  state.sweep_all_progress = data
+}
 export const set_snode_status = (state, data) => {
   state.service_node_status = data
 }

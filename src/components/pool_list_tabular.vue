@@ -106,7 +106,13 @@
               <div>{{ $t('components.pool_list_tabular.staked') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.staked }} ARQ</div>
+              <div>
+                {{ item.staked }} ARQ
+                <span
+                  v-if="coin_price > 0 && arqUsdCaption(item.staked)"
+                  class="text-grey q-ml-xs"
+                >{{ arqUsdCaption(item.staked) }}</span>
+              </div>
             </q-item-label>
           </q-item-label>
 
@@ -115,7 +121,13 @@
               <div>{{ $t('components.pool_list_tabular.available') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.available }} ARQ</div>
+              <div>
+                {{ item.available }} ARQ
+                <span
+                  v-if="coin_price > 0 && arqUsdCaption(item.available)"
+                  class="text-grey q-ml-xs"
+                >{{ arqUsdCaption(item.available) }}</span>
+              </div>
             </q-item-label>
           </q-item-label>
 
@@ -273,7 +285,13 @@
               <div>{{ $t('components.pool_list_tabular.staked') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.staked }} ARQ</div>
+              <div>
+                {{ item.staked }} ARQ
+                <span
+                  v-if="coin_price > 0 && arqUsdCaption(item.staked)"
+                  class="text-grey q-ml-xs"
+                >{{ arqUsdCaption(item.staked) }}</span>
+              </div>
             </q-item-label>
           </q-item-label>
 
@@ -282,7 +300,13 @@
               <div>{{ $t('components.pool_list_tabular.available') }}</div>
             </q-item-label>
             <q-item-label caption>
-              <div>{{ item.available }} ARQ</div>
+              <div>
+                {{ item.available }} ARQ
+                <span
+                  v-if="coin_price > 0 && arqUsdCaption(item.available)"
+                  class="text-grey q-ml-xs"
+                >{{ arqUsdCaption(item.available) }}</span>
+              </div>
             </q-item-label>
           </q-item-label>
 
@@ -461,6 +485,7 @@ export default defineComponent({
 
     // Computed props
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
+    const coin_price = computed(() => $store.state.gateway.coin_price || 0)
     // const all_pools = computed(() => $store.state.gateway.pools.pool_list)
     const nonoperator_pools = computed(() => $store.getters["gateway/nonoperator_pools"])
     const tx_status = computed(() => $store.state.gateway.tx_status)
@@ -474,6 +499,15 @@ export default defineComponent({
     const state = computed(() => {
       return $store.state
     })
+
+    const arqUsdCaption = (arqAmountDisplay) => {
+      const p = coin_price.value
+      if (!p || p <= 0) return ""
+      const n = parseFloat(String(arqAmountDisplay).replace(/,/g, ""))
+      if (!Number.isFinite(n)) return ""
+      const usd = (Math.round(n * p * 100) / 100).toLocaleString()
+      return t("components.pool_list_tabular.fiat_usd_approx", { amount: usd })
+    }
 
     // Watchers
     const deregister_statusWatcher = watch(deregister_status, (newVal, oldVal) => {
@@ -717,7 +751,9 @@ export default defineComponent({
       stake,
       arqmaField,
       operator_pools,
-      addToAddressBook
+      addToAddressBook,
+      coin_price,
+      arqUsdCaption
     }
   }
 })

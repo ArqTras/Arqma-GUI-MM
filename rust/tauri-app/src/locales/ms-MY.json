@@ -195,7 +195,7 @@
                 "name_placeholder": "Nama kepunyaan alamat ini",
                 "additional_notes_placeholder": "Nota tambahan",
                 "save_to_addressbook": "Simpan ke buku alamat",
-                "hantar": "Hantar",
+                "send": "Hantar",
                 "invalid_amount_address": "Jumlah dan Alamat tidak sah",
                 "invalid_amount": "Jumlah tidak sah",
                 "invalid_address": "Alamat tidak sah",
@@ -228,10 +228,17 @@
                 "open": "Buka",
                 "closed": "Tutup",
                 "operator": "Operator",
-                "contributor": "Penyumbang"
+                "contributor": "Penyumbang",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
-                "error_ocured_check_logs": "Berlaku ralat semakan log",
+                "error_occured_check_logs": "Berlaku ralat semakan log",
                 "transaction_completed": "Transaksi Selesai",
                 "approved": "Diluluskan",
                 "requesting_transfer": "Meminta Pemindahan",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "Nyahdaftar Nod Arq-Net Trust",
             "deregister_service_node_message": "Adakah anda mahu nyahdaftar?",
             "deregister_service_node_ok_label": "Nyahdaftar",
-            "deregister_service_node_cancel_label": "BATAL"
+            "deregister_service_node_cancel_label": "BATAL",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Tunjukkan Kod QR",
@@ -523,10 +531,9 @@
             "network": "Rangkaian",
             "stake": "Stake",
             "height": "Ketinggian:",
-            "ketinheightggian": "Ketinggian:",
             "confirm": "confirm",
             "confirmed": "(disahkan)",
-            "copyed_transaction_id_to_clipboard": "Txid disalin ke papan keratan"
+            "copied_transaction_id_to_clipboard": "Txid disalin ke papan keratan"
         },
         "tx_type_icon": {
             "incoming_transaction": "Transaksi masuk",
@@ -589,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "BATAL",
             "sweep_all_sweeping_all": "Menyapu Semua",
             "sweep_all_calculating_label": "Mengira yuran......",
+            "sweep_all_progress_outputs_counted": "Ditemui {count} pemindahan masuk yang boleh dibelanjakan.",
+            "sweep_all_progress_building": "Membina transaksi sapu ({count} output). Telah ~{elapsed}s…",
             "copy_private_key_message": "Ralat menyalin kunci peribadi",
             "copy": "Salin",
             "write_text_message": "Berhati-hati kepada siapa anda menghantar kunci peribadi anda kerana ia mengawal dana anda.",

@@ -152,7 +152,7 @@
                 "wallet": "Brieftasche",
                 "error_copying_private_key": "Fehler beim Kopieren des privaten Schlüssels",
                 "private_key_warning_message": "Seien Sie vorsichtig, an wen Sie Ihre privaten Schlüssel senden, da sie Ihr Geld kontrollieren.",
-                "private_key_warning_JA_label": "JA",
+                "private_key_warning_ok_label": "OK",
                 "private_key_copied_message": " In die Zwischenablage kopiert"
             }
         },
@@ -228,7 +228,14 @@
                 "open": "Offen",
                 "closed": "Geschlossen",
                 "operator": "Operator",
-                "contributor": "Mitwirkender"
+                "contributor": "Mitwirkender",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Beim Überprüfen der Protokolle ist ein Fehler aufgetreten",
@@ -405,7 +412,8 @@
             "deregister_service_node_title": "Arq-Net Trust Node abmelden",
             "deregister_service_node_message": "Möchten Sie die Abmeldung durchführen?",
             "deregister_service_node_ok_label": "Abmelden",
-            "deregister_service_node_cancel_label": "ABBRECHEN"
+            "deregister_service_node_cancel_label": "ABBRECHEN",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "QR-Code anzeigen",
@@ -588,6 +596,8 @@
             "sweep_all_consolidate_cancel_label": "ABBRECHEN",
             "sweep_all_sweeping_all": "Alle fegen",
             "sweep_all_calculating_label": "Berechnung der Gebühren......",
+            "sweep_all_progress_outputs_counted": "Es wurden {count} ausgebenbare eingehende Überweisung(en) gefunden.",
+            "sweep_all_progress_building": "Sweep-Transaktion wird erstellt ({count} Outputs). Verstrichen ~{elapsed}s…",
             "copy_private_key_message": "Fehler beim Kopieren des privaten Schlüssels",
             "copy": "Kopieren",
             "write_text_message": "Seien Sie vorsichtig, an wen Sie Ihre privaten Schlüssel senden, da sie Ihr Geld kontrollieren.",
