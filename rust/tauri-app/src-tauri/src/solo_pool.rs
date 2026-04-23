@@ -34,6 +34,7 @@ struct WorkerState {
   session_id: String,
   miner: String,
   last_share_ms: i64,
+  last_retarget_ms: i64,
   difficulty: u64,
   last_job_id: String,
   shares: u64,
@@ -491,32 +492,44 @@ fn build_hashrate_graph (ws: &WorkerState, now: i64, bucket_ms: i64, buckets: i6
 
 fn maybe_retarget (
   ws: &mut WorkerState,
+  now: i64,
   var_enabled: bool,
+  retarget_time_s: u64,
   target_time_s: u64,
   variance_percent: u64,
   min_diff: u64,
   max_diff: u64,
   max_jump_percent: u64,
-) {
+) -> bool {
   if !var_enabled || ws.share_times_ms.len() < 4 {
-    return;
+    return false;
+  }
+  let retarget_ms = (retarget_time_s as i64).saturating_mul(1000);
+  if retarget_ms > 0 && now.saturating_sub(ws.last_retarget_ms) < retarget_ms {
+    return false;
   }
   let avg_ms = ws.share_times_ms.iter().copied().sum::<i64>() / (ws.share_times_ms.len() as i64);
   if avg_ms <= 0 {
-    return;
+    return false;
   }
   let target_ms = (target_time_s as i64) * 1000;
   let variance_ms = (target_ms * variance_percent as i64) / 100;
   let min_target = target_ms - variance_ms;
   let max_target = target_ms + variance_ms;
   if avg_ms >= min_target && avg_ms <= max_target {
-    return;
+    return false;
   }
+  let prev = ws.difficulty;
   let raw = ((ws.difficulty as f64) * (target_ms as f64) / (avg_ms as f64)) as u64;
   let jump = max_jump_percent.max(1);
   let min_step = ws.difficulty.saturating_mul(100 - jump).saturating_div(100);
   let max_step = ws.difficulty.saturating_mul(100 + jump).saturating_div(100);
   ws.difficulty = raw.clamp(min_step.max(min_diff), max_step.min(max_diff).max(min_diff));
+  let changed = ws.difficulty != prev;
+  if changed {
+    ws.last_retarget_ms = now;
+  }
+  changed
 }
 
 async fn refresh_job (
@@ -612,6 +625,21 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     .and_then(|v| v.get("enabled"))
     .and_then(|v| v.as_bool())
     .unwrap_or(true);
+  let var_start_diff = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("varDiff"))
+    .and_then(|v| v.get("startDiff"))
+    .and_then(|v| v.as_u64())
+    .unwrap_or(5000)
+    .clamp(1000, 1_000_000);
+  let var_retarget_time_s = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("varDiff"))
+    .and_then(|v| v.get("retargetTime"))
+    .and_then(|v| v.as_u64())
+    .unwrap_or(60);
   let var_target_time_s = st
     .config_data
     .get("pool")
@@ -706,6 +734,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           session_id: sid,
           miner: pw.miner.clone(),
           last_share_ms: pw.last_share_ms,
+          last_retarget_ms: 0,
           difficulty: pw.difficulty.max(1000),
           last_job_id: String::new(),
           shares: pw.shares,
@@ -783,7 +812,9 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
             let old_diff = ws.difficulty;
             maybe_retarget(
               ws,
+              now,
               var_enabled,
+              var_retarget_time_s,
               var_target_time_s,
               var_variance_percent,
               var_min_diff,
@@ -931,6 +962,9 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 let raw_name = if !rigid.is_empty() { rigid } else if !pass.is_empty() && pass.to_lowercase() != "x" { pass } else { login };
                 let worker_name = sanitize_worker_name(raw_name);
                 let mut worker_diff = 5000u64;
+                if var_enabled {
+                  worker_diff = var_start_diff;
+                }
                 let login_parts: Vec<&str> = login.split(&fixed_diff_separator2).collect();
                 if login_parts.len() > 1 {
                   if let Some(last) = login_parts.last() {
@@ -946,6 +980,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     session_id: my_session_id.clone(),
                     miner: worker_name,
                     last_share_ms: now_ms(),
+                    last_retarget_ms: now_ms(),
                     difficulty: worker_diff,
                     last_job_id: String::new(),
                     shares: 0,
@@ -1114,7 +1149,9 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     let old_diff = ws.difficulty;
                     maybe_retarget(
                       ws,
+                      ws.last_share_ms,
                       var_enabled,
+                      var_retarget_time_s,
                       var_target_time_s,
                       var_variance_percent,
                       var_min_diff,

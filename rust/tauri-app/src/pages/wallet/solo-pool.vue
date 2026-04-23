@@ -227,6 +227,20 @@
       hide-bottom
     />
 
+    <div class="text-subtitle2 q-mt-md q-mb-sm">Blocks</div>
+    <q-table
+      dense
+      flat
+      bordered
+      :dark="theme === 'dark'"
+      class="solo-pool-card"
+      :rows="blocks"
+      :columns="blockColumns"
+      row-key="timeFound"
+      :rows-per-page-options="[0]"
+      hide-bottom
+    />
+
     <div class="row justify-end q-mt-md">
       <q-btn
         color="primary"
@@ -330,6 +344,7 @@ export default defineComponent({
     })
     const poolStats = computed(() => poolState.value?.stats || {})
     const workers = computed(() => (poolState.value?.workers || []).filter((w) => w.miner !== "all"))
+    const blocks = computed(() => poolState.value?.blocks || [])
     const poolHashrates = computed(() => poolState.value?.stats?.h || {})
     const workerSelectOptions = computed(() => {
       const base = [{ label: t("components.solo_pool.chart_all_workers"), value: "__all__" }]
@@ -340,6 +355,32 @@ export default defineComponent({
       { name: "difficulty", field: "difficulty", label: t("components.solo_pool.difficulty"), align: "right", format: (v) => commas(v) },
       { name: "rejects", field: "rejects", label: t("components.solo_pool.rejects"), align: "right", format: (v) => commas(v) },
       { name: "lastShare", field: "lastShare", label: t("components.solo_pool.last_share"), align: "left", format: (v) => v ? new Date(v).toLocaleString() : "-" }
+    ])
+    const blockColumns = computed(() => [
+      { name: "height", field: "height", label: t("components.solo_pool.height"), align: "right", format: (v) => commas(v) },
+      {
+        name: "status",
+        field: "status",
+        label: t("components.footer.status"),
+        align: "left",
+        format: (v) => (Number(v) === 2 ? "Unlocked" : (Number(v) === 1 ? "Orphaned" : "Pending"))
+      },
+      { name: "difficulty", field: "diff", label: t("components.solo_pool.difficulty"), align: "right", format: (v) => commas(v) },
+      { name: "worker", field: "miner", label: t("components.solo_pool.worker"), align: "left" },
+      {
+        name: "hash",
+        field: "hash",
+        label: t("components.swap_list_tabular.block_hash"),
+        align: "left",
+        format: (v) => (v ? String(v).slice(0, 18) + "..." : "-")
+      },
+      {
+        name: "time",
+        field: "timeFound",
+        label: t("components.solo_pool.last_share"),
+        align: "left",
+        format: (v) => v ? new Date(v).toLocaleString() : "-"
+      }
     ])
 
     const syncFromConfig = () => {
@@ -468,8 +509,10 @@ export default defineComponent({
       statusColor,
       poolStats,
       workers,
+      blocks,
       poolHashrates,
       workerColumns,
+      blockColumns,
       chartRange,
       selectedWorker,
       workerSelectOptions,

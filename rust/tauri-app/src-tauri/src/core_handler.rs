@@ -184,6 +184,7 @@ pub async fn handle_core (
       } else {
         merged_pool
       };
+      let merged_pool = normalize_pool_var_diff(merged_pool);
       st.config_data = merge_json(&st.config_data, &json!({ "pool": merged_pool }));
       if daemon_type == "remote" {
         st.config_data = merge_json(
@@ -355,6 +356,38 @@ pub async fn handle_core (
 
 fn empty_data () -> Value {
   json!({})
+}
+
+fn normalize_pool_var_diff (pool: Value) -> Value {
+  let vd = pool
+    .get("varDiff")
+    .cloned()
+    .unwrap_or_else(|| json!({}));
+  let start = vd.get("startDiff").and_then(|v| v.as_u64()).unwrap_or(5000).clamp(1000, 1_000_000);
+  let mut min_d = vd.get("minDiff").and_then(|v| v.as_u64()).unwrap_or(1000).clamp(1, 1_000_000);
+  let mut max_d = vd.get("maxDiff").and_then(|v| v.as_u64()).unwrap_or(1_000_000).clamp(1, 1_000_000);
+  if min_d > max_d {
+    std::mem::swap(&mut min_d, &mut max_d);
+  }
+  let start = start.clamp(min_d, max_d);
+  let target = vd.get("targetTime").and_then(|v| v.as_u64()).unwrap_or(45).clamp(5, 600);
+  let retarget = vd.get("retargetTime").and_then(|v| v.as_u64()).unwrap_or(60).clamp(1, 3600);
+  let variance = vd.get("variancePercent").and_then(|v| v.as_u64()).unwrap_or(45).clamp(1, 95);
+  let jump = vd.get("maxJump").and_then(|v| v.as_u64()).unwrap_or(30).clamp(1, 100);
+  merge_json(
+    &pool,
+    &json!({
+      "varDiff": {
+        "startDiff": start,
+        "minDiff": min_d,
+        "maxDiff": max_d,
+        "targetTime": target,
+        "retargetTime": retarget,
+        "variancePercent": variance,
+        "maxJump": jump
+      }
+    }),
+  )
 }
 
 /// New remote `mainnet` node → append to `remotes.json` (as in `backend.js` on `save_config`).
