@@ -36,6 +36,9 @@ export const reset_wallet_status = (state, data) => {
 export const set_pools_data = (state, data) => {
   state.pools = data
 }
+export const set_pool_data = (state, data) => {
+  state.pool = objectAssignDeep.noMutate(state.pool, data)
+}
 export const set_coin_price = (state, data) => {
   state.coin_price = data
 }

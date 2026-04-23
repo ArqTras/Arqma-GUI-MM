@@ -2,6 +2,7 @@ use arqma_wallet_core::ArqmaPaths;
 use crate::json_rpc_client::WalletRpcClient;
 use serde::Serialize;
 use serde_json::Value;
+use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 /// Metadata pending `relay_tx` (like `tx_metadata_list` in `wallet-rpc.js`).
@@ -53,6 +54,9 @@ pub struct WalletBackendState {
   pub tx_metadata_list: Vec<WalletTxMetadata>,
   /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
   pub stake_acquisition_task: Option<JoinHandle<()>>,
+  /// Lightweight Solo Pool TCP server runtime.
+  pub solo_pool_task: Option<JoinHandle<()>>,
+  pub solo_pool_shutdown: Option<oneshot::Sender<()>>,
   pub next_rpc_id: u64
 }
 
@@ -85,6 +89,8 @@ impl Default for WalletBackendState {
       wh_heartbeat_ext_pending: false,
       tx_metadata_list: Vec::new(),
       stake_acquisition_task: None,
+      solo_pool_task: None,
+      solo_pool_shutdown: None,
       next_rpc_id: 0
     }
   }
@@ -97,6 +103,12 @@ impl WalletBackendState {
       h.abort();
     }
     if let Some(h) = self.stake_acquisition_task.take() {
+      h.abort();
+    }
+    if let Some(tx) = self.solo_pool_shutdown.take() {
+      let _ = tx.send(());
+    }
+    if let Some(h) = self.solo_pool_task.take() {
       h.abort();
     }
     if let Some(h) = self.wallet_heartbeat.take() {

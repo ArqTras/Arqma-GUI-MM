@@ -145,6 +145,97 @@ pub async fn handle_core (
       st.startup_seq_done = false;
       run_core_startup(app, st, http).await?;
     }
+    "save_pool_config" => {
+      let net = st
+        .config_data
+        .get("app")
+        .and_then(|a| a.get("net_type"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("mainnet");
+      let daemon_type = st
+        .config_data
+        .get("daemons")
+        .and_then(|d| d.get(net))
+        .and_then(|n| n.get("type"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("remote")
+        .to_string();
+      let old_enabled = st
+        .config_data
+        .get("pool")
+        .and_then(|p| p.get("server"))
+        .and_then(|s| s.get("enabled"))
+        .and_then(|e| e.as_bool())
+        .unwrap_or(false);
+      let merged_pool = merge_json(
+        st.config_data.get("pool").unwrap_or(&json!({})),
+        params,
+      );
+      let normalized_bind_ip = merged_pool
+        .get("server")
+        .and_then(|s| s.get("bindIP"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+      let merged_pool = if normalized_bind_ip.is_empty() || normalized_bind_ip == "0.0.0.0" || normalized_bind_ip == "127.0.0.1" {
+        merge_json(
+          &merged_pool,
+          &json!({ "server": { "bindIP": crate::solo_pool::preferred_bind_ip() } }),
+        )
+      } else {
+        merged_pool
+      };
+      st.config_data = merge_json(&st.config_data, &json!({ "pool": merged_pool }));
+      if daemon_type == "remote" {
+        st.config_data = merge_json(
+          &st.config_data,
+          &json!({ "pool": { "server": { "enabled": false } } }),
+        );
+        emit_receive(
+          app,
+          "show_notification",
+          json!({
+            "type": "warning",
+            "message": "Solo pool requires local daemon mode",
+            "timeout": 3500
+          }),
+        )?;
+      }
+      st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
+      write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
+      emit_receive(
+        app,
+        "set_app_data",
+        json!({
+          "config": st.config_data
+        }),
+      )?;
+      let enabled = st
+        .config_data
+        .get("pool")
+        .and_then(|p| p.get("server"))
+        .and_then(|s| s.get("enabled"))
+        .and_then(|e| e.as_bool())
+        .unwrap_or(false);
+      let status = if !enabled {
+        0
+      } else if old_enabled {
+        2
+      } else {
+        1
+      };
+      if enabled {
+        crate::solo_pool::start(app, st);
+      } else {
+        crate::solo_pool::stop(st);
+      }
+      emit_receive(
+        app,
+        "set_pool_data",
+        json!({
+          "status": status
+        }),
+      )?;
+    }
     "open_url" => {
       let u = params
         .get("url")

@@ -77,6 +77,42 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
     return;
   };
   let result = r.get("result").cloned().unwrap_or(Value::Null);
+  let pool_enabled = {
+    let b = adata.backend.lock().await;
+    b
+      .config_data
+      .get("pool")
+      .and_then(|p| p.get("server"))
+      .and_then(|s| s.get("enabled"))
+      .and_then(|e| e.as_bool())
+      .unwrap_or(false)
+  };
+  let is_ready = result
+    .get("is_ready")
+    .and_then(|v| v.as_bool())
+    .unwrap_or(false);
+  let target_h = result
+    .get("target_height")
+    .and_then(value_as_u64)
+    .unwrap_or(h);
+  let daemon_available = h > 0;
+  let synced = (h >= target_h.saturating_sub(1) && is_ready) || daemon_available;
+  let difficulty = result
+    .get("difficulty")
+    .and_then(value_as_u64)
+    .unwrap_or(0);
+  let target = result
+    .get("target")
+    .and_then(value_as_u64)
+    .unwrap_or(120);
+  let network_hashrate = if target == 0 { 0 } else { difficulty / target };
+  let pool_status = if !pool_enabled {
+    0
+  } else if synced {
+    2
+  } else {
+    1
+  };
   {
     let mut b = adata.backend.lock().await;
     b.daemon_last_height = h;
@@ -87,6 +123,21 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
     app,
     "set_daemon_data",
     json!({ "info": result }),
+  );
+  let _ = emit_receive(
+    app,
+    "set_pool_data",
+    json!({
+      "status": pool_status,
+      "desynced": pool_enabled && !is_ready,
+      "system_clock_error": false,
+      "stats": {
+        "networkHashrate": network_hashrate,
+        "diff": difficulty,
+        "height": h,
+        "activeWorkers": 0
+      }
+    }),
   );
 }
 

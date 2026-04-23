@@ -59,6 +59,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const shouldWrite = process.argv.includes("--write")
 const dirs = [
   { name: "tauri-app", path: path.join(__dirname, "..", "src", "locales") },
   { name: "src", path: path.join(__dirname, "..", "..", "..", "src", "locales") }
@@ -83,7 +84,12 @@ for (const { name, path: localesDir } of dirs) {
     const missing = []
     const extra = []
     for (const key of enLeaves.keys()) {
-      if (!locLeaves.has(key)) missing.push(key)
+      if (!locLeaves.has(key)) {
+        missing.push(key)
+        if (shouldWrite) {
+          setDeep(loc, key, getDeep(enRaw, key))
+        }
+      }
     }
     for (const key of locLeaves.keys()) {
       if (!enLeaves.has(key)) extra.push(key)
@@ -91,6 +97,9 @@ for (const { name, path: localesDir } of dirs) {
     report.missingByFile[f] = missing
     report.extraByFile[f] = extra
     report.counts[f] = { missing: missing.length, extra: extra.length }
+    if (shouldWrite && missing.length > 0) {
+      fs.writeFileSync(p, `${JSON.stringify(loc, null, 2)}\n`, "utf8")
+    }
   }
   fullReport[name] = report
 }

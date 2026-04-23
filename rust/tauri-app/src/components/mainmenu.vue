@@ -197,7 +197,6 @@ export default defineComponent({
         await api.error("components/mainmenu", "openSettings", error.stack || error)
       }
     }
-
     const switchWallet = async () => {
       try {
         $q

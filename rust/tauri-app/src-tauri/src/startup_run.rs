@@ -20,6 +20,19 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   st.config_data = snap.config_data.clone();
   st.remotes = snap.remotes.clone();
   st.ethereum = snap.ethereum.clone();
+  let bind_ip = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("server"))
+    .and_then(|s| s.get("bindIP"))
+    .and_then(|v| v.as_str())
+    .unwrap_or("");
+  if bind_ip.is_empty() || bind_ip == "0.0.0.0" || bind_ip == "127.0.0.1" {
+    st.config_data = arqma_wallet_core::merge_json(
+      &st.config_data,
+      &json!({ "pool": { "server": { "bindIP": crate::solo_pool::preferred_bind_ip() } } }),
+    );
+  }
 
   emit_receive(
     app,
@@ -27,6 +40,27 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     json!({ "remotes": snap.remotes, "defaults": snap.defaults }),
   )?;
   emit_receive(app, "set_ethereum_data", st.ethereum.clone())?;
+  let pool_enabled = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("server"))
+    .and_then(|s| s.get("enabled"))
+    .and_then(|e| e.as_bool())
+    .unwrap_or(false);
+  emit_receive(
+    app,
+    "set_pool_data",
+    json!({
+      "status": if pool_enabled { 1 } else { 0 },
+      "desynced": false,
+      "system_clock_error": false
+    }),
+  )?;
+  if pool_enabled {
+    crate::solo_pool::start(app, st);
+  } else {
+    crate::solo_pool::stop(st);
+  }
 
   if !snap.had_config_file {
     emit_receive(

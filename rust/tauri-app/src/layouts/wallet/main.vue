@@ -132,6 +132,15 @@
               icon-right="person"
             />
           </router-link>
+          <router-link to="/wallet/solo-pool">
+            <q-btn
+              class="large-btn"
+              :label="$t('components.mainmenu.solo_pool')"
+              size="md"
+              icon-right="engineering"
+              align="between"
+            />
+          </router-link>
           <div class="address">
             <WalletSettings />
           </div>

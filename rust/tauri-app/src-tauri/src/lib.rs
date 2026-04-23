@@ -24,6 +24,7 @@ mod daemon_heartbeat;
 mod wallet_heartbeat;
 mod wallet_relay_ops;
 mod wallet_pools;
+mod solo_pool;
 
 use backend_state::WalletBackendState;
 use core_handler::handle_core;

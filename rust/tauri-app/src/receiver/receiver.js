@@ -86,6 +86,9 @@ export class Receiver extends EventEmitter {
         case "set_pools_data":
           this.store.commit("gateway/set_pools_data", message.data)
           break
+        case "set_pool_data":
+          this.store.commit("gateway/set_pool_data", message.data)
+          break
 
         case "set_coin_price":
           this.store.commit("gateway/set_coin_price", message.data)
