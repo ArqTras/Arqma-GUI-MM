@@ -141,22 +141,8 @@
             <q-item v-bind="scope.itemProps">
               <q-item-section>
                 <q-item-label>{{ $t(scope.opt.label) }}</q-item-label>
-                <q-item-label caption>
-                  {{ scope.opt.description ? $t(scope.opt.description) : '' }}
-                </q-item-label>
               </q-item-section>
             </q-item>
-          </template>
-          <template #selected>
-            <div class="column">
-              <div>{{ $t(node_filter_option.label) }}</div>
-              <div
-                v-if="node_filter_option.description"
-                class="text-caption text-grey"
-              >
-                {{ $t(node_filter_option.description) }}
-              </div>
-            </div>
           </template>
         </q-select>
       </arqmaField>
