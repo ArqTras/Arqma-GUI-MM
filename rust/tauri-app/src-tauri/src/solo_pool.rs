@@ -17,6 +17,28 @@ use tokio::sync::mpsc;
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::{interval, Duration, MissedTickBehavior};
 
+fn is_persist_session (session_id: &str) -> bool {
+  session_id.starts_with("persist-")
+}
+
+fn average_block_effort (blocks: &[Value]) -> f64 {
+  let mut sum = 0f64;
+  let mut n = 0u32;
+  for b in blocks {
+    let diff = b.get("diff").and_then(|v| v.as_f64()).unwrap_or(0.);
+    let hashes = b.get("hashes").and_then(|v| v.as_f64()).unwrap_or(0.);
+    if diff > 0. {
+      sum += hashes / diff;
+      n += 1;
+    }
+  }
+  if n == 0 {
+    0.
+  } else {
+    ((sum / n as f64) * 100.).round() / 100.
+  }
+}
+
 #[derive(Clone, Default)]
 struct JobState {
   id: String,
@@ -34,6 +56,7 @@ struct WorkerState {
   session_id: String,
   miner: String,
   last_share_ms: i64,
+  last_activity_ms: i64,
   last_retarget_ms: i64,
   difficulty: u64,
   last_job_id: String,
@@ -293,6 +316,21 @@ fn is_hex_8 (s: &str) -> bool {
 
 fn is_hex_64 (s: &str) -> bool {
   s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// XMRig `Client::parseJob` code **4** is `!job.setBlob` — not auth / diff.
+/// Rejecting invalid daemon blobs avoids sending a login `job` that XMRig drops with "login error code: 4"
+/// and then reconnect loops ("no active pools").
+fn blocktemplate_blob_ok (blob: &str) -> bool {
+  let n = blob.len();
+  // XMRig needs enough hex to parse a block header; keep lower bound low for fork variants.
+  if n < 64 || n > 2 * 1024 * 1024 {
+    return false;
+  }
+  if n % 2 != 0 {
+    return false;
+  }
+  blob.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Approximate compact stratum target (4-byte LE hex) from difficulty.
@@ -557,7 +595,7 @@ async fn refresh_job (
     return;
   };
   let blob = r.get("blocktemplate_blob").and_then(|x| x.as_str()).unwrap_or("").to_string();
-  if blob.is_empty() {
+  if !blocktemplate_blob_ok(&blob) {
     return;
   }
   let height = r.get("height").and_then(|x| x.as_u64()).unwrap_or(0);
@@ -675,6 +713,15 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     .and_then(|v| v.get("maxJump"))
     .and_then(|v| v.as_u64())
     .unwrap_or(30);
+  let miner_timeout_ms = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("mining"))
+    .and_then(|m| m.get("minerTimeout"))
+    .and_then(|v| v.as_u64())
+    .unwrap_or(900)
+    .saturating_mul(1000)
+    .max(60_000) as i64;
   let (tx, mut rx) = oneshot::channel::<()>();
   st.solo_pool_shutdown = Some(tx);
   let app = app.clone();
@@ -734,6 +781,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           session_id: sid,
           miner: pw.miner.clone(),
           last_share_ms: pw.last_share_ms,
+          last_activity_ms: pw.last_share_ms,
           last_retarget_ms: 0,
           difficulty: pw.difficulty.max(1000),
           last_job_id: String::new(),
@@ -754,9 +802,12 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
       *b = persisted.blocks;
     }
     let session_seq = Arc::new(AtomicU64::new(1));
-    let job_seq = AtomicU64::new(1);
+    let job_seq = Arc::new(AtomicU64::new(1));
+    let round_hashes = Arc::new(AtomicU64::new(0));
+    // Miners that timed out: last WorkerState for the table until the same name reconnects.
+    let last_disconnected: Arc<Mutex<HashMap<String, WorkerState>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut prev_job_id = String::new();
-    refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, &job_seq).await;
+    refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
     let mut beat = interval(Duration::from_secs(5));
     beat.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut persist_tick = interval(Duration::from_secs(30));
@@ -799,39 +850,68 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           save_persisted(&config_dir, &PersistData { workers: workers_snapshot, blocks: blocks_snapshot });
         }
         _ = beat.tick() => {
-          refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, &job_seq).await;
-          let mut w = workers.lock().await;
+          refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
           let now = now_ms();
-          w.retain(|_, ws| now.saturating_sub(ws.last_share_ms) < 120_000);
           let current = current_job.lock().await.clone();
           let job_changed = current.id != prev_job_id;
           prev_job_id = current.id.clone();
           let mut changed_sessions: Vec<String> = Vec::new();
-          for ws in w.values_mut() {
-            prune_share_events(ws, now);
-            let old_diff = ws.difficulty;
-            maybe_retarget(
-              ws,
-              now,
-              var_enabled,
-              var_retarget_time_s,
-              var_target_time_s,
-              var_variance_percent,
-              var_min_diff,
-              var_max_diff,
-              var_max_jump_percent,
-            );
-            if job_changed || ws.difficulty != old_diff || ws.last_job_id != current.id {
-              ws.last_job_id = current.id.clone();
-              changed_sessions.push(ws.session_id.clone());
+          {
+            let mut w = workers.lock().await;
+            for ws in w.values_mut() {
+              prune_share_events(ws, now);
+              let old_diff = ws.difficulty;
+              maybe_retarget(
+                ws,
+                now,
+                var_enabled,
+                var_retarget_time_s,
+                var_target_time_s,
+                var_variance_percent,
+                var_min_diff,
+                var_max_diff,
+                var_max_jump_percent,
+              );
+              if job_changed || ws.difficulty != old_diff || ws.last_job_id != current.id {
+                ws.last_job_id = current.id.clone();
+                changed_sessions.push(ws.session_id.clone());
+              }
+              ws.hashrate_5min = window_hashrate(ws, now, (5 * 60 * 1000) as i64);
+              ws.hashrate_1hr = window_hashrate(ws, now, (60 * 60 * 1000) as i64);
+              ws.hashrate_6hr = window_hashrate(ws, now, (6 * 60 * 60 * 1000) as i64);
+              ws.hashrate_24hr = window_hashrate(ws, now, (24 * 60 * 60 * 1000) as i64);
             }
-            ws.hashrate_5min = window_hashrate(ws, now, (5 * 60 * 1000) as i64);
-            ws.hashrate_1hr = window_hashrate(ws, now, (60 * 60 * 1000) as i64);
-            ws.hashrate_6hr = window_hashrate(ws, now, (6 * 60 * 60 * 1000) as i64);
-            ws.hashrate_24hr = window_hashrate(ws, now, (24 * 60 * 60 * 1000) as i64);
           }
-          drop(w);
-          if !changed_sessions.is_empty() {
+          {
+            let to_evict: Vec<(String, WorkerState)> = {
+              let w = workers.lock().await;
+              w.iter()
+                .filter(|(k, ws)| {
+                  !is_persist_session(k)
+                    && now.saturating_sub(ws.last_activity_ms) >= miner_timeout_ms
+                })
+                .map(|(k, ws)| (k.clone(), ws.clone()))
+                .collect()
+            };
+            if !to_evict.is_empty() {
+              let mut w = workers.lock().await;
+              let mut s = senders.lock().await;
+              let mut d = last_disconnected.lock().await;
+              for (sid, ws) in to_evict {
+                w.remove(&sid);
+                s.remove(&sid);
+                d.insert(ws.miner.clone(), ws);
+                while d.len() > 32 {
+                  if let Some(k) = d.keys().next().cloned() {
+                    d.remove(&k);
+                  } else {
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          if !changed_sessions.is_empty() && !current.blob.is_empty() && blocktemplate_blob_ok(&current.blob) {
             let senders_map = senders.lock().await;
             let workers_map = workers.lock().await;
             for sid in changed_sessions {
@@ -855,47 +935,116 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
             }
           }
           let w = workers.lock().await;
-          let list = w.values().map(|ws| {
-            let graph = build_hashrate_graph(ws, now, 60_000, 60);
-            json!({
-              "miner": ws.miner,
-              "active": true,
-              "lastShare": ws.last_share_ms,
-              "difficulty": ws.difficulty,
-              "hashes": ws.hashes_total,
-              "rejects": ws.rejects,
-              "hashrate_5min": ws.hashrate_5min,
-              "hashrate_1hr": ws.hashrate_1hr,
-              "hashrate_6hr": ws.hashrate_6hr,
-              "hashrate_24hr": ws.hashrate_24hr,
-              "hashrate_graph": graph
+          let active_count = w
+            .values()
+            .filter(|ws| !is_persist_session(&ws.session_id))
+            .count();
+          let known_miners: HashSet<String> = w.values().map(|ws| ws.miner.clone()).collect();
+          let mut list: Vec<Value> = w
+            .values()
+            .map(|ws| {
+              let graph = build_hashrate_graph(ws, now, 60_000, 60);
+              json!({
+                "miner": ws.miner,
+                "active": !is_persist_session(&ws.session_id),
+                "lastShare": ws.last_share_ms,
+                "difficulty": ws.difficulty,
+                "hashes": ws.hashes_total,
+                "rejects": ws.rejects,
+                "hashrate_5min": ws.hashrate_5min,
+                "hashrate_1hr": ws.hashrate_1hr,
+                "hashrate_6hr": ws.hashrate_6hr,
+                "hashrate_24hr": ws.hashrate_24hr,
+                "hashrate_graph": graph
+              })
             })
-          }).collect::<Vec<_>>();
-          // Update pending block statuses based on chain height.
+            .collect();
+          drop(w);
+          {
+            let d = last_disconnected.lock().await;
+            for ows in d.values() {
+              if known_miners.contains(&ows.miner) {
+                continue;
+              }
+              let graph = build_hashrate_graph(ows, now, 60_000, 60);
+              list.push(json!({
+                "miner": ows.miner,
+                "active": false,
+                "lastShare": ows.last_share_ms,
+                "difficulty": ows.difficulty,
+                "hashes": ows.hashes_total,
+                "rejects": ows.rejects,
+                "hashrate_5min": ows.hashrate_5min,
+                "hashrate_1hr": ows.hashrate_1hr,
+                "hashrate_6hr": ows.hashrate_6hr,
+                "hashrate_24hr": ows.hashrate_24hr,
+                "hashrate_graph": graph
+              }));
+            }
+          }
+          let w = workers.lock().await;
+          // Daemon height + network fields (one RPC); also unlock pending block rows.
+          let mut network_hashrate: u64 = 0;
+          let mut network_diff: u64 = 0;
+          let mut network_height: u64 = 0;
           if let Ok(info) = daemon_post(&http, &daemon.0, daemon.1, "get_info", 0, &Value::Null).await {
-            if let Some(h) = info.pointer("/result/height").and_then(|v| v.as_u64()) {
-              let mut bl = blocks.lock().await;
-              for b in bl.iter_mut() {
-                let bh = b.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-                let st = b.get("status").and_then(|v| v.as_i64()).unwrap_or(0);
-                if st == 0 && h >= bh.saturating_add(19) {
-                  if let Some(o) = b.as_object_mut() {
-                    o.insert("status".into(), json!(2));
+            if let Some(r) = info.get("result") {
+              if let Some(h) = r.get("height").and_then(|v| v.as_u64()) {
+                network_height = h;
+                let mut bl = blocks.lock().await;
+                for b in bl.iter_mut() {
+                  let bh = b.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
+                  let st = b.get("status").and_then(|v| v.as_i64()).unwrap_or(0);
+                  if st == 0 && h >= bh.saturating_add(19) {
+                    if let Some(o) = b.as_object_mut() {
+                      o.insert("status".into(), json!(2));
+                    }
                   }
                 }
               }
+              network_diff = r.get("difficulty").and_then(|v| v.as_u64()).unwrap_or(0);
+              let target = r.get("target").and_then(|v| v.as_u64()).unwrap_or(120);
+              if target > 0 {
+                network_hashrate = network_diff / target;
+              }
             }
           }
+          let pool_h5 = w
+            .values()
+            .filter(|ws| !is_persist_session(&ws.session_id))
+            .map(|x| x.hashrate_5min)
+            .sum::<u64>();
+          let rh = round_hashes.load(Ordering::Relaxed);
+          let current_effort = if network_diff == 0 {
+            0f64
+          } else {
+            ((100.0 * (rh as f64) / (network_diff as f64)).round()) / 100.0
+          };
+          let block_time_ms: u64 = if pool_h5 == 0 {
+            0
+          } else {
+            1000u64.saturating_mul(120).saturating_mul(network_hashrate) / pool_h5
+          };
           let blocks_snapshot = { blocks.lock().await.clone() };
+          let blocks_found = blocks_snapshot.len() as u64;
+          let avg_eff = average_block_effort(&blocks_snapshot);
           let _ = emit_receive(&app, "set_pool_data", json!({
             "workers": list,
             "stats": {
-              "activeWorkers": w.len(),
+              "activeWorkers": active_count,
+              "roundHashes": rh,
+              "currentEffort": current_effort,
+              "blockTime": block_time_ms,
+              "blocksFound": blocks_found,
+              "averageEffort": avg_eff,
+              "networkHashrate": network_hashrate,
+              "diff": network_diff,
+              "height": network_height,
               "h": {
-                "hashrate_5min": w.values().map(|x| x.hashrate_5min).sum::<u64>(),
-                "hashrate_1hr": w.values().map(|x| x.hashrate_1hr).sum::<u64>(),
-                "hashrate_6hr": w.values().map(|x| x.hashrate_6hr).sum::<u64>(),
-                "hashrate_24hr": w.values().map(|x| x.hashrate_24hr).sum::<u64>()
+                "hashrate_5min": pool_h5,
+                "hashrate_1hr": w.values().filter(|ws| !is_persist_session(&ws.session_id)).map(|x| x.hashrate_1hr).sum::<u64>(),
+                "hashrate_6hr": w.values().filter(|ws| !is_persist_session(&ws.session_id)).map(|x| x.hashrate_6hr).sum::<u64>(),
+                "hashrate_24hr": w.values().filter(|ws| !is_persist_session(&ws.session_id)).map(|x| x.hashrate_24hr).sum::<u64>()
               }
             },
             "blocks": blocks_snapshot,
@@ -913,6 +1062,10 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           let daemon2 = daemon.clone();
           let http2 = http.clone();
           let fixed_diff_separator2 = fixed_diff_separator.clone();
+          let mining_addr2 = mining_address.clone();
+          let job_seq2 = job_seq.clone();
+          let round_hashes2 = round_hashes.clone();
+          let last_disconnected2 = last_disconnected.clone();
           tokio::spawn(async move {
             let (reader_half, mut writer_half) = socket.into_split();
             let (tx_out, mut rx_out) = mpsc::unbounded_channel::<Value>();
@@ -944,7 +1097,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     "error":{"code":-1,"message":"Malformed stratum call"},
                     "result": null
                   }));
-                  break;
+                  continue;
                 }
               };
               let id = parsed.get("id").cloned().unwrap_or(Value::Null);
@@ -973,14 +1126,48 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     }
                   }
                 }
+                let mut j = current_job2.lock().await.clone();
+                if j.id.is_empty() || j.blob.is_empty() || !blocktemplate_blob_ok(&j.blob) {
+                  for _ in 0u32..20 {
+                    tokio::time::sleep(Duration::from_millis(150)).await;
+                    refresh_job(
+                      &http2,
+                      &daemon2,
+                      &mining_addr2,
+                      &current_job2,
+                      &job_ring2,
+                      job_seq2.as_ref(),
+                    )
+                    .await;
+                    j = current_job2.lock().await.clone();
+                    if !j.id.is_empty() && !j.blob.is_empty() && blocktemplate_blob_ok(&j.blob) {
+                      break;
+                    }
+                  }
+                }
+                if j.id.is_empty() || j.blob.is_empty() || !blocktemplate_blob_ok(&j.blob) {
+                  let _ = tx_out.send(json!({
+                    "id": id,
+                    "jsonrpc":"2.0",
+                    "error":{"code":-1,"message":"Waiting for daemon"},
+                    "result": null
+                  }));
+                  continue;
+                }
+                {
+                  let mut d = last_disconnected2.lock().await;
+                  d.remove(&worker_name);
+                }
                 my_session_id = format!("{:x}", session_seq2.fetch_add(1, Ordering::SeqCst));
+                let t = now_ms();
                 {
                   let mut w = workers2.lock().await;
                   w.insert(my_session_id.clone(), WorkerState {
                     session_id: my_session_id.clone(),
                     miner: worker_name,
-                    last_share_ms: now_ms(),
-                    last_retarget_ms: now_ms(),
+                    last_share_ms: t,
+                    last_activity_ms: t,
+                    last_retarget_ms: t,
                     difficulty: worker_diff,
                     last_job_id: String::new(),
                     shares: 0,
@@ -997,16 +1184,6 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 {
                   let mut s = senders2.lock().await;
                   s.insert(my_session_id.clone(), tx_out.clone());
-                }
-                let j = current_job2.lock().await.clone();
-                if j.id.is_empty() || j.blob.is_empty() {
-                  let _ = tx_out.send(json!({
-                    "id": id,
-                    "jsonrpc":"2.0",
-                    "error":{"code":-1,"message":"Waiting for daemon"},
-                    "result": null
-                  }));
-                  continue;
                 }
                 let worker_target = difficulty_to_target_hex(worker_diff);
                 let worker_job_id = worker_job_id(&j.id, worker_diff);
@@ -1041,7 +1218,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 {
                   let mut w = workers2.lock().await;
                   if let Some(ws) = w.get_mut(&my_session_id) {
-                    ws.last_share_ms = now_ms();
+                    ws.last_activity_ms = now_ms();
                   }
                 }
                 let _ = tx_out.send(json!({"id": id, "jsonrpc":"2.0", "error": null, "result": {"status":"KEEPALIVED"}}));
@@ -1053,7 +1230,22 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   let _ = tx_out.send(json!({"id": id, "jsonrpc":"2.0", "error":{"code":-1,"message":"Unauthenticated"}, "result": null}));
                   continue;
                 }
+                {
+                  let mut w = workers2.lock().await;
+                  if let Some(ws) = w.get_mut(&my_session_id) {
+                    ws.last_activity_ms = now_ms();
+                  }
+                }
                 let j = current_job2.lock().await.clone();
+                if j.blob.is_empty() || !blocktemplate_blob_ok(&j.blob) {
+                  let _ = tx_out.send(json!({
+                    "id": id,
+                    "jsonrpc":"2.0",
+                    "error":{"code":-1,"message":"Waiting for daemon"},
+                    "result": null
+                  }));
+                  continue;
+                }
                 let worker_target = {
                   let w = workers2.lock().await;
                   let d = w.get(&my_session_id).map(|ws| ws.difficulty).unwrap_or(5000);
@@ -1085,6 +1277,12 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 if my_session_id.is_empty() {
                   let _ = tx_out.send(json!({"id": id, "jsonrpc":"2.0", "error":{"code":-1,"message":"Unauthenticated"}, "result": null}));
                   continue;
+                }
+                {
+                  let mut w = workers2.lock().await;
+                  if let Some(ws) = w.get_mut(&my_session_id) {
+                    ws.last_activity_ms = now_ms();
+                  }
                 }
                 let job_id = params.get("job_id").and_then(|v| v.as_str()).unwrap_or("");
                 let job_id_base = canonical_job_id(job_id);
@@ -1134,6 +1332,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 {
                   let mut w = workers2.lock().await;
                   if let Some(ws) = w.get_mut(&my_session_id) {
+                    let share_d = ws.difficulty;
                     let dt = now_ms().saturating_sub(ws.last_share_ms);
                     if dt > 0 {
                       ws.share_times_ms.push(dt);
@@ -1144,8 +1343,9 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     }
                     ws.last_share_ms = now_ms();
                     ws.shares = ws.shares.saturating_add(1);
-                    ws.hashes_total = ws.hashes_total.saturating_add(ws.difficulty);
-                    ws.share_events.push((ws.last_share_ms, ws.difficulty));
+                    ws.hashes_total = ws.hashes_total.saturating_add(share_d);
+                    ws.share_events.push((ws.last_share_ms, share_d));
+                    round_hashes2.fetch_add(share_d, Ordering::Relaxed);
                     let old_diff = ws.difficulty;
                     maybe_retarget(
                       ws,
@@ -1187,6 +1387,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                         let w = workers2.lock().await;
                         w.get(&my_session_id).map(|ws| ws.miner.clone()).unwrap_or_else(|| "worker".to_string())
                       };
+                      let total_round = round_hashes2.swap(0, Ordering::Relaxed);
                       let mut bl = blocks2.lock().await;
                       bl.push(json!({
                         "status": 0,
@@ -1196,7 +1397,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                         "miner": worker_name,
                         "reward": -1,
                         "diff": current.difficulty,
-                        "hashes": 0
+                        "hashes": total_round
                       }));
                       if bl.len() > 100 {
                         let keep_from = bl.len().saturating_sub(100);

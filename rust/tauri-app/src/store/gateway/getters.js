@@ -1,14 +1,12 @@
+function daemonChainTip (info) {
+  return Math.max(
+    Number(info?.height) || 0,
+    Number(info?.target_height) || 0
+  )
+}
+
 export const isReady = (state) => {
-  const { daemons, app } = state.app.config
-  const config_daemon = daemons[app.net_type]
-
-  let target_height
-  if (config_daemon.type === "local") {
-    target_height = Math.max(state.daemon.info.height, state.daemon.info.target_height)
-  } else {
-    target_height = state.daemon.info.height
-  }
-
+  const target_height = daemonChainTip(state.daemon.info)
   return state.wallet.info.height >= (target_height - 1)
 }
 
@@ -84,13 +82,7 @@ export const isAbleToSend = (state) => {
   const { daemons, app } = state.app.config
   const config_daemon = daemons[app.net_type]
 
-  let target_height
-  if (config_daemon.type === "local") {
-    target_height = Math.max(state.daemon.info.height, state.daemon.info.target_height)
-  } else {
-    target_height = state.daemon.info.height
-  }
-
+  const target_height = daemonChainTip(state.daemon.info)
   if (config_daemon.type === "local_remote") {
     return state.daemon.info.height_without_bootstrap >= target_height && state.wallet.info.height >= (target_height - 1)
   } else {

@@ -1,5 +1,6 @@
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
+use crate::sync_debug::is_sync_debug;
 use crate::wallet_list_fs::list_wallet_files;
 use reqwest::Client;
 use chrono::{DateTime, Utc};
@@ -205,15 +206,24 @@ pub async fn handle_wallet (
           .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
         // Like `wallet-rpc.js::saveWallet` before `close_wallet` — flush wallet state to disk (e.g. switch account).
         if method == "close_wallet" {
-          match w.call("store", &json!({})).await {
-            Ok(ref store_r) if store_r.get("error").is_some() => {
+          // `store` can block a long time while the wallet is scanning; cap wait so switch account stays usable.
+          match tokio::time::timeout(
+            Duration::from_secs(25),
+            w.call("store", &json!({})),
+          )
+          .await
+          {
+            Ok(Ok(ref store_r)) if store_r.get("error").is_some() => {
               eprintln!(
                 "[wallet] store before close_wallet: {:?}",
                 store_r.get("error")
               );
             }
-            Err(e) => eprintln!("[wallet] store before close_wallet: {e}"),
-            _ => {}
+            Ok(Err(e)) => eprintln!("[wallet] store before close_wallet: {e}"),
+            Ok(Ok(_)) => {}
+            Err(_) => eprintln!(
+              "[wallet] store before close_wallet: timed out after 25s, continuing to close"
+            ),
           }
         }
         w.call(&rpc, &params).await?
@@ -325,13 +335,10 @@ pub async fn handle_wallet (
           "reset_wallet_status",
           json!({ "code": 0, "message": "OK" }),
         )?;
+        let mut opened_height: u64 = 0;
         if let Ok(h) = w.call("getheight", &json!({})).await {
-          if let Some(height_u) = h
-            .get("result")
-            .and_then(|x| x.get("height"))
-            .or_else(|| h.pointer("/result/height"))
-            .and_then(|v| crate::json_util::value_as_u64(v))
-          {
+          if let Some(height_u) = crate::json_util::wallet_height_from_getheight(&h) {
+            opened_height = height_u;
             emit_receive(
               app,
               "set_wallet_info",
@@ -340,9 +347,16 @@ pub async fn handle_wallet (
           }
         }
         st.wh_display_name = name.to_string();
-        st.wh_stored_height = 0;
+        st.wh_stored_height = opened_height;
         st.wh_stored_balance = 0;
         st.wh_stored_unlocked = 0;
+        st.wh_catchup_last_heavy = None;
+        if is_sync_debug() {
+          eprintln!(
+            "[sync-debug][wallet] open_wallet file={name} is_local_net={}",
+            is_local_net(st)
+          );
+        }
         crate::wallet_heartbeat::start(app, st, is_local_net(st));
       } else if method == "create_wallet" {
         refresh_wallet_password_hash_from_params(st, p);
@@ -610,24 +624,21 @@ async fn finalize_new_wallet_like_electron (
     "view_only": false
   });
   if let Ok(ref a) = ga {
-    if a.get("error").is_none() {
+    if crate::json_util::json_rpc_no_error(a) {
       if let Some(addr) = a.pointer("/result/address").and_then(|x| x.as_str()) {
         info["address"] = json!(addr);
       }
     }
   }
   if let Ok(ref h) = gh {
-    if h.get("error").is_none() {
-      if let Some(height) = h
-        .pointer("/result/height")
-        .and_then(|v| crate::json_util::value_as_u64(v))
-      {
+    if crate::json_util::json_rpc_no_error(h) {
+      if let Some(height) = crate::json_util::wallet_height_from_getheight(h) {
         info["height"] = json!(height);
       }
     }
   }
   if let Ok(ref b) = gb {
-    if b.get("error").is_none() {
+    if crate::json_util::json_rpc_no_error(b) {
       if let Some(r) = b.get("result") {
         if let Some(bal) = r.get("balance").and_then(|v| crate::json_util::value_as_u64(v)) {
           info["balance"] = json!(bal);
@@ -642,7 +653,7 @@ async fn finalize_new_wallet_like_electron (
     }
   }
   if let Ok(ref m) = qm {
-    if m.get("error").is_none() {
+    if crate::json_util::json_rpc_no_error(m) {
       if let Some(key) = m.pointer("/result/key").and_then(|x| x.as_str()) {
         emit_receive(
           app,
@@ -653,7 +664,7 @@ async fn finalize_new_wallet_like_electron (
     }
   }
   if let Ok(ref s) = qs {
-    if s.get("error").is_none() {
+    if crate::json_util::json_rpc_no_error(s) {
       if let Some(key) = s.pointer("/result/key").and_then(|x| x.as_str()) {
         if key.chars().all(|c| c == '0') {
           info["view_only"] = json!(true);
@@ -671,10 +682,20 @@ async fn finalize_new_wallet_like_electron (
     }
     emit_wallet_list(app, st).await?;
   }
-  emit_receive(app, "set_wallet_info", info)?;
-  st.wh_stored_height = 0;
-  st.wh_stored_balance = 0;
-  st.wh_stored_unlocked = 0;
+  emit_receive(app, "set_wallet_info", info.clone())?;
+  st.wh_stored_height = info
+    .get("height")
+    .and_then(crate::json_util::value_as_u64)
+    .unwrap_or(0);
+  st.wh_stored_balance = info
+    .get("balance")
+    .and_then(crate::json_util::value_as_u64)
+    .unwrap_or(0);
+  st.wh_stored_unlocked = info
+    .get("unlocked_balance")
+    .and_then(crate::json_util::value_as_u64)
+    .unwrap_or(0);
+  st.wh_catchup_last_heavy = None;
   crate::wallet_heartbeat::start(app, st, is_local_net(st));
   Ok(())
 }

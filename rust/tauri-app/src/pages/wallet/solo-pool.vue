@@ -22,6 +22,22 @@
     >
       {{ $t("components.solo_pool.remote_warning") }}
     </q-banner>
+    <q-banner
+      v-if="settings.server.enabled && poolState.desynced"
+      rounded
+      dense
+      class="bg-amber-2 text-black q-mb-md"
+    >
+      {{ $t("components.solo_pool.pool_desync_hint") }}
+    </q-banner>
+    <q-banner
+      v-if="settings.server.enabled && poolState.system_clock_error"
+      rounded
+      dense
+      class="bg-negative text-white q-mb-md"
+    >
+      {{ $t("components.solo_pool.system_clock_error_hint") }}
+    </q-banner>
 
     <q-card
       flat
@@ -92,6 +108,19 @@
         <q-card flat bordered class="solo-pool-card q-pa-sm" :dark="theme === 'dark'">
           <div class="text-caption">{{ $t("components.solo_pool.workers") }}</div>
           <div class="text-weight-medium">{{ poolStats.activeWorkers || 0 }}</div>
+        </q-card>
+      </div>
+    </div>
+
+    <div class="row q-col-gutter-sm q-mb-sm">
+      <div
+        v-for="(ec, i) in effortCards"
+        :key="`eff-${i}`"
+        class="col-6 col-sm-4 col-md"
+      >
+        <q-card flat bordered class="solo-pool-card q-pa-sm" :dark="theme === 'dark'">
+          <div class="text-caption">{{ ec.label }}</div>
+          <div class="text-weight-medium">{{ ec.value }}</div>
         </q-card>
       </div>
     </div>
@@ -421,6 +450,24 @@ export default defineComponent({
       return `${n.toFixed(2)} ${units[i]}`
     }
 
+    const formatBlockTime = (ms) => {
+      const n = Number(ms || 0)
+      if (!n) return "—"
+      if (n < 60000) return `${Math.round(n / 1000)} s`
+      if (n < 3600000) return `${Math.round(n / 60000)} min`
+      return `${(n / 3600000).toFixed(1)} h`
+    }
+    const effortCards = computed(() => {
+      const s = poolStats.value
+      return [
+        { label: t("components.solo_pool.round_hashes"), value: commas(s.roundHashes) },
+        { label: t("components.solo_pool.current_effort"), value: Number(s.currentEffort || 0).toFixed(2) },
+        { label: t("components.solo_pool.average_effort"), value: Number(s.averageEffort || 0).toFixed(2) },
+        { label: t("components.solo_pool.est_block_time"), value: formatBlockTime(s.blockTime) },
+        { label: t("components.solo_pool.blocks_found"), value: String(s.blocksFound ?? 0) }
+      ]
+    })
+
     const hashratePolyline = computed(() => {
       const rangeToBuckets = { "15m": 15, "60m": 60, "6h": 360 }
       const wanted = rangeToBuckets[chartRange.value] || 60
@@ -507,7 +554,9 @@ export default defineComponent({
       daemonType,
       statusLabel,
       statusColor,
+      poolState,
       poolStats,
+      effortCards,
       workers,
       blocks,
       poolHashrates,

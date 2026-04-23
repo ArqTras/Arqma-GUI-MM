@@ -110,18 +110,18 @@ export default defineComponent({
       return { type: "local" }
     })
     const target_height = computed(() => {
-      if (config_daemon.value.type === "local") {
-        return Math.max(
-          daemon.value.info.height,
-          daemon.value.info.target_height
-        )
-      } else {
-        return daemon.value.info.height
+      const t = config_daemon.value.type
+      if (t === "local" || t === "local_remote") {
+        const h = Number(daemon.value.info.height) || 0
+        const th = Number(daemon.value.info.target_height) || 0
+        return Math.max(h, th)
       }
+      return daemon.value.info.height
     })
 
     const daemon_pct = computed(() => {
-      if (config_daemon.value.type === "local") {
+      const t = config_daemon.value.type
+      if (t === "local" || t === "local_remote") {
         return daemon_local_pct.value
       }
       return 0

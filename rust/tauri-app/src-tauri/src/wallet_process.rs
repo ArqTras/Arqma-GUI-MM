@@ -5,7 +5,9 @@ use crate::subprocess::new_child_command;
 use rand::RngCore;
 use serde_json::Value;
 use std::process::Stdio;
+use std::time::Duration;
 use tauri::AppHandle;
+use tokio::time::timeout;
 
 /// Random `rpc-login` (160 B → 320 hex chars) — distribution aligned with `Buffer.toString("hex")`.
 fn generate_auth_triple () -> (String, String, String) {
@@ -158,15 +160,26 @@ pub async fn try_start_wallet_rpc (
 /// falls back to `kill` if the process does not exit in time. Avoids orphaned RPC after app/wallet close.
 pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
   if let Some(ref w) = st.wallet {
-    let _ = w.call("store", &Value::Null).await;
-    let _ = w.call("stop_wallet", &Value::Null).await;
+    // `store` can hang for a long time during blockchain scan; same for `stop_wallet` if RPC is busy.
+    match timeout(Duration::from_secs(12), w.call("store", &Value::Null)).await {
+      Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] exit store: {:?}", r.get("error")),
+      Ok(Err(e)) => eprintln!("[wallet] exit store: {e}"),
+      Ok(Ok(_)) => {}
+      Err(_) => eprintln!("[wallet] exit store: timed out, stopping anyway"),
+    }
+    match timeout(Duration::from_secs(8), w.call("stop_wallet", &Value::Null)).await {
+      Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] stop_wallet: {:?}", r.get("error")),
+      Ok(Err(e)) => eprintln!("[wallet] stop_wallet: {e}"),
+      Ok(Ok(_)) => {}
+      Err(_) => eprintln!("[wallet] stop_wallet: timed out, will kill child"),
+    }
   }
   st.wallet = None;
   let Some(mut ch) = st.wallet_process.take() else {
     st.wallet_salt.clear();
     return;
   };
-  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(12);
+  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(6);
   loop {
     match ch.try_wait() {
       Ok(Some(_status)) => break,

@@ -350,7 +350,8 @@
             "language": "Język",
             "syncing": "synchronizowanie",
             "scanning": "skanowanie",
-            "ready": "gotowy"
+            "ready": "gotowy",
+            "blocks_left": "≈{n} bloków do przeskanowania"
         },
         "mainmenu": {
             "daemon_settings": "Ustawienia demona",
@@ -373,6 +374,16 @@
             "net_difficulty": "Trudność sieci",
             "height": "Wysokość",
             "workers": "Workerzy",
+            "round_hashes": "Runda (hashe)",
+            "current_effort": "Aktualny wysiłek",
+            "average_effort": "Śr. wysiłek bloku",
+            "est_block_time": "Szac. czas do bloku",
+            "blocks_found": "Znalezione bloki",
+            "system_clock": "Zegar systemowy",
+            "clock_ok": "OK",
+            "clock_check_failed": "Błąd sprawdzenia",
+            "pool_desync_hint": "Demon nie jest w pełni zsynchronizowany; solo do czasu dogonienia łańcucha może być opóźnione.",
+            "system_clock_error_hint": "Zegar systemowy może być błędny (rozjazd względem explorera powyżej 15 minut).",
             "pool_hashrate": "Hashrate puli",
             "hashrate_5m": "Hashrate (5m)",
             "hashrate_1h": "Hashrate (1h)",

@@ -75,7 +75,14 @@ export default {
     desynced: false,
     system_clock_error: false,
     stats: {
-      currentEffort: 0
+      currentEffort: 0,
+      roundHashes: 0,
+      blockTime: 0,
+      blocksFound: 0,
+      averageEffort: 0,
+      networkHashrate: 0,
+      diff: 0,
+      height: 0
     },
     blocks: [],
     workers: [

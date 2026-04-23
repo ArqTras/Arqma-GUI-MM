@@ -13,3 +13,11 @@ panic = "abort"
 lto = true
 codegen-units = 1
 strip = "symbols"
+
+# Faster local "near-release" builds (Tauri/NSIS) — less LTO, more codegen units.
+# Use: `npm run tauri:build:local` in `rust/tauri-app`, or
+# `cargo build -p arqma-wallet --profile local` in `rust/tauri-app/src-tauri`
+[profile.local]
+inherits = "release"
+lto = "thin"
+codegen-units = 16

@@ -21,6 +21,7 @@ mod wallet_process;
 mod native_bin;
 mod subprocess;
 mod daemon_heartbeat;
+mod sync_debug;
 mod wallet_heartbeat;
 mod wallet_relay_ops;
 mod wallet_pools;
@@ -32,8 +33,12 @@ use core_handler::IpcMessage;
 use serde_json::Value;
 use tokio::sync::Mutex;
 use tauri::Emitter;
-use tauri::RunEvent;
 use tauri::Manager;
+use tauri::RunEvent;
+use tauri::WindowEvent;
+use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 use arqma_wallet_core::merge_json as merge_json_value;
 
@@ -196,11 +201,87 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
   Ok(Value::Null)
 }
 
+const MAIN_WINDOW_LABEL: &str = "main";
+const TRAY_OPEN_ID: &str = "tray_open";
+
+/// tray.png next to tauri `Cargo.toml` (Vite public asset).
+const TRAY_ICON_PNG: &[u8] =
+  include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../public/tray.png"));
+
+fn show_main_window (app: &tauri::AppHandle) {
+  if let Some(w) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+    let _ = w.unminimize();
+    let _ = w.show();
+    let _ = w.set_focus();
+  }
+}
+
+fn try_create_tray (app: &tauri::App) -> tauri::Result<()> {
+  let icon = Image::from_bytes(TRAY_ICON_PNG)?;
+  let h_tray = app.handle().clone();
+  let menu = Menu::new(app)?;
+  let open = MenuItem::with_id(
+    app,
+    TRAY_OPEN_ID,
+    "Open",
+    true,
+    None::<&str>,
+  )?;
+  menu.append(&open)?;
+  let _ = TrayIconBuilder::new()
+    .menu(&menu)
+    .icon(icon)
+    .tooltip("Arqma Wallet")
+    .show_menu_on_left_click(false)
+    .on_menu_event(move |app, e| {
+      if e.id() == TRAY_OPEN_ID {
+        show_main_window(app);
+      }
+    })
+    .on_tray_icon_event(move |_, e| {
+      match e {
+        TrayIconEvent::Click {
+          button: MouseButton::Left,
+          button_state: MouseButtonState::Up,
+          ..
+        } => {
+          show_main_window(&h_tray);
+        }
+        TrayIconEvent::DoubleClick {
+          button: MouseButton::Left,
+          ..
+        } => {
+          show_main_window(&h_tray);
+        }
+        _ => {}
+      }
+    })
+    .build(app)?;
+  Ok(())
+}
+
 pub fn run () {
   tauri::Builder::default()
+    .on_window_event(|window, event| {
+      if let WindowEvent::CloseRequested { api, .. } = event {
+        if window.label() == MAIN_WINDOW_LABEL {
+          if window.hide().is_ok() {
+            api.prevent_close();
+          }
+        }
+      }
+    })
     .setup(|app| {
+      if sync_debug::is_sync_debug() {
+        eprintln!(
+          "[sync-debug] ARQMA_SYNC_DEBUG is set — verbose wallet/daemon sync logs on stderr (unset or 0 to silence)"
+        );
+      }
       if cfg!(debug_assertions) {
         eprintln!("[dev] arqma paths: {:?}", arqma_wallet_core::default_paths());
+      }
+      if let Err(e) = try_create_tray(app) {
+        eprintln!("[tray] could not create system tray: {e}");
       }
       let h = app.handle().clone();
       tauri::async_runtime::spawn(async move {

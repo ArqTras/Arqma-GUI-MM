@@ -154,7 +154,7 @@ pub async fn ensure_daemon_for_startup (
   for _ in 0..150 {
     let r = daemon_post(http, &h, port, "get_info", 0, &Value::Null).await;
     match r {
-      Ok(v) if v.get("error").is_none() => {
+      Ok(v) if crate::json_util::json_rpc_no_error(&v) => {
         eprintln!("[daemon] arqmad: get_info OK");
         return Ok(());
       }

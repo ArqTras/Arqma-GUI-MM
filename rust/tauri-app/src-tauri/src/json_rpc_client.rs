@@ -1,8 +1,20 @@
-use crate::http_digest_arqma::{build_digest_header, inc_nc, generate_cnonce};
+use crate::http_digest_arqma::{build_digest_header, generate_cnonce, inc_nc};
+use crate::sync_debug::is_sync_debug;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 const PATH_JSON_RPC: &str = "/json_rpc";
+
+fn truncate (s: &str, max: usize) -> String {
+  if s.len() <= max {
+    return s.to_string();
+  }
+  let mut i = max;
+  while i > 0 && !s.is_char_boundary(i) {
+    i -= 1;
+  }
+  format!("{}…", &s[..i])
+}
 
 /// Custom `WalletRPC.sendRPC` (queue=1) with 401 retry (like `axiosDigest.js`).
 pub struct WalletRpcClient {
@@ -41,6 +53,19 @@ impl WalletRpcClient {
     }
   }
 
+  /// Another independent digest session (e.g. `get_transfers` off the main heartbeat path).
+  pub fn split_session (&self) -> Self {
+    Self {
+      base: self.base.clone(),
+      user: self.user.clone(),
+      pass: self.pass.clone(),
+      next_id: AtomicU64::new(200_000_000),
+      nc: std::sync::Mutex::new("00000001".to_string()),
+      cnonce: generate_cnonce(),
+      http: self.http.clone()
+    }
+  }
+
   fn next_id (&self) -> u64 {
     self.next_id.fetch_add(1, Ordering::SeqCst)
   }
@@ -56,7 +81,18 @@ impl WalletRpcClient {
         .insert("params".to_string(), params.clone());
     }
     let s = body.to_string();
-    self.post_with_digest(&s).await
+    let out = self.post_with_digest(&s).await;
+    if let Err(ref e) = out {
+      if is_sync_debug() {
+        eprintln!(
+          "[sync-debug][wallet-rpc] {} id={} err={}",
+          method,
+          id,
+          truncate(e, 200)
+        );
+      }
+    }
+    out
   }
 
   async fn post_with_digest (&self, body: &str) -> Result<Value, String> {
@@ -88,10 +124,10 @@ impl WalletRpcClient {
         &nc,
         &self.cnonce
       )?;
-      {
-        let mut g = self.nc.lock().map_err(|e| e.to_string())?;
-        *g = inc_nc(&nc);
-      }
+      // Advance `nc` only after a fully completed authenticated request + parsed JSON. Doing it
+      // *before* `send().await` meant a cancelled/timeout `Future` (e.g. `tokio::time::timeout` in
+      // wallet heartbeat) could skip the response but still bump `nc`, desynchronising digest auth
+      // and freezing wallet RPC (footer sync % stuck) until reconnect.
       let r = self
         .http
         .post(&url)
@@ -105,7 +141,12 @@ impl WalletRpcClient {
         return Err(format!("HTTP {} (digest)", r.status()));
       }
       let t = r.text().await.map_err(|e| e.to_string())?;
-      return serde_json::from_str(&t).map_err(|e| e.to_string());
+      let v = serde_json::from_str(&t).map_err(|e| e.to_string())?;
+      {
+        let mut g = self.nc.lock().map_err(|e| e.to_string())?;
+        *g = inc_nc(&nc);
+      }
+      return Ok(v);
     }
     if !first.status().is_success() {
       return Err(format!("HTTP {}", first.status()));

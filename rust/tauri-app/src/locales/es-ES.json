@@ -350,7 +350,8 @@
       "language": "Idioma",
       "syncing": "sincronizando",
       "scanning": "escaneando",
-      "ready": "listo"
+      "ready": "listo",
+      "blocks_left": "≈{n} bloques a escanear"
     },
     "mainmenu": {
       "daemon_settings": "Configuración del Daemon",

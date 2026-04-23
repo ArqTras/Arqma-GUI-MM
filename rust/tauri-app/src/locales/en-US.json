@@ -350,7 +350,8 @@
             "language": "Language",
             "syncing": "syncing",
             "scanning": "scanning",
-            "ready": "ready"
+            "ready": "ready",
+            "blocks_left": "≈{n} blocks to scan"
         },
         "mainmenu": {
             "daemon_settings": "Daemon Settings",
@@ -373,6 +374,16 @@
             "net_difficulty": "Network Difficulty",
             "height": "Height",
             "workers": "Workers",
+            "round_hashes": "Round (hashes)",
+            "current_effort": "Current effort",
+            "average_effort": "Avg block effort",
+            "est_block_time": "Est. time to block",
+            "blocks_found": "Blocks found",
+            "system_clock": "System clock",
+            "clock_ok": "OK",
+            "clock_check_failed": "Check failed",
+            "pool_desync_hint": "Daemon is not fully synced; solo mining may be delayed until the chain catches up.",
+            "system_clock_error_hint": "System clock may be wrong (differs from network explorer by more than 15 minutes).",
             "pool_hashrate": "Pool Hashrate",
             "hashrate_5m": "Hashrate (5m)",
             "hashrate_1h": "Hashrate (1h)",

@@ -350,7 +350,8 @@
       "language": "Idioma",
       "syncing": "sincronizando",
       "scanning": "scanning",
-      "ready": "pronto"
+      "ready": "pronto",
+      "blocks_left": "≈{n} blocos a varrer"
     },
     "mainmenu": {
       "daemon_settings": "Configurações do Daemon",

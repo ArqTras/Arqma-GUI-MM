@@ -2,7 +2,10 @@ use arqma_wallet_core::ArqmaPaths;
 use crate::json_rpc_client::WalletRpcClient;
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::oneshot;
+use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 /// Metadata pending `relay_tx` (like `tx_metadata_list` in `wallet-rpc.js`).
@@ -50,6 +53,11 @@ pub struct WalletBackendState {
   pub wh_stored_unlocked: u64,
   /// First extended tick (like `extended` in `heartbeatAction`, e.g. `get_address_book`).
   pub wh_heartbeat_ext_pending: bool,
+  /// Only one background `get_transfers` at a time (parallel digest session; heartbeat is separate).
+  pub wh_transfers_sem: Arc<Semaphore>,
+  /// During long rescans, throttle heavy RPC (balance, transfers) to avoid slowing the node-side
+  /// block scan; set when a **heavy** heartbeat just ran (see `wallet_heartbeat` catch-up mode).
+  pub wh_catchup_last_heavy: Option<Instant>,
   /// Pending `relay_tx` payloads (sweep / transfer / stake).
   pub tx_metadata_list: Vec<WalletTxMetadata>,
   /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
@@ -87,6 +95,8 @@ impl Default for WalletBackendState {
       wh_stored_balance: 0,
       wh_stored_unlocked: 0,
       wh_heartbeat_ext_pending: false,
+      wh_transfers_sem: Arc::new(Semaphore::new(1)),
+      wh_catchup_last_heavy: None,
       tx_metadata_list: Vec::new(),
       stake_acquisition_task: None,
       solo_pool_task: None,
@@ -125,6 +135,7 @@ impl WalletBackendState {
     self.wh_stored_balance = 0;
     self.wh_stored_unlocked = 0;
     self.wh_heartbeat_ext_pending = false;
+    self.wh_catchup_last_heavy = None;
     self.tx_metadata_list.clear();
   }
 }
