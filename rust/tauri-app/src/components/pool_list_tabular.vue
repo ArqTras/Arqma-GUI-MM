@@ -22,7 +22,7 @@
           clickable
         >
           <q-item-section class="col-1 type1">
-            <div>{{ $t('components.pool_list_tabular.operator') }}</div>
+            <div>{{ poolTypeLabel(item) }}</div>
           </q-item-section>
 
           <q-item-label class="col-3 main">
@@ -201,7 +201,7 @@
           @click="handleClick(item)"
         >
           <q-item-section class="col-1 type">
-            <div>{{ item.is_contributor ? t('components.pool_list_tabular.contributor'): "&nbsp;" }}</div>
+            <div>{{ poolTypeLabel(item) }}</div>
           </q-item-section>
 
           <q-item-label class="col-3 main">
@@ -509,6 +509,20 @@ export default defineComponent({
       return t("components.pool_list_tabular.fiat_usd_approx", { amount: usd })
     }
 
+    const poolTypeLabel = (item) => {
+      const status = Number(item.total_contributed) < Number(item.staking_requirement)
+        ? t("pages.wallet.staking_pools.open")
+        : t("pages.wallet.staking_pools.closed")
+
+      if (item.is_operator) {
+        return `${status} / ${t("components.pool_list_tabular.operator")}`
+      }
+      if (item.is_contributor) {
+        return `${status} / ${t("components.pool_list_tabular.contributor")}`
+      }
+      return status
+    }
+
     // Watchers
     const deregister_statusWatcher = watch(deregister_status, (newVal, oldVal) => {
       try {
@@ -753,7 +767,8 @@ export default defineComponent({
       operator_pools,
       addToAddressBook,
       coin_price,
-      arqUsdCaption
+      arqUsdCaption,
+      poolTypeLabel
     }
   }
 })

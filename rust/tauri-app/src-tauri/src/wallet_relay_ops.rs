@@ -8,6 +8,30 @@ use serde_json::{json, Value};
 
 pub const COIN_UNITS: f64 = 1_000_000_000.0;
 
+fn parse_decimal_after_marker (text: &str, marker: &str) -> Option<f64> {
+  let idx = text.find(marker)?;
+  let tail = &text[idx + marker.len()..];
+  let mut started = false;
+  let mut number = String::new();
+
+  for ch in tail.chars() {
+    if ch.is_ascii_digit() || (ch == '.' && started) {
+      started = true;
+      number.push(ch);
+      continue;
+    }
+    if started {
+      break;
+    }
+  }
+
+  if number.is_empty() {
+    None
+  } else {
+    number.parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0)
+  }
+}
+
 fn rpc_err_text (e: &Value) -> String {
   e
     .get("message")
@@ -229,17 +253,26 @@ pub async fn relay_stake (
 
 pub async fn get_coin_and_conversion (app: &AppHandle, http: &Client) {
   let mut coin: f64 = 0.0;
+  // Primary ARQ/USD source: Coinpaprika (ARQ ticker id: arq-arqma).
   if let Ok(r) = http
-    .get("https://api.coingecko.com/api/v3/coins/arqma?tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false")
+    .get("https://api.coinpaprika.com/v1/tickers/arq-arqma")
     .send()
     .await
   {
     if let Ok(v) = r.json::<Value>().await {
-      if let Some(p) = v
-        .pointer("/market_data/current_price/usd")
-        .and_then(|x| x.as_f64())
-      {
+      if let Some(p) = v.pointer("/quotes/USD/price").and_then(|x| x.as_f64()) {
         coin = p;
+      }
+    }
+  }
+  // Fallback for USD spot price when Coinpaprika is unavailable.
+  // NonKYC market page publishes ARQ/USDT last price.
+  if coin <= 0.0 {
+    if let Ok(r) = http.get("https://nonkyc.io/market/ARQ_USDT").send().await {
+      if let Ok(html) = r.text().await {
+        if let Some(p) = parse_decimal_after_marker(&html, "ARQ/USDT") {
+          coin = p;
+        }
       }
     }
   }
