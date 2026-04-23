@@ -77,11 +77,12 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let p_addr = json!({ "account_index": 0 });
   let p_empty = json!({});
   let p_bal = json!({ "account_index": 0 });
-  let (ga, gh, gb) = tokio::join!(
-    c.call("get_address", &p_addr),
-    c.call("getheight", &p_empty),
-    c.call("getbalance", &p_bal),
-  );
+  // Keep wallet RPC calls sequential on a single digest session.
+  // Parallel calls may race on digest nonce count (`nc`) and intermittently
+  // fail auth, which stalls footer height updates ("scanning" stuck).
+  let ga = c.call("get_address", &p_addr).await;
+  let gh = c.call("getheight", &p_empty).await;
+  let gb = c.call("getbalance", &p_bal).await;
 
   let mut info = json!({ "name": &name });
   let mut new_h = h0;

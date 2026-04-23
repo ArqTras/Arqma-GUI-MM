@@ -34,8 +34,14 @@ pub async fn try_start_wallet_rpc (
   st: &mut WalletBackendState,
   http: &reqwest::Client,
 ) {
-  if st.wallet_process.is_some() {
+  if st.wallet_process.is_some() && st.wallet.is_some() {
     return;
+  }
+  if st.wallet_process.is_some() && st.wallet.is_none() {
+    if let Some(mut ch) = st.wallet_process.take() {
+      let _ = ch.kill();
+      let _ = ch.wait();
+    }
   }
   st.wallet = None;
   st.wallet_salt = String::new();
@@ -141,6 +147,10 @@ pub async fn try_start_wallet_rpc (
     }
   }
   eprintln!("[wallet] timeout — no get_languages response (check resource/bin and daemon)");
+  if let Some(mut ch) = st.wallet_process.take() {
+    let _ = ch.kill();
+    let _ = ch.wait();
+  }
   st.wallet = None;
 }
 

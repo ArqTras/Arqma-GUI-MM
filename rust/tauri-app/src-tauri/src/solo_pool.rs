@@ -298,7 +298,9 @@ fn is_hex_64 (s: &str) -> bool {
 /// Electron uses full 256-bit math; here we keep a deterministic monotonic approximation.
 fn difficulty_to_target_hex (difficulty: u64) -> String {
   let d = difficulty.max(1);
-  let t = (u64::MAX / d).clamp(1, u32::MAX as u64) as u32;
+  // Stratum compact target is 32-bit; using u64::MAX here collapses most
+  // practical difficulties to 0xffffffff (effective diff ~1).
+  let t = ((u32::MAX as u64) / d).max(1) as u32;
   let le = t.to_le_bytes();
   hex::encode(le)
 }
@@ -316,8 +318,24 @@ fn passes_compact_target (result_hash: &str, compact_target_le_hex: &str) -> boo
     }
     a
   });
-  let sample = u32::from_str_radix(&result_hash[0..8], 16).unwrap_or(u32::MAX);
-  sample <= target_le
+  let Ok(hash_bytes) = hex::decode(result_hash) else {
+    return false;
+  };
+  if hash_bytes.len() != 32 {
+    return false;
+  }
+  // Different miners/pool stacks disagree on which 32-bit slice/endian should
+  // be used for compact target checks. Accept any canonical variant to avoid
+  // false "low difficulty share" rejects caused purely by byte-order mismatch.
+  let first = [hash_bytes[0], hash_bytes[1], hash_bytes[2], hash_bytes[3]];
+  let last = [hash_bytes[28], hash_bytes[29], hash_bytes[30], hash_bytes[31]];
+  let samples = [
+    u32::from_le_bytes(first),
+    u32::from_be_bytes(first),
+    u32::from_le_bytes(last),
+    u32::from_be_bytes(last),
+  ];
+  samples.into_iter().any(|sample| sample <= target_le)
 }
 
 fn pool_enabled (st: &WalletBackendState) -> bool {
@@ -420,6 +438,14 @@ fn sanitize_worker_name (raw: &str) -> String {
   } else {
     out
   }
+}
+
+fn worker_job_id (base_job_id: &str, difficulty: u64) -> String {
+  format!("{base_job_id}|{difficulty}")
+}
+
+fn canonical_job_id (job_id: &str) -> &str {
+  job_id.split('|').next().unwrap_or(job_id)
 }
 
 fn calc_hashrate (hashes: u64, ms: i64) -> u64 {
@@ -780,12 +806,13 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
             for sid in changed_sessions {
               if let (Some(tx), Some(ws)) = (senders_map.get(&sid), workers_map.get(&sid)) {
                 let worker_target = difficulty_to_target_hex(ws.difficulty);
+                let worker_job_id = worker_job_id(&current.id, ws.difficulty);
                 let _ = tx.send(json!({
                   "jsonrpc":"2.0",
                   "method":"job",
                   "params":{
                     "blob": current.blob,
-                    "job_id": current.id,
+                    "job_id": worker_job_id,
                     "target": worker_target,
                     "height": current.height,
                     "algo": "rx/arq",
@@ -947,6 +974,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   continue;
                 }
                 let worker_target = difficulty_to_target_hex(worker_diff);
+                let worker_job_id = worker_job_id(&j.id, worker_diff);
                 let _ = tx_out.send(json!({
                   "id": id,
                   "jsonrpc":"2.0",
@@ -955,7 +983,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     "id": my_session_id,
                     "job": {
                       "blob": j.blob,
-                      "job_id": j.id,
+                      "job_id": worker_job_id,
                       "target": worker_target,
                       "height": j.height,
                       "algo": "rx/arq",
@@ -996,13 +1024,18 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   let d = w.get(&my_session_id).map(|ws| ws.difficulty).unwrap_or(5000);
                   difficulty_to_target_hex(d)
                 };
+                let worker_diff = {
+                  let w = workers2.lock().await;
+                  w.get(&my_session_id).map(|ws| ws.difficulty).unwrap_or(5000)
+                };
+                let worker_job_id = worker_job_id(&j.id, worker_diff);
                 let _ = tx_out.send(json!({
                   "id": id,
                   "jsonrpc":"2.0",
                   "error": null,
                   "result": {
                     "blob": j.blob,
-                    "job_id": j.id,
+                    "job_id": worker_job_id,
                     "target": worker_target,
                     "height": j.height,
                     "algo": "rx/arq",
@@ -1019,12 +1052,13 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   continue;
                 }
                 let job_id = params.get("job_id").and_then(|v| v.as_str()).unwrap_or("");
+                let job_id_base = canonical_job_id(job_id);
                 let nonce = params.get("nonce").and_then(|v| v.as_str()).unwrap_or("");
                 let result_hash = params.get("result").and_then(|v| v.as_str()).unwrap_or("");
                 let valid = !job_id.is_empty() && is_hex_8(nonce) && !result_hash.is_empty();
                 let mut current = {
                   let ring = job_ring2.lock().await;
-                  ring.iter().rev().find(|j| j.id == job_id).cloned()
+                  ring.iter().rev().find(|j| j.id == job_id_base).cloned()
                 };
                 if current.is_none() {
                   current = Some(current_job2.lock().await.clone());
@@ -1040,7 +1074,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   let _ = tx_out.send(json!({"id": id, "jsonrpc":"2.0", "error":{"code":-1,"message":"Duplicate share"}, "result": null}));
                   continue;
                 }
-                if !valid || current.id.is_empty() || !is_hex_64(result_hash) || job_id != current.id {
+                if !valid || current.id.is_empty() || !is_hex_64(result_hash) || job_id_base != current.id {
                   let mut w = workers2.lock().await;
                   if let Some(ws) = w.get_mut(&my_session_id) {
                     ws.rejects = ws.rejects.saturating_add(1);
@@ -1096,7 +1130,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                         "method":"job",
                         "params":{
                           "blob": j.blob,
-                          "job_id": j.id,
+                          "job_id": worker_job_id(&j.id, ws.difficulty),
                           "target": worker_target,
                           "height": j.height,
                           "algo": "rx/arq",
