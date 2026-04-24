@@ -1,7 +1,12 @@
 use arqma_wallet_core::ArqmaPaths;
+use arqma_wallet_rpc::WalletJsonRpc;
 use crate::json_rpc_client::WalletRpcClient;
 use serde::Serialize;
 use serde_json::Value;
+use std::sync::Arc;
+use std::time::Instant;
+use tokio::sync::oneshot;
+use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 /// Metadata pending `relay_tx` (like `tx_metadata_list` in `wallet-rpc.js`).
@@ -32,7 +37,8 @@ pub struct WalletBackendState {
   pub wallet_salt: String,
   /// Password hash (128 hex chars), like `this.wallet_state.password_hash` in Node.
   pub wallet_password_hash_hex: Option<String>,
-  pub wallet: Option<WalletRpcClient>,
+  /// Shared handle to the HTTP digest JSON-RPC client (implements [`WalletJsonRpc`]).
+  pub wallet: Option<Arc<WalletRpcClient>>,
   pub wallet_process: Option<std::process::Child>,
   /// Local `arqmad` child process (none when `type: remote`).
   pub daemon_process: Option<std::process::Child>,
@@ -49,10 +55,18 @@ pub struct WalletBackendState {
   pub wh_stored_unlocked: u64,
   /// First extended tick (like `extended` in `heartbeatAction`, e.g. `get_address_book`).
   pub wh_heartbeat_ext_pending: bool,
+  /// Only one background `get_transfers` at a time (parallel digest session; heartbeat is separate).
+  pub wh_transfers_sem: Arc<Semaphore>,
+  /// During long rescans, throttle heavy RPC (balance, transfers) to avoid slowing the node-side
+  /// block scan; set when a **heavy** heartbeat just ran (see `wallet_heartbeat` catch-up mode).
+  pub wh_catchup_last_heavy: Option<Instant>,
   /// Pending `relay_tx` payloads (sweep / transfer / stake).
   pub tx_metadata_list: Vec<WalletTxMetadata>,
   /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
   pub stake_acquisition_task: Option<JoinHandle<()>>,
+  /// Lightweight Solo Pool TCP server runtime.
+  pub solo_pool_task: Option<JoinHandle<()>>,
+  pub solo_pool_shutdown: Option<oneshot::Sender<()>>,
   pub next_rpc_id: u64
 }
 
@@ -83,8 +97,12 @@ impl Default for WalletBackendState {
       wh_stored_balance: 0,
       wh_stored_unlocked: 0,
       wh_heartbeat_ext_pending: false,
+      wh_transfers_sem: Arc::new(Semaphore::new(1)),
+      wh_catchup_last_heavy: None,
       tx_metadata_list: Vec::new(),
       stake_acquisition_task: None,
+      solo_pool_task: None,
+      solo_pool_shutdown: None,
       next_rpc_id: 0
     }
   }
@@ -97,6 +115,12 @@ impl WalletBackendState {
       h.abort();
     }
     if let Some(h) = self.stake_acquisition_task.take() {
+      h.abort();
+    }
+    if let Some(tx) = self.solo_pool_shutdown.take() {
+      let _ = tx.send(());
+    }
+    if let Some(h) = self.solo_pool_task.take() {
       h.abort();
     }
     if let Some(h) = self.wallet_heartbeat.take() {
@@ -113,6 +137,12 @@ impl WalletBackendState {
     self.wh_stored_balance = 0;
     self.wh_stored_unlocked = 0;
     self.wh_heartbeat_ext_pending = false;
+    self.wh_catchup_last_heavy = None;
     self.tx_metadata_list.clear();
+  }
+
+  /// JSON-RPC surface only (tests / future backends that are not `WalletRpcClient`).
+  pub fn wallet_json_rpc (&self) -> Option<&dyn WalletJsonRpc> {
+    self.wallet.as_deref().map(|w| w as &dyn WalletJsonRpc)
   }
 }

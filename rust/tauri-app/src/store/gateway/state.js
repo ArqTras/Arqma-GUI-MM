@@ -7,6 +7,11 @@ export default {
     config: {
       appearance: {
         theme: "dark"
+      },
+      pool: {
+        server: { enabled: false, bindIP: "", bindPort: 3333 },
+        mining: { address: "", enableBlockRefreshInterval: false, blockRefreshInterval: 5, minerTimeout: 900, uniform: true },
+        varDiff: { enabled: true, startDiff: 5000, minDiff: 1000, maxDiff: 1000000, targetTime: 45, retargetTime: 60, variancePercent: 45, maxJump: 30, fixedDiffSeparator: "." }
       }
     },
     pending_config: {},
@@ -64,6 +69,35 @@ export default {
     staker: {
       stake: {}
     }
+  },
+  pool: {
+    status: 0,
+    desynced: false,
+    system_clock_error: false,
+    stats: {
+      currentEffort: 0,
+      roundHashes: 0,
+      blockTime: 0,
+      blocksFound: 0,
+      averageEffort: 0,
+      networkHashrate: 0,
+      diff: 0,
+      height: 0
+    },
+    blocks: [],
+    workers: [
+      {
+        miner: "all",
+        active: true,
+        lastShare: 0,
+        hashes: 0,
+        hashrate_5min: 0,
+        hashrate_1hr: 0,
+        hashrate_6hr: 0,
+        hashrate_24hr: 0,
+        hashrate_graph: {}
+      }
+    ]
   },
   tx_status: {
     code: 0,

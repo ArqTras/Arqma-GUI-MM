@@ -1,10 +1,23 @@
 use crate::merge::merge_json;
 use serde_json::{json, Value};
+use std::net::UdpSocket;
 
 use crate::config::ArqmaPaths;
 
+fn preferred_bind_ip () -> String {
+  let Ok(sock) = UdpSocket::bind("0.0.0.0:0") else {
+    return "127.0.0.1".to_string();
+  };
+  let _ = sock.connect("8.8.8.8:80");
+  sock
+    .local_addr()
+    .map(|a| a.ip().to_string())
+    .unwrap_or_else(|_| "127.0.0.1".to_string())
+}
+
 /// `Backend.defaults` (without `appearance` / `ethereum` — validation baseline only).
 pub fn build_defaults (paths: &ArqmaPaths) -> Value {
+  let pool_bind_ip = preferred_bind_ip();
   let d = |extra: Value| {
     let base = json!({
       "type": "remote",
@@ -39,7 +52,32 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
       "loggingLevel": "error",
       "inactivityTimeout": 5
     },
-    "wallet": { "rpc_bind_port": 9999, "log_level": 1 }
+    "wallet": { "rpc_bind_port": 9999, "log_level": 1 },
+    "pool": {
+      "server": {
+        "enabled": false,
+        "bindIP": pool_bind_ip,
+        "bindPort": 3333
+      },
+      "mining": {
+        "address": "",
+        "enableBlockRefreshInterval": false,
+        "blockRefreshInterval": 5,
+        "minerTimeout": 900,
+        "uniform": true
+      },
+      "varDiff": {
+        "enabled": true,
+        "startDiff": 5000,
+        "minDiff": 1000,
+        "maxDiff": 1000000,
+        "targetTime": 45,
+        "retargetTime": 60,
+        "variancePercent": 45,
+        "maxJump": 30,
+        "fixedDiffSeparator": "."
+      }
+    }
   })
 }
 

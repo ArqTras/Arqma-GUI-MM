@@ -256,15 +256,35 @@ footer,
         }
     }
 
+    /* Dwa paski: demon nad portfelem — wcześniej oba `bottom:0` + ten sam kolor = brak wrażenia postępu. */
     .status-bars {
-        div {
-            height: 3px;
+        position: relative;
+        width: 100%;
+        min-height: 10px;
+        margin-top: 2px;
+        overflow: visible;
+
+        .status-bar-daemon,
+        .status-bar-wallet {
             position: absolute;
-            bottom: 0;
             left: 0;
-            -webkit-transition: width 0.5s ease-out;
-            transition: width 0.5s ease-out;
-            background-color: #333;
+            height: 4px;
+            max-width: 100%;
+            border-radius: 2px;
+            -webkit-transition: width 0.45s ease-out;
+            transition: width 0.45s ease-out;
+        }
+
+        .status-bar-daemon {
+            bottom: 5px;
+            background: linear-gradient(90deg, #2a9d8f, #1d6f66);
+            box-shadow: 0 0 6px rgba(42, 157, 143, 0.45);
+        }
+
+        .status-bar-wallet {
+            bottom: 0;
+            background: linear-gradient(90deg, #5cb85c, #2d6a30);
+            box-shadow: 0 0 6px rgba(92, 184, 92, 0.45);
         }
     }
 

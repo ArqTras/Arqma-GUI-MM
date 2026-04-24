@@ -1,4 +1,4 @@
-//! `httpDigest.js` logic (MD5, qop) — required by `arqma-wallet-rpc` (HTTP digest).
+//! MD5 digest auth (qop) — same contract as upstream `arqma-wallet-rpc` over HTTP.
 
 use md5;
 use rand::Rng;
@@ -8,7 +8,7 @@ fn md5_hex (bytes: &[u8]) -> String {
   format!("{:x}", md5::compute(bytes))
 }
 
-/// `generateCnonce` z `httpDigest.js`
+/// Random `cnonce` for digest (aligned with legacy JS wallet).
 pub fn generate_cnonce () -> String {
   let mut b = [0u8; 16];
   rand::thread_rng().fill(&mut b);
@@ -19,7 +19,7 @@ pub fn generate_cnonce () -> String {
   format!("{:x}", md5::compute(b64.as_bytes()))
 }
 
-/// `parseChallenge` z `httpDigest.js`
+/// Parse `WWW-Authenticate: Digest …` challenge fields.
 pub fn parse_challenge (header: &str) -> HashMap<String, String> {
   let mut p = HashMap::new();
   if let Some(i) = header.find("Digest") {
@@ -35,7 +35,6 @@ pub fn parse_challenge (header: &str) -> HashMap<String, String> {
 
 fn regex_simple (part: &str) -> Option<(String, String)> {
   let t = part.trim();
-  // key="value"
   if let (Some(eq), Some(quote1), Some(quote2)) = (
     t.find('='),
     t.find('\"'),
@@ -58,7 +57,6 @@ fn first_qop (qop: &str) -> String {
     .unwrap_or_default()
 }
 
-/// `generateResponseHash` z `httpDigest.js`
 pub fn response_hash (
   method: &str,
   path: &str,
@@ -87,7 +85,7 @@ pub fn response_hash (
   }
 }
 
-/// Build `Authorization: Digest ...` header (based on `renderDigest`).
+/// Build `Authorization: Digest …` for the second request after `401`.
 pub fn build_digest_header (
   method: &str,
   path: &str,
@@ -124,7 +122,7 @@ pub fn build_digest_header (
   Ok(format!("Digest {}", parts.join(", ")))
 }
 
-/// Increment `nc` like `incNonce` in `httpDigest.js` (8 hex digits).
+/// Increment `nc` (8 hex digits), wraps like legacy wallet.
 pub fn inc_nc (nc: &str) -> String {
   if nc == "ffffffff" {
     return "00000001".to_string();

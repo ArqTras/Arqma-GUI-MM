@@ -11,8 +11,11 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "ci:tauri": "npm run build && npm run tauri:build",
-    "release:win": "npm run build && cargo build --release -p arqma-wallet && node scripts/postbuild-rename-windows.mjs",
+    "tauri:build:local": "tauri build -- --profile local",
+    "copy:bins": "node ../../build/copy-to-tauri-bins.js",
+    "ci:tauri": "npm run copy:bins && npm run build && npm run tauri:build",
+    "ci:tauri:local": "npm run copy:bins && npm run build && npm run tauri:build:local",
+    "release:win": "npm run copy:bins && npm run build && cargo build --release -p arqma-wallet && node scripts/postbuild-rename-windows.mjs",
     "pack:linux-tarball": "bash scripts/pack-linux-tarball.sh"
   },
   "dependencies": {

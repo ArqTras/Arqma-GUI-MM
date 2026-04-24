@@ -7,7 +7,6 @@ on:
       - "rust/**"
       - "build/copy-to-tauri-bins.js"
       - "build/download-binaries.js"
-      - "rust/tauri-app/scripts/pack-linux-tarball.sh"
       - "rust/README.md"
       - "CONTRIBUTING.md"
       - ".github/workflows/tauri-app.yml"
@@ -15,7 +14,6 @@ on:
     paths:
       - "rust/**"
       - "build/copy-to-tauri-bins.js"
-      - "rust/tauri-app/scripts/pack-linux-tarball.sh"
       - "rust/README.md"
       - "CONTRIBUTING.md"
       - ".github/workflows/tauri-app.yml"
@@ -92,17 +90,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Linux — Create tar.gz (binary + resources, no RPM/.deb)
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: rust/tauri-app
-        run: bash scripts/pack-linux-tarball.sh
-
-      # Linux: large .AppImage (bundled WebKitGTK) plus a smaller .tar.gz of the release binary + resources.
-      # Windows/macOS: NSIS/MSI or app/dmg — artifact sizes differ mainly because of AppImage bundling.
       - name: Upload Tauri bundle artifacts
         uses: actions/upload-artifact@v6
         with:
           name: Tauri-bundle-${{ matrix.os }}
           path: |
-            rust/target/release/bundle/
+            rust/target/release/bundle/**/*.AppImage
+            rust/target/release/bundle/**/*.deb
+            rust/target/release/bundle/**/*.snap
+            rust/target/release/bundle/**/Arqma Wallet*.exe
+            rust/target/release/bundle/**/*.msi
+            rust/target/release/bundle/**/*.dmg
+            rust/target/release/bundle/**/*.app.tar.gz
           if-no-files-found: ignore

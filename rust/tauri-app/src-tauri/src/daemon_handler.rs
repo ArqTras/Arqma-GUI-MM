@@ -2,7 +2,7 @@ use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::daemon_post;
-use crate::native_bin::find_resource_bin;
+use crate::native_bin::resolve_arqmad_exe;
 use crate::subprocess::new_child_command;
 use serde_json::{json, Value};
 use tauri::AppHandle;
@@ -14,7 +14,7 @@ fn next_daemon_id (st: &mut WalletBackendState) -> u64 {
 }
 
 fn arqmad_version_string (app: &AppHandle) -> Option<String> {
-  let exe = find_resource_bin(app, "arqmad.exe", "arqmad")?;
+  let exe = resolve_arqmad_exe(app)?;
   let o = new_child_command(&exe).arg("--version").output().ok()?;
   if o.status.success() {
     return Some(String::from_utf8_lossy(&o.stdout).to_string());

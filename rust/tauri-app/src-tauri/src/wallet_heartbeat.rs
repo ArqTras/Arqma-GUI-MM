@@ -1,12 +1,18 @@
 //! `getheight` / `getbalance` / `get_transfers` loop like `WalletRPC.heartbeatAction` in Electron.
-use crate::json_rpc_client::WalletRpcClient;
 use crate::gateway_emit::emit_receive;
-use crate::json_util::value_as_u64;
+use crate::json_rpc_client::WalletRpcClient;
+use crate::json_util::{json_rpc_no_error, value_as_u64, wallet_height_from_getheight};
+use crate::sync_debug::is_sync_debug;
 use crate::AppData;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 use tauri::Manager;
-use tokio::time::{interval, MissedTickBehavior};
+use std::time::{Duration, Instant};
+use tokio::time::timeout;
+
+/// While the wallet height is behind the daemon tip, use **only** `getheight` (light heartbeat).
+/// Periodic `get_address` / `getbalance` / `get_transfers` contended with `wallet-rpc`’s own block
+/// scan and kept `getheight` from advancing — footer % looked frozen near 100% for hundreds of blocks.
 
 pub fn start (app: &AppHandle, st: &mut crate::backend_state::WalletBackendState, is_local: bool) {
   if st.wh_display_name.is_empty() {
@@ -21,29 +27,77 @@ pub fn start (app: &AppHandle, st: &mut crate::backend_state::WalletBackendState
   let w = st.wallet.as_ref().expect("checked");
   let c = w.fork_for_heartbeat();
   let app = app.clone();
-  let period = if is_local { 5u64 } else { 60u64 };
   st.wh_heartbeat_ext_pending = true;
-  st.wallet_heartbeat = Some(tokio::spawn(async move { run(&app, c, period).await }));
+  if is_sync_debug() {
+    eprintln!(
+      "[sync-debug][wallet-hb] start heartbeat is_local={is_local} wallet={}",
+      st.wh_display_name
+    );
+  }
+  st.wallet_heartbeat = Some(tokio::spawn(async move { run(&app, c, is_local).await }));
 }
 
 pub fn stop (st: &mut crate::backend_state::WalletBackendState) {
   if let Some(h) = st.wallet_heartbeat.take() {
     h.abort();
   }
+  if is_sync_debug() {
+    eprintln!("[sync-debug][wallet-hb] stop heartbeat");
+  }
   st.wh_stored_height = 0;
   st.wh_stored_balance = 0;
   st.wh_stored_unlocked = 0;
   st.wh_heartbeat_ext_pending = false;
+  st.wh_catchup_last_heavy = None;
 }
 
-async fn run (app: &AppHandle, client: WalletRpcClient, period_secs: u64) {
-  let mut intv = interval(std::time::Duration::from_secs(period_secs));
-  intv.set_missed_tick_behavior(MissedTickBehavior::Skip);
+async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
+  // Poll faster while the wallet is still far from the last known chain height (`daemon_last_height`)
+  // so the footer "blocks scanned" / % update visibly during long rescans. When caught up, back off
+  // to 1s (local) / 2s (remote daemon) to reduce wallet-rpc load.
+  let mut cycle: u64 = 0;
   while app.try_state::<AppData>().is_some() {
-    intv.tick().await;
-    if tick_once(&app, &client).await {
+    cycle = cycle.wrapping_add(1);
+    let t0 = Instant::now();
+    if tick_once(app, &client).await {
       break;
     }
+    let tick_ms = t0.elapsed().as_millis() as u64;
+    let sleep_ms = {
+      let Some(adata) = app.try_state::<AppData>() else {
+        break;
+      };
+      let b = adata.backend.lock().await;
+      let base = if is_local { 1_000u64 } else { 2_000u64 };
+      let wh = b.wh_stored_height;
+      let dh = b.daemon_last_height;
+      if wh > 0 && dh > 0 && wh + 1 < dh {
+        // Większy backlog → częstsze `getheight`, żeby stopka nie „stała” w oczekiwaniu na długi skan w wallet-rpc.
+        let backlog = dh.saturating_sub(wh);
+        if backlog > 500_000 {
+          250u64
+        } else if backlog > 100_000 {
+          350u64
+        } else {
+          500u64
+        }
+      } else {
+        base
+      }
+    };
+    if is_sync_debug() {
+      let Some(adata) = app.try_state::<AppData>() else {
+        break;
+      };
+      let (wh, dh) = {
+        let b = adata.backend.lock().await;
+        (b.wh_stored_height, b.daemon_last_height)
+      };
+      eprintln!(
+        "[sync-debug][wallet-hb] cycle={cycle} tick_ms={tick_ms} next_sleep_ms={sleep_ms} wh_stored={wh} daemon_last={dh}"
+      );
+    }
+    tokio::time::sleep(Duration::from_millis(sleep_ms)).await;
   }
 }
 
@@ -52,8 +106,8 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let Some(adata) = app.try_state::<AppData>() else {
     return true;
   };
-  let (name, days_window, h0, b0, u0, ext_address_book) = {
-    let b = adata.backend.lock().await;
+  let (name, days_window, h0, b0, u0, ext_address_book, in_scan_rhythm, do_heavy, dh, backlog) = {
+    let mut b = adata.backend.lock().await;
     if b.wh_display_name.is_empty() {
       return true;
     }
@@ -64,24 +118,164 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
       .and_then(|d| d.as_u64())
       .unwrap_or(1)
       * 720;
+    let dh = b.daemon_last_height;
+    let backlog = dh.saturating_sub(b.wh_stored_height);
+    let in_scan_rhythm =
+      b.wh_stored_height > 0 && dh > 0 && backlog > 0;
+    if !in_scan_rhythm {
+      b.wh_catchup_last_heavy = None;
+    }
+    // Never interleave balance/address/transfers RPCs while catching up — same process as Electron
+    // “light” polling, but we previously ran HEAVY every 20s here which starved scan progress.
+    let do_heavy = !in_scan_rhythm;
     (
       b.wh_display_name.clone(),
       d,
       b.wh_stored_height,
       b.wh_stored_balance,
       b.wh_stored_unlocked,
-      b.wh_heartbeat_ext_pending
+      b.wh_heartbeat_ext_pending,
+      in_scan_rhythm,
+      do_heavy,
+      dh,
+      backlog
     )
   };
+  if is_sync_debug() {
+    eprintln!(
+      "[sync-debug][wallet-hb] tick wallet={} wh0={} daemon_last_h={} backlog={} scan_rhythm={} heavy={}",
+      name, h0, dh, backlog, in_scan_rhythm, do_heavy
+    );
+  }
 
   let p_addr = json!({ "account_index": 0 });
   let p_empty = json!({});
   let p_bal = json!({ "account_index": 0 });
-  let (ga, gh, gb) = tokio::join!(
-    c.call("get_address", &p_addr),
-    c.call("getheight", &p_empty),
-    c.call("getbalance", &p_bal),
-  );
+
+  // While `wh < daemon_tip`: only `getheight` — no balance/address/transfers on this RPC session.
+  if in_scan_rhythm {
+    // Podczas ciężkiego skanu wallet-rpc często **blokuje** `getheight` na wiele sekund; zbyt krótki
+    // timeout daje fałszywe „zamrożenie” wysokości w stopce (UI co chwilę widzi ten sam numer).
+    let gh = match timeout(Duration::from_secs(20), c.call("getheight", &p_empty)).await {
+      Ok(r) => r,
+      Err(_) => {
+        eprintln!("[wallet hb] getheight (light): timeout");
+        Err("timeout".to_string())
+      }
+    };
+    let mut info = json!({ "name": &name });
+    let mut new_h = h0;
+    if let Ok(ref v) = gh {
+      if json_rpc_no_error(v) {
+        if let Some(h) = wallet_height_from_getheight(v) {
+          new_h = h;
+          info["height"] = json!(h);
+        }
+      }
+    }
+    if info.get("height").is_none() {
+      info["height"] = json!(new_h);
+    }
+    {
+      let mut b = adata.backend.lock().await;
+      b.wh_stored_height = new_h;
+    }
+    let emitted_height = !info.get("height").is_none();
+    if emitted_height {
+      let _ = emit_receive(app, "set_wallet_info", info);
+      let _ = emit_receive(
+        app,
+        "reset_wallet_status",
+        json!({ "code": 0, "message": "OK" }),
+      );
+    }
+    if is_sync_debug() {
+      eprintln!(
+        "[sync-debug][wallet-hb] LIGHT path done new_h={} prev_h0={} emitted_height={}",
+        new_h, h0, emitted_height
+      );
+    }
+    return false;
+  }
+  // Keep calls sequential (digest `nc` on one TCP session) — do **not** use `join!` here
+  // (intermittent 401s were seen on parallel calls).
+  // If wallet-rpc is busy scanning, a call can block indefinitely and freeze the whole heartbeat;
+  // cap each RPC so the next tick (and `getheight` progress) can run.
+  // Run `getheight` first: if it fails, skip the other calls this tick (avoids three timeouts in
+  // a row when the endpoint is saturated — faster recovery on the next interval).
+  let gh = match timeout(Duration::from_secs(15), c.call("getheight", &p_empty)).await {
+    Ok(r) => r,
+    Err(_) => {
+      eprintln!("[wallet hb] getheight: timeout (wallet-rpc may be busy scanning)");
+      Err("timeout".to_string())
+    }
+  };
+  let height_rpc_ok = matches!(&gh, Ok(v) if json_rpc_no_error(v));
+  let ga = if height_rpc_ok {
+    match timeout(Duration::from_secs(6), c.call("get_address", &p_addr)).await {
+      Ok(r) => r,
+      Err(_) => Err("timeout".to_string()),
+    }
+  } else {
+    Err("skipped".to_string())
+  };
+  let gb = if height_rpc_ok {
+    match timeout(Duration::from_secs(6), c.call("getbalance", &p_bal)).await {
+      Ok(r) => r,
+      Err(_) => Err("timeout".to_string()),
+    }
+  } else {
+    Err("skipped".to_string())
+  };
+
+  if is_sync_debug() {
+    match &gh {
+      Ok(v) if !json_rpc_no_error(v) => {
+        eprintln!(
+          "[sync-debug][wallet-hb] HEAVY getheight rpc error: {}",
+          v.get("error").unwrap_or(&Value::Null)
+        );
+      }
+      Ok(v) => {
+        if let Some(h) = wallet_height_from_getheight(v) {
+          eprintln!(
+            "[sync-debug][wallet-hb] HEAVY getheight ok height={} (tick h0={})",
+            h, h0
+          );
+        } else {
+          eprintln!(
+            "[sync-debug][wallet-hb] HEAVY getheight ok but missing result.height: {}",
+            v.to_string().chars().take(400).collect::<String>()
+          );
+        }
+      }
+      Err(e) => eprintln!("[sync-debug][wallet-hb] HEAVY getheight err={e}"),
+    }
+    match &ga {
+      Ok(v) if !json_rpc_no_error(v) => {
+        eprintln!(
+          "[sync-debug][wallet-hb] get_address error: {}",
+          v.get("error").unwrap_or(&Value::Null)
+        );
+      }
+      Err(e) if e.as_str() != "skipped" => {
+        eprintln!("[sync-debug][wallet-hb] get_address err={e}");
+      }
+      _ => {}
+    }
+    match &gb {
+      Ok(v) if !json_rpc_no_error(v) => {
+        eprintln!(
+          "[sync-debug][wallet-hb] getbalance error: {}",
+          v.get("error").unwrap_or(&Value::Null)
+        );
+      }
+      Err(e) if e.as_str() != "skipped" => {
+        eprintln!("[sync-debug][wallet-hb] getbalance err={e}");
+      }
+      _ => {}
+    }
+  }
 
   let mut info = json!({ "name": &name });
   let mut new_h = h0;
@@ -89,15 +283,20 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let mut new_u = u0;
 
   if let Ok(ref v) = gh {
-    if v.get("error").is_none() {
-      if let Some(h) = v.pointer("/result/height").and_then(value_as_u64) {
+    if json_rpc_no_error(v) {
+      if let Some(h) = wallet_height_from_getheight(v) {
         new_h = h;
         info["height"] = json!(h);
       }
     }
   }
+  // If `getheight` timed out or errored, keep last known height in the payload so the footer does
+  // not look "stuck" with no number until the next successful RPC.
+  if info.get("height").is_none() {
+    info["height"] = json!(new_h);
+  }
   if let Ok(ref v) = ga {
-    if v.get("error").is_none() {
+    if json_rpc_no_error(v) {
       if let Some(a) = v.pointer("/result/address") {
         info["address"] = a.clone();
       }
@@ -105,7 +304,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   }
   let mut has_balance_change = false;
   if let Ok(ref v) = gb {
-    if v.get("error").is_none() {
+    if json_rpc_no_error(v) {
       if let (Some(bal), Some(unl)) = (
         v.pointer("/result/balance").and_then(value_as_u64),
         v.pointer("/result/unlocked_balance")
@@ -123,68 +322,98 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
     }
   }
 
-  if has_balance_change {
-    if let (Ok(ghv), Ok(gbv)) = (&gh, &gb) {
-      if ghv.get("error").is_none() && gbv.get("error").is_none() {
-        if let Some(cur_h) = ghv.pointer("/result/height").and_then(value_as_u64) {
-          let min_height = cur_h.saturating_sub(days_window);
-          let p = json!({
-            "in": true,
-            "out": true,
-            "pending": true,
-            "failed": true,
-            "pool": false,
-            "filter_by_height": true,
-            "min_height": min_height
-          });
-          if let Ok(txf) = c.call("get_transfers", &p).await {
-            if txf.get("error").is_none() {
-              if let Some(r) = txf.get("result") {
-                let list = merge_transfers_list(r);
-                let _ = emit_receive(
-                  app,
-                  "set_wallet_transactions",
-                  json!({ "tx_list": list }),
-                );
-              }
-            }
-          }
-          if let (Ok(ref ga_ok), Ok(ref gb_ok)) = (&ga, &gb) {
-            if ga_ok.get("error").is_none() && gb_ok.get("error").is_none() {
-              if let Some(built) = build_address_list_object(ga_ok, gb_ok) {
-                if let Some(final_al) = top_up_unused_subaddresses(c, built).await {
-                  let _ = emit_receive(app, "set_wallet_address_list", final_al);
-                }
-              }
-            }
-          }
-          if ext_address_book {
-            if let Ok(bk) = fetch_address_book_map(c).await {
-              let _ = emit_receive(app, "set_wallet_address_book", bk);
-            }
-            let mut b = adata.backend.lock().await;
-            b.wh_heartbeat_ext_pending = false;
-          }
-        }
-      }
-    }
-  }
-
+  // Commit height + emit **before** `get_transfers` / address-book work. That slow path can take
+  // minutes on large windows; if we only updated after it, the footer "wallet sync" % would freeze
+  // even though `wallet-rpc` `getheight` had already advanced.
   {
     let mut b = adata.backend.lock().await;
     b.wh_stored_height = new_h;
     b.wh_stored_balance = new_b;
     b.wh_stored_unlocked = new_u;
   }
+  // Footer needs `height` every tick; `info` always contains it after the fallback above.
+  let _ = emit_receive(app, "set_wallet_info", info.clone());
+  let _ = emit_receive(
+    app,
+    "reset_wallet_status",
+    json!({ "code": 0, "message": "OK" }),
+  );
 
-  if !info.get("height").is_none() || has_balance_change {
-    let _ = emit_receive(app, "set_wallet_info", info);
-    let _ = emit_receive(
-      app,
-      "reset_wallet_status",
-      json!({ "code": 0, "message": "OK" }),
-    );
+  if has_balance_change {
+    if let (Ok(ghv), Ok(gbv)) = (&gh, &gb) {
+      if json_rpc_no_error(ghv) && json_rpc_no_error(gbv) {
+        if let Some(cur_h) = wallet_height_from_getheight(ghv) {
+          // Run `get_transfers` (and the rest) on a second RPC session in the background. If it
+          // stayed in this task, the heartbeat interval would not fire until the RPC finished, so
+          // `getheight` would not refresh the footer (wallet sync % stuck for minutes).
+          let sem = {
+            let b = adata.backend.lock().await;
+            b.wh_transfers_sem.clone()
+          };
+          if let Ok(permit) = sem.try_acquire_owned() {
+            let min_height = cur_h.saturating_sub(days_window);
+            let p = json!({
+              "in": true,
+              "out": true,
+              "pending": true,
+              "failed": true,
+              "pool": false,
+              "filter_by_height": true,
+              "min_height": min_height
+            });
+            if is_sync_debug() {
+              eprintln!(
+                "[sync-debug][wallet-hb] spawn get_transfers bg cur_h={cur_h} min_height={min_height}"
+              );
+            }
+            let app2 = app.clone();
+            let c2 = c.split_session();
+            let extb = ext_address_book;
+            let opt_ga = if let Ok(v) = &ga { Some(v.clone()) } else { None };
+            let opt_gb = if let Ok(v) = &gb { Some(v.clone()) } else { None };
+            tokio::spawn(async move {
+              let _p = permit;
+              if let Ok(txf) = c2.call("get_transfers", &p).await {
+                if txf.get("error").is_none() {
+                  if let Some(r) = txf.get("result") {
+                    let list = merge_transfers_list(r);
+                    let _ = emit_receive(
+                      &app2,
+                      "set_wallet_transactions",
+                      json!({ "tx_list": list }),
+                    );
+                  }
+                }
+              }
+              if let (Some(ga_ok), Some(gb_ok)) = (opt_ga, opt_gb) {
+                if json_rpc_no_error(&ga_ok) && json_rpc_no_error(&gb_ok) {
+                  if let Some(built) = build_address_list_object(&ga_ok, &gb_ok) {
+                    if let Some(final_al) = top_up_unused_subaddresses(&c2, built).await {
+                      let _ = emit_receive(&app2, "set_wallet_address_list", final_al);
+                    }
+                  }
+                }
+              }
+              if extb {
+                if let Ok(bk) = fetch_address_book_map(&c2).await {
+                  let _ = emit_receive(&app2, "set_wallet_address_book", bk);
+                }
+                if let Some(adata) = app2.try_state::<AppData>() {
+                  let mut b = adata.backend.lock().await;
+                  b.wh_heartbeat_ext_pending = false;
+                }
+              }
+            });
+          } else if is_sync_debug() {
+            eprintln!(
+              "[sync-debug][wallet-hb] get_transfers not started (transfers semaphore busy)"
+            );
+          }
+        }
+      }
+    }
   }
+
   false
 }
 
@@ -316,7 +545,7 @@ async fn top_up_unused_subaddresses (
   }
   while unused.len() < LIMIT {
     let r = c.call("create_address", &json!({ "account_index": 0 })).await.ok()?;
-    if r.get("error").is_some() {
+    if !json_rpc_no_error(&r) {
       break;
     }
     match r.get("result") {
@@ -332,7 +561,7 @@ async fn top_up_unused_subaddresses (
 /// Build payload for `set_wallet_address_book` (`address_book` + `address_book_starred`).
 pub async fn fetch_address_book_map (c: &WalletRpcClient) -> Result<Value, String> {
   let r = c.call("get_address_book", &json!({})).await?;
-  if r.get("error").is_some() {
+  if !json_rpc_no_error(&r) {
     return Ok(json!({ "address_book": [], "address_book_starred": [] }));
   }
   let Some(entries) = r.pointer("/result/entries").and_then(|e| e.as_array()) else {

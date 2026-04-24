@@ -25,7 +25,17 @@ export const set_wallet_address_book = (state, data) => {
   state.wallet.address_list = objectAssignDeep.noMutate(state.wallet.address_list, data)
 }
 export const set_wallet_info = (state, data) => {
-  state.wallet.info = objectAssignDeep.noMutate(state.wallet.info, data)
+  const patch = { ...data }
+  if (patch.height != null && patch.height !== "") {
+    patch.height = Number(patch.height) || 0
+  }
+  if (patch.balance != null && patch.balance !== "") {
+    patch.balance = Number(patch.balance) || 0
+  }
+  if (patch.unlocked_balance != null && patch.unlocked_balance !== "") {
+    patch.unlocked_balance = Number(patch.unlocked_balance) || 0
+  }
+  state.wallet.info = objectAssignDeep.noMutate(state.wallet.info, patch)
 }
 export const set_wallet_secret = (state, data) => {
   state.wallet.secret = data
@@ -35,6 +45,9 @@ export const reset_wallet_status = (state, data) => {
 }
 export const set_pools_data = (state, data) => {
   state.pools = data
+}
+export const set_pool_data = (state, data) => {
+  state.pool = objectAssignDeep.noMutate(state.pool, data)
 }
 export const set_coin_price = (state, data) => {
   state.coin_price = data

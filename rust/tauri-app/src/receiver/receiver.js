@@ -6,6 +6,7 @@ const t = i18n.global.t
 
 export class Receiver extends EventEmitter {
   closeDialog = false
+  initRequested = false
   constructor (store, router) {
     super()
     this.store = store
@@ -25,6 +26,20 @@ export class Receiver extends EventEmitter {
           break
       }
     })
+    const runInitialize = async (source = "event") => {
+      if (this.initRequested) {
+        return
+      }
+      this.initRequested = true
+      this.store.commit("gateway/set_app_data", {
+        status: {
+          code: 2 // Loading config
+        }
+      })
+      await api.info("receiver", "initialize", `before core init (${source})`)
+      await api.send("core", "init")
+    }
+
     api.receive((event, message) => {
       switch (message.event) {
         case "set_has_password":
@@ -85,6 +100,9 @@ export class Receiver extends EventEmitter {
 
         case "set_pools_data":
           this.store.commit("gateway/set_pools_data", message.data)
+          break
+        case "set_pool_data":
+          this.store.commit("gateway/set_pool_data", message.data)
           break
 
         case "set_coin_price":
@@ -159,19 +177,17 @@ export class Receiver extends EventEmitter {
           //   }, 250)
           break
         case "initialize":
-          this.store.commit("gateway/set_app_data", {
-            status: {
-              code: 2 // Loading config
-            }
-          })
-          api.info("receiver", "initialize", "before core init")
-          api.send("core", "init")
+          void runInitialize("event")
           break
         case "daemon_version":
           this.store.commit("gateway/daemon_version", message.data)
           break
       }
     })
+    // Fallback: if Tauri `initialize` event arrives before `listen` is attached, bootstrap anyway.
+    setTimeout(() => {
+      void runInitialize("fallback")
+    }, 1200)
   }
 
   confirmClose = (msg, restart = false) => {

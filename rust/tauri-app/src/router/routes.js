@@ -96,6 +96,10 @@ export default [
       {
         path: "addressbook",
         component: () => import("pages/wallet/addressbook")
+      },
+      {
+        path: "solo-pool",
+        component: () => import("pages/wallet/solo-pool")
       }
     ]
   },

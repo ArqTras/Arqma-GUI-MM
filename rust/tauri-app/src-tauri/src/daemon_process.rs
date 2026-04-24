@@ -3,7 +3,7 @@
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::daemon_post;
-use crate::native_bin::find_resource_bin;
+use crate::native_bin::resolve_arqmad_exe;
 use arqma_wallet_core::write_config_file;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -44,9 +44,14 @@ pub async fn ensure_daemon_for_startup (
     }
     return Ok(());
   }
-  let Some(exe) = find_resource_bin(app, "arqmad.exe", "arqmad") else {
-    eprintln!("[daemon] arqmad missing in resource/bin (required for local mode)");
-    return Err("Error: arqmad binary missing (local mode)".to_string());
+  let Some(exe) = resolve_arqmad_exe(app) else {
+    eprintln!(
+      "[daemon] arqmad not found (local mode): set ARQMA_DAEMON, ARQMA_BUILD_DIR, PATH, or resource/bin"
+    );
+    return Err(
+      "Error: arqmad binary missing (local mode). Set ARQMA_DAEMON or ARQMA_BUILD_DIR, or add Arqma build/bin to PATH."
+        .to_string(),
+    );
   };
   let data_dir = st
     .config_data
@@ -143,6 +148,8 @@ pub async fn ensure_daemon_for_startup (
   eprintln!("[daemon] start arqmad: {:?}", args);
   let ch = new_child_command(&exe)
     .args(&args)
+    // Keep stdin open; otherwise `arqmad` can receive EOF immediately in GUI runs and exit.
+    .stdin(Stdio::piped())
     .stdout(Stdio::null())
     .stderr(Stdio::null())
     .spawn()
@@ -154,7 +161,7 @@ pub async fn ensure_daemon_for_startup (
   for _ in 0..150 {
     let r = daemon_post(http, &h, port, "get_info", 0, &Value::Null).await;
     match r {
-      Ok(v) if v.get("error").is_none() => {
+      Ok(v) if crate::json_util::json_rpc_no_error(&v) => {
         eprintln!("[daemon] arqmad: get_info OK");
         return Ok(());
       }
@@ -174,6 +181,52 @@ pub async fn ensure_daemon_for_startup (
   }
   eprintln!("[daemon] get_info timeout (check ports and firewall)");
   Err("Timeout: local arqmad did not respond (get_info)".to_string())
+}
+
+/// Heartbeat safety net: if local daemon process has exited, start it again.
+/// Returns `Ok(true)` when restart was attempted and completed.
+pub async fn restart_local_daemon_if_exited (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+) -> Result<bool, String> {
+  let net = st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+    .unwrap_or("mainnet");
+  let typ = st
+    .config_data
+    .get("daemons")
+    .and_then(|d| d.get(net))
+    .and_then(|x| x.get("type"))
+    .and_then(|t| t.as_str())
+    .unwrap_or("local");
+  if typ == "remote" {
+    return Ok(false);
+  }
+  let exited = match st.daemon_process.as_mut() {
+    Some(ch) => match ch.try_wait() {
+      Ok(Some(status)) => {
+        eprintln!("[daemon] process exited during heartbeat: {status}");
+        true
+      }
+      Ok(None) => false,
+      Err(e) => {
+        eprintln!("[daemon] process state check failed during heartbeat: {e}");
+        true
+      }
+    },
+    None => true,
+  };
+  if !exited {
+    return Ok(false);
+  }
+  st.daemon_process = None;
+  ensure_daemon_for_startup(app, st, http).await?;
+  eprintln!("[daemon] local daemon auto-restarted");
+  Ok(true)
 }
 
 fn num_str (v: &Value) -> Option<String> {
