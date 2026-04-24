@@ -18,7 +18,7 @@ STAGE="${STAGE_ROOT}/${STAGE_NAME}"
 
 BIN=""
 for c in \
-  "${TARGET_DIR}/Arqma Wallet" \
+  "${TARGET_DIR}/Arqma-Wallet" \
   "${TARGET_DIR}/arqma-wallet" \
   "${TARGET_DIR}/arqma-tauri"
 do
@@ -28,7 +28,7 @@ do
   fi
 done
 if [[ -z "${BIN}" ]]; then
-  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma Wallet', arqma-wallet, or arqma-tauri)." >&2
+  echo "pack-linux-tarball: no main binary in ${TARGET_DIR} (expected 'Arqma-Wallet', arqma-wallet, or arqma-tauri)." >&2
   echo "pack-linux-tarball: listing ${TARGET_DIR} (first 40 entries):" >&2
   ls -la "${TARGET_DIR}" 2>&1 | head -n 40 >&2 || true
   exit 1

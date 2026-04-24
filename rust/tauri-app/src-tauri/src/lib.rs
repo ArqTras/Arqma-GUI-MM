@@ -230,7 +230,7 @@ fn try_create_tray (app: &tauri::App) -> tauri::Result<()> {
   let _ = TrayIconBuilder::new()
     .menu(&menu)
     .icon(icon)
-    .tooltip("Arqma Wallet")
+    .tooltip("Arqma-Wallet")
     .show_menu_on_left_click(false)
     .on_menu_event(move |app, e| {
       if e.id() == TRAY_OPEN_ID {

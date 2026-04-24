@@ -356,7 +356,7 @@
     "mainmenu": {
       "daemon_settings": "Configurações do Daemon",
       "about": "Sobre",
-      "exit_wallet": "Sair da Arqma Wallet",
+      "exit_wallet": "Sair da Arqma-Wallet",
       "language_support": "Suporte a idiomas",
       "switch_account": "Trocar de conta",
       "switch_account_ok_label": "OK",
