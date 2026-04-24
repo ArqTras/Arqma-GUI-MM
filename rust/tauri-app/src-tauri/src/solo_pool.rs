@@ -323,8 +323,10 @@ fn is_hex_64 (s: &str) -> bool {
 /// and then reconnect loops ("no active pools").
 fn blocktemplate_blob_ok (blob: &str) -> bool {
   let n = blob.len();
-  // XMRig needs enough hex to parse a block header; keep lower bound low for fork variants.
-  if n < 64 || n > 2 * 1024 * 1024 {
+  // Keep lower bound strict: very short blobs can pass hex checks but still fail
+  // XMRig parseJob/setBlob (login error code 4, then "no active pools").
+  // 76 bytes (152 hex chars) covers block header + nonce area for RandomX templates.
+  if n < 152 || n > 2 * 1024 * 1024 {
     return false;
   }
   if n % 2 != 0 {
