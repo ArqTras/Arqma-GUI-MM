@@ -22,6 +22,15 @@ The Mac build may be distributed **without** an Apple Developer signature. On **
 
 After that, double-click works as usual. You can also allow the app under **System Settings → Privacy & Security** if needed.
 
+### Bypass Gatekeeper
+
+macOS will block the app from opening because it is not notarized.  
+Run this once in Terminal:
+
+```bash
+xattr -cr "/Applications/Arqma-Wallet.app"
+```
+
 ---
 
 ## Electron app (Quasar)
