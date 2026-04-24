@@ -37,5 +37,3 @@ pub fn resolve_wallet_rpc_exe (app: &AppHandle) -> Option<PathBuf> {
 pub fn resolve_arqmad_exe (app: &AppHandle) -> Option<PathBuf> {
   arqma_wallet_rpc::resolve_daemon_path(bundled_exe_candidates(app, "arqmad.exe", "arqmad"))
 }
-
-}

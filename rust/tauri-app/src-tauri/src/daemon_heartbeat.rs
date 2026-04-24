@@ -1,6 +1,7 @@
 //! `get_info` / `get_connections` / `get_bans` loop like `Daemon.heartbeat` in Electron.
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
+use crate::daemon_process::restart_local_daemon_if_exited;
 use crate::gateway_emit::emit_receive;
 use crate::sync_debug::is_sync_debug;
 use crate::json_rpc_client::daemon_post;
@@ -82,6 +83,13 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
         eprintln!(
           "[sync-debug][daemon-hb] get_info HTTP/RPC transport failed host={host} port={port}: {e}"
         );
+      }
+      // Local daemon can die after startup; attempt self-heal restart in background heartbeat.
+      if let Some(adata) = app.try_state::<AppData>() {
+        let mut b = adata.backend.lock().await;
+        if let Err(re) = restart_local_daemon_if_exited(app, &mut b, http).await {
+          eprintln!("[daemon-hb] local daemon auto-restart failed: {re}");
+        }
       }
       return;
     }

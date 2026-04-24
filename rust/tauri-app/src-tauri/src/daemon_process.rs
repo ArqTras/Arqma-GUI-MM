@@ -148,6 +148,8 @@ pub async fn ensure_daemon_for_startup (
   eprintln!("[daemon] start arqmad: {:?}", args);
   let ch = new_child_command(&exe)
     .args(&args)
+    // Keep stdin open; otherwise `arqmad` can receive EOF immediately in GUI runs and exit.
+    .stdin(Stdio::piped())
     .stdout(Stdio::null())
     .stderr(Stdio::null())
     .spawn()
@@ -179,6 +181,52 @@ pub async fn ensure_daemon_for_startup (
   }
   eprintln!("[daemon] get_info timeout (check ports and firewall)");
   Err("Timeout: local arqmad did not respond (get_info)".to_string())
+}
+
+/// Heartbeat safety net: if local daemon process has exited, start it again.
+/// Returns `Ok(true)` when restart was attempted and completed.
+pub async fn restart_local_daemon_if_exited (
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+) -> Result<bool, String> {
+  let net = st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+    .unwrap_or("mainnet");
+  let typ = st
+    .config_data
+    .get("daemons")
+    .and_then(|d| d.get(net))
+    .and_then(|x| x.get("type"))
+    .and_then(|t| t.as_str())
+    .unwrap_or("local");
+  if typ == "remote" {
+    return Ok(false);
+  }
+  let exited = match st.daemon_process.as_mut() {
+    Some(ch) => match ch.try_wait() {
+      Ok(Some(status)) => {
+        eprintln!("[daemon] process exited during heartbeat: {status}");
+        true
+      }
+      Ok(None) => false,
+      Err(e) => {
+        eprintln!("[daemon] process state check failed during heartbeat: {e}");
+        true
+      }
+    },
+    None => true,
+  };
+  if !exited {
+    return Ok(false);
+  }
+  st.daemon_process = None;
+  ensure_daemon_for_startup(app, st, http).await?;
+  eprintln!("[daemon] local daemon auto-restarted");
+  Ok(true)
 }
 
 fn num_str (v: &Value) -> Option<String> {
