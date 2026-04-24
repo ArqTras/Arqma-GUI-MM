@@ -1,0 +1,13 @@
+# Faster local builds (workspace: rust/)
+# ---------------------------------------------------------------------------
+# 1) Compile cache (best for repeated deps / CI):
+#    cargo install sccache
+#    Uncomment the two lines below; optionally: sccache --start-server
+# [build]
+# rustc-wrapper = "sccache"
+#
+# 2) Faster linker (Windows MSVC, Rust 1.70+; disable if the build fails):
+# [target.x86_64-pc-windows-msvc]
+# linker = "rust-lld"
+#
+# 3) Tauri: use the `local` profile (thin LTO) — `npm run ci:tauri:local` in rust/tauri-app

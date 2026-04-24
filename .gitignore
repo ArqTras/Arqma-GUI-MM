@@ -39,6 +39,9 @@ package-lock.json
 /downloads
 .sdk-comm
 
+# Optional local clone of github.com/arqma/arqma (see scripts/checkout-arqma.*)
+/vendor/arqma/
+
 # Rust workspace (Tauri, core, daemon)
 /rust/target
 /rust/**/target

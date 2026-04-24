@@ -10,10 +10,9 @@ use tauri::Manager;
 use std::time::{Duration, Instant};
 use tokio::time::timeout;
 
-/// While the wallet height is behind the daemon tip, use a **light** heartbeat most of the time
-/// (only `getheight`) so JSON-RPC traffic does not contend with the wallet’s internal chain scan.
-/// A full heartbeat (address / balance / transfers) runs every `CATCHUP_HEAVY_EVERY`.
-const CATCHUP_HEAVY_EVERY: Duration = Duration::from_secs(20);
+/// While the wallet height is behind the daemon tip, use **only** `getheight` (light heartbeat).
+/// Periodic `get_address` / `getbalance` / `get_transfers` contended with `wallet-rpc`’s own block
+/// scan and kept `getheight` from advancing — footer % looked frozen near 100% for hundreds of blocks.
 
 pub fn start (app: &AppHandle, st: &mut crate::backend_state::WalletBackendState, is_local: bool) {
   if st.wh_display_name.is_empty() {
@@ -73,7 +72,15 @@ async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
       let wh = b.wh_stored_height;
       let dh = b.daemon_last_height;
       if wh > 0 && dh > 0 && wh + 1 < dh {
-        500u64
+        // Większy backlog → częstsze `getheight`, żeby stopka nie „stała” w oczekiwaniu na długi skan w wallet-rpc.
+        let backlog = dh.saturating_sub(wh);
+        if backlog > 500_000 {
+          250u64
+        } else if backlog > 100_000 {
+          350u64
+        } else {
+          500u64
+        }
       } else {
         base
       }
@@ -113,24 +120,14 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
       * 720;
     let dh = b.daemon_last_height;
     let backlog = dh.saturating_sub(b.wh_stored_height);
-    // Use the same LIGHT/HEAVY rhythm for **any** rescan gap (1..∞ blocks), not only >2000.
-    // With ≤2000 blocks left, full HEAVY every tick was still contending with wallet-rpc’s chain
-    // scan — footer looked “stuck” at ~99.9% for minutes while the last few hundred blocks crawled.
     let in_scan_rhythm =
       b.wh_stored_height > 0 && dh > 0 && backlog > 0;
-    let do_heavy = if !in_scan_rhythm {
+    if !in_scan_rhythm {
       b.wh_catchup_last_heavy = None;
-      true
-    } else {
-      let run = match b.wh_catchup_last_heavy {
-        None => true,
-        Some(t) => t.elapsed() >= CATCHUP_HEAVY_EVERY,
-      };
-      if run {
-        b.wh_catchup_last_heavy = Some(Instant::now());
-      }
-      run
-    };
+    }
+    // Never interleave balance/address/transfers RPCs while catching up — same process as Electron
+    // “light” polling, but we previously ran HEAVY every 20s here which starved scan progress.
+    let do_heavy = !in_scan_rhythm;
     (
       b.wh_display_name.clone(),
       d,
@@ -155,10 +152,11 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let p_empty = json!({});
   let p_bal = json!({ "account_index": 0 });
 
-  // While `wh < daemon_tip`: mostly `getheight` only so wallet-rpc can advance the chain scan
-  // without competing with constant `getbalance` / `get_transfers` (see `do_heavy` / `CATCHUP_HEAVY_EVERY`).
-  if in_scan_rhythm && !do_heavy {
-    let gh = match timeout(Duration::from_secs(8), c.call("getheight", &p_empty)).await {
+  // While `wh < daemon_tip`: only `getheight` — no balance/address/transfers on this RPC session.
+  if in_scan_rhythm {
+    // Podczas ciężkiego skanu wallet-rpc często **blokuje** `getheight` na wiele sekund; zbyt krótki
+    // timeout daje fałszywe „zamrożenie” wysokości w stopce (UI co chwilę widzi ten sam numer).
+    let gh = match timeout(Duration::from_secs(20), c.call("getheight", &p_empty)).await {
       Ok(r) => r,
       Err(_) => {
         eprintln!("[wallet hb] getheight (light): timeout");
@@ -175,8 +173,8 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
         }
       }
     }
-    if info.get("height").is_none() && h0 > 0 {
-      info["height"] = json!(h0);
+    if info.get("height").is_none() {
+      info["height"] = json!(new_h);
     }
     {
       let mut b = adata.backend.lock().await;
@@ -205,7 +203,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   // cap each RPC so the next tick (and `getheight` progress) can run.
   // Run `getheight` first: if it fails, skip the other calls this tick (avoids three timeouts in
   // a row when the endpoint is saturated — faster recovery on the next interval).
-  let gh = match timeout(Duration::from_secs(8), c.call("getheight", &p_empty)).await {
+  let gh = match timeout(Duration::from_secs(15), c.call("getheight", &p_empty)).await {
     Ok(r) => r,
     Err(_) => {
       eprintln!("[wallet hb] getheight: timeout (wallet-rpc may be busy scanning)");
@@ -294,8 +292,8 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   }
   // If `getheight` timed out or errored, keep last known height in the payload so the footer does
   // not look "stuck" with no number until the next successful RPC.
-  if info.get("height").is_none() && h0 > 0 {
-    info["height"] = json!(h0);
+  if info.get("height").is_none() {
+    info["height"] = json!(new_h);
   }
   if let Ok(ref v) = ga {
     if json_rpc_no_error(v) {
@@ -333,14 +331,13 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
     b.wh_stored_balance = new_b;
     b.wh_stored_unlocked = new_u;
   }
-  if !info.get("height").is_none() || has_balance_change {
-    let _ = emit_receive(app, "set_wallet_info", info.clone());
-    let _ = emit_receive(
-      app,
-      "reset_wallet_status",
-      json!({ "code": 0, "message": "OK" }),
-    );
-  }
+  // Footer needs `height` every tick; `info` always contains it after the fallback above.
+  let _ = emit_receive(app, "set_wallet_info", info.clone());
+  let _ = emit_receive(
+    app,
+    "reset_wallet_status",
+    json!({ "code": 0, "message": "OK" }),
+  );
 
   if has_balance_change {
     if let (Ok(ghv), Ok(gbv)) = (&gh, &gb) {

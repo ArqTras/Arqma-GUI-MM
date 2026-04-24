@@ -50,7 +50,7 @@
         </template>
 
         <template v-if="config_daemon.type !== 'local'">
-          <div>{{ $t("components.footer.remote") }}: {{ daemon.info.height }}</div>
+          <div>{{ $t("components.footer.remote") }}: {{ remote_daemon_height }}</div>
         </template>
 
         <div>
@@ -64,13 +64,27 @@
         </div>
       </div>
     </div>
+    <!-- Thin dual strips: previously both sat at bottom:0 and same #333 — looked like no progress. -->
+    <div
+      class="status-bars"
+      :class="[status]"
+    >
+      <div
+        class="status-bar-daemon"
+        :style="{ width: daemon_bar_pct + '%' }"
+      />
+      <div
+        class="status-bar-wallet"
+        :style="{ width: wallet_bar_pct + '%' }"
+      />
+    </div>
     <div
       v-if="is_syncing_daemon"
       class="q-px-sm q-pt-xs"
     >
       <q-linear-progress
         :value="daemon_progress_ratio"
-        size="6px"
+        size="10px"
         color="secondary"
         track-color="grey-9"
         rounded
@@ -85,7 +99,7 @@
     >
       <q-linear-progress
         :value="wallet_progress_ratio"
-        size="6px"
+        size="10px"
         color="primary"
         track-color="grey-9"
         rounded
@@ -93,13 +107,6 @@
         animated
         class="wallet-scan-progress"
       />
-    </div>
-    <div
-      class="status-bars"
-      :class="[status]"
-    >
-      <div :style="{ width: daemon_bar_pct + '%' }" />
-      <div :style="{ width: wallet_bar_pct + '%' }" />
     </div>
   </q-footer>
 </template>
@@ -136,7 +143,7 @@ export default defineComponent({
     // Computed props
     const config = computed(() => $store.state.gateway.app.config)
     const daemon = computed(() => $store.state.gateway.daemon)
-    const walletHeight = computed(() => $store.state.gateway.wallet.info.height)
+    const walletHeight = computed(() => Number($store.state.gateway.wallet?.info?.height) || 0)
     const config_daemon = computed(() => {
       if (config.value.app && config.value.app.net_type) {
         return config.value.daemons[config.value.app.net_type]
@@ -144,8 +151,10 @@ export default defineComponent({
       return { type: "local" }
     })
     const target_height = computed(() => {
-      const h = Number(daemon.value.info.height) || 0
-      const th = Number(daemon.value.info.target_height) || 0
+      const info = daemon.value?.info
+      if (!info) return 0
+      const h = Number(info.height) || 0
+      const th = Number(info.target_height) || 0
       return Math.max(h, th)
     })
 
@@ -158,10 +167,12 @@ export default defineComponent({
     })
 
     const daemonHeightDisplay = computed(() => {
+      const info = daemon.value?.info
+      if (!info) return 0
       if (!target_height.value) {
-        return daemon.value.info.height_without_bootstrap
+        return Number(info.height_without_bootstrap) || 0
       }
-      const d = Number(daemon.value.info.height_without_bootstrap) || 0
+      const d = Number(info.height_without_bootstrap) || 0
       return Math.min(d, Number(target_height.value))
     })
 
@@ -172,7 +183,7 @@ export default defineComponent({
       if (!target_height.value) {
         return 0
       }
-      const dwo = Number(daemon.value.info.height_without_bootstrap) || 0
+      const dwo = Number(daemon.value?.info?.height_without_bootstrap) || 0
       const target = Number(target_height.value)
       const pct = (100 * dwo) / target
       if (dwo < target && Math.round(pct * 10) / 10 >= 100) {
@@ -240,14 +251,14 @@ export default defineComponent({
       if (!target_height.value) {
         return false
       }
-      const dwo = Number(daemon.value.info.height_without_bootstrap) || 0
+      const dwo = Number(daemon.value?.info?.height_without_bootstrap) || 0
       return dwo < Number(target_height.value)
     })
 
     const daemon_progress_ratio = computed(() => {
       const t = Number(target_height.value) || 1
       const dwo = Math.min(
-        Number(daemon.value.info.height_without_bootstrap) || 0,
+        Number(daemon.value?.info?.height_without_bootstrap) || 0,
         t
       )
       return Math.min(1, dwo / t)
@@ -272,7 +283,7 @@ export default defineComponent({
       const target = Number(target_height.value)
       const walletBehind = wh < target
       if (config_daemon.value.type === "local") {
-        if ((Number(daemon.value.info.height_without_bootstrap) || 0) < target) {
+        if ((Number(daemon.value?.info?.height_without_bootstrap) || 0) < target) {
           result = t("components.footer.syncing")
         } else if (walletBehind) {
           result = t("components.footer.scanning")
@@ -284,7 +295,7 @@ export default defineComponent({
           result = t("components.footer.scanning")
         } else if (
           config_daemon.value.type === "local_remote" &&
-          (Number(daemon.value.info.height_without_bootstrap) || 0) < target
+          (Number(daemon.value?.info?.height_without_bootstrap) || 0) < target
         ) {
           result = t("components.footer.syncing")
         } else {
@@ -295,8 +306,13 @@ export default defineComponent({
     })
 
     const walletHeightDisplay = computed(() => {
-      return Math.min(walletHeight.value, target_height.value)
+      const wh = Number(walletHeight.value) || 0
+      const t = Number(target_height.value) || 0
+      if (!t) return wh
+      return Math.min(wh, t)
     })
+
+    const remote_daemon_height = computed(() => Number(daemon.value?.info?.height) || 0)
 
     onMounted(async () => {
       version.value = await api.version()
@@ -322,6 +338,7 @@ export default defineComponent({
       version,
       config,
       daemon,
+      remote_daemon_height,
       walletHeight,
       config_daemon,
       target_height,
@@ -342,4 +359,10 @@ export default defineComponent({
 })
 </script>
 
-<style lang="scss"></style>
+<style lang="scss">
+/* Stopka Quasar czasem obcina absolutne dzieci — zostawiamy miejsce na paski. */
+.q-footer.status-footer {
+  overflow: visible;
+  padding-bottom: 2px;
+}
+</style>

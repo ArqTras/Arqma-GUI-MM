@@ -5,7 +5,8 @@
 const fs = require("fs")
 const path = require("path")
 
-const root = process.cwd()
+/** Repository root (this file lives in `<root>/build/`). Works regardless of `process.cwd()`. */
+const root = path.resolve(__dirname, "..")
 const srcDir = path.join(root, "bin")
 const dstDir = path.join(root, "rust", "tauri-app", "src-tauri", "bin")
 

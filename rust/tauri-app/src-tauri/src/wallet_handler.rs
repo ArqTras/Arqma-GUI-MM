@@ -11,9 +11,9 @@ use std::time::Duration;
 use tauri::AppHandle;
 use tokio::time::MissedTickBehavior;
 
-/// When `arqma-wallet-rpc` is not running (missing bundled binary / no remote setup).
+/// When `arqma-wallet-rpc` is not running (no env/PATH/bundle binary / no remote setup).
 const ERR_NO_LOCAL_WALLET_RPC: &str =
-  "No local arqma-wallet-rpc: add binaries under resource/bin or configure a remote node.";
+  "No local arqma-wallet-rpc: set ARQMA_WALLET_RPC or ARQMA_BUILD_DIR (upstream build/release), PATH, resource/bin, or configure a remote node.";
 
 /// Handles `module == "wallet"` — subset of `wallet-rpc.js::handle` (FS list, rest via JSON-RPC when a client exists).
 pub async fn handle_wallet (
@@ -197,7 +197,7 @@ pub async fn handle_wallet (
     | "transfer"
     | "rescan_blockchain" | "rescan_spent" => {
       // After `close_wallet` we stop `arqma-wallet-rpc`; respawn before any RPC that needs it.
-      crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+      let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
       let (rpc, params) = map_wallet_rpc(method, p)?;
       let r = {
         let w = st
@@ -344,7 +344,11 @@ pub async fn handle_wallet (
               "set_wallet_info",
               json!({ "name": name, "height": height_u }),
             )?;
+          } else {
+            emit_receive(app, "set_wallet_info", json!({ "name": name, "height": 0 }))?;
           }
+        } else {
+          emit_receive(app, "set_wallet_info", json!({ "name": name, "height": 0 }))?;
         }
         st.wh_display_name = name.to_string();
         st.wh_stored_height = opened_height;
@@ -440,7 +444,7 @@ async fn wallet_add_address_book (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -500,7 +504,7 @@ async fn wallet_delete_address_book (
   let Some(idx) = address_book_row_index(p) else {
     return Ok(());
   };
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -706,7 +710,7 @@ async fn wallet_restore_wallet (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   emit_receive(app, "reset_wallet_error", json!({}))?;
   let rh = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
     Ok(h) => h,
@@ -756,7 +760,7 @@ async fn wallet_restore_view_wallet (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   emit_receive(app, "reset_wallet_error", json!({}))?;
   let mut refresh_h = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
     Ok(h) => h,
@@ -818,7 +822,7 @@ async fn wallet_import_wallet (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   emit_receive(app, "reset_wallet_error", json!({}))?;
   let filename = wallet_filename_from_params(p).ok_or_else(|| "import_wallet: name".to_string())?;
   let import_path_raw = p
@@ -931,7 +935,7 @@ async fn wallet_stake (
     reply_note("Password Error")?;
     return Ok(());
   }
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -989,7 +993,7 @@ async fn wallet_register_service_node (
     )?;
     return Ok(());
   }
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -1022,7 +1026,7 @@ async fn wallet_save_tx_notes (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -1048,7 +1052,7 @@ async fn wallet_get_private_keys (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let mut secret = json!({ "mnemonic": "", "spend_key": "", "view_key": "" });
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
@@ -1101,7 +1105,7 @@ async fn wallet_export_key_images (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
     emit_receive(
@@ -1180,7 +1184,7 @@ async fn wallet_import_key_images (
   http: &Client,
   p: &Value,
 ) -> Result<(), String> {
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
     emit_receive(
@@ -1264,7 +1268,7 @@ async fn wallet_change_wallet_password (
     )?;
     return Ok(());
   }
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()
@@ -1366,7 +1370,7 @@ async fn wallet_export_transactions (
     emit_receive(app, "set_tx_status", reply)?;
     return Ok(());
   }
-  crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
+  let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let w = st
     .wallet
     .as_ref()

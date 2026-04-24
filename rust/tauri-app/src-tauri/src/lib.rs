@@ -8,7 +8,6 @@ mod daemon_check;
 mod daemon_handler;
 mod daemon_process;
 mod gateway_emit;
-mod http_digest_arqma;
 mod json_rpc_client;
 mod remote_scan;
 mod startup_run;

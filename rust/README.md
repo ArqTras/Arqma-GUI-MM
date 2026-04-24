@@ -32,23 +32,20 @@ cargo clippy --workspace --all-targets
 The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-tauri/`.
 
 1. Install **Node.js** (see root `README.md` for version).
-2. Optional but recommended for a full app: download official Arqma `arqmad` / `arqma-wallet-rpc` into `./bin` at repo root, then:
+2. Optional but recommended for a **bundled** app: put official Arqma `arqmad` / `arqma-wallet-rpc` in `./bin` at repo root, then from repo root run `node build/copy-to-tauri-bins.js`, or `scripts/prepare-release-bins.ps1` / `scripts/prepare-release-bins.sh`. Without bundled binaries, set `ARQMA_BUILD_DIR` (upstream `build/release`) or `ARQMA_WALLET_RPC` / `ARQMA_DAEMON` — see `docs/WALLET_RUST_PORT.md` and `rust/tauri-app/src-tauri/bin/README.txt`.
 
-   ```bash
-   node build/copy-to-tauri-bins.js
-   ```
-
-   See `rust/tauri-app/src-tauri/bin/README.txt`.
-
-3. Build frontend + Tauri bundles:
+3. Build frontend, then release binary (Tauri **`custom-protocol`** is enabled so the exe embeds `dist/` — no dev server on port 1420):
 
    ```bash
    cd rust/tauri-app
    npm install
-   npm run ci:tauri
+   npm run build
+   cargo build --release -p arqma-wallet
    ```
 
-Artifacts are written under `rust/target/release/` (binary, `resources/`, and `rust/target/release/bundle/` for installers).
+   For **installers** (NSIS / dmg / AppImage): `npm run ci:tauri` (runs `vite build` + `tauri build`). On Windows, `npm run release:win` builds the exe and runs `scripts/postbuild-rename-windows.mjs`.
+
+Artifacts are written under `rust/target/release/` (e.g. `arqma-wallet.exe`, `resources/`, and `rust/target/release/bundle/` for installers).
 
 On **Linux** CI, an extra `.tar.gz` of the release binary and `resources/` is produced by `scripts/pack-linux-tarball.sh` after `tauri build`.
 

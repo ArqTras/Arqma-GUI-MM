@@ -93,6 +93,8 @@ version = "5.0.0"
 dependencies = [
  "arboard",
  "arqma-wallet-core",
+ "arqma-wallet-rpc",
+ "async-trait",
  "base64 0.22.1",
  "chrono",
  "hex",
@@ -119,6 +121,20 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "arqma-wallet-rpc"
+version = "5.0.0"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "md5",
+ "rand 0.8.6",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

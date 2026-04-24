@@ -3,7 +3,7 @@
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::daemon_post;
-use crate::native_bin::find_resource_bin;
+use crate::native_bin::resolve_arqmad_exe;
 use arqma_wallet_core::write_config_file;
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -44,9 +44,14 @@ pub async fn ensure_daemon_for_startup (
     }
     return Ok(());
   }
-  let Some(exe) = find_resource_bin(app, "arqmad.exe", "arqmad") else {
-    eprintln!("[daemon] arqmad missing in resource/bin (required for local mode)");
-    return Err("Error: arqmad binary missing (local mode)".to_string());
+  let Some(exe) = resolve_arqmad_exe(app) else {
+    eprintln!(
+      "[daemon] arqmad not found (local mode): set ARQMA_DAEMON, ARQMA_BUILD_DIR, PATH, or resource/bin"
+    );
+    return Err(
+      "Error: arqmad binary missing (local mode). Set ARQMA_DAEMON or ARQMA_BUILD_DIR, or add Arqma build/bin to PATH."
+        .to_string(),
+    );
   };
   let data_dir = st
     .config_data

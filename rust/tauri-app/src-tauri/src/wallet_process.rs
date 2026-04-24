@@ -1,6 +1,7 @@
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::WalletRpcClient;
-use crate::native_bin::find_resource_bin;
+use std::sync::Arc;
+use crate::native_bin::resolve_wallet_rpc_exe;
 use crate::subprocess::new_child_command;
 use rand::RngCore;
 use serde_json::Value;
@@ -8,6 +9,20 @@ use std::process::Stdio;
 use std::time::Duration;
 use tauri::AppHandle;
 use tokio::time::timeout;
+
+/// Outcome of [`try_start_wallet_rpc`] (for UI / logs — optional subprocess is easy to mis-bundle).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum WalletRpcStartResult {
+  AlreadyRunning,
+  Started,
+  ExeNotFound,
+  MissingDaemonInConfig,
+  MissingWalletDir,
+  WalletDirCreateFailed(String),
+  SpawnFailed(String),
+  /// Process spawned but HTTP JSON-RPC never answered (daemon down, wrong port, crash on start).
+  RpcTimeout,
+}
 
 /// Random `rpc-login` (160 B → 320 hex chars) — distribution aligned with `Buffer.toString("hex")`.
 fn generate_auth_triple () -> (String, String, String) {
@@ -35,9 +50,9 @@ pub async fn try_start_wallet_rpc (
   app: &AppHandle,
   st: &mut WalletBackendState,
   http: &reqwest::Client,
-) {
+) -> WalletRpcStartResult {
   if st.wallet_process.is_some() && st.wallet.is_some() {
-    return;
+    return WalletRpcStartResult::AlreadyRunning;
   }
   if st.wallet_process.is_some() && st.wallet.is_none() {
     if let Some(mut ch) = st.wallet_process.take() {
@@ -47,13 +62,15 @@ pub async fn try_start_wallet_rpc (
   }
   st.wallet = None;
   st.wallet_salt = String::new();
-  let Some(exe) = find_resource_bin(app, "arqma-wallet-rpc.exe", "arqma-wallet-rpc") else {
-    eprintln!("[wallet] arqma-wallet-rpc not found in resource/bin (optional)");
-    return;
+  let Some(exe) = resolve_wallet_rpc_exe(app) else {
+    eprintln!(
+      "[wallet] arqma-wallet-rpc not found: set ARQMA_WALLET_RPC, ARQMA_BUILD_DIR, PATH, or place exe in src-tauri/bin before tauri build (see src-tauri/bin/README.txt)"
+    );
+    return WalletRpcStartResult::ExeNotFound;
   };
   let Some(daemon_addr) = wallet_daemon_addr(&st.config_data) else {
     eprintln!("[wallet] missing daemon data in config");
-    return;
+    return WalletRpcStartResult::MissingDaemonInConfig;
   };
   let (user, pass, salt) = generate_auth_triple();
   st.wallet_salt = salt;
@@ -68,12 +85,12 @@ pub async fn try_start_wallet_rpc (
     Some(p) => p,
     None => {
       eprintln!("[wallet] missing wallet directory");
-      return;
+      return WalletRpcStartResult::MissingWalletDir;
     }
   };
   if let Err(e) = std::fs::create_dir_all(&wdir) {
     eprintln!("[wallet] create_dir_all: {e}");
-    return;
+    return WalletRpcStartResult::WalletDirCreateFailed(e.to_string());
   }
   let log_level = st
     .config_data
@@ -131,7 +148,7 @@ pub async fn try_start_wallet_rpc (
     Ok(c) => c,
     Err(e) => {
       eprintln!("[wallet] spawn: {e}");
-      return;
+      return WalletRpcStartResult::SpawnFailed(e.to_string());
     }
   };
   st.wallet_process = Some(ch);
@@ -139,27 +156,28 @@ pub async fn try_start_wallet_rpc (
   for _ in 0..60 {
     match client.call("get_languages", &Value::Null).await {
       Ok(r) if r.get("error").is_none() => {
-        st.wallet = Some(client);
+        st.wallet = Some(Arc::new(client));
         eprintln!("[wallet] arqma-wallet-rpc: OK (get_languages)");
-        return;
+        return WalletRpcStartResult::Started;
       }
       _ => {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
       }
     }
   }
-  eprintln!("[wallet] timeout — no get_languages response (check resource/bin and daemon)");
+  eprintln!("[wallet] timeout — no get_languages response (check arqma-wallet-rpc.log, daemon reachability, port)");
   if let Some(mut ch) = st.wallet_process.take() {
     let _ = ch.kill();
     let _ = ch.wait();
   }
   st.wallet = None;
+  WalletRpcStartResult::RpcTimeout
 }
 
 /// Flush wallet, ask `arqma-wallet-rpc` to exit (`stop_wallet` — same as Monero docs), wait for the child;
 /// falls back to `kill` if the process does not exit in time. Avoids orphaned RPC after app/wallet close.
 pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
-  if let Some(ref w) = st.wallet {
+  if let Some(w) = st.wallet_json_rpc() {
     // `store` can hang for a long time during blockchain scan; same for `stop_wallet` if RPC is busy.
     match timeout(Duration::from_secs(12), w.call("store", &Value::Null)).await {
       Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] exit store: {:?}", r.get("error")),

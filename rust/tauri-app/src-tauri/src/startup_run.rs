@@ -5,7 +5,7 @@ use crate::daemon_process::{ensure_daemon_for_startup, set_current_net_to_remote
 use crate::gateway_emit::emit_receive;
 use crate::remote_scan::pick_fastest_remote;
 use crate::wallet_list_fs::list_wallet_files;
-use crate::wallet_process::try_start_wallet_rpc;
+use crate::wallet_process::{try_start_wallet_rpc, WalletRpcStartResult};
 use arqma_wallet_core::{
   default_ethereum, ensure_datadir_layout, load_config_snapshot, required_dirs_exist, write_config_file
 };
@@ -224,7 +224,50 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   } else {
     json!({ "list": [], "directories": [] })
   };
-  try_start_wallet_rpc(app, st, http).await;
+  let wr = try_start_wallet_rpc(app, st, http).await;
+  if !matches!(
+    wr,
+    WalletRpcStartResult::Started | WalletRpcStartResult::AlreadyRunning
+  ) {
+    let (kind, msg, timeout_ms): (&str, String, u64) = match &wr {
+      WalletRpcStartResult::ExeNotFound => (
+        "warning",
+        "arqma-wallet-rpc not found — wallet sync is disabled. Before building: copy arqma-wallet-rpc.exe (and arqmad.exe) into rust/tauri-app/src-tauri/bin, or run from repo root: node build/copy-to-tauri-bins.js if ./bin already has upstream builds. At runtime you can set ARQMA_WALLET_RPC or ARQMA_BUILD_DIR. See src-tauri/bin/README.txt.".into(),
+        18_000,
+      ),
+      WalletRpcStartResult::MissingDaemonInConfig => (
+        "warning",
+        "Cannot start arqma-wallet-rpc: daemon host/port missing in configuration.".into(),
+        12_000,
+      ),
+      WalletRpcStartResult::MissingWalletDir => (
+        "warning",
+        "Cannot start arqma-wallet-rpc: wallet data directory is not configured.".into(),
+        12_000,
+      ),
+      WalletRpcStartResult::WalletDirCreateFailed(e) => (
+        "negative",
+        format!("Cannot create wallet directory: {e}"),
+        12_000,
+      ),
+      WalletRpcStartResult::SpawnFailed(e) => (
+        "negative",
+        format!("arqma-wallet-rpc failed to start: {e}"),
+        12_000,
+      ),
+      WalletRpcStartResult::RpcTimeout => (
+        "warning",
+        "arqma-wallet-rpc did not respond (JSON-RPC timeout). Check logs next to your wallet folder (arqma-wallet-rpc.log), confirm the daemon is running/reachable, and that the RPC port in settings is free.".into(),
+        18_000,
+      ),
+      WalletRpcStartResult::Started | WalletRpcStartResult::AlreadyRunning => {
+        ("warning", String::new(), 0)
+      }
+    };
+    if !msg.is_empty() {
+      emit_show_notification_timeout(app, kind, &msg, timeout_ms)?;
+    }
+  }
   emit_receive(app, "wallet_list", wallets.clone())?;
   emit_receive(app, "set_app_data", json!({ "status": { "code": 0 } }))?;
 
@@ -233,10 +276,19 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
 }
 
 fn emit_show_notification (app: &AppHandle, kind: &str, message: &str) -> Result<(), String> {
+  emit_show_notification_timeout(app, kind, message, 3000)
+}
+
+fn emit_show_notification_timeout (
+  app: &AppHandle,
+  kind: &str,
+  message: &str,
+  timeout_ms: u64,
+) -> Result<(), String> {
   emit_receive(
     app,
     "show_notification",
-    json!({ "type": kind, "message": message, "timeout": 3000 }),
+    json!({ "type": kind, "message": message, "timeout": timeout_ms }),
   )
 }
 
