@@ -163,7 +163,7 @@
               :y1="gy"
               x2="600"
               :y2="gy"
-              stroke="rgba(255,255,255,0.15)"
+              stroke="rgba(200, 175, 130, 0.35)"
               stroke-width="1"
             />
             <line
@@ -173,12 +173,12 @@
               y1="0"
               :x2="gx"
               y2="120"
-              stroke="rgba(255,255,255,0.08)"
+              stroke="rgba(200, 175, 130, 0.18)"
               stroke-width="1"
             />
             <polyline
               fill="none"
-              stroke="#21ba45"
+              stroke="#d4b76a"
               stroke-width="2"
               :points="hashratePolyline"
             />
@@ -228,6 +228,89 @@
           :rows-per-page-options="[0]"
           hide-bottom
         />
+
+        <q-card
+          flat
+          bordered
+          class="q-mt-md q-pa-md"
+        >
+          <div class="text-subtitle2 q-mb-xs">{{ $t("components.solo_pool.vardiff_section") }}</div>
+          <div class="text-caption text-grey-5 q-mb-md">{{ $t("components.solo_pool.vardiff_caption") }}</div>
+          <div class="row q-col-gutter-sm">
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.startDiff"
+                type="number"
+                min="1000"
+                :label="$t('components.solo_pool.vardiff_start_diff')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.minDiff"
+                type="number"
+                min="1000"
+                :label="$t('components.solo_pool.vardiff_min')"
+                dense
+              />
+            </div>
+            <div class="col-12 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.maxDiff"
+                type="number"
+                min="1000"
+                :label="$t('components.solo_pool.vardiff_max')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.targetTime"
+                type="number"
+                min="5"
+                :label="$t('components.solo_pool.vardiff_target_time')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.retargetTime"
+                type="number"
+                min="10"
+                :label="$t('components.solo_pool.vardiff_retarget_time')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.variancePercent"
+                type="number"
+                min="1"
+                max="95"
+                :label="$t('components.solo_pool.vardiff_variance')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model.number="settings.varDiff.maxJump"
+                type="number"
+                min="1"
+                :label="$t('components.solo_pool.vardiff_max_jump')"
+                dense
+              />
+            </div>
+            <div class="col-6 col-sm-4">
+              <q-input
+                v-model="settings.varDiff.fixedDiffSeparator"
+                maxlength="2"
+                :label="$t('components.solo_pool.vardiff_separator')"
+                dense
+              />
+            </div>
+          </div>
+        </q-card>
       </q-card-section>
 
       <q-card-actions align="right">
@@ -247,7 +330,7 @@
 </template>
 
 <script>
-import { computed, defineComponent, ref } from "vue"
+import { computed, defineComponent, inject, nextTick, ref } from "vue"
 import { useStore } from "vuex"
 import { useQuasar } from "quasar"
 import { useI18n } from "vue-i18n"
@@ -267,13 +350,13 @@ const defaults = () => ({
   },
   varDiff: {
     enabled: true,
-    startDiff: 5000,
-    minDiff: 1000,
-    maxDiff: 1000000,
-    targetTime: 45,
-    retargetTime: 60,
-    variancePercent: 45,
-    maxJump: 30,
+    startDiff: 150000,
+    minDiff: 150000,
+    maxDiff: 10000000,
+    targetTime: 20,
+    retargetTime: 30,
+    variancePercent: 25,
+    maxJump: 200,
     fixedDiffSeparator: "."
   }
 })
@@ -284,6 +367,7 @@ export default defineComponent({
     const $store = useStore()
     const $q = useQuasar()
     const { t } = useI18n()
+    const gateway = inject("gateway")
 
     const isVisible = ref(false)
     const settings = ref(defaults())
@@ -336,11 +420,22 @@ export default defineComponent({
     ])
 
     const syncFromConfig = () => {
-      const cfg = appConfig.value.pool || defaults()
-      settings.value = JSON.parse(JSON.stringify(cfg))
+      const d = defaults()
+      const p = appConfig.value.pool
+      if (!p) {
+        settings.value = d
+      } else {
+        const raw = JSON.parse(JSON.stringify(p))
+        settings.value = {
+          server: { ...d.server, ...(raw.server || {}) },
+          mining: { ...d.mining, ...(raw.mining || {}) },
+          varDiff: { ...d.varDiff, ...(raw.varDiff || {}) }
+        }
+      }
       if (!settings.value.mining.address && wallets.value.length > 0) {
         settings.value.mining.address = wallets.value[0].address
       }
+      settings.value.varDiff.enabled = true
     }
 
     const open = () => {
@@ -362,9 +457,21 @@ export default defineComponent({
         $q.notify({ type: "warning", message: t("components.solo_pool.remote_warning"), timeout: 2000 })
         settings.value.server.enabled = false
       }
+      settings.value.varDiff.enabled = true
+      const prevPool = appConfig.value?.pool
+      const prevVardiff = prevPool?.varDiff
       await api.send("core", "save_pool_config", settings.value)
       $q.notify({ type: "positive", message: t("components.solo_pool.saved"), timeout: 1500 })
       isVisible.value = false
+      if (
+        prevPool &&
+        varDiffParamsChanged(prevVardiff, settings.value.varDiff) &&
+        gateway?.confirmClose
+      ) {
+        void nextTick(() => {
+          gateway.confirmClose(t("components.solo_pool.vardiff_restart_prompt"), true)
+        })
+      }
     }
 
     const commas = (v) => (Number(v || 0)).toLocaleString()
@@ -409,7 +516,9 @@ export default defineComponent({
         return `${x},${y}`
       }).join(" ")
     })
-    const linePalette = ["#21ba45", "#ff9800", "#00bcd4", "#e91e63", "#9c27b0", "#ffc107", "#03a9f4", "#8bc34a"]
+    const linePalette = [
+      "#dbd19c", "#a89060", "#e8d4a8", "#8b7355", "#c9a86c", "#f0e4c4", "#6d5a40", "#b89b6a"
+    ]
     const workerPolylines = computed(() => {
       if (selectedWorker.value !== "__all__") return []
       const rangeToBuckets = {

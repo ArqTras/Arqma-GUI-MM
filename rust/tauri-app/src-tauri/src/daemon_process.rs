@@ -3,6 +3,7 @@
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::json_rpc_client::daemon_post;
+use crate::json_util::json_rpc_no_error;
 use crate::native_bin::resolve_arqmad_exe;
 use arqma_wallet_core::write_config_file;
 use reqwest::Client;
@@ -181,6 +182,50 @@ pub async fn ensure_daemon_for_startup (
   }
   eprintln!("[daemon] get_info timeout (check ports and firewall)");
   Err("Timeout: local arqmad did not respond (get_info)".to_string())
+}
+
+/// `stop` JSON-RPC (Monero/Arqma stack) then wait for the child; `kill` only if it does not exit in time.
+/// Call after [`crate::wallet_process::graceful_shutdown_wallet_rpc`] so wallet disconnects first.
+pub async fn shutdown_local_daemon_child (st: &mut WalletBackendState, http: &Client) {
+  if st.daemon_process.is_none() {
+    return;
+  }
+  if let Some((h, p)) = daemon_rpc_host_port(&st.config_data) {
+    let id = st.next_rpc_id;
+    st.next_rpc_id = st.next_rpc_id.saturating_add(1);
+    match daemon_post(http, &h, p, "stop", id, &Value::Null).await {
+      Ok(v) if json_rpc_no_error(&v) => eprintln!("[daemon] stop RPC ok"),
+      Ok(v) => eprintln!("[daemon] stop RPC: {v}"),
+      Err(e) => eprintln!("[daemon] stop RPC: {e} (will wait/kill)"),
+    }
+  }
+  let Some(mut ch) = st.daemon_process.take() else {
+    return;
+  };
+  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+  loop {
+    match ch.try_wait() {
+      Ok(Some(_)) => {
+        eprintln!("[daemon] arqmad process exited");
+        return;
+      }
+      Ok(None) => {
+        if std::time::Instant::now() >= deadline {
+          eprintln!("[daemon] arqmad still running after stop, killing");
+          let _ = ch.kill();
+          let _ = ch.wait();
+          return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+      }
+      Err(e) => {
+        eprintln!("[daemon] try_wait: {e}, killing arqmad");
+        let _ = ch.kill();
+        let _ = ch.wait();
+        return;
+      }
+    }
+  }
 }
 
 /// Heartbeat safety net: if local daemon process has exited, start it again.

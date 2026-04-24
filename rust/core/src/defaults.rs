@@ -68,13 +68,13 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
       },
       "varDiff": {
         "enabled": true,
-        "startDiff": 5000,
-        "minDiff": 1000,
-        "maxDiff": 1000000,
-        "targetTime": 45,
-        "retargetTime": 60,
-        "variancePercent": 45,
-        "maxJump": 30,
+        "startDiff": 150000,
+        "minDiff": 150000,
+        "maxDiff": 10000000,
+        "targetTime": 20,
+        "retargetTime": 30,
+        "variancePercent": 25,
+        "maxJump": 200,
         "fixedDiffSeparator": "."
       }
     }

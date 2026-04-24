@@ -436,6 +436,8 @@
             "debug_log_levels": "Уровни логирования для отладки кошелька",
             "transactions_to_display": "Сколько дней транзакций отображать",
             "inactivity_timeout": "Таймаут неактивности",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": " дней",
             "minutes": " минут",
             "advanced_options": "Расширенные опции",

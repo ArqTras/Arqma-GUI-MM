@@ -409,7 +409,18 @@
             "status_ready": "Gotowy",
             "status_waiting": "Oczekiwanie na demona",
             "status_not_ready": "Niegotowy",
-            "status_error": "Błąd"
+            "status_error": "Błąd",
+            "vardiff_section": "Zmienna trudność (VarDiff)",
+            "vardiff_caption": "VarDiff jest zawsze włączony. Utrzymuje sensowny odstęp między share’ami. Mniejszy maks. skok = łagodniejsze zmiany trudności.",
+            "vardiff_restart_prompt": "Zapisano ustawienia VarDiff. Uruchom portfel ponownie, aby solo pool zastosował nowe wartości.",
+            "vardiff_start_diff": "Trudność startowa (nowe sesje)",
+            "vardiff_min": "Minimalna trudność",
+            "vardiff_max": "Maksymalna trudność",
+            "vardiff_target_time": "Cel: sekundy między share’ami",
+            "vardiff_retarget_time": "Przelicz vardiff co najwyżej co (s)",
+            "vardiff_variance": "Pasmo OK (±% od celu w czasie)",
+            "vardiff_max_jump": "Maks. zmiana na retarget (%)",
+            "vardiff_separator": "Separator w loginie adres.trudnosc (np. \".\")"
         },
         "swap_list_tabular": {
             "block_hash": "Hash bloku",
@@ -486,6 +497,8 @@
             "debug_log_levels": "Poziomy logowania do debugowania portfela",
             "transactions_to_display": "Ile dni transakcji wyświetlić",
             "inactivity_timeout": "Limit Czasu Braku Aktywności",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Ostatnia pozycja: brak wylogowania po bezczynności przy włączonym Solo Pool (solo mining). Gdy solo pool jest wyłączony, ta pozycja odpowiada 30 minutom.",
             "days": " dni",
             "minutes": " minuty",
             "advanced_options": "Opcje zaawansowane",

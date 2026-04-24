@@ -269,7 +269,7 @@ export default defineComponent({
 
   .external-links {
     a {
-      color: #497dc6;
+      color: #c9a86c;
       text-decoration: none;
 
       &:hover,

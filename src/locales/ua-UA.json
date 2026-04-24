@@ -436,6 +436,8 @@
             "debug_log_levels": "Рівні журналу для налагодження гаманця",
             "transactions_to_display": "Скільки днів транзакцій для відображення",
             "inactivity_timeout": "Тайм-аут бездіяльності",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": "Днів",
             "minutes": " хвилини",
             "advanced_options": "Розширені опції",

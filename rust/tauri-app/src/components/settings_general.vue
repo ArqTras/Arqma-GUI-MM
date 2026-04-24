@@ -169,18 +169,18 @@
         />
       </arqmaField>
       <arqmaField
-        :helper="$t('components.general_settings.inactivity_timeout')"
+        :helper="`${$t('components.general_settings.inactivity_timeout')} — ${$t('components.general_settings.inactivity_timeout_infinity_note')}`"
         :label="$t('components.general_settings.inactivity_timeout')"
         class="network-group-field col-auto"
       >
         <q-slider
           v-model="pending_config.app.inactivityTimeout"
           :min="1"
-          :max="30"
+          :max="31"
           color="positive"
           label
           label-always
-          :label-value="`${pending_config.app.inactivityTimeout}${t('components.general_settings.minutes')}`"
+          :label-value="inactivityTimeoutLabel"
           switch-label-side
         />
       </arqmaField>
@@ -558,6 +558,14 @@ export default defineComponent({
     })
     const notifier = computed(() => $store.state.gateway.notifier)
 
+    const inactivityTimeoutLabel = computed(() => {
+      const v = pending_config.value.app?.inactivityTimeout ?? 5
+      if (v === 31) {
+        return t("components.general_settings.inactivity_timeout_infinity")
+      }
+      return `${v}${t("components.general_settings.minutes")}`
+    })
+
     const notifierWatcher = watch(notifier, (newVal, oldVal) => {
       if (newVal.save) { save(newVal) }
     })
@@ -573,6 +581,7 @@ export default defineComponent({
         if (pending_config.value.app.loggingLevel === undefined) { pending_config.value.app.loggingLevel = "error" }
         if (pending_config.value.app.daysOfTransactions === undefined) { pending_config.value.app.daysOfTransactions = 1 }
         if (pending_config.value.app.inactivityTimeout === undefined) { pending_config.value.app.inactivityTimeout = 5 }
+        if (pending_config.value.app.inactivityTimeout > 31) { pending_config.value.app.inactivityTimeout = 5 }
         defaults.value = extend(true, {}, $store.state.gateway.app.defaults)
         remotes.value = extend(true, [], $store.state.gateway.app.remotes)
         ethereum_config.value = extend(true, {}, $store.state.gateway.ethereum)
@@ -697,6 +706,7 @@ export default defineComponent({
     return {
       t,
       notifier,
+      inactivityTimeoutLabel,
       notifierWatcher,
       save,
       remoteScanOptions,

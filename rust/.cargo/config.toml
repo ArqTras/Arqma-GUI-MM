@@ -11,3 +11,9 @@
 # linker = "rust-lld"
 #
 # 3) Tauri: use the `local` profile (thin LTO) — `npm run ci:tauri:local` in rust/tauri-app
+#
+# 4) Keep build output under this workspace: `rust/target`. The Tauri npm scripts
+#    (`with-rust-target.mjs`) set `CARGO_TARGET_DIR` to this path so tools that inject
+#    a custom target dir (e.g. remote agents) do not store bundles outside the repo.
+[build]
+target-dir = "target"

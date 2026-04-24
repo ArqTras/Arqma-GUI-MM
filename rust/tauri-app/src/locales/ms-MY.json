@@ -439,6 +439,8 @@
       "debug_log_levels": "Log tahap untuk menyahpepijat dompet",
       "transactions_to_display": "Berapa hari transaksi untuk dipaparkan",
       "inactivity_timeout": "Tamat Masa Tidak Aktif",
+      "inactivity_timeout_infinity": "∞",
+      "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
       "days": "hari",
       "minutes": " minit",
       "advanced_options": "Pilihan Lanjutan",

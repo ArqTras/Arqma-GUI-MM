@@ -325,8 +325,9 @@ pub fn run () {
       if let RunEvent::Exit = event {
         tauri::async_runtime::block_on(async {
           if let Some(st) = app.try_state::<AppData>() {
+            let http = st.http.clone();
             let mut b = st.backend.lock().await;
-            b.shutdown_subprocesses_async().await;
+            b.shutdown_subprocesses_async(&http).await;
           }
         });
       }

@@ -436,6 +436,8 @@
             "debug_log_levels": "Protokollebenen für das Debuggen der Brieftasche",
             "transactions_to_display": "Wie viele Tage an Transaktionen sollen angezeigt werden?",
             "inactivity_timeout": "Inaktivitätszeitüberschreitung",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": " Tage",
             "minutes": " Minuten",
             "advanced_options": "Erweiterte Optionen",

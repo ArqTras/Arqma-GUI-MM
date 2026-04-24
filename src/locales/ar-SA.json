@@ -436,6 +436,8 @@
             "debug_log_levels": "مستويات السجل لتصحيح أخطاء المحفظة",
             "transactions_to_display": "عدد أيام المعاملات التي سيتم عرضها",
             "inactivity_timeout": "مهلة عدم النشاط",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": " أيام",
             "minutes": " دقائق",
             "advanced_options": "خيارات متقدمة",

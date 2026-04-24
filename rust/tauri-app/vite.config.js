@@ -5,7 +5,7 @@ import { quasar, transformAssetUrls } from "@quasar/vite-plugin"
 import AutoImport from "unplugin-auto-import/vite"
 
 export default defineConfig({
-  // Tauri: ścieżki względne w buildzie — bez tego /assets/... daje 404 w WebView (biały ekran)
+  // Tauri: use relative base in production build — otherwise /assets/... 404s in WebView (blank screen)
   base: "./",
   clearScreen: false,
   server: { port: 1420, strictPort: true },

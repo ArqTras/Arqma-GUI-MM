@@ -123,7 +123,7 @@ pub struct StartupSnapshot {
   /// State like `this.config_data` after disk load and validation.
   pub config_data: Value,
   pub remotes: Value,
-  /// `this.ethereum` z dysku (lub `default_ethereum` po fuzji w startup).
+  /// `this.ethereum` from disk (or `default_ethereum` after merge in startup).
   pub ethereum: Value,
   pub had_config_file: bool,
 }

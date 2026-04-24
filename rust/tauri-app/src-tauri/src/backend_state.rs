@@ -109,8 +109,9 @@ impl Default for WalletBackendState {
 }
 
 impl WalletBackendState {
-  /// Stop heartbeats, exit `arqma-wallet-rpc` via RPC (`stop_wallet`), stop local daemon child, clear wallet UI state.
-  pub async fn shutdown_subprocesses_async (&mut self) {
+  /// Stop heartbeats, exit `arqma-wallet-rpc` via RPC (`store` / `stop_wallet`), then local `arqmad` via `stop` RPC
+  /// and child wait/kill, clear wallet UI state.
+  pub async fn shutdown_subprocesses_async (&mut self, http: &reqwest::Client) {
     if let Some(h) = self.daemon_heartbeat.take() {
       h.abort();
     }
@@ -127,10 +128,7 @@ impl WalletBackendState {
       h.abort();
     }
     crate::wallet_process::graceful_shutdown_wallet_rpc(self).await;
-    if let Some(mut ch) = self.daemon_process.take() {
-      let _ = ch.kill();
-      let _ = ch.wait();
-    }
+    crate::daemon_process::shutdown_local_daemon_child(self, http).await;
     self.wallet_password_hash_hex = None;
     self.wh_display_name.clear();
     self.wh_stored_height = 0;

@@ -1,5 +1,8 @@
 <template>
-  <q-page class="solo-pool-page q-pa-md">
+  <q-page
+    class="q-pa-md"
+    :class="theme === 'dark' ? 'solo-pool-page solo-pool-page--dark' : 'solo-pool-page solo-pool-page--light'"
+  >
     <div class="solo-pool-scroll">
       <div class="solo-pool-content">
     <div class="row items-center q-mb-md">
@@ -193,7 +196,7 @@
           :y1="gy"
           x2="600"
           :y2="gy"
-          stroke="rgba(128,128,128,0.3)"
+          stroke="rgba(200, 175, 130, 0.35)"
           stroke-width="1"
         />
         <line
@@ -203,12 +206,12 @@
           y1="0"
           :x2="gx"
           y2="120"
-          stroke="rgba(128,128,128,0.15)"
+          stroke="rgba(200, 175, 130, 0.18)"
           stroke-width="1"
         />
         <polyline
           fill="none"
-          stroke="#21ba45"
+          stroke="#d4b76a"
           stroke-width="2"
           :points="hashratePolyline"
         />
@@ -270,6 +273,109 @@
       hide-bottom
     />
 
+    <q-card
+      flat
+      bordered
+      class="solo-pool-card q-mb-md q-pa-md q-mt-md"
+      :dark="theme === 'dark'"
+    >
+      <div class="text-subtitle1 q-mb-xs">{{ $t("components.solo_pool.vardiff_section") }}</div>
+      <div
+        class="text-caption q-mb-md"
+        :class="theme === 'dark' ? 'text-grey-5' : 'text-grey-8'"
+      >
+        {{ $t("components.solo_pool.vardiff_caption") }}
+      </div>
+      <div class="row q-col-gutter-md">
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.startDiff"
+            type="number"
+            min="1000"
+            step="100"
+            :label="$t('components.solo_pool.vardiff_start_diff')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.minDiff"
+            type="number"
+            min="1000"
+            step="100"
+            :label="$t('components.solo_pool.vardiff_min')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-12 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.maxDiff"
+            type="number"
+            min="1000"
+            step="1000"
+            :label="$t('components.solo_pool.vardiff_max')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.targetTime"
+            type="number"
+            min="5"
+            max="600"
+            :label="$t('components.solo_pool.vardiff_target_time')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.retargetTime"
+            type="number"
+            min="10"
+            max="3600"
+            :label="$t('components.solo_pool.vardiff_retarget_time')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.variancePercent"
+            type="number"
+            min="1"
+            max="95"
+            :label="$t('components.solo_pool.vardiff_variance')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model.number="settings.varDiff.maxJump"
+            type="number"
+            min="1"
+            max="10000"
+            :label="$t('components.solo_pool.vardiff_max_jump')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+        <div class="col-6 col-sm-4">
+          <q-input
+            v-model="settings.varDiff.fixedDiffSeparator"
+            maxlength="2"
+            :label="$t('components.solo_pool.vardiff_separator')"
+            :dark="theme === 'dark'"
+            dense
+          />
+        </div>
+      </div>
+    </q-card>
+
     <div class="row justify-end q-mt-md">
       <q-btn
         color="primary"
@@ -283,10 +389,32 @@
 </template>
 
 <script>
-import { computed, defineComponent, ref, watch } from "vue"
+import { computed, defineComponent, inject, nextTick, ref, watch } from "vue"
 import { useStore } from "vuex"
 import { useQuasar } from "quasar"
 import { useI18n } from "vue-i18n"
+
+function snapshotVarDiffParams (vd) {
+  if (!vd || typeof vd !== "object") return null
+  return {
+    startDiff: Number(vd.startDiff) || 0,
+    minDiff: Number(vd.minDiff) || 0,
+    maxDiff: Number(vd.maxDiff) || 0,
+    targetTime: Number(vd.targetTime) || 0,
+    retargetTime: Number(vd.retargetTime) || 0,
+    variancePercent: Number(vd.variancePercent) || 0,
+    maxJump: Number(vd.maxJump) || 0,
+    fixedDiffSeparator: String(vd.fixedDiffSeparator ?? ".")
+  }
+}
+
+function varDiffParamsChanged (before, after) {
+  const a = snapshotVarDiffParams(before)
+  const b = snapshotVarDiffParams(after)
+  if (a === null && b === null) return false
+  if (a === null || b === null) return true
+  return JSON.stringify(a) !== JSON.stringify(b)
+}
 
 const defaults = () => ({
   server: {
@@ -303,13 +431,13 @@ const defaults = () => ({
   },
   varDiff: {
     enabled: true,
-    startDiff: 5000,
-    minDiff: 1000,
-    maxDiff: 1000000,
-    targetTime: 45,
-    retargetTime: 60,
-    variancePercent: 45,
-    maxJump: 30,
+    startDiff: 150000,
+    minDiff: 150000,
+    maxDiff: 10000000,
+    targetTime: 20,
+    retargetTime: 30,
+    variancePercent: 25,
+    maxJump: 200,
     fixedDiffSeparator: "."
   }
 })
@@ -320,6 +448,7 @@ export default defineComponent({
     const $store = useStore()
     const $q = useQuasar()
     const { t } = useI18n()
+    const gateway = inject("gateway")
 
     const settings = ref(defaults())
     const chartRange = ref("60m")
@@ -413,11 +542,22 @@ export default defineComponent({
     ])
 
     const syncFromConfig = () => {
-      const cfg = appConfig.value.pool || defaults()
-      settings.value = JSON.parse(JSON.stringify(cfg))
+      const d = defaults()
+      const p = appConfig.value.pool
+      if (!p) {
+        settings.value = d
+      } else {
+        const raw = JSON.parse(JSON.stringify(p))
+        settings.value = {
+          server: { ...d.server, ...(raw.server || {}) },
+          mining: { ...d.mining, ...(raw.mining || {}) },
+          varDiff: { ...d.varDiff, ...(raw.varDiff || {}) }
+        }
+      }
       if (!settings.value.mining.address && wallets.value.length > 0) {
         settings.value.mining.address = wallets.value[0].address
       }
+      settings.value.varDiff.enabled = true
     }
     watch([appConfig, wallets], syncFromConfig, { immediate: true })
 
@@ -434,8 +574,20 @@ export default defineComponent({
         $q.notify({ type: "warning", message: t("components.solo_pool.remote_warning"), timeout: 2000 })
         settings.value.server.enabled = false
       }
+      settings.value.varDiff.enabled = true
+      const prevPool = appConfig.value?.pool
+      const prevVardiff = prevPool?.varDiff
       await api.send("core", "save_pool_config", settings.value)
       $q.notify({ type: "positive", message: t("components.solo_pool.saved"), timeout: 1500 })
+      if (
+        prevPool &&
+        varDiffParamsChanged(prevVardiff, settings.value.varDiff) &&
+        gateway?.confirmClose
+      ) {
+        void nextTick(() => {
+          gateway.confirmClose(t("components.solo_pool.vardiff_restart_prompt"), true)
+        })
+      }
     }
 
     const commas = (v) => (Number(v || 0)).toLocaleString()
@@ -495,7 +647,10 @@ export default defineComponent({
       }).join(" ")
     })
 
-    const linePalette = ["#21ba45", "#ff9800", "#00bcd4", "#e91e63", "#9c27b0", "#ffc107", "#03a9f4", "#8bc34a"]
+    // Gold tones (theme) — distinct hues for multiple workers, no green/blue
+    const linePalette = [
+      "#dbd19c", "#a89060", "#e8d4a8", "#8b7355", "#c9a86c", "#f0e4c4", "#6d5a40", "#b89b6a"
+    ]
     const workerPolylines = computed(() => {
       if (selectedWorker.value !== "__all__") return []
       const rangeToBuckets = { "15m": 15, "60m": 60, "6h": 360 }
@@ -584,14 +739,16 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.solo-pool-page {
+/* Light theme: default Quasar (dark text). We used to force #f2f2f2, which made fields invisible on light background. */
+.solo-pool-page--dark {
   color: #f2f2f2;
 }
 
-.solo-pool-page :deep(.q-field__native),
-.solo-pool-page :deep(.q-field__input),
-.solo-pool-page :deep(.q-field__label),
-.solo-pool-page :deep(.q-checkbox__label) {
+.solo-pool-page--dark :deep(.q-field__native),
+.solo-pool-page--dark :deep(.q-field__input),
+.solo-pool-page--dark :deep(.q-field__label),
+.solo-pool-page--dark :deep(.q-checkbox__label),
+.solo-pool-page--dark :deep(.q-item__label) {
   color: #f2f2f2 !important;
 }
 
@@ -603,11 +760,15 @@ export default defineComponent({
 }
 
 .solo-pool-content {
-  min-width: 1180px;
+  min-width: 0;
+  width: 100%;
+  max-width: 1280px;
 }
 
 .solo-pool-card {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* Same idea as the first card (Enable solo mining): slightly stronger background behind the VarDiff toggle */
 </style>

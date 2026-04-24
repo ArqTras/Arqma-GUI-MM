@@ -439,6 +439,8 @@
       "debug_log_levels": "Niveles de registro para depurar la billetera",
       "transactions_to_display": "Cuántos días de transacciones mostrar",
       "inactivity_timeout": "Tiempo de espera por inactividad",
+      "inactivity_timeout_infinity": "∞",
+      "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
       "days": " días",
       "minutes": " minutos",
       "advanced_options": "Opciones Avanzadas",

@@ -72,7 +72,7 @@ async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
       let wh = b.wh_stored_height;
       let dh = b.daemon_last_height;
       if wh > 0 && dh > 0 && wh + 1 < dh {
-        // Większy backlog → częstsze `getheight`, żeby stopka nie „stała” w oczekiwaniu na długi skan w wallet-rpc.
+        // Larger backlog -> poll `getheight` more often so the footer does not look “stuck” while wallet-rpc is in a long scan.
         let backlog = dh.saturating_sub(wh);
         if backlog > 500_000 {
           250u64
@@ -154,8 +154,8 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
 
   // While `wh < daemon_tip`: only `getheight` — no balance/address/transfers on this RPC session.
   if in_scan_rhythm {
-    // Podczas ciężkiego skanu wallet-rpc często **blokuje** `getheight` na wiele sekund; zbyt krótki
-    // timeout daje fałszywe „zamrożenie” wysokości w stopce (UI co chwilę widzi ten sam numer).
+    // During heavy scan wallet-rpc often **blocks** `getheight` for many seconds; too short
+    // a timeout yields a false “frozen” height in the footer (UI keeps seeing the same value).
     let gh = match timeout(Duration::from_secs(20), c.call("getheight", &p_empty)).await {
       Ok(r) => r,
       Err(_) => {

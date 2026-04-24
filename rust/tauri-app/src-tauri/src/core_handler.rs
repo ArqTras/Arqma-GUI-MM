@@ -141,7 +141,7 @@ pub async fn handle_core (
         .unwrap_or_else(|| json!({}));
       st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      st.shutdown_subprocesses_async().await;
+      st.shutdown_subprocesses_async(http).await;
       st.startup_seq_done = false;
       run_core_startup(app, st, http).await?;
     }
@@ -363,21 +363,34 @@ fn normalize_pool_var_diff (pool: Value) -> Value {
     .get("varDiff")
     .cloned()
     .unwrap_or_else(|| json!({}));
-  let start = vd.get("startDiff").and_then(|v| v.as_u64()).unwrap_or(5000).clamp(1000, 1_000_000);
-  let mut min_d = vd.get("minDiff").and_then(|v| v.as_u64()).unwrap_or(1000).clamp(1, 1_000_000);
-  let mut max_d = vd.get("maxDiff").and_then(|v| v.as_u64()).unwrap_or(1_000_000).clamp(1, 1_000_000);
+  let start = vd
+    .get("startDiff")
+    .and_then(|v| v.as_u64())
+    .unwrap_or(150_000)
+    .clamp(1000, 100_000_000);
+  let mut min_d = vd
+    .get("minDiff")
+    .and_then(|v| v.as_u64())
+    .unwrap_or(150_000)
+    .clamp(1, 100_000_000);
+  let mut max_d = vd
+    .get("maxDiff")
+    .and_then(|v| v.as_u64())
+    .unwrap_or(10_000_000)
+    .clamp(1, 100_000_000);
   if min_d > max_d {
     std::mem::swap(&mut min_d, &mut max_d);
   }
   let start = start.clamp(min_d, max_d);
-  let target = vd.get("targetTime").and_then(|v| v.as_u64()).unwrap_or(45).clamp(5, 600);
-  let retarget = vd.get("retargetTime").and_then(|v| v.as_u64()).unwrap_or(60).clamp(1, 3600);
-  let variance = vd.get("variancePercent").and_then(|v| v.as_u64()).unwrap_or(45).clamp(1, 95);
-  let jump = vd.get("maxJump").and_then(|v| v.as_u64()).unwrap_or(30).clamp(1, 100);
+  let target = vd.get("targetTime").and_then(|v| v.as_u64()).unwrap_or(20).clamp(5, 600);
+  let retarget = vd.get("retargetTime").and_then(|v| v.as_u64()).unwrap_or(30).clamp(1, 3600);
+  let variance = vd.get("variancePercent").and_then(|v| v.as_u64()).unwrap_or(25).clamp(1, 95);
+  let jump = vd.get("maxJump").and_then(|v| v.as_u64()).unwrap_or(200).clamp(1, 10_000);
   merge_json(
     &pool,
     &json!({
       "varDiff": {
+        "enabled": true,
         "startDiff": start,
         "minDiff": min_d,
         "maxDiff": max_d,

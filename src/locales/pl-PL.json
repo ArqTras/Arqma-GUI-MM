@@ -436,6 +436,8 @@
             "debug_log_levels": "Poziomy logowania do debugowania portfela",
             "transactions_to_display": "Ile dni transakcji wyświetlić",
             "inactivity_timeout": "Limit Czasu Braku Aktywności",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Ostatnia pozycja: brak wylogowania po bezczynności przy włączonym Solo Pool (solo mining). Gdy solo pool jest wyłączony, ta pozycja odpowiada 30 minutom.",
             "days": " dni",
             "minutes": " minuty",
             "advanced_options": "Opcje zaawansowane",

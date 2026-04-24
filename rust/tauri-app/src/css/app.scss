@@ -7,10 +7,10 @@
 }
 
 ::selection {
-    background: #005BC6;
+    background: rgba(168, 144, 96, 0.45);
 }
 ::-moz-selection {
-    background: #005BC6;
+    background: rgba(168, 144, 96, 0.45);
 }
 
 * {
@@ -220,7 +220,7 @@ footer,
 .q-footer.status-footer {
     background: #111111;
     color: white;
-    border-top: 1px solid #333;
+    border-top: 1px solid rgba(167, 144, 96, 0.35);
     padding-top: 2px;
     box-shadow: none;
     font-size: 12px;
@@ -256,35 +256,33 @@ footer,
         }
     }
 
-    /* Dwa paski: demon nad portfelem — wcześniej oba `bottom:0` + ten sam kolor = brak wrażenia postępu. */
-    .status-bars {
-        position: relative;
+    /* Two bars only while syncing: top = daemon, bottom = wallet (Apply / $positive gold) */
+    .status-bars-dual {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
         width: 100%;
-        min-height: 10px;
-        margin-top: 2px;
-        overflow: visible;
+        padding: 0 8px 8px;
+        box-sizing: border-box;
 
-        .status-bar-daemon,
-        .status-bar-wallet {
-            position: absolute;
-            left: 0;
+        .bar-track {
             height: 4px;
+            width: 100%;
+            background: #2a2a2a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
             max-width: 100%;
             border-radius: 2px;
             -webkit-transition: width 0.45s ease-out;
             transition: width 0.45s ease-out;
-        }
-
-        .status-bar-daemon {
-            bottom: 5px;
-            background: linear-gradient(90deg, #2a9d8f, #1d6f66);
-            box-shadow: 0 0 6px rgba(42, 157, 143, 0.45);
-        }
-
-        .status-bar-wallet {
-            bottom: 0;
-            background: linear-gradient(90deg, #5cb85c, #2d6a30);
-            box-shadow: 0 0 6px rgba(92, 184, 92, 0.45);
+            /* Base gold; .bar-fill--daemon / .bar-fill--wallet in footer.vue win with !important */
+            background: linear-gradient(90deg, #a89050, #c9a85a, #d4c48a) !important;
+            background-color: #a89050 !important;
+            box-shadow: 0 0 8px rgba(180, 150, 70, 0.4) !important;
         }
     }
 

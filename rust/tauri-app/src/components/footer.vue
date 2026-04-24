@@ -64,49 +64,31 @@
         </div>
       </div>
     </div>
-    <!-- Thin dual strips: previously both sat at bottom:0 and same #333 — looked like no progress. -->
+    <!-- Shown only while catching up: daemon bar (top) + wallet bar (bottom), gold like Apply / positive. -->
     <div
-      class="status-bars"
+      v-if="showProgressBars"
+      class="status-bars-dual"
       :class="[status]"
     >
       <div
-        class="status-bar-daemon"
-        :style="{ width: daemon_bar_pct + '%' }"
-      />
+        v-if="config_daemon.type !== 'remote'"
+        class="bar-track"
+        :title="`${$t('components.footer.daemon')}: ${daemon_local_pct}%`"
+      >
+        <div
+          class="bar-fill bar-fill--daemon"
+          :style="{ width: daemon_bar_pct + '%' }"
+        />
+      </div>
       <div
-        class="status-bar-wallet"
-        :style="{ width: wallet_bar_pct + '%' }"
-      />
-    </div>
-    <div
-      v-if="is_syncing_daemon"
-      class="q-px-sm q-pt-xs"
-    >
-      <q-linear-progress
-        :value="daemon_progress_ratio"
-        size="10px"
-        color="secondary"
-        track-color="grey-9"
-        rounded
-        stripe
-        animated
-        class="daemon-sync-progress"
-      />
-    </div>
-    <div
-      v-if="is_scanning_wallet"
-      class="q-px-sm q-pt-xs"
-    >
-      <q-linear-progress
-        :value="wallet_progress_ratio"
-        size="10px"
-        color="primary"
-        track-color="grey-9"
-        rounded
-        stripe
-        animated
-        class="wallet-scan-progress"
-      />
+        class="bar-track"
+        :title="`${$t('components.footer.wallet')}: ${wallet_pct}%`"
+      >
+        <div
+          class="bar-fill bar-fill--wallet"
+          :style="{ width: wallet_bar_pct + '%' }"
+        />
+      </div>
     </div>
   </q-footer>
 </template>
@@ -238,40 +220,17 @@ export default defineComponent({
       return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
     })
 
-    const wallet_progress_ratio = computed(() => {
-      const t = Number(target_height.value) || 1
-      const wh = Math.min(Number(walletHeight.value) || 0, t)
-      return Math.min(1, wh / t)
-    })
-
-    const is_syncing_daemon = computed(() => {
-      if (config_daemon.value.type === "remote") {
-        return false
-      }
+    const showProgressBars = computed(() => {
       if (!target_height.value) {
         return false
+      }
+      const t = Number(target_height.value)
+      const wh = Number(walletHeight.value) || 0
+      if (config_daemon.value.type === "remote") {
+        return wh < t
       }
       const dwo = Number(daemon.value?.info?.height_without_bootstrap) || 0
-      return dwo < Number(target_height.value)
-    })
-
-    const daemon_progress_ratio = computed(() => {
-      const t = Number(target_height.value) || 1
-      const dwo = Math.min(
-        Number(daemon.value?.info?.height_without_bootstrap) || 0,
-        t
-      )
-      return Math.min(1, dwo / t)
-    })
-
-    const is_scanning_wallet = computed(() => {
-      if (!target_height.value) {
-        return false
-      }
-      const wh = Number(walletHeight.value) || 0
-      const t = Number(target_height.value)
-      // `wallet_height` lags the chain at the end of rescan: treat any gap as scanning so the bar stays visible
-      return wh < t
+      return dwo < t || wh < t
     })
 
     const status = computed(() => {
@@ -347,12 +306,9 @@ export default defineComponent({
       wallet_pct,
       wallet_bar_pct,
       daemon_bar_pct,
-      wallet_progress_ratio,
       wallet_blocks_left,
       walletBlocksLeftFormatted,
-      daemon_progress_ratio,
-      is_syncing_daemon,
-      is_scanning_wallet,
+      showProgressBars,
       status
     }
   }
@@ -360,9 +316,27 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
-/* Stopka Quasar czasem obcina absolutne dzieci — zostawiamy miejsce na paski. */
+/* Quasar footer can clip absolute-positioned children; leave room for the bars. */
 .q-footer.status-footer {
   overflow: visible;
   padding-bottom: 2px;
+}
+
+/*
+ * Footer sync bars must stay gold (theme / Quasar "positive" must not recolor to green/teal).
+ * Literal hex + !important so nothing overrides the fill.
+ */
+.q-footer.status-footer .status-bars-dual {
+  .bar-fill--daemon {
+    background: linear-gradient(90deg, #7a6228 0%, #a89050 40%, #c9a85a 100%) !important;
+    background-color: #9a7d3a !important;
+    box-shadow: 0 0 8px rgba(180, 140, 60, 0.45) !important;
+  }
+
+  .bar-fill--wallet {
+    background: linear-gradient(90deg, #8a6e30 0%, #b89848 40%, #ddc878 100%) !important;
+    background-color: #a68438 !important;
+    box-shadow: 0 0 8px rgba(200, 165, 80, 0.5) !important;
+  }
 }
 </style>

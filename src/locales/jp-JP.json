@@ -436,6 +436,8 @@
             "debug_log_levels": "ウォレットのデバッグ用のログレベル",
             "transactions_to_display": "表示するトランザクションの日数",
             "inactivity_timeout": "非アクティブタイムアウト",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": "日",
             "minutes": " 分",
             "advanced_options": "詳細オプション",

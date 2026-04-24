@@ -1294,7 +1294,7 @@ export class WalletRPC {
           }
         }
       }
-      // Zawsze wysyłaj set_wallet_info gdy mamy height, żeby stopka pokazywała postęp skanowania
+      // Always emit set_wallet_info when we have height so the footer shows scan progress
       if (info.height !== undefined || hasBalanceChange) {
         this.sendGateway("set_wallet_info", info)
         this.sendGateway("reset_wallet_status", {

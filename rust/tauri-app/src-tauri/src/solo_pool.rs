@@ -17,6 +17,145 @@ use tokio::sync::mpsc;
 use tokio::sync::{oneshot, Mutex};
 use tokio::time::{interval, Duration, MissedTickBehavior};
 
+/// Set `ARQMA_SOLO_POOL_LOG=1` (or `true`) to print `[solo-pool]` lines to stderr. If unset, logs only in **debug** builds.
+fn solo_pool_log_enabled () -> bool {
+  match std::env::var("ARQMA_SOLO_POOL_LOG") {
+    Ok(ref s) if s == "1" || s.eq_ignore_ascii_case("true") => true,
+    Ok(ref s) if s == "0" || s.eq_ignore_ascii_case("false") => false,
+    Ok(_) => false,
+    Err(_) => cfg!(debug_assertions),
+  }
+}
+
+fn solo_pool_log (msg: impl AsRef<str>) {
+  if !solo_pool_log_enabled() {
+    return;
+  }
+  eprintln!("[solo-pool] {}", msg.as_ref());
+}
+
+/// File dumps for suspect XMRig `login` + quick disconnect. Off if `ARQMA_SOLO_POOL_DUMP=0`.
+/// If unset, follows the same default as `solo_pool_log` (on in dev / `ARQMA_SOLO_POOL_LOG=1`).
+fn solo_pool_file_dump_enabled () -> bool {
+  match std::env::var("ARQMA_SOLO_POOL_DUMP") {
+    Ok(ref s) if s == "0" || s.eq_ignore_ascii_case("false") => return false,
+    Ok(ref s) if s == "1" || s.eq_ignore_ascii_case("true") => return true,
+    Ok(_) => return true,
+    Err(_) => {}
+  }
+  solo_pool_log_enabled()
+}
+
+/// Ms from pool `login` response to TCP drop — typical XMRig setBlob/err4 disconnect.
+const SOLO_POOL_DUMP_EOF_MS: i64 = 8_000;
+
+/// `xmrig::Job::m_blob` is 408 bytes; `setBlob` rejects `size >= sizeof(m_blob)`.
+/// Stratum `job.blob` must be the **block hashing blob** (`blockhashing_blob` from daemon), not
+/// the full `blocktemplate_blob` (grows with txs and can exceed 408B → login err 4 / "no active pools").
+const XMRIG_MAX_STRATUM_BLOB_BYTES: usize = 408;
+
+#[derive(Clone)]
+struct LoginResponseSnapshot {
+  at_ms: i64,
+  peer: String,
+  worker: String,
+  session: String,
+  job_id: String,
+  height: u64,
+  worker_diff: u64,
+  blob_len: usize,
+  blob_head200: String,
+  blob_tail32: String,
+  target: String,
+  seed_hash: String,
+  next_seed_stratum: String
+}
+
+fn write_solo_pool_login_close_dump (
+  config_dir: &str,
+  snap: &LoginResponseSnapshot,
+  elapsed_ms: i64,
+  how: &str
+) -> Result<PathBuf, String> {
+  let gui = Path::new(config_dir).join("gui");
+  fs::create_dir_all(&gui).map_err(|e| e.to_string())?;
+  let file_tag = if how == "EOF" {
+    "eof"
+  } else {
+    "err"
+  };
+  let name = format!("xmrig_suspect_login_{}_{}ms_{}.txt", snap.at_ms, elapsed_ms, file_tag);
+  let path = gui.join(&name);
+  let body = format!(
+    "Arqma-Wallet solo-pool: miner closed TCP soon after a successful stratum `login` response.\n\
+     Likely XMRig `login error code: 4` (job.setBlob) — use blob/seed fields below to compare with daemon / another miner.\n\
+     \n\
+     close_reason={}\n\
+     peer={}\n\
+     worker={}\n\
+     session={}\n\
+     stratum job_id={}\n\
+     height={}\n\
+     worker_diff={}\n\
+     target_le_hex={}\n\
+     blob_hex_len={}\n\
+     blob_head200_hex={}\n\
+     blob_tail32_hex={}\n\
+     seed_hash={}\n\
+     next_seed_stratum={}\n\
+     elapsed_after_login_ms={}\n",
+    how,
+    snap.peer,
+    snap.worker,
+    snap.session,
+    snap.job_id,
+    snap.height,
+    snap.worker_diff,
+    snap.target,
+    snap.blob_len,
+    snap.blob_head200,
+    snap.blob_tail32,
+    snap.seed_hash,
+    snap.next_seed_stratum,
+    elapsed_ms
+  );
+  fs::write(&path, body).map_err(|e| e.to_string())?;
+  Ok(path)
+}
+
+/// Short hex fingerprint for logs (XMRig `login error 4` / setBlob is tied to blob + seeds).
+fn hex_prefix_suffix (s: &str, head: usize, tail: usize) -> String {
+  let b = s.as_bytes();
+  if b.len() <= head + tail + 3 {
+    return s.to_string();
+  }
+  format!(
+    "{}...{}",
+    String::from_utf8_lossy(&b[..head]),
+    String::from_utf8_lossy(&b[b.len() - tail..])
+  )
+}
+
+fn blocktemplate_blob_reject_reason (blob: &str) -> Option<&'static str> {
+  let n = blob.len();
+  if n < 152 {
+    return Some("blocktemplate_blob hex too short (<152)");
+  }
+  if n > 512 * 1024 {
+    return Some("blocktemplate_blob hex too long");
+  }
+  if n % 2 != 0 {
+    return Some("blocktemplate_blob odd hex length");
+  }
+  if !blob.bytes().all(|b| b.is_ascii_hexdigit()) {
+    return Some("blocktemplate_blob non-hex");
+  }
+  if hex::decode(blob).is_err() {
+    return Some("blocktemplate_blob hex decode failed");
+  }
+  None
+}
+
 fn is_persist_session (session_id: &str) -> bool {
   session_id.starts_with("persist-")
 }
@@ -42,7 +181,10 @@ fn average_block_effort (blocks: &[Value]) -> f64 {
 #[derive(Clone, Default)]
 struct JobState {
   id: String,
+  /// Stratum / XMRig: daemon `blockhashing_blob` (or legacy small `blocktemplate_blob` when under 408B).
   blob: String,
+  /// Full `blocktemplate_blob` (optional; not sent to miner — used if we later rebuild blocks for `submit_block`).
+  template_blob: String,
   target: String,
   height: u64,
   difficulty: u64,
@@ -318,6 +460,57 @@ fn is_hex_64 (s: &str) -> bool {
   s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+fn is_hex_len (s: &str, n: usize) -> bool {
+  s.len() == n && s.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// Some JSON-RPC stacks return integers as floats or strings; `as_u64()` alone may read as 0.
+fn json_u64 (v: &Value) -> Option<u64> {
+  if let Some(n) = v.as_u64() {
+    return Some(n);
+  }
+  if let Some(n) = v.as_i64() {
+    if n >= 0 {
+      return Some(n as u64);
+    }
+  }
+  if let Some(f) = v.as_f64() {
+    if f.is_finite() && f >= 0. {
+      return Some(f as u64);
+    }
+  }
+  v.as_str().and_then(|s| s.trim().parse::<u64>().ok())
+}
+
+/// XMRig can reject jobs when `next_seed_hash` is an empty string around seed-epoch edges
+/// (expects 32-byte hex like `seed_hash`). Mirror common pool behavior: duplicate `seed_hash`.
+fn stratum_next_seed_hash (seed_hash: &str, next_seed_hash: &str) -> String {
+  if next_seed_hash.is_empty() {
+    seed_hash.to_string()
+  } else {
+    next_seed_hash.to_string()
+  }
+}
+
+/// Short blob for stratum (typically daemon `blockhashing_blob`); must fit XMRig `Job` buffer.
+fn stratum_mining_blob_ok (blob: &str) -> bool {
+  let n = blob.len();
+  if n < 152 || n > 2 * (XMRIG_MAX_STRATUM_BLOB_BYTES - 1) {
+    return false;
+  }
+  if n % 2 != 0 {
+    return false;
+  }
+  if !blob.bytes().all(|b| b.is_ascii_hexdigit()) {
+    return false;
+  }
+  let b = match hex::decode(blob) {
+    Ok(b) => b,
+    Err(_) => return false
+  };
+  b.len() < XMRIG_MAX_STRATUM_BLOB_BYTES
+}
+
 /// XMRig `Client::parseJob` code **4** is `!job.setBlob` — not auth / diff.
 /// Rejecting invalid daemon blobs avoids sending a login `job` that XMRig drops with "login error code: 4"
 /// and then reconnect loops ("no active pools").
@@ -326,13 +519,27 @@ fn blocktemplate_blob_ok (blob: &str) -> bool {
   // Keep lower bound strict: very short blobs can pass hex checks but still fail
   // XMRig parseJob/setBlob (login error code 4, then "no active pools").
   // 76 bytes (152 hex chars) covers block header + nonce area for RandomX templates.
-  if n < 152 || n > 2 * 1024 * 1024 {
+  // Keep upper bound conservative too: extremely large templates can still be valid
+  // JSON-wise, but be rejected by miner-side blob parser.
+  if n < 152 || n > 512 * 1024 {
     return false;
   }
   if n % 2 != 0 {
     return false;
   }
-  blob.bytes().all(|b| b.is_ascii_hexdigit())
+  if !blob.bytes().all(|b| b.is_ascii_hexdigit()) {
+    return false;
+  }
+  // Ensure the daemon value is truly decodable hex, not only [0-9a-f] shaped text.
+  hex::decode(blob).is_ok()
+}
+
+fn blocktemplate_reserved_offset_ok (blob_hex_len: usize, reserved_offset: u64, reserve_size: u64) -> bool {
+  // Offsets are byte-based in daemon API. Pool/miner need at least 4 bytes for nonce.
+  let blob_bytes = blob_hex_len / 2;
+  let nonce_end = reserved_offset.saturating_add(4);
+  let reserve_end = reserved_offset.saturating_add(reserve_size);
+  nonce_end <= blob_bytes as u64 && reserve_end <= blob_bytes as u64
 }
 
 /// Approximate compact stratum target (4-byte LE hex) from difficulty.
@@ -548,7 +755,11 @@ fn maybe_retarget (
   if retarget_ms > 0 && now.saturating_sub(ws.last_retarget_ms) < retarget_ms {
     return false;
   }
-  let avg_ms = ws.share_times_ms.iter().copied().sum::<i64>() / (ws.share_times_ms.len() as i64);
+  // Use only the most recent share intervals. Older entries may reflect a *lower* vardiff (short dt);
+  // mixing them in the average makes avg_ms look too small and retarget *only* upward (XMRig sees diff climb with rare accepts when too high).
+  let n = ws.share_times_ms.len().min(8);
+  let slice = &ws.share_times_ms[ws.share_times_ms.len() - n..];
+  let avg_ms = slice.iter().copied().sum::<i64>() / (n as i64);
   if avg_ms <= 0 {
     return false;
   }
@@ -561,13 +772,30 @@ fn maybe_retarget (
   }
   let prev = ws.difficulty;
   let raw = ((ws.difficulty as f64) * (target_ms as f64) / (avg_ms as f64)) as u64;
-  let jump = max_jump_percent.max(1);
-  let min_step = ws.difficulty.saturating_mul(100 - jump).saturating_div(100);
-  let max_step = ws.difficulty.saturating_mul(100 + jump).saturating_div(100);
-  ws.difficulty = raw.clamp(min_step.max(min_diff), max_step.min(max_diff).max(min_diff));
+  // `100 - maxJump` on u64 underflows for jump>100, which breaks downward retargets.
+  let jump = max_jump_percent.max(1).min(1_000_000);
+  let d = ws.difficulty;
+  let min_step = if jump < 100 {
+    d.saturating_mul(100 - jump) / 100
+  } else {
+    0u64
+  };
+  let max_mul = 100u128.saturating_add(jump as u128);
+  let max_step = (d as u128)
+    .saturating_mul(max_mul)
+    .saturating_div(100) as u64;
+  let lo = min_step.max(min_diff);
+  let hi = max_step.min(max_diff);
+  if lo <= hi {
+    ws.difficulty = raw.clamp(lo, hi);
+  } else {
+    // No overlap with per-step window (mis-tuned or large minDiff vs current); use raw within pool bounds
+    ws.difficulty = raw.clamp(min_diff, max_diff);
+  }
   let changed = ws.difficulty != prev;
   if changed {
     ws.last_retarget_ms = now;
+    ws.share_times_ms.clear();
   }
   changed
 }
@@ -588,26 +816,113 @@ async fn refresh_job (
     "reserve_size": 1
   });
   let Ok(v) = daemon_post(http, &daemon.0, daemon.1, "get_block_template", 0, &params).await else {
+    solo_pool_log("get_block_template: RPC request failed (daemon unreachable or HTTP error)");
     return;
   };
-  if v.get("error").is_some() {
+  if let Some(err) = v.get("error") {
+    solo_pool_log(&format!("get_block_template: JSON-RPC error field: {err}"));
     return;
   }
   let Some(r) = v.get("result") else {
+    solo_pool_log("get_block_template: missing result");
     return;
   };
-  let blob = r.get("blocktemplate_blob").and_then(|x| x.as_str()).unwrap_or("").to_string();
-  if !blocktemplate_blob_ok(&blob) {
+  let template_full = r.get("blocktemplate_blob").and_then(|x| x.as_str()).unwrap_or("").to_string();
+  if let Some(reason) = blocktemplate_blob_reject_reason(&template_full) {
+    solo_pool_log(&format!(
+      "reject template: {reason} (hex_len={})",
+      template_full.len()
+    ));
     return;
   }
-  let height = r.get("height").and_then(|x| x.as_u64()).unwrap_or(0);
-  let difficulty = r.get("difficulty").and_then(|x| x.as_u64()).unwrap_or(0);
+  if !blocktemplate_blob_ok(&template_full) {
+    solo_pool_log("reject template: blocktemplate_blob_ok false after reject_reason (internal)");
+    return;
+  }
+  let reserved_offset = r
+    .get("reserved_offset")
+    .and_then(json_u64)
+    .unwrap_or(0);
+  let reserve_size = r.get("reserve_size").and_then(json_u64).unwrap_or(1);
+  if !blocktemplate_reserved_offset_ok(template_full.len(), reserved_offset, reserve_size) {
+    solo_pool_log(&format!(
+      "reject template: reserved area out of range hex_len={} reserved_offset={} reserve_size={}",
+      template_full.len(),
+      reserved_offset,
+      reserve_size
+    ));
+    return;
+  }
+  let hashing = r
+    .get("blockhashing_blob")
+    .and_then(|x| x.as_str())
+    .unwrap_or("")
+    .to_string();
+  let stratum_blob = if !hashing.is_empty() && stratum_mining_blob_ok(&hashing) {
+    hashing
+  } else if !hashing.is_empty() {
+    solo_pool_log(&format!(
+      "reject template: blockhashing_blob invalid for XMRig (hex_len={}); see XMRIG_MAX_STRATUM_BLOB_BYTES",
+      hashing.len()
+    ));
+    return;
+  } else if stratum_mining_blob_ok(&template_full) {
+    solo_pool_log(&format!(
+      "template: no blockhashing_blob; using small blocktemplate_blob for stratum (hex_len={})",
+      template_full.len()
+    ));
+    template_full.clone()
+  } else {
+    solo_pool_log(&format!(
+      "reject template: need blockhashing_blob for stratum — blocktemplate_blob hex_len={} (>= {}B decoded) exceeds XMRig Job buffer; miningcore/Arqma RPC always provides blockhashing_blob",
+      template_full.len(),
+      XMRIG_MAX_STRATUM_BLOB_BYTES
+    ));
+    return;
+  };
+  let blob = stratum_blob;
+  let height = r.get("height").and_then(json_u64).unwrap_or(0);
+  let difficulty = r.get("difficulty").and_then(json_u64).unwrap_or(0);
   let seed_hash = r.get("seed_hash").and_then(|x| x.as_str()).unwrap_or("").to_string();
   let next_seed_hash = r.get("next_seed_hash").and_then(|x| x.as_str()).unwrap_or("").to_string();
+  if !is_hex_64(&seed_hash) {
+    solo_pool_log(&format!(
+      "reject template: seed_hash must be 64 hex chars, got len={}",
+      seed_hash.len()
+    ));
+    return;
+  }
+  // Some daemons may briefly omit next_seed_hash around updates; keep it optional.
+  if !next_seed_hash.is_empty() && !is_hex_len(&next_seed_hash, 64) {
+    solo_pool_log(&format!(
+      "reject template: next_seed_hash invalid (len={})",
+      next_seed_hash.len()
+    ));
+    return;
+  }
   let id = format!("{:x}", seq.fetch_add(1, Ordering::SeqCst));
+  let seed_prefix: String = seed_hash
+    .chars()
+    .take(12)
+    .collect();
+  let next_e = next_seed_hash.is_empty();
+  solo_pool_log(&format!(
+    "template OK job_id={} height={} network_diff={} stratum_blob_hex_len={} template_hex_len={} blob_fp={} reserved_off={} res_sz={} next_seed_empty={} seed_prefix={}",
+    id,
+    height,
+    difficulty,
+    blob.len(),
+    template_full.len(),
+    hex_prefix_suffix(&blob, 16, 16),
+    reserved_offset,
+    reserve_size,
+    next_e,
+    seed_prefix
+  ));
   let mut j = job.lock().await;
   j.id = id;
   j.blob = blob;
+  j.template_blob = template_full;
   j.target = difficulty_to_target_hex(difficulty);
   j.height = height;
   j.difficulty = difficulty;
@@ -658,63 +973,58 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
   let config_dir = st.paths.config_dir.clone();
   migrate_json_to_sqlite(&config_dir);
   let persisted = load_persisted(&config_dir);
-  let var_enabled = st
-    .config_data
-    .get("pool")
-    .and_then(|p| p.get("varDiff"))
-    .and_then(|v| v.get("enabled"))
-    .and_then(|v| v.as_bool())
-    .unwrap_or(true);
+  // VarDiff is always on (no UI toggle); config `enabled` is ignored.
+  let var_enabled = true;
   let var_start_diff = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("startDiff"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(5000)
-    .clamp(1000, 1_000_000);
+    .unwrap_or(150_000)
+    .clamp(1000, 100_000_000);
   let var_retarget_time_s = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("retargetTime"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(60);
+    .unwrap_or(30);
   let var_target_time_s = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("targetTime"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(45);
+    .unwrap_or(20);
   let var_variance_percent = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("variancePercent"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(45);
+    .unwrap_or(25);
   let var_min_diff = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("minDiff"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(1000);
+    .unwrap_or(150_000);
   let var_max_diff = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("maxDiff"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(1_000_000);
+    .unwrap_or(10_000_000);
   let var_max_jump_percent = st
     .config_data
     .get("pool")
     .and_then(|p| p.get("varDiff"))
     .and_then(|v| v.get("maxJump"))
     .and_then(|v| v.as_u64())
-    .unwrap_or(30);
+    .unwrap_or(200);
   let miner_timeout_ms = st
     .config_data
     .get("pool")
@@ -749,6 +1059,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
       }
     }
     let Some(listener) = listener_opt else {
+      eprintln!("[solo-pool] TcpListener::bind({addr}) failed: {last_bind_err}");
       let _ = emit_receive(
         &app,
         "set_pool_data",
@@ -758,17 +1069,22 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           "workers": []
         }),
       );
+      // OS error strings (e.g. invalid address) are locale-dependent; keep UI copy in English.
       let _ = emit_receive(
         &app,
         "show_notification",
         json!({
           "type": "negative",
-          "message": format!("Solo pool bind failed: {last_bind_err}"),
-          "timeout": 4000
+          "message": "Solo pool could not start: the bind IP or port is invalid, not available, or already in use. Check Solo Pool bind IP and port in settings.",
+          "timeout": 5000
         }),
       );
       return;
     };
+
+    solo_pool_log(&format!(
+      "listening on {addr} (stderr: [solo-pool]; release build: set ARQMA_SOLO_POOL_LOG=1)"
+    ));
 
     let workers: Arc<Mutex<HashMap<String, WorkerState>>> = Arc::new(Mutex::new(HashMap::new()));
     let senders: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<Value>>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -785,7 +1101,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           last_share_ms: pw.last_share_ms,
           last_activity_ms: pw.last_share_ms,
           last_retarget_ms: 0,
-          difficulty: pw.difficulty.max(1000),
+          difficulty: pw.difficulty.clamp(var_min_diff, var_max_diff),
           last_job_id: String::new(),
           shares: pw.shares,
           rejects: pw.rejects,
@@ -914,6 +1230,14 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
             }
           }
           if !changed_sessions.is_empty() && !current.blob.is_empty() && blocktemplate_blob_ok(&current.blob) {
+            solo_pool_log(&format!(
+              "stratum: broadcast method=job to {} session(s) canonical_job_id={} height={} blob_hex_len={} blob_fp={} (varDiff/retarget)",
+              changed_sessions.len(),
+              current.id,
+              current.height,
+              current.blob.len(),
+              hex_prefix_suffix(&current.blob, 16, 16)
+            ));
             let senders_map = senders.lock().await;
             let workers_map = workers.lock().await;
             for sid in changed_sessions {
@@ -930,7 +1254,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     "height": current.height,
                     "algo": "rx/arq",
                     "seed_hash": current.seed_hash,
-                    "next_seed_hash": current.next_seed_hash
+                    "next_seed_hash": stratum_next_seed_hash(&current.seed_hash, &current.next_seed_hash)
                   }
                 }));
               }
@@ -1055,6 +1379,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
         }
         accepted = listener.accept() => {
           let Ok((socket, peer)) = accepted else { continue };
+          let peer_l = peer.to_string();
           let workers2 = workers.clone();
           let senders2 = senders.clone();
           let current_job2 = current_job.clone();
@@ -1068,7 +1393,9 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           let job_seq2 = job_seq.clone();
           let round_hashes2 = round_hashes.clone();
           let last_disconnected2 = last_disconnected.clone();
+          let config_dir_dump = config_dir.clone();
           tokio::spawn(async move {
+            solo_pool_log(&format!("stratum: accepted connection from {peer_l}"));
             let (reader_half, mut writer_half) = socket.into_split();
             let (tx_out, mut rx_out) = mpsc::unbounded_channel::<Value>();
             tokio::spawn(async move {
@@ -1079,20 +1406,83 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
             let mut reader = BufReader::new(reader_half);
             let mut line = String::new();
             let mut my_session_id = String::new();
+            let mut last_login_dump: Option<LoginResponseSnapshot> = None;
             let mut seen_submits: HashMap<String, HashSet<String>> = HashMap::new();
             loop {
               line.clear();
               let n = match reader.read_line(&mut line).await {
-                Ok(0) => break,
+                Ok(0) => {
+                  if let Some(snap) = last_login_dump.take() {
+                    let elapsed = now_ms() - snap.at_ms;
+                    if elapsed >= 0
+                      && elapsed < SOLO_POOL_DUMP_EOF_MS
+                      && my_session_id == snap.session
+                      && solo_pool_file_dump_enabled()
+                    {
+                      match write_solo_pool_login_close_dump(&config_dir_dump, &snap, elapsed, "EOF") {
+                        Ok(p) => solo_pool_log(&format!(
+                          "wrote fast-disconnect diagnostic file {} ({} ms after login; compare blob/seeds with XMRig if err 4)"
+                          ,
+                          p.display(),
+                          elapsed
+                        )),
+                        Err(e) => {
+                          solo_pool_log(&format!("diagnostic file write failed: {e}"));
+                        }
+                      }
+                    }
+                  }
+                  solo_pool_log(&format!(
+                    "stratum: peer {peer_l} closed connection (read EOF) session={my_session_id}"
+                  ));
+                  break;
+                }
                 Ok(n) => n,
-                Err(_) => break
+                Err(e) => {
+                  if let Some(snap) = last_login_dump.take() {
+                    let elapsed = now_ms() - snap.at_ms;
+                    if elapsed >= 0
+                      && elapsed < SOLO_POOL_DUMP_EOF_MS
+                      && my_session_id == snap.session
+                      && solo_pool_file_dump_enabled()
+                    {
+                      let reason = format!("read line error: {e}");
+                      match write_solo_pool_login_close_dump(
+                        &config_dir_dump,
+                        &snap,
+                        elapsed,
+                        &reason,
+                      ) {
+                        Ok(p) => solo_pool_log(&format!(
+                          "wrote fast-disconnect diagnostic file {} ({} ms after login)"
+                          ,
+                          p.display(),
+                          elapsed
+                        )),
+                        Err(we) => {
+                          solo_pool_log(&format!("diagnostic file write failed: {we}"));
+                        }
+                      }
+                    }
+                  }
+                  solo_pool_log(&format!(
+                    "stratum: peer {peer_l} read_line error: {e} session={my_session_id}"
+                  ));
+                  break;
+                }
               };
               if n == 0 || line.trim().is_empty() {
                 continue;
               }
               let parsed: Value = match serde_json::from_str(line.trim()) {
                 Ok(v) => v,
-                Err(_) => {
+                Err(e) => {
+                  let preview: String = line.chars().take(220).collect();
+                  solo_pool_log(&format!(
+                    "stratum: peer {peer_l} JSON parse error: {e} (line_len={}) preview={}",
+                    line.len(),
+                    preview
+                  ));
                   let _ = tx_out.send(json!({
                     "id": null,
                     "jsonrpc":"2.0",
@@ -1116,6 +1506,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   .unwrap_or("");
                 let raw_name = if !rigid.is_empty() { rigid } else if !pass.is_empty() && pass.to_lowercase() != "x" { pass } else { login };
                 let worker_name = sanitize_worker_name(raw_name);
+                let worker_name_for_log = worker_name.clone();
                 let mut worker_diff = 5000u64;
                 if var_enabled {
                   worker_diff = var_start_diff;
@@ -1124,7 +1515,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 if login_parts.len() > 1 {
                   if let Some(last) = login_parts.last() {
                     if let Ok(d) = last.parse::<u64>() {
-                      worker_diff = d.clamp(1000, 1_000_000);
+                      worker_diff = d.clamp(var_min_diff, var_max_diff);
                     }
                   }
                 }
@@ -1148,6 +1539,11 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                   }
                 }
                 if j.id.is_empty() || j.blob.is_empty() || !blocktemplate_blob_ok(&j.blob) {
+                  solo_pool_log(&format!(
+                    "stratum: peer {peer_l} login -> Waiting for daemon (no valid job yet job_id={} blob_len={})",
+                    j.id,
+                    j.blob.len()
+                  ));
                   let _ = tx_out.send(json!({
                     "id": id,
                     "jsonrpc":"2.0",
@@ -1189,6 +1585,50 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 }
                 let worker_target = difficulty_to_target_hex(worker_diff);
                 let worker_job_id = worker_job_id(&j.id, worker_diff);
+                let next_s = stratum_next_seed_hash(&j.seed_hash, &j.next_seed_hash);
+                solo_pool_log(&format!(
+                  "stratum: peer {peer_l} login OK worker={} session={} job_id={} height={} worker_diff={} blob_hex_len={} target={} blob_fp={} seed_prefix={} next_stratum_len={} (XMRig err 4 = setBlob)",
+                  worker_name_for_log,
+                  my_session_id,
+                  worker_job_id,
+                  j.height,
+                  worker_diff,
+                  j.blob.len(),
+                  worker_target,
+                  hex_prefix_suffix(&j.blob, 16, 16),
+                  j.seed_hash.chars().take(10).collect::<String>(),
+                  next_s.len()
+                ));
+                {
+                  let at_login = now_ms();
+                  let b = j.blob.as_str();
+                  let blob_len = b.len();
+                  let blob_head200: String = if b.len() <= 200 {
+                    b.to_string()
+                  } else {
+                    b[..200].to_string()
+                  };
+                  let blob_tail32: String = if b.len() > 32 {
+                    b[b.len() - 32..].to_string()
+                  } else {
+                    b.to_string()
+                  };
+                  last_login_dump = Some(LoginResponseSnapshot {
+                    at_ms: at_login,
+                    peer: peer_l.clone(),
+                    worker: worker_name_for_log.clone(),
+                    session: my_session_id.clone(),
+                    job_id: worker_job_id.clone(),
+                    height: j.height,
+                    worker_diff,
+                    blob_len,
+                    blob_head200,
+                    blob_tail32,
+                    target: worker_target.clone(),
+                    seed_hash: j.seed_hash.clone(),
+                    next_seed_stratum: next_s.clone()
+                  });
+                }
                 let _ = tx_out.send(json!({
                   "id": id,
                   "jsonrpc":"2.0",
@@ -1202,7 +1642,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                       "height": j.height,
                       "algo": "rx/arq",
                       "seed_hash": j.seed_hash,
-                      "next_seed_hash": j.next_seed_hash
+                      "next_seed_hash": next_s
                     },
                     "extensions": ["algo", "keepalive"],
                     "keepalive": false,
@@ -1269,7 +1709,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                     "height": j.height,
                     "algo": "rx/arq",
                     "seed_hash": j.seed_hash,
-                    "next_seed_hash": j.next_seed_hash
+                    "next_seed_hash": stratum_next_seed_hash(&j.seed_hash, &j.next_seed_hash)
                   }
                 }));
                 continue;
@@ -1374,7 +1814,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                           "height": j.height,
                           "algo": "rx/arq",
                           "seed_hash": j.seed_hash,
-                          "next_seed_hash": j.next_seed_hash
+                          "next_seed_hash": stratum_next_seed_hash(&j.seed_hash, &j.next_seed_hash)
                         }
                       }));
                     }
