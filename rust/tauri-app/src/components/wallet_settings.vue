@@ -952,7 +952,7 @@ export default defineComponent({
               transitionHide: "flip-down"
             })
             .onOk((password) => {
-              api.send("wallet", "rescan_blockchain")
+              api.send("wallet", "rescan_blockchain", { hard: true })
             })
             .onDismiss(() => {})
             .onCancel(() => {})

@@ -108,7 +108,8 @@ export class WalletRPC {
         auth.slice(128, 32) // password salt
       ]
 
-      const logLevel = options.wallet.log_level !== undefined ? options.wallet.log_level : 1
+      // Min 1: level 0 hides scan progress lines in the wallet-rpc log (same as Tauri `wallet_process`).
+      const logLevel = Math.max(1, Number(options.wallet.log_level !== undefined ? options.wallet.log_level : 1) || 1)
       const args = [
         "--rpc-login",
         this.auth[0] + ":" + this.auth[1],

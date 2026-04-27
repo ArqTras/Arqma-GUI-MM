@@ -209,7 +209,8 @@ export default defineComponent({
       }
       const t = Number(target_height.value) || 0
       const wh = Number(walletHeight.value) || 0
-      return Math.max(0, t - wh)
+      const effTarget = t > 1 ? t - 1 : t
+      return Math.max(0, effTarget - wh)
     })
 
     const walletBlocksLeftFormatted = computed(() => {
@@ -226,11 +227,12 @@ export default defineComponent({
       }
       const t = Number(target_height.value)
       const wh = Number(walletHeight.value) || 0
+      const walletNeedsBars = t > 1 ? wh < t - 1 : wh < t
       if (config_daemon.value.type === "remote") {
-        return wh < t
+        return walletNeedsBars
       }
       const dwo = Number(daemon.value?.info?.height_without_bootstrap) || 0
-      return dwo < t || wh < t
+      return dwo < t || walletNeedsBars
     })
 
     const status = computed(() => {
@@ -240,7 +242,8 @@ export default defineComponent({
       }
       const wh = Number(walletHeight.value) || 0
       const target = Number(target_height.value)
-      const walletBehind = wh < target
+      // Align with `gateway/isReady` and Monero-style RPC: height at tip−1 counts as synced.
+      const walletBehind = target > 1 ? wh < target - 1 : wh < target
       if (config_daemon.value.type === "local") {
         if ((Number(daemon.value?.info?.height_without_bootstrap) || 0) < target) {
           result = t("components.footer.syncing")
@@ -337,6 +340,23 @@ export default defineComponent({
     background: linear-gradient(90deg, #8a6e30 0%, #b89848 40%, #ddc878 100%) !important;
     background-color: #a68438 !important;
     box-shadow: 0 0 8px rgba(200, 165, 80, 0.5) !important;
+  }
+
+  /* Pulsing while SCANNING: RPC height can stay flat for a long time on heavy chain segments. */
+  &.SCANNING .bar-fill--wallet {
+    animation: wallet-footer-pulse 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes wallet-footer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.9;
+    filter: brightness(1.06);
   }
 }
 </style>

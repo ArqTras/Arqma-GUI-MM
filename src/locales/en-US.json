@@ -349,7 +349,8 @@
             "language": "Language",
             "syncing": "syncing",
             "scanning": "scanning",
-            "ready": "ready"
+            "ready": "ready",
+            "blocks_left": "≈{n} blocks to scan"
         },
         "mainmenu": {
             "daemon_settings": "Daemon Settings",

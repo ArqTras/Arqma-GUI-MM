@@ -349,7 +349,8 @@
             "language": "اللغة",
             "syncing": "جاري المزامنة",
             "scanning": "جاري المسح",
-            "ready": "جاهز"
+            "ready": "جاهز",
+            "blocks_left": "≈{n} بلوك متبقٍ"
         },
         "mainmenu": {
             "daemon_settings": "إعدادات الواجهة الخلفية",

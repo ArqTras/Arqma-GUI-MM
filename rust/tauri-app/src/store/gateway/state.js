@@ -47,7 +47,9 @@ export default {
       height: 0,
       balance: 0,
       unlocked_balance: 0,
-      view_only: false
+      view_only: false,
+      /** ms since epoch — wallet heartbeat (scan mode) to show liveness in footer */
+      scan_poll_ts: 0
     },
     secret: {
       mnemonic: "",

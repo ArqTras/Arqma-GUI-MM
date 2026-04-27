@@ -218,11 +218,19 @@ export default defineComponent({
             dark: theme.value === "dark"
           })
           .onOk(async () => {
-            await api.send("wallet", "close_wallet")
-            router.push({ path: "/wallet-select" })
-            setTimeout(() => {
-              $store.dispatch("gateway/resetWalletData")
-            }, 250)
+            $q.loading.show({
+              delay: 0,
+              message: t("components.mainmenu.closing_wallet")
+            })
+            try {
+              await api.send("wallet", "close_wallet")
+              router.push({ path: "/wallet-select" })
+              setTimeout(() => {
+                $store.dispatch("gateway/resetWalletData")
+              }, 250)
+            } finally {
+              $q.loading.hide()
+            }
           })
           .onCancel(() => {})
           .onDismiss(() => {})

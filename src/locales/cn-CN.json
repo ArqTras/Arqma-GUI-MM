@@ -349,7 +349,8 @@
             "language": "语言",
             "syncing": "同步中",
             "scanning": "扫描中",
-            "ready": "准备就绪"
+            "ready": "准备就绪",
+            "blocks_left": "约 {n} 个区块待扫描"
         },
         "mainmenu": {
             "daemon_settings": "守护进程设置",

@@ -349,7 +349,8 @@
             "language": "Język",
             "syncing": "synchronizowanie",
             "scanning": "skanowanie",
-            "ready": "gotowy"
+            "ready": "gotowy",
+            "blocks_left": "≈{n} bloków do przeskanowania"
         },
         "mainmenu": {
             "daemon_settings": "Ustawienia demona",

@@ -1,10 +1,11 @@
 use crate::backend_state::WalletBackendState;
+use serde_json::Value;
+use std::path::PathBuf;
 use crate::json_rpc_client::WalletRpcClient;
 use std::sync::Arc;
 use crate::native_bin::resolve_wallet_rpc_exe;
 use crate::subprocess::new_child_command;
 use rand::RngCore;
-use serde_json::Value;
 use std::process::Stdio;
 use std::time::Duration;
 use tauri::AppHandle;
@@ -24,7 +25,15 @@ pub enum WalletRpcStartResult {
   RpcTimeout,
 }
 
-/// Random `rpc-login` (160 B → 320 hex chars) — distribution aligned with `Buffer.toString("hex")`.
+/// Same file as `arqma-wallet-rpc --log-file` in [`try_start_wallet_rpc`] (Electron also watches this stream via `stdout`).
+pub fn arqma_wallet_rpc_log_path (config: &Value) -> Option<PathBuf> {
+  let wdir = crate::arqma_paths_config::wallet_files_dir(&config)?;
+  wdir
+    .parent()
+    .map(|p| p.join("logs").join("arqma-wallet-rpc.log"))
+}
+
+/// Random `rpc-login` (160 B → 320 hex chars) — distribution aligned to `Buffer.toString("hex")`.
 fn generate_auth_triple () -> (String, String, String) {
   let mut b = [0u8; 64 + 64 + 32];
   rand::thread_rng().fill_bytes(&mut b);
@@ -92,12 +101,15 @@ pub async fn try_start_wallet_rpc (
     eprintln!("[wallet] create_dir_all: {e}");
     return WalletRpcStartResult::WalletDirCreateFailed(e.to_string());
   }
+  // Level 0 yields almost no wallet-rpc log lines — footer / `wallet_rpc_log_height` need
+  // `Processed block` / sync lines (same as Electron defaulting wallet log to 1).
   let log_level = st
     .config_data
     .get("wallet")
     .and_then(|w| w.get("log_level"))
     .and_then(|l| l.as_u64())
-    .unwrap_or(1);
+    .unwrap_or(1)
+    .max(1);
   let rpc_port = crate::arqma_paths_config::wallet_rpc_bind_port(&st.config_data);
   let log_dir = wdir.parent().map(|p| p.join("logs"));
   if let Some(ref ld) = log_dir {
@@ -174,9 +186,25 @@ pub async fn try_start_wallet_rpc (
   WalletRpcStartResult::RpcTimeout
 }
 
-/// Flush wallet, ask `arqma-wallet-rpc` to exit (`stop_wallet` — same as Monero docs), wait for the child;
-/// falls back to `kill` if the process does not exit in time. Avoids orphaned RPC after app/wallet close.
+/// If a wallet file is still open, flush and `close_wallet` (matches Electron `closeWallet` before `quit` /
+/// `SIGKILL`); then `store` + `stop_wallet` to exit the daemon, wait for the child, `kill` on timeout.
 pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
+  if !st.wh_display_name.is_empty() {
+    if let Some(w) = st.wallet_json_rpc() {
+      match timeout(Duration::from_secs(30), w.call("store", &Value::Null)).await {
+        Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] pre-exit store: {:?}", r.get("error")),
+        Ok(Err(e)) => eprintln!("[wallet] pre-exit store: {e}"),
+        Ok(Ok(_)) => {}
+        Err(_) => eprintln!("[wallet] pre-exit store: timed out, continuing to close_wallet"),
+      }
+      match timeout(Duration::from_secs(20), w.call("close_wallet", &Value::Null)).await {
+        Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] pre-exit close_wallet: {:?}", r.get("error")),
+        Ok(Err(e)) => eprintln!("[wallet] pre-exit close_wallet: {e}"),
+        Ok(Ok(_)) => {}
+        Err(_) => eprintln!("[wallet] pre-exit close_wallet: timed out, continuing to stop"),
+      }
+    }
+  }
   if let Some(w) = st.wallet_json_rpc() {
     // `store` can hang for a long time during blockchain scan; same for `stop_wallet` if RPC is busy.
     match timeout(Duration::from_secs(12), w.call("store", &Value::Null)).await {

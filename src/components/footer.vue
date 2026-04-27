@@ -165,7 +165,7 @@ export default defineComponent({
       }
       const wh = Number(walletHeight.value)
       const target = Number(target_height.value)
-      const walletBehind = wh < target - 1
+      const walletBehind = target > 1 ? wh < target - 1 : wh < target
       if (config_daemon.value.type === "local") {
         if (daemon.value.info.height_without_bootstrap < target) {
           result = t("components.footer.syncing")

@@ -349,7 +349,8 @@
             "language": "Sprache",
             "syncing": "zeitlich übereinstimmend",
             "scanning": "Abtastung",
-            "ready": "fertig"
+            "ready": "fertig",
+            "blocks_left": "≈{n} Blöcke zu scannen"
         },
         "mainmenu": {
             "daemon_settings": "Daemon-Einstellungen",

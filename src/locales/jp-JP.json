@@ -349,7 +349,8 @@
             "language": "言語",
             "syncing": "同期中",
             "scanning": "スキャン中",
-            "ready": "準備完了"
+            "ready": "準備完了",
+            "blocks_left": "残り約 {n} ブロック"
         },
         "mainmenu": {
             "daemon_settings": "デーモン設定",

@@ -349,7 +349,8 @@
             "language": "Langue",
             "syncing": "Synchronisation",
             "scanning": "balayage",
-            "ready": "prêt"
+            "ready": "prêt",
+            "blocks_left": "≈{n} blocs à balayer"
         },
         "mainmenu": {
             "daemon_settings": "Configuration Daemon",

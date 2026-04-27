@@ -22,6 +22,7 @@ mod subprocess;
 mod daemon_heartbeat;
 mod sync_debug;
 mod wallet_heartbeat;
+mod wallet_rpc_log_height;
 mod wallet_relay_ops;
 mod wallet_pools;
 mod solo_pool;
@@ -178,8 +179,17 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
   eprintln!("[backend_send] {}::{}", message.module, message.method);
 
   let http = &state.http;
-  let mut b = state.backend.lock().await;
   let data = &message.data;
+
+  // `close_wallet` must not hold `AppData::backend` during `store`/`close_wallet` JSON-RPC — that would
+  // block [`wallet_handler::wallet_heartbeat`] and freeze the footer scan % for the whole duration.
+  if message.module == "wallet" && message.method == "close_wallet" {
+    crate::wallet_handler::handle_close_wallet(&app, &*state, http, data).await?;
+    let _ = app.emit("backend-ping", "ok");
+    return Ok(Value::Null);
+  }
+
+  let mut b = state.backend.lock().await;
 
   match message.module.as_str() {
     "core" => {

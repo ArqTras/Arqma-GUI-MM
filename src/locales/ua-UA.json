@@ -349,7 +349,8 @@
             "language": "Мова",
             "syncing": "Синхронізація",
             "scanning": "Сканування",
-            "ready": "Готовий"
+            "ready": "Готовий",
+            "blocks_left": "≈{n} блоків до сканування"
         },
         "mainmenu": {
             "daemon_settings": "Налаштування Демона",
