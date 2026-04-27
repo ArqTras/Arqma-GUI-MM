@@ -417,6 +417,9 @@ pub async fn handle_wallet (
           .and_then(|n| n.as_str())
           .unwrap_or("");
         emit_receive(app, "reset_wallet_error", json!({}))?;
+        // Emit OK before height (Electron: `reset_wallet_status` then fire-and-forget `getheight`).
+        // Heartbeat starts only after the blocking `getheight` here so it cannot race this call on
+        // the digest client (Electron serializes everything through one `PQueue`).
         emit_receive(
           app,
           "reset_wallet_status",

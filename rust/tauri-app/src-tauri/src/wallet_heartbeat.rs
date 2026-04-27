@@ -1,6 +1,27 @@
-//! `getheight` / `getbalance` / `get_transfers` loop like `WalletRPC.heartbeatAction` in Electron.
-//! Initial `get_transfers` is also forced once when `wh_pending_initial_transfers` is set (open /
-//! new wallet), matching Electron’s first heartbeat where `wallet_state.balance` is still `null`.
+//! Wallet sync heartbeat — parity with Electron `src-electron/.../wallet-rpc.js`.
+//!
+//! ## Electron reference (`WalletRPC`)
+//! - **Single RPC lane:** `this.queue = new PQueue({ concurrency: 1 })`. Every `sendRPC` runs
+//!   strictly one at a time, even when `heartbeatAction` uses `Promise.allSettled` on
+//!   `get_address`, `getheight`, and `getbalance` — they queue FIFO, not parallel HTTP.
+//! - **Interval:** `setInterval(..., local ? 5000 : 60_000)` between full `heartbeatAction` runs.
+//! - **Per-RPC timeout:** `this.timeout` = **5000 ms** for those three calls; during long chain
+//!   scan `getheight` often times out, so the footer still moves from **`stdout` log regexes**
+//!   (`height_regexes`, min **2 s** between `set_wallet_info` height emits).
+//! - **`get_transfers`:** default `sendRPC(..., 0)` → **30 s** client-side cap in `sendRPC`.
+//! - **`checkHeight`:** always `true` (throttle disabled).
+//! - **Open wallet:** `startHeartbeat()` then fire-and-forget `getheight` → `set_wallet_info`.
+//!
+//! ## Tauri mapping
+//! - **Catch-up (`wh` behind daemon):** one `getheight` per tick, **no** balance/transfers sidecar
+//!   while `backlog > 0` — matches “only one wallet job at a time” and avoids starving height when
+//!   `wallet-rpc` uses one worker (split digest sessions are not equivalent to Electron’s queue).
+//! - **Sleep while catching up:** **5000 ms** (local) / **60_000 ms** (remote) between ticks — same
+//!   cadence as Electron’s heartbeat interval (we only run `getheight` per tick, not three RPCs).
+//! - **Long `getheight`:** 120 s cap so scan progress is not dropped like Electron’s 5 s timeout.
+//! - **After catch-up:** “heavy” tick: sequential `getheight` → `get_address` → `getbalance` (no
+//!   `join!`), then optional background `get_transfers` like Electron after a balance change.
+//! - **Log tailer:** `wallet_rpc_log_height` mirrors Electron’s stdout regex + 2 s throttle.
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::WalletRpcClient;
 use crate::json_util::{json_rpc_no_error, value_as_u64, wallet_height_from_getheight};
@@ -37,8 +58,8 @@ async fn rpc_timeout (
 }
 
 /// While the wallet height is behind the daemon tip, the main digest loop is **light** (`getheight`
-/// only, fast sleeps) so the footer keeps moving. Balance / `get_transfers` follow Electron’s
-/// cadence on a **second** digest session (`maybe_spawn_scan_rhythm_balance_probe`).
+/// only). Balance / tx list refresh runs only when **caught up** (`maybe_spawn_scan_rhythm_balance_probe`),
+/// matching Electron’s single-queue behavior (no concurrent wallet RPC during scan).
 
 pub fn start (app: &AppHandle, st: &mut crate::backend_state::WalletBackendState, is_local: bool) {
   if st.wh_display_name.is_empty() {
@@ -87,11 +108,10 @@ pub fn stop (st: &mut crate::backend_state::WalletBackendState) {
 }
 
 async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
-  // Poll faster while the wallet is still far from the last known chain height (`daemon_last_height`)
-  // so the footer "blocks scanned" / % update visibly during long rescans. When caught up, back off
-  // to 1s (local) — same as Electron `setInterval` for local. For **remote** daemon, Electron uses
-  // `60 * 1000` ms between `heartbeatAction`; match that here when not in catch-up (light `getheight`
-  // rhythm still uses short sleeps so remote rescans are not stuck for a minute between height ticks).
+  // Electron: `setInterval(heartbeatAction, local ? 5_000 : 60_000)`. During catch-up we emit one
+  // `getheight` per interval (Electron runs three RPCs per interval but serialized — effective
+  // `getheight` rate ≈ same). Shorter sleeps were dropped: they oversaturated `wallet-rpc` vs
+  // Electron. When caught up, 1s local matches a responsive post-sync poll.
   let mut cycle: u64 = 0;
   while app.try_state::<AppData>().is_some() {
     cycle = cycle.wrapping_add(1);
@@ -109,14 +129,10 @@ async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
       let dh = b.daemon_last_height;
       let in_catchup_rhythm = wh > 0 && dh > 0 && wh + 1 < dh;
       if in_catchup_rhythm {
-        // Larger backlog -> poll `getheight` more often so the footer does not look “stuck” while wallet-rpc is in a long scan.
-        let backlog = dh.saturating_sub(wh);
-        if backlog > 500_000 {
-          250u64
-        } else if backlog > 100_000 {
-          350u64
+        if is_local {
+          5_000u64
         } else {
-          500u64
+          60_000u64
         }
       } else if is_local {
         1_000u64

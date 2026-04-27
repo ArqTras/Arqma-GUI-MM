@@ -1,7 +1,11 @@
-//! Electron's `wallet-rpc.js` reads **stdout** from `arqma-wallet-rpc` and matches `height_regexes`, then
-//! `sendGateway("set_wallet_info", { height })` at least every 2s while lines appear. Tauri spawns the
-//! child with stdout/stderr discarded and uses `--log-file` instead — the same lines are written there,
-//! so we tail that file for footer parity.
+//! Electron (`wallet-rpc.js`): reads **stdout** from `arqma-wallet-rpc`, matches `height_regexes`
+//! (`Processed block`, skipped heights, `Blockchain sync progress`), then
+//! `sendGateway("set_wallet_info", { height })` with a **2 s** minimum gap (`last_height_send_time`).
+//! Electron often omits `name` on that path; we include `name` + `scan_poll_ts` for Vuex merge.
+//!
+//! Tauri spawns the child with stdout/stderr discarded and uses `--log-file` (same as Electron’s
+//! `--log-file`); we tail that file. Log is truncated on wallet-rpc start (`wallet_process`), like
+//! Electron’s `truncate(log_file, 0)` on startup.
 
 use crate::gateway_emit::emit_receive;
 use crate::AppData;
