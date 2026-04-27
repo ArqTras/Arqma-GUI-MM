@@ -31,6 +31,8 @@ export class WalletRPC {
     this.heightEmitter = null
     this.timeout = 5000
     this.twoMinuteTimeout = 120000 // 120 seconds
+    /** `store` during chain scan can exceed `this.timeout`; aborting risks torn wallet files on disk. */
+    this.storeFlushTimeoutMs = 180000
     this.stakeAcquisition = null
     this.isQuitting = false
     this.tx_metadata_list = []
@@ -3448,7 +3450,7 @@ export class WalletRPC {
   async saveWallet () {
     logger.info("wallet  saveWallet")
     try {
-      await this.sendRPC("store", {}, this.timeout)
+      await this.sendRPC("store", {}, this.storeFlushTimeoutMs)
     } catch (error) {
       logger.error(`wallet saveWallet ${error.stack || error}`)
     }
@@ -3473,7 +3475,7 @@ export class WalletRPC {
       )
     }
     try {
-      await this.sendRPC("close_wallet", {}, this.timeout)
+      await this.sendRPC("close_wallet", {}, this.storeFlushTimeoutMs)
     } catch (error) {
       logger.error(`wallet closeWallet ${error.stack || error}`)
     } finally {

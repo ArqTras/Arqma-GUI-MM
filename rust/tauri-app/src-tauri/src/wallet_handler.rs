@@ -17,6 +17,11 @@ use tokio::time::timeout as tokio_timeout;
 const ERR_NO_LOCAL_WALLET_RPC: &str =
   "No local arqma-wallet-rpc: set ARQMA_WALLET_RPC or ARQMA_BUILD_DIR (upstream build/release), PATH, resource/bin, or configure a remote node.";
 
+/// `store` during `rescan_blockchain` / long catch-up can take minutes. Timing out and then
+/// `close_wallet` / SIGKILL risks a torn wallet `.keys` / cache on disk (user sees corruption,
+/// needs `rescan_bc` hard or restore).
+const WALLET_STORE_BEFORE_CLOSE_SECS: u64 = 180;
+
 /// When `close_wallet` fails or times out, drop heartbeat state and restart `arqma-wallet-rpc` so "Switch account"
 /// and the next `open_wallet` work (stale `WalletRpcClient` + file still open in the child otherwise).
 async fn close_wallet_force_release_stuck_rpc (st: &mut WalletBackendState) {
@@ -47,7 +52,12 @@ pub async fn handle_close_wallet (
 
   {
     let w = wallet_arc.as_ref();
-    match tokio_timeout(Duration::from_secs(5), w.call("store", &json!({}))).await {
+    match tokio_timeout(
+      Duration::from_secs(WALLET_STORE_BEFORE_CLOSE_SECS),
+      w.call("store", &json!({})),
+    )
+    .await
+    {
       Ok(Ok(ref store_r)) if store_r.get("error").is_some() => {
         eprintln!(
           "[wallet] store before close_wallet: {:?}",
@@ -57,7 +67,8 @@ pub async fn handle_close_wallet (
       Ok(Err(e)) => eprintln!("[wallet] store before close_wallet: {e}"),
       Ok(Ok(_)) => {}
       Err(_) => eprintln!(
-        "[wallet] store before close_wallet: timed out after 5s, continuing to close"
+        "[wallet] store before close_wallet: timed out after {}s, continuing to close",
+        WALLET_STORE_BEFORE_CLOSE_SECS
       ),
     }
   }

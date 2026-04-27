@@ -189,9 +189,12 @@ pub async fn try_start_wallet_rpc (
 /// If a wallet file is still open, flush and `close_wallet` (matches Electron `closeWallet` before `quit` /
 /// `SIGKILL`); then `store` + `stop_wallet` to exit the daemon, wait for the child, `kill` on timeout.
 pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
+  /// Same rationale as `wallet_handler::WALLET_STORE_BEFORE_CLOSE_SECS` — short timeouts during scan
+  /// invite torn wallet files if we kill the child right after.
+  const PRE_EXIT_STORE_SECS: u64 = 180;
   if !st.wh_display_name.is_empty() {
     if let Some(w) = st.wallet_json_rpc() {
-      match timeout(Duration::from_secs(30), w.call("store", &Value::Null)).await {
+      match timeout(Duration::from_secs(PRE_EXIT_STORE_SECS), w.call("store", &Value::Null)).await {
         Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] pre-exit store: {:?}", r.get("error")),
         Ok(Err(e)) => eprintln!("[wallet] pre-exit store: {e}"),
         Ok(Ok(_)) => {}
@@ -207,7 +210,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
   }
   if let Some(w) = st.wallet_json_rpc() {
     // `store` can hang for a long time during blockchain scan; same for `stop_wallet` if RPC is busy.
-    match timeout(Duration::from_secs(12), w.call("store", &Value::Null)).await {
+    match timeout(Duration::from_secs(90), w.call("store", &Value::Null)).await {
       Ok(Ok(r)) if r.get("error").is_some() => eprintln!("[wallet] exit store: {:?}", r.get("error")),
       Ok(Err(e)) => eprintln!("[wallet] exit store: {e}"),
       Ok(Ok(_)) => {}
