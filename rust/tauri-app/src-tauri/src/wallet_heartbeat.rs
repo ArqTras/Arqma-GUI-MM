@@ -164,6 +164,19 @@ async fn maybe_spawn_scan_rhythm_balance_probe (
   let Some(adata) = app.try_state::<AppData>() else {
     return;
   };
+  // `arqma-wallet-rpc` typically serves JSON-RPC from one worker: parallel `getbalance` /
+  // `get_transfers` on split digest sessions can queue ahead of `getheight` and freeze the footer
+  // for thousands of blocks (CLI shows tip while GUI height stalls).
+  {
+    let b = adata.backend.lock().await;
+    if b.wh_display_name != wallet_name {
+      return;
+    }
+    let backlog = b.daemon_last_height.saturating_sub(b.wh_stored_height);
+    if backlog > 0 {
+      return;
+    }
+  }
   let should = {
     let b = adata.backend.lock().await;
     if b.wh_display_name != wallet_name {
@@ -231,12 +244,8 @@ async fn maybe_spawn_scan_rhythm_balance_probe (
       }
       let ch = b.wh_stored_balance != bal || b.wh_stored_unlocked != unl;
       let pend = b.wh_pending_initial_transfers;
-      let dh = b.daemon_last_height;
-      let backlog = dh.saturating_sub(b.wh_stored_height);
-      // Long `get_transfers` on a second digest session can starve `getheight` on single-worker
-      // wallet-rpc; defer tx history until closer to the chain tip.
-      const DEFER_TRANSFERS_BACKLOG: u64 = 800;
-      let need = ch || (pend && backlog <= DEFER_TRANSFERS_BACKLOG);
+      // Catch-up skipped sidecar entirely (`backlog > 0`); here `backlog == 0` at probe scheduling time.
+      let need = ch || pend;
       if ch {
         b.wh_stored_balance = bal;
         b.wh_stored_unlocked = unl;
@@ -500,13 +509,12 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient, is_local: bool) -> boo
         }
       }
       if do_store {
-        let c_store = c.split_session();
-        tokio::spawn(async move {
-          let _ = rpc_timeout(Duration::from_secs(180), c_store.call("store", &json!({}))).await;
-          if is_sync_debug() {
-            eprintln!("[sync-debug][wallet-hb] catch-up store (background) finished");
-          }
-        });
+        // Same digest session as `getheight` — a parallel `store` on `split_session` can still
+        // queue behind other work and starve height polls on single-worker wallet-rpc.
+        let _ = rpc_timeout(Duration::from_secs(180), c.call("store", &json!({}))).await;
+        if is_sync_debug() {
+          eprintln!("[sync-debug][wallet-hb] catch-up store (sequential) done");
+        }
       }
     }
     if is_sync_debug() {
@@ -664,10 +672,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient, is_local: bool) -> boo
       }
     }
     if do_tip_store {
-      let c_store = c.split_session();
-      tokio::spawn(async move {
-        let _ = rpc_timeout(Duration::from_secs(180), c_store.call("store", &json!({}))).await;
-      });
+      let _ = rpc_timeout(Duration::from_secs(180), c.call("store", &json!({}))).await;
     }
   }
   // Footer needs `height` every tick; `info` always contains it after the fallback above.
