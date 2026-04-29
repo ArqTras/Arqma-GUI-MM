@@ -48,7 +48,6 @@ import MainMenu from "components/mainmenu"
 import { useRoute, useRouter } from "vue-router"
 import { useStore } from "vuex"
 import { useI18n } from "vue-i18n"
-import { useQuasar } from "quasar"
 
 export default defineComponent({
   components: {
@@ -59,7 +58,6 @@ export default defineComponent({
     const route = useRoute()
     const router = useRouter()
     const $store = useStore()
-    const $q = useQuasar()
     const { t } = useI18n()
 
     // Computed props
@@ -101,19 +99,11 @@ export default defineComponent({
 
     // Methods
     const cancel = async () => {
-      $q.loading.show({
-        delay: 0,
-        message: t("components.mainmenu.closing_wallet")
-      })
-      try {
-        await api.send("wallet", "close_wallet")
-        router.push({ path: "/wallet-select" })
-        setTimeout(() => {
-          $store.dispatch("gateway/resetWalletData")
-        }, 250)
-      } finally {
-        $q.loading.hide()
-      }
+      await api.send("wallet", "close_wallet")
+      router.push({ path: "/wallet-select" })
+      setTimeout(() => {
+        $store.dispatch("gateway/resetWalletData")
+      }, 250)
     }
 
     return {

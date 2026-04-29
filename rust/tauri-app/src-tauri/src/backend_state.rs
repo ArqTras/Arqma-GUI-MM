@@ -48,17 +48,11 @@ pub struct WalletBackendState {
   pub daemon_last_height: u64,
   /// Like `WalletRPC.heartbeat` — `getheight` + balance in background (forked RPC client).
   pub wallet_heartbeat: Option<JoinHandle<()>>,
-  /// Parse `arqma-wallet-rpc.log` for scan heights (same idea as `wallet-rpc.js` `height_regexes` on stdout).
-  pub wallet_log_height: Option<JoinHandle<()>>,
   /// Open wallet display name (filename) for `set_wallet_info` / heartbeat.
   pub wh_display_name: String,
   pub wh_stored_height: u64,
   pub wh_stored_balance: u64,
   pub wh_stored_unlocked: u64,
-  /// Like Electron `wallet_state.balance == null` before the first `heartbeatAction` — force one
-  /// `get_transfers` on the first successful heavy tick even when balance stays 0 (otherwise tx
-  /// history never loads after a long catch-up).
-  pub wh_pending_initial_transfers: bool,
   /// First extended tick (like `extended` in `heartbeatAction`, e.g. `get_address_book`).
   pub wh_heartbeat_ext_pending: bool,
   /// Only one background `get_transfers` at a time (parallel digest session; heartbeat is separate).
@@ -66,19 +60,6 @@ pub struct WalletBackendState {
   /// During long rescans, throttle heavy RPC (balance, transfers) to avoid slowing the node-side
   /// block scan; set when a **heavy** heartbeat just ran (see `wallet_heartbeat` catch-up mode).
   pub wh_catchup_last_heavy: Option<Instant>,
-  /// Consecutive `getheight` JSON-RPC **errors** while in scan-catchup (not timeouts).
-  pub wh_getheight_error_streak: u32,
-  /// Last auto `rescan_blockchain` `{ "hard": true }` from heartbeat (rate-limit).
-  pub wh_last_automatic_hard_rescan: Option<Instant>,
-  /// Throttle background `getbalance` during light catch-up (`in_scan_rhythm`) — Electron runs full
-  /// heartbeat on a fixed interval; we probe balance on a second digest session at the same cadence.
-  pub wh_last_scan_balance_probe: Option<Instant>,
-  /// Last catch-up `store` RPC (persist scan progress on disk; matches CLI `store` during long scans).
-  pub wh_last_catchup_store_at: Option<Instant>,
-  /// Wallet height when catch-up `store` last ran (block stride).
-  pub wh_height_at_last_store: u64,
-  /// After one `store` when height reached daemon tip (−1); avoids spamming `store` every tick.
-  pub wh_did_sync_store: bool,
   /// Pending `relay_tx` payloads (sweep / transfer / stake).
   pub tx_metadata_list: Vec<WalletTxMetadata>,
   /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
@@ -111,21 +92,13 @@ impl Default for WalletBackendState {
       daemon_heartbeat: None,
       daemon_last_height: 0,
       wallet_heartbeat: None,
-      wallet_log_height: None,
       wh_display_name: String::new(),
       wh_stored_height: 0,
       wh_stored_balance: 0,
       wh_stored_unlocked: 0,
-      wh_pending_initial_transfers: false,
       wh_heartbeat_ext_pending: false,
       wh_transfers_sem: Arc::new(Semaphore::new(1)),
       wh_catchup_last_heavy: None,
-      wh_getheight_error_streak: 0,
-      wh_last_automatic_hard_rescan: None,
-      wh_last_scan_balance_probe: None,
-      wh_last_catchup_store_at: None,
-      wh_height_at_last_store: 0,
-      wh_did_sync_store: false,
       tx_metadata_list: Vec::new(),
       stake_acquisition_task: None,
       solo_pool_task: None,
@@ -154,9 +127,6 @@ impl WalletBackendState {
     if let Some(h) = self.wallet_heartbeat.take() {
       h.abort();
     }
-    if let Some(h) = self.wallet_log_height.take() {
-      h.abort();
-    }
     crate::wallet_process::graceful_shutdown_wallet_rpc(self).await;
     crate::daemon_process::shutdown_local_daemon_child(self, http).await;
     self.wallet_password_hash_hex = None;
@@ -164,15 +134,8 @@ impl WalletBackendState {
     self.wh_stored_height = 0;
     self.wh_stored_balance = 0;
     self.wh_stored_unlocked = 0;
-    self.wh_pending_initial_transfers = false;
     self.wh_heartbeat_ext_pending = false;
     self.wh_catchup_last_heavy = None;
-    self.wh_getheight_error_streak = 0;
-    self.wh_last_automatic_hard_rescan = None;
-    self.wh_last_scan_balance_probe = None;
-    self.wh_last_catchup_store_at = None;
-    self.wh_height_at_last_store = 0;
-    self.wh_did_sync_store = false;
     self.tx_metadata_list.clear();
   }
 

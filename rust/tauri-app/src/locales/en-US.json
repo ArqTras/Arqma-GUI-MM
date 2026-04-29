@@ -362,8 +362,7 @@
             "switch_account": "Switch Account",
             "switch_account_ok_label": "OK",
             "switch_account_cancel_label": "CANCEL",
-            "confirm_close": "Are you sure you want to exit?",
-            "closing_wallet": "Closing wallet… (may take up to a minute if scanning)"
+            "confirm_close": "Are you sure you want to exit?"
         },
         "solo_pool": {
             "title": "Solo Pool",

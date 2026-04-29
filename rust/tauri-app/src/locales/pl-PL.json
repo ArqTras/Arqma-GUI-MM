@@ -362,8 +362,7 @@
             "switch_account": "Zmień konto",
             "switch_account_ok_label": "OK",
             "switch_account_cancel_label": "ANULUJ",
-            "confirm_close": "Czy na pewno chcesz wyjść?",
-            "closing_wallet": "Zamykanie portfela… (przy skanowaniu może potrwać do ok. minuty)"
+            "confirm_close": "Czy na pewno chcesz wyjść?"
         },
         "solo_pool": {
             "title": "Solo Pool",
