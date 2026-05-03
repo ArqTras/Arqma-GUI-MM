@@ -209,8 +209,7 @@ export default defineComponent({
       }
       const t = Number(target_height.value) || 0
       const wh = Number(walletHeight.value) || 0
-      const effTarget = t > 1 ? t - 1 : t
-      return Math.max(0, effTarget - wh)
+      return Math.max(0, t - wh)
     })
 
     const walletBlocksLeftFormatted = computed(() => {
@@ -227,7 +226,7 @@ export default defineComponent({
       }
       const t = Number(target_height.value)
       const wh = Number(walletHeight.value) || 0
-      const walletNeedsBars = t > 1 ? wh < t - 1 : wh < t
+      const walletNeedsBars = wh < t
       if (config_daemon.value.type === "remote") {
         return walletNeedsBars
       }
@@ -242,8 +241,7 @@ export default defineComponent({
       }
       const wh = Number(walletHeight.value) || 0
       const target = Number(target_height.value)
-      // Align with `gateway/isReady` and Monero-style RPC: height at tip−1 counts as synced.
-      const walletBehind = target > 1 ? wh < target - 1 : wh < target
+      const walletBehind = wh < target
       if (config_daemon.value.type === "local") {
         if ((Number(daemon.value?.info?.height_without_bootstrap) || 0) < target) {
           result = t("components.footer.syncing")

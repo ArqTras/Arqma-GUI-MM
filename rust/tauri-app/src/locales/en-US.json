@@ -362,6 +362,8 @@
             "switch_account": "Switch Account",
             "switch_account_ok_label": "OK",
             "switch_account_cancel_label": "CANCEL",
+            "switch_account_closing": "Closing wallet…",
+            "switch_account_failed": "Could not close the wallet session",
             "confirm_close": "Are you sure you want to exit?"
         },
         "solo_pool": {

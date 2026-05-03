@@ -4,12 +4,17 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 /// Bundle + dev-tree search paths (Tauri `resource_dir/bin`, `./bin`, next to the running exe).
+///
+/// **`CARGO_MANIFEST_DIR`/bin** — canonical location from `src-tauri/bin/README.txt`; `cwd`-relative `bin/`
+/// alone often points at `rust/tauri-app/bin`, so exes copied only under `src-tauri/bin/` were skipped.
 pub fn bundled_exe_candidates (app: &AppHandle, win: &str, unix: &str) -> Vec<PathBuf> {
   let name = if cfg!(windows) { win } else { unix };
   let mut v = Vec::new();
   if let Ok(res) = app.path().resource_dir() {
     v.push(res.join("bin").join(name));
   }
+  // Same crate as Cargo.toml (`rust/tauri-app/src-tauri`) — documented bundle dir independent of cwd.
+  v.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bin").join(name));
   v.push(PathBuf::from("bin").join(name));
   v.push(PathBuf::from("binaries").join(name));
   if let Ok(exe) = std::env::current_exe() {

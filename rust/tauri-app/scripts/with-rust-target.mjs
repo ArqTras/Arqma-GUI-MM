@@ -20,9 +20,11 @@ if (rest.length === 0) {
   process.exit(1)
 }
 
+// Win: `spawnSync('tauri', …)` ignores PATHEXT / .cmd shims; EINVAL on direct *.cmd spawn.
 const r = spawnSync(rest[0], rest.slice(1), {
   stdio: "inherit",
   env: process.env,
-  cwd: tauriAppRoot
+  cwd: tauriAppRoot,
+  shell: process.platform === "win32",
 })
 process.exit(r.status ?? 1)

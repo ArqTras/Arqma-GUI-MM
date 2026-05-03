@@ -91,6 +91,14 @@ export class Receiver extends EventEmitter {
           break
 
         case "set_wallet_info":
+          // Ryo-style guard: after close/reset, ignore late scan-only updates that do not
+          // carry wallet identity (typically `{ height, ... }` from stale wallet-rpc stdout).
+          if (
+            !message.data?.name &&
+            !this.store.state.gateway.wallet.info?.name
+          ) {
+            break
+          }
           this.store.commit("gateway/set_wallet_info", message.data)
           break
 

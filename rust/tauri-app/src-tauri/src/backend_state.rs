@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::oneshot;
-use tokio::sync::Semaphore;
+use tokio::sync::OwnedSemaphorePermit;
 use tokio::task::JoinHandle;
 
 /// Metadata pending `relay_tx` (like `tx_metadata_list` in `wallet-rpc.js`).
@@ -55,11 +55,22 @@ pub struct WalletBackendState {
   pub wh_stored_unlocked: u64,
   /// First extended tick (like `extended` in `heartbeatAction`, e.g. `get_address_book`).
   pub wh_heartbeat_ext_pending: bool,
-  /// Only one background `get_transfers` at a time (parallel digest session; heartbeat is separate).
-  pub wh_transfers_sem: Arc<Semaphore>,
+  /// After `open_wallet`, force next heartbeat xfer when `new_h == h0` would otherwise skip `get_transfers`.
+  pub wh_fetch_tx_pending: bool,
+  /// Background `get_transfers` + address list (spawned from heartbeat) — detach on `stop` so shutdown
+  /// does not abort mid-RPC; `wallet_rpc_lane` still serializes concurrent use of `arqma-wallet-rpc`.
+  pub wh_xfer_task: Option<JoinHandle<()>>,
+  /// Background periodic `store` (see `maybe_schedule_periodic_store`) — holds `wallet_rpc_lane` for
+  /// the whole RPC; must be aborted before `close_wallet` acquires the lane or IPC can wedge.
+  pub wh_periodic_store_task: Option<JoinHandle<()>>,
   /// During long rescans, throttle heavy RPC (balance, transfers) to avoid slowing the node-side
   /// block scan; set when a **heavy** heartbeat just ran (see `wallet_heartbeat` catch-up mode).
   pub wh_catchup_last_heavy: Option<Instant>,
+  /// Consecutive LIGHT `getheight` failures (transport/timeouts/rpc.error). Increases sleep in
+  /// `wallet_heartbeat::run` so we do not DDoS `arqma-wallet-rpc` when it cannot accept TCP fast enough.
+  pub wh_light_rpc_pressure: u32,
+  /// `close_wallet` path timed out on explicit `store`; graceful shutdown can skip duplicate `store`.
+  pub close_store_timed_out: bool,
   /// Pending `relay_tx` payloads (sweep / transfer / stake).
   pub tx_metadata_list: Vec<WalletTxMetadata>,
   /// `getPoolsData` loop after height changes (like `begin_Stake_Acquisition`).
@@ -97,8 +108,12 @@ impl Default for WalletBackendState {
       wh_stored_balance: 0,
       wh_stored_unlocked: 0,
       wh_heartbeat_ext_pending: false,
-      wh_transfers_sem: Arc::new(Semaphore::new(1)),
+      wh_fetch_tx_pending: false,
+      wh_xfer_task: None,
+      wh_periodic_store_task: None,
       wh_catchup_last_heavy: None,
+      wh_light_rpc_pressure: 0,
+      close_store_timed_out: false,
       tx_metadata_list: Vec::new(),
       stake_acquisition_task: None,
       solo_pool_task: None,
@@ -109,9 +124,22 @@ impl Default for WalletBackendState {
 }
 
 impl WalletBackendState {
-  /// Stop heartbeats, exit `arqma-wallet-rpc` via RPC (`store` / `stop_wallet`), then local `arqmad` via `stop` RPC
+  /// Stop heartbeats, exit `arqma-wallet-rpc` via RPC (`store` / `stop_wallet`), then local `arqmad` via
+  /// `stop_daemon` RPC (fallback `stop`)
   /// and child wait/kill, clear wallet UI state.
-  pub async fn shutdown_subprocesses_async (&mut self, http: &reqwest::Client) {
+  ///
+  /// When shutting down wallet RPC, pass [`OwnedSemaphorePermit`] from [`crate::AppData::wallet_rpc_lane`]
+  /// (see app `Exit` handler) so `store` / `stop_wallet` do not race heartbeat or background xfer.
+  /// `save_config_init` passes [`Some`] (see `backend_send` lane-before-mutex for that method).
+  /// Less critical paths may use `None` if concurrent wallet RPC is ruled out.
+  pub async fn shutdown_subprocesses_async (
+    &mut self,
+    http: &reqwest::Client,
+    rpc_lane_hold: Option<OwnedSemaphorePermit>,
+  ) {
+    // Hold optional `wallet_rpc_lane` permit until RPC shutdown + daemon stop complete.
+    let _rpc_lane_scope = rpc_lane_hold;
+
     if let Some(h) = self.daemon_heartbeat.take() {
       h.abort();
     }
@@ -122,6 +150,9 @@ impl WalletBackendState {
       let _ = tx.send(());
     }
     if let Some(h) = self.solo_pool_task.take() {
+      h.abort();
+    }
+    if let Some(h) = self.wh_xfer_task.take() {
       h.abort();
     }
     if let Some(h) = self.wallet_heartbeat.take() {
@@ -135,7 +166,10 @@ impl WalletBackendState {
     self.wh_stored_balance = 0;
     self.wh_stored_unlocked = 0;
     self.wh_heartbeat_ext_pending = false;
+    self.wh_fetch_tx_pending = false;
     self.wh_catchup_last_heavy = None;
+    self.wh_light_rpc_pressure = 0;
+    self.close_store_timed_out = false;
     self.tx_metadata_list.clear();
   }
 

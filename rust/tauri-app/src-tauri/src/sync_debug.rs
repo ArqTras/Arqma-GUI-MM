@@ -3,6 +3,9 @@
 //! Enable verbose traces: set environment variable **`ARQMA_SYNC_DEBUG=1`** (also `true`, `yes`, `on`)
 //! before starting the app. Logs go to **stderr** (visible in `tauri dev` terminal or when launching
 //! `Arqma-Wallet.exe` from a console on Windows).
+//!
+//! **`ARQMA_WALLET_CATCHUP_POLL_MS`**: optional fixed delay (milliseconds) between wallet heartbeat ticks
+//! while catching up (`wh` behind daemon tip); overrides tiered defaults (see `wallet_heartbeat`).
 
 /// `true` when `ARQMA_SYNC_DEBUG` is set to a truthy value (case-insensitive).
 pub fn is_sync_debug () -> bool {

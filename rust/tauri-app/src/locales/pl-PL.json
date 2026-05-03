@@ -362,6 +362,8 @@
             "switch_account": "Zmień konto",
             "switch_account_ok_label": "OK",
             "switch_account_cancel_label": "ANULUJ",
+            "switch_account_closing": "Zamykanie portfela…",
+            "switch_account_failed": "Nie udało się zamknąć sesji portfela",
             "confirm_close": "Czy na pewno chcesz wyjść?"
         },
         "solo_pool": {

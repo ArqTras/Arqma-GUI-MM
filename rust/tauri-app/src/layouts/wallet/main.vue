@@ -304,11 +304,28 @@ export default defineComponent({
     }
 
     const switchWallet = async () => {
-      await api.send("wallet", "close_wallet")
-      router.push({ path: "/wallet-select" })
-      setTimeout(() => {
-        $store.dispatch("gateway/resetWalletData")
-      }, 250)
+      const navigateToWalletSelect = () => {
+        router.push({ path: "/wallet-select" })
+        setTimeout(() => {
+          $store.dispatch("gateway/resetWalletData")
+        }, 250)
+      }
+      try {
+        navigateToWalletSelect()
+        api.send("wallet", "close_wallet").catch(async (e) => {
+          const msg = e && (e.message || e.toString())
+          await api.error("layouts/wallet/main", "switchWallet", msg || String(e))
+        })
+      } catch (e) {
+        const msg = e && (e.message || e.toString())
+        await api.error("layouts/wallet/main", "switchWallet", msg || String(e))
+        $q.notify({
+          type: "negative",
+          timeout: 8000,
+          message: t("components.mainmenu.switch_account_failed"),
+          caption: msg || String(e)
+        })
+      }
     }
 
     return {

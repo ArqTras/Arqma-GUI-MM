@@ -21,7 +21,7 @@ fn app_testnet (cfg: &serde_json::Value) -> bool {
     .unwrap_or(false)
 }
 
-/// Start background loop after successful `ensure_daemon_for_startup` (5s local / 60s remote; slow path every 60s, local only).
+/// Start background loop after successful `ensure_daemon_for_startup` (5s local / 30s remote; slow path every 60s, local only).
 pub fn start (app: &AppHandle, st: &mut WalletBackendState, is_local: bool, http: &Client) {
   if let Some(h) = st.daemon_heartbeat.take() {
     h.abort();
@@ -29,7 +29,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState, is_local: bool, http
   st.daemon_last_height = 0;
   let app = app.clone();
   let c = http.clone();
-  let fast_secs = if is_local { 5u64 } else { 60 };
+  let fast_secs = if is_local { 5u64 } else { 30 };
   st.daemon_heartbeat = Some(tokio::spawn(async move {
     run_heartbeat_loop(&app, &c, is_local, fast_secs).await
   }));
@@ -107,7 +107,7 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
     }
     return;
   };
-  let result = r.get("result").cloned().unwrap_or(Value::Null);
+  let mut result = r.get("result").cloned().unwrap_or(Value::Null);
   let pool_enabled = {
     let b = adata.backend.lock().await;
     b
@@ -118,10 +118,17 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
       .and_then(|e| e.as_bool())
       .unwrap_or(false)
   };
-  let is_ready = result
+  let is_ready_daemon = result
     .get("is_ready")
     .and_then(|v| v.as_bool())
     .unwrap_or(false);
+  // Many `arqmad` builds never flip RPC `is_ready` to true; keep the raw flag for diagnostics / UI.
+  if let Some(o) = result.as_object_mut() {
+    o.insert(
+      "is_ready_daemon_rpc".to_string(),
+      json!(is_ready_daemon),
+    );
+  }
   let target_h = result
     .get("target_height")
     .and_then(value_as_u64)
@@ -135,8 +142,15 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
   // "not fully synced" banner while the footer already shows 100% (e.g. during wallet scan).
   let footer_target = h.max(target_h);
   let daemon_chain_caught_up = h_wo >= footer_target;
+  // Some `arqmad` builds report `is_ready: false` even when `height_without_bootstrap` meets the tip
+  // (pool / quorum edge cases). Do not strand wallet sync on that flag — expose a UI-friendly truth.
+  let is_ready_for_ui = daemon_chain_caught_up || is_ready_daemon;
+  if let Some(o) = result.as_object_mut() {
+    o.insert("is_ready".to_string(), json!(is_ready_for_ui));
+  }
   let daemon_available = h > 0;
-  let synced = (h >= target_h.saturating_sub(1) && is_ready) || daemon_available;
+  let synced =
+    (h >= target_h.saturating_sub(1) && is_ready_for_ui) || daemon_available;
   let difficulty = result
     .get("difficulty")
     .and_then(value_as_u64)
@@ -161,8 +175,15 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
   }
   if is_sync_debug() {
     eprintln!(
-      "[sync-debug][daemon-hb] get_info ok height={} h_wo={} target_h={} tip={} is_ready={} pool_enabled={}",
-      h, h_wo, target_h, footer_target, is_ready, pool_enabled
+      "[sync-debug][daemon-hb] get_info ok height={} h_wo={} target_h={} tip={} is_ready_daemon(rpc)={} is_ready(UI)={} chain_tip_aligned={} pool_enabled={}",
+      h,
+      h_wo,
+      target_h,
+      footer_target,
+      is_ready_daemon,
+      is_ready_for_ui,
+      daemon_chain_caught_up,
+      pool_enabled
     );
   }
   // Emit on every successful poll so `target_height`, `height_without_bootstrap`, `is_ready`

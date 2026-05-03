@@ -20,6 +20,27 @@ pub fn config_path (config_dir: &Path) -> std::path::PathBuf {
   gui_subdir(config_dir).join("config.json")
 }
 
+/// Removes legacy `arqma-wallet-rpc` CLI flags accidentally persisted into `config.json`
+/// (`--trusted-daemon` / Monero-style booleans). Tauri never passes these; keeping them only confuses merges.
+fn strip_trusted_daemon_from_config (v: &mut Value) {
+  match v {
+    Value::Object(map) => {
+      map.remove("trusted-daemon");
+      map.remove("trusted_daemon");
+      map.remove("trustedDaemon");
+      for child in map.values_mut() {
+        strip_trusted_daemon_from_config(child);
+      }
+    }
+    Value::Array(arr) => {
+      for item in arr.iter_mut() {
+        strip_trusted_daemon_from_config(item);
+      }
+    }
+    _ => {}
+  }
+}
+
 pub fn ensure_gui_dir (config_dir: &Path) -> Result<(), CoreError> {
   fs::create_dir_all(gui_subdir(config_dir))?;
   Ok(())
@@ -150,6 +171,7 @@ pub fn load_config_snapshot (paths: &ArqmaPaths) -> Result<StartupSnapshot, Core
   let mut config_data = fold_disk_into_config(&initial, &disk);
   let v = validate_config_against_defaults(&config_data, &defaults);
   config_data = v;
+  strip_trusted_daemon_from_config(&mut config_data);
   let ethereum = config_data
     .get("ethereum")
     .cloned()
@@ -169,7 +191,9 @@ pub fn write_config_file (paths: &ArqmaPaths, config_data: &Value) -> Result<(),
   if let Some(parent) = p.parent() {
     fs::create_dir_all(parent).map_err(CoreError::Io)?;
   }
-  let s = serde_json::to_string_pretty(config_data).map_err(|e| CoreError::InvalidConfig(e.to_string()))?;
+  let mut out = config_data.clone();
+  strip_trusted_daemon_from_config(&mut out);
+  let s = serde_json::to_string_pretty(&out).map_err(|e| CoreError::InvalidConfig(e.to_string()))?;
   fs::write(p, s).map_err(CoreError::Io)
 }
 

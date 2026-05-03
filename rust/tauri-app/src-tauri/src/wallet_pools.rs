@@ -6,6 +6,7 @@ use crate::wallet_relay_ops::COIN_UNITS;
 use crate::AppData;
 use reqwest::Client;
 use serde_json::{json, Value};
+use std::sync::atomic::Ordering;
 use tauri::AppHandle;
 use tauri::Manager;
 
@@ -140,6 +141,19 @@ pub async fn run_pool_tick (
   w: &WalletRpcClient,
   config: &Value,
 ) {
+  let Some(adata) = app.try_state::<AppData>() else {
+    return;
+  };
+  if adata.wallet_closing.load(Ordering::SeqCst) {
+    return;
+  }
+  let _wallet_lane = match adata.wallet_rpc_lane.clone().acquire_owned().await {
+    Ok(p) => p,
+    Err(e) => {
+      eprintln!("[pools] run_pool_tick: wallet_rpc_lane acquire: {}", e);
+      return;
+    }
+  };
   let Some((host, port)) = daemon_rpc_host_port(config) else {
     return;
   };

@@ -1,3 +1,4 @@
+use crate::AppData;
 use crate::backend_state::WalletBackendState;
 use crate::daemon_check::{check_daemon_reachable, RemoteNodeIssue};
 use crate::daemon_handler::arqmad_version_probe_str;
@@ -12,6 +13,7 @@ use arqma_wallet_core::{
 use reqwest::Client;
 use serde_json::{json, Value};
 use tauri::AppHandle;
+use tauri::Manager;
 
 /// Startup sequence (`Backend.startup` in Node): config, daemon, `daemon_heartbeat`, optional `arqma-wallet-rpc`, wallet list.
 pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, http: &Client) -> Result<(), String> {
@@ -224,7 +226,15 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   } else {
     json!({ "list": [], "directories": [] })
   };
-  let wr = try_start_wallet_rpc(app, st, http).await;
+  // Same `wallet_rpc_lane` as IPC/heartbeat — avoids racing `get_languages` with a concurrent wallet tick.
+  let wr = {
+    let _lane = if let Some(adata) = app.try_state::<AppData>() {
+      adata.wallet_rpc_lane.clone().acquire_owned().await.ok()
+    } else {
+      None
+    };
+    try_start_wallet_rpc(app, st, http).await
+  };
   if !matches!(
     wr,
     WalletRpcStartResult::Started | WalletRpcStartResult::AlreadyRunning

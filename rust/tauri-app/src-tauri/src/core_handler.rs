@@ -10,14 +10,20 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
+use tokio::sync::OwnedSemaphorePermit;
 
 /// Handles `module == "core"` in `Backend.handle` (IPC like Node: init, config, URL, SVG/PNG export, explorer).
+///
+/// For `save_config_init`, `backend_send` acquires [`crate::AppData::wallet_rpc_lane`] first and passes
+/// [`Some`] as `_rpc_lane_shutdown` so [`WalletBackendState::shutdown_subprocesses_async`] can call `store`/`stop_wallet` exclusively.
 pub async fn handle_core (
   app: &AppHandle,
   st: &mut WalletBackendState,
   method: &str,
   data: &Value,
   http: &Client,
+  // When Some (save_config_init from backend_send): exclusive wallet RPC lane during subprocess shutdown.
+  _rpc_lane_shutdown: Option<OwnedSemaphorePermit>,
 ) -> Result<Value, String> {
   let params = data;
   match method {
@@ -141,7 +147,7 @@ pub async fn handle_core (
         .unwrap_or_else(|| json!({}));
       st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      st.shutdown_subprocesses_async(http).await;
+      st.shutdown_subprocesses_async(http, _rpc_lane_shutdown).await;
       st.startup_seq_done = false;
       run_core_startup(app, st, http).await?;
     }

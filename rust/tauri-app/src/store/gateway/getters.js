@@ -5,9 +5,27 @@ function daemonChainTip (info) {
   )
 }
 
+/** Align with `components/footer.vue` status: wallet at tip and (for local / local_remote) daemon chain caught up. */
 export const isReady = (state) => {
-  const target_height = daemonChainTip(state.daemon.info)
-  return state.wallet.info.height >= (target_height - 1)
+  const info = state.daemon?.info || {}
+  const target_height = daemonChainTip(info)
+  if (!target_height) {
+    return false
+  }
+  const wh = Number(state.wallet?.info?.height) || 0
+  if (wh !== target_height) {
+    return false
+  }
+  const cfg = state.app?.config
+  const net = cfg?.app?.net_type
+  const dt = net && cfg?.daemons?.[net]?.type
+  if (dt === "local" || dt === "local_remote") {
+    const hwo = Number(info.height_without_bootstrap) || 0
+    if (hwo < target_height) {
+      return false
+    }
+  }
+  return true
 }
 
 export const ethereum_network = (state) => {
@@ -83,10 +101,14 @@ export const isAbleToSend = (state) => {
   const config_daemon = daemons[app.net_type]
 
   const target_height = daemonChainTip(state.daemon.info)
+  if (!target_height) {
+    return false
+  }
+  const walletAtTip = Number(state.wallet?.info?.height) === target_height
   if (config_daemon.type === "local_remote") {
-    return state.daemon.info.height_without_bootstrap >= target_height && state.wallet.info.height >= (target_height - 1)
+    return state.daemon.info.height_without_bootstrap >= target_height && walletAtTip
   } else {
-    return state.wallet.info.height >= (target_height - 1)
+    return walletAtTip
   }
 }
 

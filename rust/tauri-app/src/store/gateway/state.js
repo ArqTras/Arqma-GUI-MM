@@ -134,6 +134,8 @@ export default {
       height: 0,
       height_without_bootstrap: 0,
       incoming_connections_count: 0,
+      /** Raw `get_info.is_ready` from `arqmad` (often stays false); UI uses `is_ready` after backend merge. */
+      is_ready_daemon_rpc: false,
       is_ready: false,
       outgoing_connections_count: 0,
       status: "OK",

@@ -13,6 +13,30 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use tauri::AppHandle;
 
+#[cfg(unix)]
+fn send_daemon_sigterm(pid: u32) {
+  let pid_s = pid.to_string();
+  let _ = std::process::Command::new("kill")
+    .args(["-15", pid_s.as_str()])
+    .status();
+}
+
+#[cfg(windows)]
+fn send_daemon_soft_stop(pid: u32) {
+  let pid_s = pid.to_string();
+  let _ = std::process::Command::new("taskkill")
+    .args(["/PID", pid_s.as_str(), "/T"])
+    .status();
+}
+
+#[cfg(windows)]
+fn send_daemon_force_stop(pid: u32) {
+  let pid_s = pid.to_string();
+  let _ = std::process::Command::new("taskkill")
+    .args(["/PID", pid_s.as_str(), "/T", "/F"])
+    .status();
+}
+
 /// `Daemon.start` — `remote`: first `get_info`; local: spawn `arqmad` then `get_info`.
 pub async fn ensure_daemon_for_startup (
   app: &AppHandle,
@@ -184,25 +208,56 @@ pub async fn ensure_daemon_for_startup (
   Err("Timeout: local arqmad did not respond (get_info)".to_string())
 }
 
-/// `stop` JSON-RPC (Monero/Arqma stack) then wait for the child; `kill` only if it does not exit in time.
+/// `stop_daemon` JSON-RPC (Monero/Arqma `COMMAND_RPC_STOP_DAEMON`), then wait for the child.
+/// Fallback to legacy **`stop`** only if daemon returns `-32601` (method missing on old builds).
+/// `kill` if the child does not exit in time — same spirit as Electron `SIGTERM` on the process.
 /// Call after [`crate::wallet_process::graceful_shutdown_wallet_rpc`] so wallet disconnects first.
 pub async fn shutdown_local_daemon_child (st: &mut WalletBackendState, http: &Client) {
   if st.daemon_process.is_none() {
     return;
   }
   if let Some((h, p)) = daemon_rpc_host_port(&st.config_data) {
-    let id = st.next_rpc_id;
-    st.next_rpc_id = st.next_rpc_id.saturating_add(1);
-    match daemon_post(http, &h, p, "stop", id, &Value::Null).await {
-      Ok(v) if json_rpc_no_error(&v) => eprintln!("[daemon] stop RPC ok"),
-      Ok(v) => eprintln!("[daemon] stop RPC: {v}"),
-      Err(e) => eprintln!("[daemon] stop RPC: {e} (will wait/kill)"),
+    for method in ["stop_daemon", "stop"] {
+      let id = st.next_rpc_id;
+      st.next_rpc_id = st.next_rpc_id.saturating_add(1);
+      match daemon_post(http, &h, p, method, id, &Value::Null).await {
+        Ok(v) if json_rpc_no_error(&v) => {
+          eprintln!("[daemon] `{method}` RPC ok");
+          break;
+        }
+        Ok(v) => {
+          let code = v.pointer("/error/code").and_then(|c| c.as_i64());
+          if method == "stop_daemon" && code == Some(-32601) {
+            continue;
+          }
+          eprintln!("[daemon] `{method}` RPC error: {v}");
+          break;
+        }
+        Err(e) => {
+          eprintln!("[daemon] `{method}` transport: {e}");
+          if method == "stop_daemon" {
+            continue;
+          }
+          break;
+        }
+      }
     }
   }
   let Some(mut ch) = st.daemon_process.take() else {
     return;
   };
-  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+  let pid = ch.id();
+  #[cfg(unix)]
+  {
+    eprintln!("[daemon] graceful stop: sending SIGTERM (15) to arqmad");
+    send_daemon_sigterm(pid);
+  }
+  #[cfg(windows)]
+  {
+    eprintln!("[daemon] graceful stop: sending Windows soft stop to arqmad");
+    send_daemon_soft_stop(pid);
+  }
+  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(4);
   loop {
     match ch.try_wait() {
       Ok(Some(_)) => {
@@ -211,7 +266,11 @@ pub async fn shutdown_local_daemon_child (st: &mut WalletBackendState, http: &Cl
       }
       Ok(None) => {
         if std::time::Instant::now() >= deadline {
-          eprintln!("[daemon] arqmad still running after stop, killing");
+          eprintln!("[daemon] arqmad still running after graceful stop, forcing kill");
+          #[cfg(windows)]
+          {
+            send_daemon_force_stop(pid);
+          }
           let _ = ch.kill();
           let _ = ch.wait();
           return;
