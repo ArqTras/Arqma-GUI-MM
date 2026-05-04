@@ -3,6 +3,8 @@ name: Tauri app
 
 on:
   push:
+    tags:
+      - "v*"
     paths:
       - "rust/**"
       - "build/copy-to-tauri-bins.js"
@@ -103,3 +105,46 @@ jobs:
             rust/target/release/bundle/**/*.dmg
             rust/target/release/bundle/**/*.app.tar.gz
           if-no-files-found: ignore
+
+  # Tag `v*` only: attach all matrix bundle artifacts to the GitHub Release (Tauri-only publishing).
+  tauri-release:
+    name: GitHub Release (Tauri)
+    needs: tauri
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Tauri bundle artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Collect release files
+        run: |
+          set -euo pipefail
+          mkdir -p release-files
+          find artifacts -type f \( \
+            -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" \
+            -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \
+            -o -name "*.tar.gz" \
+            \) -exec cp -f {} release-files/ \;
+          COUNT=$(find release-files -type f | wc -l | tr -d ' ')
+          echo "Collected $COUNT asset(s)"
+          ls -la release-files/
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No Tauri bundle files found (check bundle paths / matrix uploads)"
+            exit 1
+          fi
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Arqma Wallet ${{ github.ref_name }} (Tauri)
+          generate_release_notes: true
+          overwrite_files: true
+          files: release-files/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
