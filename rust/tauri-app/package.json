@@ -45,8 +45,8 @@
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "@quasar/vite-plugin": "^1.8.0",
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/cli": "^2.0.0",
+    "@tauri-apps/api": "2.11.0",
+    "@tauri-apps/cli": "2.11.0",
     "@vitejs/plugin-vue": "^5.0.0",
     "sass": "^1.77.0",
     "unplugin-auto-import": "^0.18.0",
