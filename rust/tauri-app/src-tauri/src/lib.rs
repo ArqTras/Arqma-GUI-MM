@@ -1,5 +1,6 @@
 //! Tauri backend: routes `backend_send` (same idea as `foo:send` in Electron) plus preload-style commands.
 
+mod agent_debug;
 mod json_util;
 mod arqma_paths_config;
 mod backend_state;
@@ -34,7 +35,7 @@ use std::time::Duration;
 use backend_state::WalletBackendState;
 use core_handler::handle_core;
 use core_handler::IpcMessage;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tokio::sync::Semaphore;
 use tauri::Emitter;
@@ -54,7 +55,99 @@ pub(crate) struct AppData {
   pub(crate) wallet_closing: Arc<AtomicBool>,
   /// Serializes logical JSON-RPC usage against local `arqma-wallet-rpc` (parity with Electron wallet command queue).
   /// Acquire **before** the backend mutex for `wallet`/`save_config_init`/exit paths (see heartbeat, `backend_send`).
-  pub(crate) wallet_rpc_lane: Arc<Semaphore>
+  pub(crate) wallet_rpc_lane: Arc<Semaphore>,
+  /// Ensures [`wallet_exit_shutdown_handle`] runs at most once (`confirm_close` then [`RunEvent::Exit`], or vice versa).
+  pub(crate) wallet_exit_shutdown_done: Arc<AtomicBool>,
+  /// Serializes `backend_send` for `module == "wallet"` (except `get_coin_price`) — matches Electron `PQueue({ concurrency: 1 })`
+  /// so `open_wallet` cannot run while `close_wallet` still holds `wallet_closing` / long `store`.
+  pub(crate) wallet_ipc_serial: std::sync::Arc<tokio::sync::Mutex<()>>,
+}
+
+/// Flush/stop wallet-rpc and local daemon before the process exits.
+async fn wallet_exit_shutdown_handle (st: &AppData) {
+  if st
+    .wallet_exit_shutdown_done
+    .swap(true, Ordering::SeqCst)
+  {
+    // #region agent log
+    crate::agent_debug::log(
+      "F",
+      "lib.rs:wallet_exit_shutdown_handle",
+      "skip duplicate wallet exit shutdown",
+      json!({}),
+    );
+    // #endregion
+    return;
+  }
+  // #region agent log
+  crate::agent_debug::log(
+    "A",
+    "lib.rs:wallet_exit_shutdown_handle",
+    "wallet exit shutdown starting",
+    json!({}),
+  );
+  // #endregion
+  let http = st.http.clone();
+  {
+    let mut b = st.backend.lock().await;
+    if let Some(h) = b.wh_xfer_task.take() {
+      h.abort();
+    }
+    if let Some(h) = b.wallet_heartbeat.take() {
+      h.abort();
+    }
+  }
+  // #region agent log
+  crate::agent_debug::log(
+    "E",
+    "lib.rs:wallet_exit_shutdown_handle",
+    "wallet xfer/heartbeat tasks aborted, before 120ms sleep",
+    json!({}),
+  );
+  // #endregion
+  tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+  let lane = match st.wallet_rpc_lane.clone().acquire_owned().await {
+    Ok(p) => p,
+    Err(e) => {
+      eprintln!("[exit] wallet_rpc_lane acquire: {e}");
+      // #region agent log
+      crate::agent_debug::log(
+        "B",
+        "lib.rs:wallet_exit_shutdown_handle",
+        "wallet_rpc_lane acquire_owned failed",
+        json!({ "error": e.to_string() }),
+      );
+      // #endregion
+      return;
+    }
+  };
+  // #region agent log
+  crate::agent_debug::log(
+    "B",
+    "lib.rs:wallet_exit_shutdown_handle",
+    "wallet_rpc_lane acquired",
+    json!({}),
+  );
+  // #endregion
+  let mut b = st.backend.lock().await;
+  let had_wallet_client = b.wallet.is_some();
+  // #region agent log
+  crate::agent_debug::log(
+    "C",
+    "lib.rs:wallet_exit_shutdown_handle",
+    "before shutdown_subprocesses_async",
+    json!({ "had_wallet_client": had_wallet_client }),
+  );
+  // #endregion
+  b.shutdown_subprocesses_async(&http, Some(lane)).await;
+  // #region agent log
+  crate::agent_debug::log(
+    "C",
+    "lib.rs:wallet_exit_shutdown_handle",
+    "after shutdown_subprocesses_async",
+    json!({ "had_wallet_client": had_wallet_client }),
+  );
+  // #endregion
 }
 
 #[tauri::command]
@@ -170,8 +263,15 @@ fn daemon_version_probe (app: tauri::AppHandle) -> String {
 }
 
 #[tauri::command]
-fn confirm_close (app: tauri::AppHandle, _restart: bool) {
+async fn confirm_close (
+  app: tauri::AppHandle,
+  state: tauri::State<'_, AppData>,
+  _restart: bool,
+) -> Result<(), String> {
+  // Run before `app.exit`: on failure `exit` may call `process::exit` and skip [`RunEvent::Exit`].
+  wallet_exit_shutdown_handle(&state).await;
   app.exit(0);
+  Ok(())
 }
 
 #[tauri::command]
@@ -221,199 +321,95 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
       crate::daemon_handler::handle_daemon(&app, &mut b, http, &message.method, data).await?;
     }
     "wallet" => {
-      if message.method == "open_wallet" {
-        // Must cover worst-case `close_wallet` RPC (`store` can run as long as wallet-rpc HTTP timeout).
-        let wait_cap =
-          crate::wallet_process::wallet_rpc_http_timeout_secs().saturating_add(60);
-        let deadline = std::time::Instant::now() + Duration::from_secs(wait_cap.max(30));
-        let wait_start = std::time::Instant::now();
-        let mut wait_loops: u32 = 0;
-        loop {
-          let closing = state.wallet_closing.load(Ordering::SeqCst);
-          if !closing {
-            break;
-          }
-          wait_loops = wait_loops.saturating_add(1);
-          if wait_loops == 1 || wait_loops % 32 == 0 {
-            eprintln!(
-              "[wallet] open_wallet: waiting for in-flight close (wallet_closing), elapsed={}ms — close may be saving (store); large backlog can take many minutes",
-              wait_start.elapsed().as_millis()
-            );
-          }
-          if std::time::Instant::now() >= deadline {
-            // #region agent log
-            let payload = serde_json::json!({
-              "sessionId": "dc1ad5",
-              "runId": "pre-fix",
-              "hypothesisId": "H5",
-              "location": "lib.rs:backend_send:open_wallet_wait_timeout",
-              "message": "open_wallet wait for close timed out",
-              "data": {
-                "wait_ms": wait_start.elapsed().as_millis(),
-                "wait_loops": wait_loops
-              },
-              "timestamp": chrono::Utc::now().timestamp_millis()
-            });
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-              .create(true)
-              .append(true)
-              .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-            {
-              use std::io::Write;
-              let _ = writeln!(f, "{}", payload);
-              let _ = f.flush();
-            }
-            // #endregion
-            return Err("wallet is closing, try again in a moment".to_string());
-          }
-          tokio::time::sleep(Duration::from_millis(160)).await;
-        }
-        // #region agent log
-        let payload = serde_json::json!({
-          "sessionId": "dc1ad5",
-          "runId": "pre-fix",
-          "hypothesisId": "H5",
-          "location": "lib.rs:backend_send:open_wallet_wait_done",
-          "message": "open_wallet wait for close finished",
-          "data": {
-            "wait_ms": wait_start.elapsed().as_millis(),
-            "wait_loops": wait_loops
-          },
-          "timestamp": chrono::Utc::now().timestamp_millis()
-        });
-        if let Ok(mut f) = std::fs::OpenOptions::new()
-          .create(true)
-          .append(true)
-          .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
+      if message.method == "get_coin_price" {
+        // Never hold `backend` across these HTTP calls: default reqwest timeout × several URLs
+        // can block for many minutes and wedges `close_wallet`, heartbeat, and pool ticks on `backend.lock()`.
+        const PRICE_AGGREGATE_SECS: u64 = 22;
+        if tokio::time::timeout(
+          Duration::from_secs(PRICE_AGGREGATE_SECS),
+          crate::wallet_relay_ops::get_coin_and_conversion(&app, http),
+        )
+        .await
+        .is_err()
         {
-          use std::io::Write;
-          let _ = writeln!(f, "{}", payload);
-          let _ = f.flush();
+          eprintln!(
+            "[wallet] get_coin_price: exceeded {PRICE_AGGREGATE_SECS}s aggregate HTTP — emitting zeros"
+          );
+          let _ = crate::gateway_emit::emit_receive(&app, "set_coin_price", json!(0.0));
+          let _ = crate::gateway_emit::emit_receive(
+            &app,
+            "set_conversion_data",
+            json!({ "sats": 0.0_f64, "currentPrice": 0.0_f64 }),
+          );
         }
-        // #endregion
-      }
+      } else {
+        let _wallet_ipc_serial = state.wallet_ipc_serial.lock().await;
       // xfer drops `wallet_rpc_lane` before long `get_transfers`, but abrupt `abort()` can strand server-side
       // work and leave `store` blocked until daemon drains — await JoinHandle (internal xfer cap ~300s).
       if message.method == "close_wallet" {
-        // Block new `open_wallet` before any `await` — previously H14 logged here without setting
-        // `wallet_closing`, so `open_wallet` could take `wallet_rpc_lane` + `backend` and wedge `close_wallet`
-        // on `backend.lock()` with no NDJSON until the stall clears (matches gap after H14 in logs).
-        state.wallet_closing.store(true, Ordering::SeqCst);
-        // #region agent log
-        {
-          let payload = serde_json::json!({
-            "sessionId": "dc1ad5",
-            "runId": "pre-fix",
-            "hypothesisId": "H14",
-            "location": "lib.rs:backend_send:wallet_ipc_close_enter",
-            "message": "close_wallet: wallet_closing gate set (before backend lock)",
-            "data": {},
-            "timestamp": chrono::Utc::now().timestamp_millis()
-          });
-          if let Ok(mut f) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-          {
-            use std::io::Write;
-            let _ = writeln!(f, "{}", payload);
-            let _ = f.flush();
-          }
-        }
-        // #endregion
         let close_gate_start = std::time::Instant::now();
         let t_backend_wait = std::time::Instant::now();
         // #region agent log
-        {
-          let payload = serde_json::json!({
-            "sessionId": "dc1ad5",
-            "runId": "pre-fix",
-            "hypothesisId": "H15",
-            "location": "lib.rs:backend_send:close_wallet_before_backend_lock",
-            "message": "close_wallet about to await backend mutex",
-            "data": {},
-            "timestamp": chrono::Utc::now().timestamp_millis()
-          });
-          if let Ok(mut f) = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-          {
-            use std::io::Write;
-            let _ = writeln!(f, "{}", payload);
-            let _ = f.flush();
-          }
-        }
+        crate::agent_debug::log(
+          "H15",
+          "lib.rs:backend_send:close_wallet_before_backend_lock",
+          "close_wallet about to await backend mutex",
+          json!({}),
+        );
         // #endregion
         {
           let mut b = state.backend.lock().await;
           // #region agent log
-          {
-            let payload = serde_json::json!({
-              "sessionId": "dc1ad5",
-              "runId": "pre-fix",
-              "hypothesisId": "H16",
-              "location": "lib.rs:backend_send:close_wallet_backend_locked",
-              "message": "close_wallet acquired backend mutex",
-              "data": { "backend_wait_ms": t_backend_wait.elapsed().as_millis() },
-              "timestamp": chrono::Utc::now().timestamp_millis()
-            });
-            if let Ok(mut f) = std::fs::OpenOptions::new()
-              .create(true)
-              .append(true)
-              .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-            {
-              use std::io::Write;
-              let _ = writeln!(f, "{}", payload);
-              let _ = f.flush();
-            }
-          }
+          crate::agent_debug::log(
+            "H16",
+            "lib.rs:backend_send:close_wallet_backend_locked",
+            "close_wallet acquired backend mutex",
+            json!({ "backend_wait_ms": t_backend_wait.elapsed().as_millis() }),
+          );
           // #endregion
-          if let Some(h) = b.wh_xfer_task.take() {
+          if let Some(mut h) = b.wh_xfer_task.take() {
+            // Background `get_transfers` can run ~300s; waiting the full join made **close_wallet** feel
+            // stuck for minutes. Default **5s** grace then `abort()` so `store`/`close_wallet` can proceed
+            // (set `ARQMA_WALLET_CLOSE_XFER_WAIT_SECS` higher if you prefer to wait for xfer to finish).
             let xfer_cap_secs = std::env::var("ARQMA_WALLET_CLOSE_XFER_WAIT_SECS")
               .ok()
               .and_then(|s| s.trim().parse::<u64>().ok())
-              .map(|v| v.clamp(120, 900))
-              .unwrap_or(360);
+              .map(|v| v.clamp(5, 600))
+              .unwrap_or(5);
             let t_xfer = std::time::Instant::now();
-            let xfer_wait = tokio::time::timeout(Duration::from_secs(xfer_cap_secs), h).await;
+            let xfer_outcome = tokio::time::timeout(
+              Duration::from_secs(xfer_cap_secs),
+              &mut h,
+            )
+            .await;
+            let timed_out = xfer_outcome.is_err();
+            if timed_out {
+              h.abort();
+              let _ = h.await;
+            }
             // #region agent log
             {
-              let (outcome, err_s) = match &xfer_wait {
-                Ok(join_r) => match join_r {
-                  Ok(_) => ("ok".to_string(), String::new()),
-                  Err(e) => ("panic".to_string(), e.to_string()),
-                },
-                Err(_) => ("timeout".to_string(), String::new()),
+              let (outcome, err_s) = match &xfer_outcome {
+                Ok(Ok(())) => ("ok".to_string(), String::new()),
+                Ok(Err(e)) => ("panic".to_string(), e.to_string()),
+                Err(_) => ("timeout_aborted".to_string(), String::new()),
               };
-              let payload = serde_json::json!({
-                "sessionId": "dc1ad5",
-                "runId": "pre-fix",
-                "hypothesisId": "H13",
-                "location": "lib.rs:backend_send:close_wallet_xfer_join",
-                "message": "close_wallet xfer join result",
-                "data": {
+              crate::agent_debug::log(
+                "H13",
+                "lib.rs:backend_send:close_wallet_xfer_join",
+                "close_wallet xfer join result",
+                json!({
                   "xfer_wait_ms": t_xfer.elapsed().as_millis(),
                   "xfer_cap_secs": xfer_cap_secs,
                   "xfer_outcome": outcome,
                   "join_err": err_s,
-                },
-                "timestamp": chrono::Utc::now().timestamp_millis()
-              });
-              if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-              {
-                use std::io::Write;
-                let _ = writeln!(f, "{}", payload);
-                let _ = f.flush();
-              }
+                }),
+              );
             }
             // #endregion
-            if xfer_wait.is_err() {
+            if timed_out {
               eprintln!(
-                "[wallet] close_wallet: xfer exceeded {xfer_cap_secs}s — continuing (store may be delayed)"
+                "[wallet] close_wallet: xfer wait {xfer_cap_secs}s — aborted background get_transfers (export ARQMA_WALLET_CLOSE_XFER_WAIT_SECS to wait longer)"
               );
             }
           }
@@ -423,26 +419,12 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
           if let Some(h) = b.wh_periodic_store_task.take() {
             h.abort();
             // #region agent log
-            {
-              let payload = serde_json::json!({
-                "sessionId": "dc1ad5",
-                "runId": "pre-fix",
-                "hypothesisId": "H17",
-                "location": "lib.rs:backend_send:close_wallet_abort_periodic_store",
-                "message": "close_wallet aborted wh_periodic_store_task to release wallet_rpc_lane",
-                "data": {},
-                "timestamp": chrono::Utc::now().timestamp_millis()
-              });
-              if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-              {
-                use std::io::Write;
-                let _ = writeln!(f, "{}", payload);
-                let _ = f.flush();
-              }
-            }
+            crate::agent_debug::log(
+              "H17",
+              "lib.rs:backend_send:close_wallet_abort_periodic_store",
+              "close_wallet aborted wh_periodic_store_task to release wallet_rpc_lane",
+              json!({}),
+            );
             // #endregion
           }
           // `begin_Stake_Acquisition` → `run_pool_tick` holds `wallet_rpc_lane` for the whole tick; it can
@@ -451,26 +433,12 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
           crate::wallet_pools::end_stake_acquisition(&mut b);
           if had_stake {
             // #region agent log
-            {
-              let payload = serde_json::json!({
-                "sessionId": "dc1ad5",
-                "runId": "pre-fix",
-                "hypothesisId": "H18",
-                "location": "lib.rs:backend_send:close_wallet_abort_stake_acquisition",
-                "message": "close_wallet aborted stake_acquisition_task (pool tick held lane)",
-                "data": {},
-                "timestamp": chrono::Utc::now().timestamp_millis()
-              });
-              if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-              {
-                use std::io::Write;
-                let _ = writeln!(f, "{}", payload);
-                let _ = f.flush();
-              }
-            }
+            crate::agent_debug::log(
+              "H18",
+              "lib.rs:backend_send:close_wallet_abort_stake_acquisition",
+              "close_wallet aborted stake_acquisition_task (pool tick held lane)",
+              json!({}),
+            );
             // #endregion
           }
           if let Some(h) = b.wallet_heartbeat.take() {
@@ -479,81 +447,68 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
           }
         }
         tokio::time::sleep(Duration::from_millis(120)).await;
+        // Set `wallet_closing` **after** xfer join + heartbeat abort — otherwise `open_wallet` spins for
+        // the whole `ARQMA_WALLET_CLOSE_XFER_WAIT_SECS` window while no lane work is happening yet.
+        state.wallet_closing.store(true, Ordering::SeqCst);
         // #region agent log
-        let payload = serde_json::json!({
-          "sessionId": "dc1ad5",
-          "runId": "pre-fix",
-          "hypothesisId": "H4",
-          "location": "lib.rs:backend_send:close_wallet_pre_lane",
-          "message": "close_wallet reached lane acquire",
-          "data": { "prep_elapsed_ms": close_gate_start.elapsed().as_millis() },
-          "timestamp": chrono::Utc::now().timestamp_millis()
-        });
-        if let Ok(mut f) = std::fs::OpenOptions::new()
-          .create(true)
-          .append(true)
-          .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-        {
-          use std::io::Write;
-          let _ = writeln!(f, "{}", payload);
-          let _ = f.flush();
-        }
+        crate::agent_debug::log(
+          "H14",
+          "lib.rs:backend_send:wallet_ipc_close_enter",
+          "close_wallet: wallet_closing set after prep (before lane)",
+          json!({ "prep_elapsed_ms": close_gate_start.elapsed().as_millis() }),
+        );
+        crate::agent_debug::log(
+          "H4",
+          "lib.rs:backend_send:close_wallet_pre_lane",
+          "close_wallet reached lane acquire",
+          json!({ "prep_elapsed_ms": close_gate_start.elapsed().as_millis() }),
+        );
         // #endregion
       }
-      let _wallet_lane = if message.method == "get_coin_price" {
-        None
-      } else if message.method == "close_wallet" {
+      let _wallet_lane = if message.method == "close_wallet" {
         let lane_wait_start = std::time::Instant::now();
-        Some(
-          state
-            .wallet_rpc_lane
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|e| format!("wallet_rpc_lane: {}", e))
-            .map(|permit| {
-              // #region agent log
-              let payload = serde_json::json!({
-                "sessionId": "dc1ad5",
-                "runId": "pre-fix",
-                "hypothesisId": "H4",
-                "location": "lib.rs:backend_send:close_wallet_lane_acquired",
-                "message": "close_wallet acquired wallet_rpc_lane",
-                "data": { "lane_wait_ms": lane_wait_start.elapsed().as_millis() },
-                "timestamp": chrono::Utc::now().timestamp_millis()
-              });
-              if let Ok(mut f) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-              {
-                use std::io::Write;
-                let _ = writeln!(f, "{}", payload);
-                let _ = f.flush();
-              }
-              // #endregion
-              permit
-            })?,
-        )
-      } else if message.method == "open_wallet" {
-        // Align with `close_wallet` holding the lane for `store` (HTTP timeout can be ~600s).
-        let open_lane_secs = crate::wallet_process::wallet_rpc_http_timeout_secs()
-          .saturating_add(60)
-          .clamp(30, 900);
-        match tokio::time::timeout(
-          Duration::from_secs(open_lane_secs),
+        let lane_deadline_secs = crate::wallet_process::wallet_rpc_http_timeout_secs()
+          .saturating_add(120)
+          .max(180);
+        let permit = match tokio::time::timeout(
+          Duration::from_secs(lane_deadline_secs),
           state.wallet_rpc_lane.clone().acquire_owned(),
         )
         .await
         {
-          Ok(Ok(permit)) => Some(permit),
+          Ok(Ok(p)) => p,
           Ok(Err(e)) => return Err(format!("wallet_rpc_lane: {}", e)),
           Err(_) => {
+            eprintln!(
+              "[wallet] close_wallet: wallet_rpc_lane acquire timed out after {lane_deadline_secs}s — forcing wallet-rpc shutdown"
+            );
+            {
+              let mut b = state.backend.lock().await;
+              crate::wallet_process::force_shutdown_wallet_rpc(&mut *b).await;
+            }
+            state.wallet_closing.store(false, Ordering::SeqCst);
             return Err(format!(
-              "open_wallet: wallet_rpc_lane acquire timeout after {open_lane_secs}s (another call may be saving the wallet)"
+              "close_wallet: wallet_rpc_lane acquire timed out after {lane_deadline_secs}s",
             ));
           }
-        }
+        };
+        // #region agent log
+        crate::agent_debug::log(
+          "H4",
+          "lib.rs:backend_send:close_wallet_lane_acquired",
+          "close_wallet acquired wallet_rpc_lane",
+          json!({ "lane_wait_ms": lane_wait_start.elapsed().as_millis() }),
+        );
+        // #endregion
+        Some(permit)
+      } else if message.method == "open_wallet" {
+        // **Do not** hold `wallet_rpc_lane` across `handle_wallet(open_wallet)`.
+        // `open_wallet` ends by spawning the wallet heartbeat; `tick_once` immediately
+        // `acquire_owned`s the same semaphore (capacity 1). The IPC handler still holds
+        // this permit until after `wallet_res?` → deadlock: no sync, frozen UI / menu.
+        // Other wallet IPC is serialized by `backend` mutex; heartbeat is not running yet
+        // during `try_start_wallet_rpc` + `open_wallet` RPC.
+        None
       } else {
         Some(
           state
@@ -593,6 +548,7 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
         state.wallet_closing.store(false, Ordering::SeqCst);
       }
       wallet_res?;
+      }
     }
     _ => {
       eprintln!("[backend_send] unknown module: {}", message.module);
@@ -704,7 +660,9 @@ pub fn run () {
         backend: Mutex::new(WalletBackendState::default()),
         http,
         wallet_closing: Arc::new(AtomicBool::new(false)),
-        wallet_rpc_lane: Arc::new(Semaphore::new(1))
+        wallet_rpc_lane: Arc::new(Semaphore::new(1)),
+        wallet_exit_shutdown_done: Arc::new(AtomicBool::new(false)),
+        wallet_ipc_serial: std::sync::Arc::new(tokio::sync::Mutex::new(())),
       }
     })
     .invoke_handler(tauri::generate_handler![
@@ -727,33 +685,42 @@ pub fn run () {
     .build(tauri::generate_context!())
     .expect("Tauri Builder error")
     .run(|app, event| {
-      if let RunEvent::Exit = event {
-        tauri::async_runtime::block_on(async {
-          if let Some(st) = app.try_state::<AppData>() {
-            let http = st.http.clone();
-            // Abort tasks that hold `wallet_rpc_lane` first; otherwise Exit would await `acquire_owned`
-            // indefinitely while heartbeat/xfer still hold the single permit (`store` could never run).
-            {
-              let mut b = st.backend.lock().await;
-              if let Some(h) = b.wh_xfer_task.take() {
-                h.abort();
-              }
-              if let Some(h) = b.wallet_heartbeat.take() {
-                h.abort();
-              }
+      match event {
+        RunEvent::ExitRequested { code, .. } => {
+          // #region agent log
+          crate::agent_debug::log(
+            "F",
+            "lib.rs:RunEvent::ExitRequested",
+            "exit requested (observe vs Exit for ordering)",
+            json!({ "code": code }),
+          );
+          // #endregion
+        }
+        RunEvent::Exit => {
+          tauri::async_runtime::block_on(async {
+            // #region agent log
+            crate::agent_debug::log(
+              "A",
+              "lib.rs:RunEvent::Exit",
+              "exit handler entered",
+              json!({}),
+            );
+            // #endregion
+            if let Some(st) = app.try_state::<AppData>() {
+              wallet_exit_shutdown_handle(&st).await;
+            } else {
+              // #region agent log
+              crate::agent_debug::log(
+                "A",
+                "lib.rs:RunEvent::Exit",
+                "try_state AppData missing — shutdown skipped",
+                json!({}),
+              );
+              // #endregion
             }
-            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
-            let lane = match st.wallet_rpc_lane.clone().acquire_owned().await {
-              Ok(p) => p,
-              Err(e) => {
-                eprintln!("[exit] wallet_rpc_lane acquire: {e}");
-                return;
-              }
-            };
-            let mut b = st.backend.lock().await;
-            b.shutdown_subprocesses_async(&http, Some(lane)).await;
-          }
-        });
+          });
+        }
+        _ => {}
       }
     });
 }

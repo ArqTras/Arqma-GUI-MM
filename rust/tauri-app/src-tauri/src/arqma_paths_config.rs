@@ -51,7 +51,7 @@ pub fn wallet_rpc_bind_port (config: &Value) -> u16 {
     .get("wallet")
     .and_then(|w| w.get("rpc_bind_port"))
     .and_then(|p| p.as_u64())
-    .unwrap_or(9999) as u16
+    .unwrap_or(19999) as u16
 }
 
 /// `arqmad` address in local mode (CLI version) — only for `check_version`.

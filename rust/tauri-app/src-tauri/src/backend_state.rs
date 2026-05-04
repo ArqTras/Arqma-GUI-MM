@@ -1,5 +1,4 @@
 use arqma_wallet_core::ArqmaPaths;
-use arqma_wallet_rpc::WalletJsonRpc;
 use crate::json_rpc_client::WalletRpcClient;
 use serde::Serialize;
 use serde_json::Value;
@@ -37,7 +36,7 @@ pub struct WalletBackendState {
   pub wallet_salt: String,
   /// Password hash (128 hex chars), like `this.wallet_state.password_hash` in Node.
   pub wallet_password_hash_hex: Option<String>,
-  /// Shared handle to the HTTP digest JSON-RPC client (implements [`WalletJsonRpc`]).
+  /// Shared handle to the HTTP digest JSON-RPC client (implements [`arqma_wallet_rpc::WalletJsonRpc`]).
   pub wallet: Option<Arc<WalletRpcClient>>,
   pub wallet_process: Option<std::process::Child>,
   /// Local `arqmad` child process (none when `type: remote`).
@@ -171,10 +170,5 @@ impl WalletBackendState {
     self.wh_light_rpc_pressure = 0;
     self.close_store_timed_out = false;
     self.tx_metadata_list.clear();
-  }
-
-  /// JSON-RPC surface only (tests / future backends that are not `WalletRpcClient`).
-  pub fn wallet_json_rpc (&self) -> Option<&dyn WalletJsonRpc> {
-    self.wallet.as_deref().map(|w| w as &dyn WalletJsonRpc)
   }
 }

@@ -210,7 +210,15 @@ export default defineComponent({
     // Watchers
     const statusWatcher = watch(status, async (newVal, oldVal) => {
       try {
-        if (newVal.code === oldVal.code) return
+        if (newVal.code === oldVal.code) {
+          // After first open, status stays `0`; closing did not always emit `1`, so a second open could
+          // re-send `0` and skip this watcher — hide loader and enter wallet anyway.
+          if (newVal.code === 0 && $q.loading.isActive) {
+            $q.loading.hide()
+            router.push({ path: "/wallet" })
+          }
+          return
+        }
         switch (newVal.code) {
           case 0: // Wallet loaded
             $q.loading.hide()
@@ -225,9 +233,8 @@ export default defineComponent({
               message: status.value.message
             })
             $store.commit("gateway/reset_wallet_status", {
-              status: {
-                code: 1 // Reset to 1 (ready for action)
-              }
+              code: 1,
+              message: null
             })
             break
         }

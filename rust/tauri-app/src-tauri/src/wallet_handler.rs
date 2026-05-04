@@ -19,29 +19,18 @@ fn open_rpc_timeout_secs () -> u64 {
   std::env::var("ARQMA_WALLET_OPEN_RPC_TIMEOUT_SECS")
     .ok()
     .and_then(|s| s.trim().parse::<u64>().ok())
-    .map(|v| v.clamp(5, 120))
-    .unwrap_or(20)
+    .map(|v| v.clamp(5, 300))
+    .unwrap_or(90)
 }
 
-fn debug_log(hypothesis_id: &str, location: &str, message: &str, data: Value) {
-  // #region agent log
-  let payload = json!({
-    "sessionId": "baec20",
-    "runId": "pre-fix",
-    "hypothesisId": hypothesis_id,
-    "location": location,
-    "message": message,
-    "data": data,
-    "timestamp": Utc::now().timestamp_millis()
-  });
-  if let Ok(mut f) = std::fs::OpenOptions::new()
-    .create(true)
-    .append(true)
-    .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-baec20.log")
-  {
-    let _ = std::io::Write::write_all(&mut f, format!("{payload}\n").as_bytes());
-  }
-  // #endregion
+/// Parallel `getheight` / `getbalance` right after UI unblocks — must stay short so we do not hold
+/// `backend` mutex while wallet-rpc is scan-busy (otherwise heartbeat cannot tick).
+fn open_wallet_snapshot_rpc_secs () -> u64 {
+  std::env::var("ARQMA_WALLET_OPEN_SNAPSHOT_RPC_SECS")
+    .ok()
+    .and_then(|s| s.trim().parse::<u64>().ok())
+    .map(|v| v.clamp(5, 120))
+    .unwrap_or(25)
 }
 
 fn wallet_file_probe(st: &WalletBackendState) -> Value {
@@ -159,6 +148,7 @@ pub async fn handle_wallet (
       }
     }
     "get_coin_price" => {
+      // Primary path: `backend_send` runs this **without** `backend` mutex (several HTTP calls).
       crate::wallet_relay_ops::get_coin_and_conversion(app, http).await;
     }
     "cancelTransaction" => {
@@ -258,10 +248,11 @@ pub async fn handle_wallet (
       wallet_export_transactions(app, st, http, p).await?;
     }
     "validate_address" | "open_wallet" | "close_wallet" | "create_wallet"
+    | "save_wallet"
     | "transfer"
     | "rescan_blockchain" | "rescan_spent" => {
       if method == "open_wallet" || method == "close_wallet" {
-        debug_log(
+        crate::agent_debug::log(
           "H5",
           "wallet_handler.rs:handle_wallet:pre_try_start",
           "wallet method before try_start_wallet_rpc",
@@ -273,10 +264,11 @@ pub async fn handle_wallet (
           }),
         );
       }
-      // After `close_wallet` we stop `arqma-wallet-rpc`; respawn before any RPC that needs it.
+      // After a clean `close_wallet` the wallet-rpc child may stay running (Oxen / Electron); `try_start`
+      // returns `AlreadyRunning` when process + client exist. Unclean close still kills the child.
       let start_res = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
       if method == "open_wallet" || method == "close_wallet" {
-        debug_log(
+        crate::agent_debug::log(
           "H3",
           "wallet_handler.rs:handle_wallet:post_try_start",
           "wallet method after try_start_wallet_rpc",
@@ -295,15 +287,36 @@ pub async fn handle_wallet (
         );
         st.wallet_password_hash_hex = None;
         st.wh_display_name.clear();
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_handler.rs:handle_wallet:close_wallet_no_client",
           "close_wallet idempotent (no RPC)",
           json!({}),
         );
+        let _ = emit_receive(
+          app,
+          "set_wallet_info",
+          json!({
+            "name": "",
+            "height": 0,
+            "balance": 0,
+            "unlocked_balance": 0,
+            "scan_poll_ts": Utc::now().timestamp_millis()
+          }),
+        );
+        // So the next `open_wallet` can transition 1 → 0 (wallet-select `statusWatcher` ignores duplicate 0).
+        let _ = emit_receive(
+          app,
+          "reset_wallet_status",
+          json!({ "code": 1, "message": null }),
+        );
         return Ok(Value::Null);
       }
       let (rpc, params) = map_wallet_rpc(method, p)?;
+      if method == "create_wallet" {
+        // Electron `createWallet`: clear error state before `create_wallet` RPC.
+        emit_receive(app, "reset_wallet_error", json!({}))?;
+      }
       let r = {
         let w = st
           .wallet
@@ -311,7 +324,7 @@ pub async fn handle_wallet (
           .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
         // Immediate close mode: do not block UI on `store`/`close_wallet` RPC when wallet-rpc is scan-busy.
         if method == "close_wallet" {
-          debug_log(
+          crate::agent_debug::log(
             "H6",
             "wallet_handler.rs:handle_wallet:close_immediate_skip_store_rpc",
             "immediate close: skipping blocking store/close_wallet RPC",
@@ -325,17 +338,64 @@ pub async fn handle_wallet (
             let open_timeout = open_rpc_timeout_secs();
             match tokio::time::timeout(Duration::from_secs(open_timeout), w.call(&rpc, &params)).await {
               Ok(Ok(v)) => v,
-              Ok(Err(e)) => return Err(format!("open_wallet RPC failed: {e}")),
-              Err(_) => return Err(format!("open_wallet RPC timed out after {open_timeout}s")),
+              Ok(Err(e)) => {
+                let _ = emit_receive(
+                  app,
+                  "reset_wallet_status",
+                  json!({
+                    "code": -1,
+                    "message": format!("open_wallet: {e}")
+                  }),
+                );
+                return Err(format!("open_wallet RPC failed: {e}"));
+              }
+              Err(_) => {
+                let _ = emit_receive(
+                  app,
+                  "reset_wallet_status",
+                  json!({
+                    "code": -1,
+                    "message": format!("open_wallet: timeout after {open_timeout}s")
+                  }),
+                );
+                return Err(format!("open_wallet RPC timed out after {open_timeout}s"));
+              }
+            }
+          } else if method == "save_wallet" {
+            // Electron `saveWallet()` → `sendRPC("store", {}, storeFlushTimeoutMs)`.
+            let flush_ms = crate::wallet_process::save_wallet_flush_timeout_ms();
+            match tokio::time::timeout(Duration::from_millis(flush_ms), w.call(&rpc, &params)).await {
+              Ok(Ok(v)) => v,
+              Ok(Err(e)) => return Err(format!("save_wallet: store RPC failed: {e}")),
+              Err(_) => {
+                return Err(format!(
+                  "save_wallet: store timed out after {flush_ms}ms (Electron storeFlushTimeoutMs; override ARQMA_WALLET_STORE_FLUSH_TIMEOUT_MS)"
+                ));
+              }
+            }
+          } else if method == "validate_address" {
+            // Electron `validateAddress`: transport failure → `set_valid_address` invalid (not `set_wallet_error`).
+            match w.call(&rpc, &params).await {
+              Ok(v) => v,
+              Err(_) => {
+                let addr = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
+                emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
+                return Ok(Value::Null);
+              }
             }
           } else {
             w.call(&rpc, &params).await?
           }
         }
       };
+      if method == "validate_address" && r.get("error").is_some() {
+        let addr = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
+        emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
+        return Ok(Value::Null);
+      }
       if method != "close_wallet" && r.get("error").is_some() {
         if method == "open_wallet" || method == "close_wallet" {
-          debug_log(
+          crate::agent_debug::log(
             "H5",
             "wallet_handler.rs:handle_wallet:rpc_error",
             "wallet rpc returned error for open/close",
@@ -357,14 +417,26 @@ pub async fn handle_wallet (
             })
             .unwrap_or_else(|| "Unknown error".to_string())
         };
+        let rpc_msg = rpc_msg_capitalized();
+        if method == "open_wallet" {
+          let _ = emit_receive(
+            app,
+            "reset_wallet_status",
+            json!({ "code": -1, "message": rpc_msg.clone() }),
+          );
+        }
         if method == "transfer" {
-          let msg = rpc_msg_capitalized();
+          let msg = rpc_msg.clone();
           emit_receive(
             app,
             "set_tx_status",
             json!({ "code": -200, "message": msg, "sending": false }),
           )?;
         }
+        return Ok(Value::Null);
+      }
+      if method == "validate_address" {
+        emit_validate_address_from_rpc_result(app, st, p, &r)?;
         return Ok(Value::Null);
       }
       if method == "transfer" {
@@ -426,10 +498,6 @@ pub async fn handle_wallet (
       }
       // Some actions expect extra gateway events from the backend.
       if method == "open_wallet" {
-        let w = st
-          .wallet
-          .as_ref()
-          .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
         if !st.wallet_salt.is_empty() {
           if let Some(pass) = p.get("password").and_then(|x| x.as_str()) {
             if let Ok(h) = crate::wallet_password::pbkdf2_password_hex(pass, &st.wallet_salt) {
@@ -443,66 +511,123 @@ pub async fn handle_wallet (
           .and_then(|n| n.as_str())
           .unwrap_or("");
         emit_receive(app, "reset_wallet_error", json!({}))?;
+
+        // Let the UI leave `$q.loading` **before** `getheight` / `getbalance`: those RPCs can queue behind a
+        // long-running scan and would otherwise block this handler for minutes (heartbeat also contends on
+        // `backend`, so the footer stayed at 0 % with a frozen spinner on reopen).
+        st.wh_display_name = name.to_string();
+        st.wh_stored_height = 0;
+        st.wh_stored_balance = 0;
+        st.wh_stored_unlocked = 0;
+        st.wh_catchup_last_heavy = None;
+        st.wh_fetch_tx_pending = true;
+
+        emit_receive(
+          app,
+          "set_wallet_info",
+          json!({
+            "name": name,
+            "height": 0,
+            "balance": 0,
+            "unlocked_balance": 0,
+            "scan_poll_ts": Utc::now().timestamp_millis()
+          }),
+        )?;
         emit_receive(
           app,
           "reset_wallet_status",
           json!({ "code": 0, "message": "OK" }),
         )?;
-        let mut opened_height: u64 = 0;
-        let mut open_height = tokio::time::timeout(
-          Duration::from_secs(20),
-          w.call("getheight", &json!({})),
-        )
-        .await;
-        if !matches!(open_height, Ok(Ok(_))) {
-          tokio::time::sleep(Duration::from_millis(350)).await;
-          open_height = tokio::time::timeout(
-            Duration::from_secs(20),
-            w.call("getheight", &json!({})),
-          )
-          .await;
-        }
-        if let Ok(Ok(h)) = open_height {
-          if let Some(height_u) = crate::json_util::wallet_height_from_getheight(&h) {
-            opened_height = height_u;
-            emit_receive(
-              app,
-              "set_wallet_info",
-              json!({
-                "name": name,
-                "height": height_u,
-                "balance": 0,
-                "unlocked_balance": 0
-              }),
-            )?;
-          } else {
-            emit_receive(
-              app,
-              "set_wallet_info",
-              json!({ "name": name, "height": 0, "balance": 0, "unlocked_balance": 0 }),
-            )?;
+        crate::wallet_heartbeat::start(app, st, is_local_net(st));
+
+        let w = st
+          .wallet
+          .as_ref()
+          .ok_or_else(|| ERR_NO_LOCAL_WALLET_RPC.to_string())?;
+        let snap_t = open_wallet_snapshot_rpc_secs();
+        let p_empty = json!({});
+        let p_bal = json!({ "account_index": 0 });
+        let (gh_r, gb_r) = tokio::join!(
+          tokio::time::timeout(Duration::from_secs(snap_t), w.call("getheight", &p_empty)),
+          tokio::time::timeout(Duration::from_secs(snap_t), w.call("getbalance", &p_bal)),
+        );
+
+        let opened_height: u64 = match &gh_r {
+          Ok(Ok(h)) => crate::json_util::wallet_height_from_getheight(h).unwrap_or(0),
+          Err(_) => {
+            eprintln!(
+              "[wallet] open_wallet: getheight snapshot timed out after {snap_t}s (heartbeat will refresh)"
+            );
+            0
           }
-        } else {
-          emit_receive(
-            app,
-            "set_wallet_info",
-            json!({ "name": name, "height": 0, "balance": 0, "unlocked_balance": 0 }),
-          )?;
-          if matches!(open_height, Err(_)) {
-            eprintln!("[wallet] open_wallet: getheight timeout after retries; continuing with height=0");
+          Ok(Err(_)) => 0,
+        };
+        let mut bal = 0u64;
+        let mut unl = 0u64;
+        if let Ok(Ok(ref v)) = gb_r {
+          if crate::json_util::json_rpc_no_error(v) {
+            bal = v
+              .pointer("/result/balance")
+              .and_then(crate::json_util::value_as_u64)
+              .unwrap_or(0);
+            unl = v
+              .pointer("/result/unlocked_balance")
+              .or_else(|| v.pointer("/result/unlocked"))
+              .and_then(crate::json_util::value_as_u64)
+              .unwrap_or(0);
           }
         }
+        st.wh_stored_height = opened_height;
+        st.wh_stored_balance = bal;
+        st.wh_stored_unlocked = unl;
+        emit_receive(
+          app,
+          "set_wallet_info",
+          json!({
+            "name": name,
+            "height": opened_height,
+            "balance": bal,
+            "unlocked_balance": unl,
+            "scan_poll_ts": Utc::now().timestamp_millis()
+          }),
+        )?;
+
         emit_receive(
           app,
           "set_wallet_transactions",
           json!({ "tx_list": [] }),
         )?;
-        st.wh_display_name = name.to_string();
-        st.wh_stored_height = opened_height;
-        st.wh_stored_balance = 0;
-        st.wh_stored_unlocked = 0;
-        st.wh_catchup_last_heavy = None;
-        st.wh_fetch_tx_pending = true;
+
+        // Electron: missing `{name}.address.txt` → `get_address`, write file, `listWallets`.
+        if let Some(wdir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
+          let addr_path = wdir.join(format!("{name}.address.txt"));
+          if !addr_path.exists() {
+            let p_addr = json!({ "account_index": 0 });
+            match tokio::time::timeout(Duration::from_secs(30), w.call("get_address", &p_addr)).await {
+              Ok(Ok(a)) if crate::json_util::json_rpc_no_error(&a) => {
+                if let Some(addr) = a.pointer("/result/address").and_then(|x| x.as_str()) {
+                  let _ = std::fs::write(&addr_path, addr);
+                  let _ = emit_wallet_list(app, st).await;
+                }
+              }
+              _ => {}
+            }
+          }
+        }
+
+        // Electron: `query_key` spend_key — all `0` ⇒ view-only wallet.
+        let p_sp = json!({ "key_type": "spend_key" });
+        match tokio::time::timeout(Duration::from_secs(25), w.call("query_key", &p_sp)).await {
+          Ok(Ok(q)) if crate::json_util::json_rpc_no_error(&q) => {
+            if let Some(key) = q.pointer("/result/key").and_then(|x| x.as_str()) {
+              if key.chars().all(|c| c == '0') {
+                let _ = emit_receive(app, "set_wallet_info", json!({ "view_only": true }));
+              }
+            }
+          }
+          _ => {}
+        }
+
         if is_sync_debug() {
           eprintln!(
             "[sync-debug][wallet] open_wallet file={name} is_local_net={}",
@@ -512,8 +637,7 @@ pub async fn handle_wallet (
         crate::wallet_diag::log_always(format!(
           "open_wallet: {name} height={opened_height} (xfer after sync catch-up)"
         ));
-        crate::wallet_heartbeat::start(app, st, is_local_net(st));
-        debug_log(
+        crate::agent_debug::log(
           "H2",
           "wallet_handler.rs:handle_wallet:open_wallet_started_hb",
           "open_wallet completed and heartbeat started",
@@ -536,14 +660,30 @@ pub async fn handle_wallet (
           "close_wallet: stopping heartbeat and clearing active wallet state"
         );
         st.wallet_password_hash_hex = None;
-        // Ryo-style switch wallet: RPC `store`/`close_wallet` must run before clearing scan height
-        // used for diagnostics and backlog hints.
+        // `store` / `close_wallet` RPC via [`close_wallet_session_only`]; subprocess is stopped only if
+        // close fails (Oxen / Arqma Electron parity), unless `ARQMA_WALLET_FORCE_KILL_AFTER_CLOSE=1`.
         crate::wallet_process::close_wallet_session_only(st).await;
         st.wh_display_name.clear();
         st.wh_stored_height = 0;
         st.wh_stored_balance = 0;
         st.wh_stored_unlocked = 0;
-        debug_log(
+        let _ = emit_receive(
+          app,
+          "set_wallet_info",
+          json!({
+            "name": "",
+            "height": 0,
+            "balance": 0,
+            "unlocked_balance": 0,
+            "scan_poll_ts": Utc::now().timestamp_millis()
+          }),
+        );
+        let _ = emit_receive(
+          app,
+          "reset_wallet_status",
+          json!({ "code": 1, "message": null }),
+        );
+        crate::agent_debug::log(
           "H1",
           "wallet_handler.rs:handle_wallet:close_wallet_done",
           "close_wallet branch finished",
@@ -1992,6 +2132,44 @@ fn wallet_password_matches (st: &WalletBackendState, password: &str) -> bool {
   got == want
 }
 
+/// Electron `wallet-rpc.js::validateAddress` → `set_valid_address` (incl. `net_type` vs result `nettype`).
+fn emit_validate_address_from_rpc_result (
+  app: &AppHandle,
+  st: &WalletBackendState,
+  p: &Value,
+  r: &Value,
+) -> Result<(), String> {
+  let address = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
+  let Some(res) = r.get("result") else {
+    emit_receive(app, "set_valid_address", json!({ "address": address, "valid": false }))?;
+    return Ok(());
+  };
+  let valid = res.get("valid").and_then(|v| v.as_bool()).unwrap_or(false);
+  let nettype = res
+    .get("nettype")
+    .and_then(|v| v.as_str())
+    .or_else(|| res.get("net_type").and_then(|v| v.as_str()))
+    .unwrap_or("");
+  let app_net = st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+    .unwrap_or("mainnet");
+  let net_matches = app_net == nettype;
+  let is_valid = valid && net_matches;
+  emit_receive(
+    app,
+    "set_valid_address",
+    json!({
+      "address": address,
+      "valid": is_valid,
+      "nettype": nettype
+    }),
+  )?;
+  Ok(())
+}
+
 fn is_local_net (st: &WalletBackendState) -> bool {
   let net = st
     .config_data
@@ -2067,6 +2245,7 @@ fn map_wallet_rpc (method: &str, p: &Value) -> Result<(String, Value), String> {
       ))
     }
     "close_wallet" => Ok(v("close_wallet", json!({}))),
+    "save_wallet" => Ok(v("store", Value::Null)),
     "create_wallet" => {
       let name = p.get("name").and_then(|x| x.as_str()).ok_or("name")?.to_string();
       let password = p.get("password").and_then(|x| x.as_str()).ok_or("password")?.to_string();

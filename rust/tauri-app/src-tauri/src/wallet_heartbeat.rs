@@ -1,7 +1,10 @@
 //! Wallet heartbeat pacing matches Electron **`wallet-rpc.js` → `startHeartbeat` / `heartbeatAction`**:
-//! **5 s** between ticks (local and remote). Each tick runs
+//! **5 s** between ticks on a **local** daemon, **60 s** when `daemons[net].type === "remote"`.
+//! Each tick runs
 //! `get_address` / `getheight` / `getbalance` like Electron; long `get_transfers` stays in a background task.
-//! While catching up, `getheight` uses a **120 s** cap so the footer can still advance under load.
+//! While catching up (wallet height behind daemon), `getheight` uses a **120 s** cap (Electron/Ryo-line
+//! GUIs use ~5 s per call but run the three RPCs **in parallel**; here each call waits on
+//! `wallet_rpc_lane`, so a single cap must cover queue + scan — see `gh_cap` below).
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::WalletRpcClient;
 use crate::json_util::{json_rpc_no_error, value_as_u64, wallet_height_from_getheight};
@@ -78,9 +81,10 @@ pub fn stop (st: &mut crate::backend_state::WalletBackendState) {
   st.wh_light_rpc_pressure = 0;
 }
 
-async fn run (app: &AppHandle, client: WalletRpcClient, _is_local: bool) {
-  // Mirrors `WalletRPC.startHeartbeat` in Electron (`wallet-rpc.js`: fixed 5000 ms).
-  let electron_interval_ms = 5000_u64;
+async fn run (app: &AppHandle, client: WalletRpcClient, is_local: bool) {
+  // Mirrors `WalletRPC.startHeartbeat` in Electron `wallet-rpc.js`:
+  // `this.local ? 5 * 1000 : 60 * 1000`.
+  let electron_interval_ms = if is_local { 5000_u64 } else { 60_000_u64 };
   let mut cycle: u64 = 0;
   let mut last_periodic_store = Instant::now();
   while app.try_state::<AppData>().is_some() {
@@ -157,7 +161,9 @@ async fn maybe_schedule_periodic_store (
     15
   };
   let jh = tokio::spawn(async move {
-    let _lane_hold = wallet_lane_hold;
+    // Release lane before long `store` (same idea as background `get_transfers`): holding the permit
+    // across the RPC blocked heartbeat `getheight` for up to `store_timeout_secs` → frozen sync % / UI.
+    drop(wallet_lane_hold);
     match timeout(Duration::from_secs(store_timeout_secs), c2.call("store", &json!({}))).await {
       Ok(Ok(v)) if !json_rpc_no_error(&v) => {
         eprintln!("[wallet hb] periodic store rpc error: {:?}", v.get("error"));
@@ -252,17 +258,19 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   let p_bal = json!({ "account_index": 0 });
 
   // Same order as Electron `heartbeatAction`: `getheight` first, then address + balance.
-  // Match Electron `timeout` ~5 s when synced; use a long **getheight** cap while scanning (`wallet-rpc.js`
-  // would still issue all three RPCs parallel with 5000 ms each).
+  // Electron `wallet-rpc.js`: each of the three uses `this.timeout` (5000 ms) but `Promise.allSettled`
+  // runs them in parallel. Tauri holds `wallet_rpc_lane` per RPC, so after `open_wallet` / xfer the
+  // process can be busy >15 s even when height matches daemon — avoid spurious timeouts (log noise,
+  // `wh_light_rpc_pressure` backoff) by using 120 s in scan rhythm and a generous cap when "synced".
   let gh_cap = if in_scan_rhythm {
-    Duration::from_secs(30)
+    Duration::from_secs(120)
   } else {
-    Duration::from_secs(15)
+    Duration::from_secs(45)
   };
   let ab_cap = if in_scan_rhythm {
-    Duration::from_secs(8)
+    Duration::from_secs(30)
   } else {
-    Duration::from_secs(6)
+    Duration::from_secs(12)
   };
 
   let xfer_lane_heavy_bg = rpc_lane.clone();
@@ -319,6 +327,63 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
       Err("skipped".to_string())
     }
   };
+
+  // Oxen `heartbeatAction(true)`: if any of the three RPCs returns **-13** (“no wallet” / race while
+  // another wallet syncs), close the session and notify — see `oxen-electron-gui-wallet` `wallet-rpc.js`.
+  // `ext_address_book` is `wh_heartbeat_ext_pending` (first extended tick after `start`).
+  if ext_address_book {
+    let rpc_err_13 = |r: &Result<Value, String>| -> bool {
+      matches!(
+        r,
+        Ok(v) if v.get("error").and_then(|e| e.get("code")).and_then(|c| c.as_i64()) == Some(-13)
+      )
+    };
+    if rpc_err_13(&gh) || rpc_err_13(&ga) || rpc_err_13(&gb) {
+      eprintln!(
+        "[wallet hb] first extended tick: JSON-RPC code -13 (Oxen-style) — closing session and notifying UI"
+      );
+      if let Some(adata2) = app.try_state::<AppData>() {
+        let mut b = adata2.backend.lock().await;
+        stop(&mut b);
+        crate::wallet_process::close_wallet_session_only(&mut b).await;
+        b.wh_display_name.clear();
+        b.wh_stored_height = 0;
+        b.wh_stored_balance = 0;
+        b.wh_stored_unlocked = 0;
+      }
+      let _ = emit_receive(
+        app,
+        "set_wallet_info",
+        json!({
+          "name": "",
+          "height": 0,
+          "balance": 0,
+          "unlocked_balance": 0,
+          "scan_poll_ts": Utc::now().timestamp_millis()
+        }),
+      );
+      let _ = emit_receive(
+        app,
+        "set_wallet_error",
+        json!({
+          "status": {
+            "code": -1,
+            "message": "Wallet session failed (-13)",
+            "i18n": "notification.errors.failedWalletOpen"
+          }
+        }),
+      );
+      let _ = emit_receive(
+        app,
+        "reset_wallet_status",
+        json!({
+          "code": -1,
+          "message": "Wallet session failed (-13)"
+        }),
+      );
+      return true;
+    }
+  }
 
   {
     let mut b = adata.backend.lock().await;

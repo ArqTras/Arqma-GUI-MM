@@ -40,6 +40,16 @@
             v-close-popup
             clickable
             :disable="!is_ready"
+            @click="saveWalletToDisk()"
+          >
+            <q-item-label header>
+              {{ $t('components.wallet_settings.save_wallet') }}
+            </q-item-label>
+          </q-item>
+          <q-item
+            v-close-popup
+            clickable
+            :disable="!is_ready"
             @click="showModal('rescan')"
           >
             <q-item-label header>
@@ -930,6 +940,24 @@ export default defineComponent({
       }
     }
 
+    /** Electron `wallet-rpc.js::saveWallet` → JSON-RPC `store` (backend `save_wallet`). */
+    const saveWalletToDisk = async () => {
+      if (!is_ready.value) return
+      $q.loading.show({ message: t("components.wallet_settings.save_wallet_progress") })
+      try {
+        await api.send("wallet", "save_wallet", {})
+        $q.notify({
+          type: "positive",
+          timeout: 4000,
+          message: t("components.wallet_settings.save_wallet_notify_ok")
+        })
+      } catch (error) {
+        await api.error("components/wallet_settings", "save_wallet", error.stack || error)
+      } finally {
+        $q.loading.hide()
+      }
+    }
+
     const rescanWallet = async () => {
       try {
         hideModal("rescan")
@@ -1343,6 +1371,7 @@ export default defineComponent({
       copyPrivateKey,
       getPrivateKeys,
       closePrivateKeys,
+      saveWalletToDisk,
       rescanWallet,
       sweepAll,
       sweepAllConfirmed,

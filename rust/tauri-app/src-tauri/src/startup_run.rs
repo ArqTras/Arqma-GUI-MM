@@ -8,7 +8,8 @@ use crate::remote_scan::pick_fastest_remote;
 use crate::wallet_list_fs::list_wallet_files;
 use crate::wallet_process::{try_start_wallet_rpc, WalletRpcStartResult};
 use arqma_wallet_core::{
-  default_ethereum, ensure_datadir_layout, load_config_snapshot, required_dirs_exist, write_config_file
+  default_ethereum, ensure_datadir_layout, load_config_snapshot, merge_json, required_dirs_exist,
+  write_config_file,
 };
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -30,11 +31,16 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     .and_then(|v| v.as_str())
     .unwrap_or("");
   if bind_ip.is_empty() || bind_ip == "0.0.0.0" || bind_ip == "127.0.0.1" {
-    st.config_data = arqma_wallet_core::merge_json(
+    st.config_data = merge_json(
       &st.config_data,
       &json!({ "pool": { "server": { "bindIP": crate::solo_pool::preferred_bind_ip() } } }),
     );
   }
+  // On each startup: persist `wallet.rpc_bind_port` = 19999 (matches app default; migrates old 9999, etc.).
+  st.config_data = merge_json(
+    &st.config_data,
+    &json!({ "wallet": { "rpc_bind_port": 19999_u64 } }),
+  );
 
   emit_receive(
     app,

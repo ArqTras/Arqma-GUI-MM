@@ -148,7 +148,7 @@ export class Backend {
         inactivityTimeout: 5
       },
       wallet: {
-        rpc_bind_port: 9999,
+        rpc_bind_port: 19999,
         log_level: 1
       }
     }

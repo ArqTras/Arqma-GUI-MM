@@ -7,32 +7,10 @@ use crate::subprocess::new_child_command;
 use rand::RngCore;
 use serde_json::Value;
 use serde_json::json;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Stdio};
 use tauri::AppHandle;
 use tokio::time::timeout;
-
-fn debug_log(hypothesis_id: &str, location: &str, message: &str, data: Value) {
-  // #region agent log
-  let payload = json!({
-    "sessionId": "dc1ad5",
-    "runId": "pre-fix",
-    "hypothesisId": hypothesis_id,
-    "location": location,
-    "message": message,
-    "data": data,
-    "timestamp": chrono::Utc::now().timestamp_millis()
-  });
-  if let Ok(mut f) = std::fs::OpenOptions::new()
-    .create(true)
-    .append(true)
-    .open("C:\\GitHub\\NOWE\\GUI-Rust\\debug-dc1ad5.log")
-  {
-    let _ = f.write_all(format!("{payload}\n").as_bytes());
-    let _ = f.flush();
-  }
-  // #endregion
-}
 
 /// Outcome of [`try_start_wallet_rpc`] (for UI / logs — optional subprocess is easy to mis-bundle).
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -102,6 +80,15 @@ pub(crate) fn wallet_rpc_http_timeout_secs () -> u64 {
     .unwrap_or(600)
 }
 
+/// Electron `wallet-rpc.js::storeFlushTimeoutMs` — used for explicit **`save_wallet`** (`store` only).
+pub fn save_wallet_flush_timeout_ms () -> u64 {
+  std::env::var("ARQMA_WALLET_STORE_FLUSH_TIMEOUT_MS")
+    .ok()
+    .and_then(|s| s.trim().parse::<u64>().ok())
+    .map(|v| v.clamp(5_000, 3_600_000))
+    .unwrap_or(180_000)
+}
+
 /// First `store` wait on wallet **switch** close.
 ///
 /// **Default (unset):** full [`wallet_rpc_http_timeout_secs`] so `store` can finish while scanning —
@@ -119,6 +106,36 @@ fn switch_close_first_store_secs (full: u64, _scan_backlog: u64) -> u64 {
       .map(|v| v.clamp(1, full))
       .unwrap_or(full),
     Err(_) => full,
+  }
+}
+
+/// Hard cap on the first **`store`** wait inside [`close_wallet_session_only`].
+///
+/// [`switch_close_first_store_secs`] can be hundreds of seconds; until it returns we still have a live
+/// `arqma-wallet-rpc` child (scan + `Wallet:` logs). **`0`** = no cap (legacy behaviour).
+fn wallet_exit_store_cap_secs () -> Option<u64> {
+  match std::env::var("ARQMA_WALLET_EXIT_STORE_CAP_SECS") {
+    Ok(s) if s.trim() == "0" => None,
+    Ok(s) => s
+      .trim()
+      .parse::<u64>()
+      .ok()
+      .map(|v| v.clamp(3, 900)),
+    Err(_) => Some(35),
+  }
+}
+
+/// Hard cap on JSON-RPC **`close_wallet`** wait before [`force_shutdown_wallet_rpc`]. **`0`** = use
+/// branch-derived timeout only.
+fn wallet_exit_close_cap_secs () -> Option<u64> {
+  match std::env::var("ARQMA_WALLET_EXIT_CLOSE_CAP_SECS") {
+    Ok(s) if s.trim() == "0" => None,
+    Ok(s) => s
+      .trim()
+      .parse::<u64>()
+      .ok()
+      .map(|v| v.clamp(2, 600)),
+    Err(_) => Some(20),
   }
 }
 
@@ -177,10 +194,15 @@ fn wallet_daemon_addr (config: &Value) -> Option<String> {
 }
 
 fn parse_scan_height_line (line: &str) -> Option<u64> {
-  // Electron `wallet-rpc.js` tracked scan progress from wallet-rpc stdout using these line shapes:
+  // Electron `wallet-rpc.js` `height_regexes`: same line shapes on stdout.
+  let t = line.trim();
+  if let Some(rest) = t.strip_prefix("Skipped block by height:") {
+    let digits: String = rest.trim().chars().take_while(|c| c.is_ascii_digit()).collect();
+    return digits.parse().ok();
+  }
   // - "Processed block: <...>, height <n>"
-  // - "Skipped block by height: <n>"
   // - "Skipped block by timestamp, height: <n>"
+  // - "Blockchain sync progress: <...>, height <n>"
   let idx = if let Some(i) = line.rfind("height ") {
     i + "height ".len()
   } else if let Some(i) = line.rfind("height: ") {
@@ -199,18 +221,30 @@ fn parse_scan_height_line (line: &str) -> Option<u64> {
   digits.parse::<u64>().ok()
 }
 
-fn spawn_wallet_scan_stdout_bridge (child: &mut Child, app: &AppHandle) {
-  let Some(stdout) = child.stdout.take() else {
-    return;
-  };
-  let app = app.clone();
+fn wallet_rpc_stdio_log_to_terminal () -> bool {
+  match std::env::var("ARQMA_WALLET_RPC_STDIO_LOG") {
+    Ok(s) if s.trim() == "0" => false,
+    _ => true,
+  }
+}
+
+/// Electron `wallet-rpc.js`: `process.stdout.write(\`Wallet: ${data}\`)` for **all** wallet-rpc stdio chunks.
+/// We mirror that on the Rust process stderr so `tauri dev` shows sync / "Received money" like Quasar Electron.
+/// Set `ARQMA_WALLET_RPC_STDIO_LOG=0` to silence (height parsing + UI emits still run).
+///
+/// Scan height lines can appear on **stdout or stderr**; we parse both streams like stdout in Node.
+fn spawn_wallet_scan_log_reader<R: std::io::Read + Send + 'static> (reader: R, app: AppHandle) {
+  let log_stdio = wallet_rpc_stdio_log_to_terminal();
   std::thread::spawn(move || {
     let mut last_emit = std::time::Instant::now()
       .checked_sub(std::time::Duration::from_secs(2))
       .unwrap_or_else(std::time::Instant::now);
     let mut last_height: u64 = 0;
-    let rd = BufReader::new(stdout);
+    let rd = BufReader::new(reader);
     for line in rd.lines().map_while(Result::ok) {
+      if log_stdio && !line.trim().is_empty() {
+        eprintln!("Wallet: {line}");
+      }
       let Some(h) = parse_scan_height_line(&line) else {
         continue;
       };
@@ -225,16 +259,33 @@ fn spawn_wallet_scan_stdout_bridge (child: &mut Child, app: &AppHandle) {
       }
       last_height = last_height.max(h);
       last_emit = now;
-      let _ = emit_receive(
-        &app,
-        "set_wallet_info",
-        json!({
-          "height": last_height,
-          "scan_poll_ts": chrono::Utc::now().timestamp_millis()
-        }),
-      );
+      let ts = chrono::Utc::now().timestamp_millis();
+      let h = last_height;
+      let app_mt = app.clone();
+      let app_emit = app.clone();
+      // `emit` touches WebKit on macOS — must not run from the stdio reader std::thread.
+      let _ = app_mt.run_on_main_thread(move || {
+        let _ = emit_receive(
+          &app_emit,
+          "set_wallet_info",
+          json!({
+            "height": h,
+            "scan_poll_ts": ts
+          }),
+        );
+      });
     }
   });
+}
+
+fn spawn_wallet_scan_stdio_bridges (child: &mut Child, app: &AppHandle) {
+  let app_h = app.clone();
+  if let Some(stdout) = child.stdout.take() {
+    spawn_wallet_scan_log_reader(stdout, app_h.clone());
+  }
+  if let Some(stderr) = child.stderr.take() {
+    spawn_wallet_scan_log_reader(stderr, app_h);
+  }
 }
 
 /// Start `arqma-wallet-rpc` when the binary exists and create `WalletRpcClient` after `get_languages` succeeds.
@@ -246,7 +297,7 @@ pub async fn try_start_wallet_rpc (
   st: &mut WalletBackendState,
   _http: &reqwest::Client,
 ) -> WalletRpcStartResult {
-  debug_log(
+  crate::agent_debug::log(
     "H3",
     "wallet_process.rs:try_start_wallet_rpc:entry",
     "try_start_wallet_rpc entry",
@@ -256,7 +307,7 @@ pub async fn try_start_wallet_rpc (
     }),
   );
   if st.wallet_process.is_some() && st.wallet.is_some() {
-    debug_log(
+    crate::agent_debug::log(
       "H3",
       "wallet_process.rs:try_start_wallet_rpc:already_running",
       "wallet rpc already running",
@@ -281,7 +332,7 @@ pub async fn try_start_wallet_rpc (
       "[wallet] arqma-wallet-rpc not found: set ARQMA_WALLET_RPC, ARQMA_BUILD_DIR, PATH, or place exe in src-tauri/bin before tauri build (see src-tauri/bin/README.txt)"
     );
     eprintln!("[wallet] tried (first): {}", cand.join(" | "));
-    debug_log(
+    crate::agent_debug::log(
       "H3",
       "wallet_process.rs:try_start_wallet_rpc:exe_missing",
       "wallet rpc executable not found",
@@ -296,7 +347,7 @@ pub async fn try_start_wallet_rpc (
     "[wallet] using arqma-wallet-rpc: {}",
     exe.display()
   );
-  debug_log(
+  crate::agent_debug::log(
     "H3",
     "wallet_process.rs:try_start_wallet_rpc:exe_resolved",
     "wallet rpc exe path",
@@ -304,7 +355,7 @@ pub async fn try_start_wallet_rpc (
   );
   let Some(daemon_addr_raw) = wallet_daemon_addr(&st.config_data) else {
     eprintln!("[wallet] missing daemon data in config");
-    debug_log(
+    crate::agent_debug::log(
       "H3",
       "wallet_process.rs:try_start_wallet_rpc:daemon_cfg_missing",
       "daemon config missing for wallet rpc",
@@ -337,15 +388,21 @@ pub async fn try_start_wallet_rpc (
     eprintln!("[wallet] create_dir_all: {e}");
     return WalletRpcStartResult::WalletDirCreateFailed(e.to_string());
   }
-  // Electron `wallet-rpc.js`: `Math.max(1, logLevel)` — level 0 hides scan lines (“Processed block…”, regex height).
-  // Wallet UI height comes mainly from heartbeat `getheight` in Rust; `--log-file` stays useful for forensic debug.
-  let log_level = st
+  // Electron `wallet-rpc.js`: `Math.max(1, Number(log_level !== undefined ? log_level : 1) || 1)`.
+  // Level **0** suppresses blockchain sync lines (“Processed block…”, “Skipped block…”) on stdout/stderr;
+  // **1** matches Electron default and feeds the scan-progress bridge → `set_wallet_info` / footer.
+  let log_level_raw = st
     .config_data
     .get("wallet")
-    .and_then(|w| w.get("log_level"))
-    .and_then(|l| l.as_u64())
-    .unwrap_or(2)
-    .max(2_u64);
+    .and_then(|w| w.get("log_level"));
+  let log_level = log_level_raw
+    .and_then(|l| {
+      l.as_u64()
+        .or_else(|| l.as_i64().map(|i| i.clamp(0, 4) as u64))
+    })
+    .unwrap_or(1)
+    .max(1)
+    .min(4);
   let rpc_port = crate::arqma_paths_config::wallet_rpc_bind_port(&st.config_data);
   let log_dir = wdir.parent().map(|p| p.join("logs"));
   if let Some(ref ld) = log_dir {
@@ -374,7 +431,9 @@ pub async fn try_start_wallet_rpc (
     "--wallet-dir".into(),
     wdir.to_string_lossy().into(),
   ];
-  eprintln!("[wallet] starting wallet-rpc with --daemon-address={daemon_addr}");
+  eprintln!(
+    "[wallet] starting wallet-rpc --daemon-address={daemon_addr} --rpc-bind-port={rpc_port} --log-level={log_level}"
+  );
   if let Some(lf) = log_file {
     args.push("--log-file".into());
     args.push(lf.to_string_lossy().into());
@@ -391,7 +450,7 @@ pub async fn try_start_wallet_rpc (
   let ch = match new_child_command(&exe)
     .args(&args)
     .stdout(Stdio::piped())
-    .stderr(Stdio::null())
+    .stderr(Stdio::piped())
     .spawn()
   {
     Ok(c) => c,
@@ -401,9 +460,9 @@ pub async fn try_start_wallet_rpc (
     }
   };
   let mut ch = ch;
-  spawn_wallet_scan_stdout_bridge(&mut ch, app);
+  spawn_wallet_scan_stdio_bridges(&mut ch, app);
   st.wallet_process = Some(ch);
-  debug_log(
+  crate::agent_debug::log(
     "H3",
     "wallet_process.rs:try_start_wallet_rpc:spawned",
     "wallet rpc process spawned",
@@ -417,7 +476,7 @@ pub async fn try_start_wallet_rpc (
     Ok(c) => c,
     Err(e) => {
       eprintln!("[wallet] wallet rpc http client build failed: {e}");
-      debug_log(
+      crate::agent_debug::log(
         "H6",
         "wallet_process.rs:try_start_wallet_rpc:http_client_err",
         "wallet rpc reqwest build failed",
@@ -429,7 +488,7 @@ pub async fn try_start_wallet_rpc (
       return WalletRpcStartResult::SpawnFailed(e);
     }
   };
-  debug_log(
+  crate::agent_debug::log(
     "H6",
     "wallet_process.rs:try_start_wallet_rpc:http_client",
     "wallet rpc dedicated reqwest client",
@@ -440,7 +499,7 @@ pub async fn try_start_wallet_rpc (
     match client.call("get_languages", &Value::Null).await {
       Ok(r) if r.get("error").is_none() => {
         st.wallet = Some(Arc::new(client));
-        debug_log(
+        crate::agent_debug::log(
           "H3",
           "wallet_process.rs:try_start_wallet_rpc:ready",
           "wallet rpc responded to get_languages",
@@ -458,7 +517,7 @@ pub async fn try_start_wallet_rpc (
     "[wallet] timeout — no get_languages response (exe={}; check arqma-wallet-rpc.log, daemon reachability, port)",
     exe.display()
   );
-  debug_log(
+  crate::agent_debug::log(
     "H3",
     "wallet_process.rs:try_start_wallet_rpc:timeout",
     "wallet rpc timeout waiting for get_languages",
@@ -478,7 +537,7 @@ pub async fn try_start_wallet_rpc (
 /// [`tokio::sync::OwnedSemaphorePermit`] from [`crate::AppData::wallet_rpc_lane`] into
 /// [`WalletBackendState::shutdown_subprocesses_async`], or invoke after heartbeats/Xfer are stopped.
 pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
-  debug_log(
+  crate::agent_debug::log(
     "H1",
     "wallet_process.rs:graceful_shutdown_wallet_rpc:entry",
     "graceful shutdown entry",
@@ -493,7 +552,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
     let t0 = std::time::Instant::now();
     match timeout(std::time::Duration::from_secs(store_t), w.call("store", &Value::Null)).await {
       Ok(Ok(r)) if r.get("error").is_some() => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:store_rpc_error",
           "graceful store rpc error",
@@ -505,7 +564,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick store: {:?}", r.get("error"))
       }
       Ok(Err(e)) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:store_transport",
           "graceful store transport error",
@@ -517,7 +576,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick store transport: {e}")
       }
       Ok(Ok(_)) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:store_ok",
           "graceful store ok",
@@ -526,7 +585,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick store: ok")
       }
       Err(_) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:store_timeout",
           "graceful store timeout",
@@ -539,7 +598,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
     let t1 = std::time::Instant::now();
     match timeout(std::time::Duration::from_secs(stop_t), w.call("stop_wallet", &Value::Null)).await {
       Ok(Ok(r)) if r.get("error").is_some() => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:stop_rpc_error",
           "graceful stop_wallet rpc error",
@@ -551,7 +610,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick stop_wallet: {:?}", r.get("error"))
       }
       Ok(Err(e)) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:stop_transport",
           "graceful stop_wallet transport error",
@@ -563,7 +622,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick stop_wallet transport: {e}")
       }
       Ok(Ok(_)) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:stop_ok",
           "graceful stop_wallet ok",
@@ -572,7 +631,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
         eprintln!("[wallet] quick stop_wallet: ok")
       }
       Err(_) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:stop_timeout",
           "graceful stop_wallet timeout",
@@ -584,7 +643,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
   }
   st.wallet = None;
   let Some(mut ch) = st.wallet_process.take() else {
-    debug_log(
+    crate::agent_debug::log(
       "H1",
       "wallet_process.rs:graceful_shutdown_wallet_rpc:no_child",
       "no wallet child process to stop",
@@ -607,7 +666,7 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
   loop {
     match ch.try_wait() {
       Ok(Some(status)) => {
-        debug_log(
+        crate::agent_debug::log(
           "H1",
           "wallet_process.rs:graceful_shutdown_wallet_rpc:exited",
           "wallet child exited",
@@ -633,18 +692,29 @@ pub async fn graceful_shutdown_wallet_rpc (st: &mut WalletBackendState) {
   st.wallet_salt.clear();
 }
 
-/// Ryo-style wallet switch close: persist + close wallet via RPC, but keep wallet-rpc process alive.
+/// Persist + `close_wallet` JSON-RPC, then stop the child **only if** the session did not close cleanly.
+///
+/// Matches **Oxen** `oxen-electron-gui-wallet` / **Arqma Electron** `wallet-rpc.js::closeWallet`: after a
+/// successful `close_wallet` the `wallet-rpc` process stays up for the next `open_wallet` on the same
+/// HTTP endpoint. If `close_wallet` fails or there was no RPC client, [`force_shutdown_wallet_rpc`]
+/// tears down the child. Set `ARQMA_WALLET_FORCE_KILL_AFTER_CLOSE=1` to always kill after `store`/`close_wallet`
+/// (previous Tauri behaviour when you need to silence background scan logs).
 pub async fn close_wallet_session_only (st: &mut WalletBackendState) {
   st.close_store_timed_out = false;
   let mut close_ok = false;
+  let exit_store_cap = wallet_exit_store_cap_secs();
+  let exit_close_cap = wallet_exit_close_cap_secs();
   if let Some(w) = st.wallet.as_ref().map(|c| c.fork_for_heartbeat()) {
     let scan_backlog = st.daemon_last_height.saturating_sub(st.wh_stored_height);
     let store_t = wallet_rpc_http_timeout_secs();
-    let store_deadline = switch_close_first_store_secs(store_t, scan_backlog);
+    let mut store_deadline = switch_close_first_store_secs(store_t, scan_backlog);
+    if let Some(cap) = exit_store_cap {
+      store_deadline = store_deadline.min(cap).max(1);
+    }
     // Short first `store` → skip long retry + cap `close_wallet` RPC (see below).
     let fast_switch = store_deadline < store_t && store_deadline <= 20;
     // #region agent log
-    debug_log(
+    crate::agent_debug::log(
       "H1",
       "wallet_process.rs:close_wallet_session_only:store_start",
       "close wallet store start",
@@ -659,6 +729,11 @@ pub async fn close_wallet_session_only (st: &mut WalletBackendState) {
       }),
     );
     // #endregion
+    if exit_store_cap.is_some() {
+      eprintln!(
+        "[wallet] session close: first `store` RPC timeout ≤{store_deadline}s (exit cap; ARQMA_WALLET_EXIT_STORE_CAP_SECS=0 for no cap)"
+      );
+    }
     if fast_switch {
       eprintln!(
         "[wallet] close: fast switch (`ARQMA_WALLET_SWITCH_STORE_MAX_SECS`): first `store` ≤{store_deadline}s, no long store retry, short `close_wallet` RPC — \
@@ -679,7 +754,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
     {
       Ok(Ok(r)) if r.get("error").is_some() => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H2",
           "wallet_process.rs:close_wallet_session_only:store_rpc_error",
           "close wallet store rpc error",
@@ -697,7 +772,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       }
       Ok(Err(e)) => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H2",
           "wallet_process.rs:close_wallet_session_only:store_transport_error",
           "close wallet store transport error",
@@ -715,7 +790,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       }
       Ok(Ok(r)) => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H2",
           "wallet_process.rs:close_wallet_session_only:store_ok",
           "close wallet store ok",
@@ -735,7 +810,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       Err(_) => {
         st.close_store_timed_out = true;
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H2",
           "wallet_process.rs:close_wallet_session_only:store_timeout",
           "close wallet store timeout",
@@ -752,7 +827,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
         )
       }
     }
-    if !store_ok && !fast_switch {
+    if !store_ok && !fast_switch && exit_store_cap.is_none() {
       // One immediate retry helps when wallet-rpc is between heavy refresh chunks.
       let retry_t = std::cmp::max(60_u64, store_t / 5).min(store_t);
       let t_retry = std::time::Instant::now();
@@ -779,16 +854,19 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
     } else if !store_ok && fast_switch {
       eprintln!("[wallet] switch close: skipping store retry (fast switch)");
     }
-    let close_t = if fast_switch {
+    let mut close_t = if fast_switch {
       wallet_rpc_http_timeout_secs().min(12)
     } else {
       wallet_rpc_http_timeout_secs()
     };
+    if let Some(cap) = exit_close_cap {
+      close_t = close_t.min(cap).max(2);
+    }
     let t_close = std::time::Instant::now();
     match timeout(std::time::Duration::from_secs(close_t), w.call("close_wallet", &Value::Null)).await {
       Ok(Ok(r)) if r.get("error").is_some() => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H3",
           "wallet_process.rs:close_wallet_session_only:close_rpc_error",
           "close_wallet rpc error",
@@ -806,7 +884,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       }
       Ok(Err(e)) => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H3",
           "wallet_process.rs:close_wallet_session_only:close_transport_error",
           "close_wallet transport error",
@@ -824,7 +902,7 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       }
       Ok(Ok(_)) => {
         // #region agent log
-        debug_log(
+        crate::agent_debug::log(
           "H3",
           "wallet_process.rs:close_wallet_session_only:close_ok",
           "close_wallet rpc ok",
@@ -840,23 +918,37 @@ scan may not persist if wallet-rpc is busy. Unset that env for default full save
       Err(_) => eprintln!("[wallet] switch close close_wallet: timeout after {close_t}s"),
     }
   } else {
-    // No RPC client available for close path — force shutdown ensures no stale file handle remains.
-    eprintln!("[wallet] switch close: missing wallet rpc client, forcing subprocess shutdown");
+    eprintln!("[wallet] switch close: missing wallet rpc client — stopping subprocess if still running");
   }
-  if !close_ok {
-    // #region agent log
-    debug_log(
-      "H3",
-      "wallet_process.rs:close_wallet_session_only:force_shutdown",
-      "forcing wallet rpc shutdown after close_wallet not confirmed",
-      json!({
-        "close_store_timed_out": st.close_store_timed_out,
-        "wallet_process_exists": st.wallet_process.is_some()
-      }),
+  let force_kill_after_close = std::env::var("ARQMA_WALLET_FORCE_KILL_AFTER_CLOSE")
+    .ok()
+    .map(|s| {
+      let t = s.trim();
+      t == "1" || t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("yes")
+    })
+    .unwrap_or(false);
+  // #region agent log
+  crate::agent_debug::log(
+    "H3",
+    "wallet_process.rs:close_wallet_session_only:subprocess_policy",
+    "wallet-rpc subprocess after session close",
+    json!({
+      "close_store_timed_out": st.close_store_timed_out,
+      "close_wallet_rpc_ok": close_ok,
+      "wallet_process_exists": st.wallet_process.is_some(),
+      "force_kill_after_close": force_kill_after_close
+    }),
+  );
+  // #endregion
+  if force_kill_after_close || !close_ok {
+    eprintln!(
+      "[wallet] session close: stopping arqma-wallet-rpc subprocess (close_wallet_ok={close_ok}, force_kill_after_close={force_kill_after_close})"
     );
-    // #endregion
-    eprintln!("[wallet] switch close: close_wallet not confirmed, forcing subprocess shutdown to release file lock");
     force_shutdown_wallet_rpc(st).await;
+  } else {
+    eprintln!(
+      "[wallet] session close: `close_wallet` ok — leaving arqma-wallet-rpc running (Oxen / Electron parity). Set ARQMA_WALLET_FORCE_KILL_AFTER_CLOSE=1 to always terminate."
+    );
   }
 }
 

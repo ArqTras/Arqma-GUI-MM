@@ -52,7 +52,7 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
       "loggingLevel": "error",
       "inactivityTimeout": 5
     },
-    "wallet": { "rpc_bind_port": 9999, "log_level": 1 },
+    "wallet": { "rpc_bind_port": 19999, "log_level": 1 },
     "pool": {
       "server": {
         "enabled": false,
