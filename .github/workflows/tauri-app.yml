@@ -142,7 +142,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Arqma Wallet ${{ github.ref_name }} (Tauri)
+          name: Arqma-Wallet ${{ github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
           files: release-files/*
