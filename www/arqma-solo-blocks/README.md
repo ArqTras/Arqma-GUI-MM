@@ -30,7 +30,9 @@ Jeśli po wykopaniu próbnego bloku nic się nie pojawia, pobierz `get_block` dl
 |------|------|
 | `server.mjs` | Fastify + skan bloków |
 | `fingerprint.mjs` | Bufory `extra` + test znacznika |
-| `store.mjs` | SQLite (`solo_blocks.sqlite`) |
-| `public/index.html` | Prosta prezentacja |
+| `store.mjs` | SQLite (`solo_blocks.sqlite`) + próbki `poll_samples` pod wykres sieci |
+| `public/index.html` | UI w stylu [ryo-wallet-solo-pool-website](https://github.com/mosu-forge/ryo-wallet-solo-pool-website) (layout dashboard / blocks / getting started), kolorystyka Arqmy |
+
+Wykres **Network** budowany jest z okresowych zapisów hashrate sieci przy pollach daemona. Wykres **Solo** to Σ(trudność)/dzień (UTC) z indeksowanych bloków — przybliżenie aktywności, nie dokładny HR koparki.
 
 Przy pierwszym skanowaniu na istniejącym łańcuchu ustaw sensowne **`start_height`** (np. wysokość aktywacji RandomX / ostatni hard fork), żeby nie czytać całej historii od zera.

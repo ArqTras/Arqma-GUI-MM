@@ -20,6 +20,11 @@ export function openDb (dbPath) {
       scanned_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_solo_blocks_height ON solo_blocks(height DESC);
+    CREATE TABLE IF NOT EXISTS poll_samples (
+      ts_sec INTEGER PRIMARY KEY,
+      network_hr INTEGER NOT NULL DEFAULT 0,
+      chain_height INTEGER NOT NULL DEFAULT 0
+    );
   `)
   return db
 }
@@ -50,4 +55,47 @@ export function upsertBlock (db, row) {
 
 export function listBlocks (db, limit = 500) {
   return db.prepare('SELECT * FROM solo_blocks ORDER BY height DESC LIMIT ?').all(limit)
+}
+
+/** Append one network snapshot per daemon poll (for charts). */
+export function insertPollSample (db, tsSec, networkHr, chainHeight) {
+  db.prepare(
+    `INSERT OR REPLACE INTO poll_samples(ts_sec, network_hr, chain_height)
+     VALUES (?,?,?)`,
+  ).run(tsSec | 0, networkHr | 0, chainHeight | 0)
+}
+
+/** Points for network hashrate chart: [{ t: ms, hr }] since unix sec. */
+export function getNetworkPollSeries (db, sinceTsSec) {
+  const rows = db
+    .prepare(
+      `SELECT ts_sec, network_hr FROM poll_samples
+       WHERE ts_sec >= ? ORDER BY ts_sec ASC`,
+    )
+    .all(sinceTsSec | 0)
+  return rows.map((r) => ({
+    t: r.ts_sec * 1000,
+    hr: r.network_hr | 0,
+  }))
+}
+
+/** Solo “activity” per UTC day: Σ(difficulty)/86400 as a scalar comparable to H/s order-of-magnitude. */
+export function getSoloDifficultyDailySeries (db, sinceTsSec) {
+  const rows = db
+    .prepare(
+      `SELECT difficulty, timestamp FROM solo_blocks WHERE timestamp >= ? ORDER BY timestamp ASC`,
+    )
+    .all(sinceTsSec | 0)
+  const daySum = new Map()
+  for (const r of rows) {
+    const ts = Number(r.timestamp) || 0
+    const dayStart = Math.floor(ts / 86400) * 86400
+    daySum.set(dayStart, (daySum.get(dayStart) || 0) + (Number(r.difficulty) || 0))
+  }
+  return [...daySum.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([daySec, sumD]) => ({
+      t: daySec * 1000,
+      hr: Math.round(sumD / 86400),
+    }))
 }

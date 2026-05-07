@@ -3,363 +3,632 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arqma Solo Blocks</title>
+  <title>Arqma solo mining</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <style>
-    /* Arqma wallet solo-pool palette: gold accent #d4b76a, dark slate base */
+    /* Layout aligned with mosu-forge/ryo-wallet-solo-pool-website (Quasar dark); accents = Arqma gold */
     :root {
-      --bg-page: #101218;
-      --bg-drawer: #0c0e14;
-      --bg-card: #161a24;
-      --bg-card-hover: #1c212e;
-      --border-subtle: rgba(212, 183, 106, 0.14);
-      --border-strong: rgba(212, 183, 106, 0.28);
-      --text: #f2f2f2;
-      --text-muted: #9a9390;
+      --q-dark-page: #111111;
+      --q-dark-drawer: #222222;
+      --q-dark-header-border: #333333;
+      --text-primary: #cecece;
+      --text-secondary: #9a9390;
       --accent: #d4b76a;
-      --accent-soft: #c9a86c;
-      --accent-dim: #8b7355;
+      --accent-line: rgba(212, 183, 106, 0.85);
+      --accent-fill: rgba(212, 183, 106, 0.35);
+      --accent-fill-end: rgba(212, 183, 106, 0);
+      --header-h: 48px;
+      --drawer-w: 280px;
+      --info-label: #cecece;
+      --info-value: #cecece;
       --ok: #6abf69;
       --pending: #e8c97a;
-      --err: #e07a7a;
-      --drawer-width: 260px;
+      --bad: #e57373;
     }
 
-    *, *::before, *::after { box-sizing: border-box; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
-      font-weight: 400;
-      background: var(--bg-page);
-      color: var(--text);
+      font-family: Roboto, Helvetica, Arial, sans-serif;
+      font-weight: 300;
+      background: var(--q-dark-page);
+      color: var(--text-primary);
       line-height: 1.5;
     }
 
-    .layout {
+    /* —— Top bar (cf. q-layout-header) —— */
+    .app-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--header-h);
+      background: var(--q-dark-page);
+      border-bottom: 1px solid var(--q-dark-header-border);
+      z-index: 100;
       display: flex;
+      align-items: center;
+    }
+
+    .app-header .menu-btn {
+      width: 50px;
+      height: var(--header-h);
+      border: none;
+      background: transparent;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 1.25rem;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .app-header .menu-btn:hover {
+      background: rgba(255,255,255,.06);
+    }
+
+    .app-header .toolbar-title {
+      padding-left: 8px;
+      margin: 0;
+      font-size: 16px;
+      font-weight: 300;
+      line-height: var(--header-h);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.03em;
+    }
+
+    .brand-sub {
+      font-weight: 300;
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    /* —— Drawer —— */
+    .drawer-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 150;
+    }
+
+    .drawer-backdrop.open { display: block; }
+
+    .drawer {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      bottom: 0;
+      width: var(--drawer-w);
+      background: var(--q-dark-drawer);
+      color: var(--text-primary);
+      z-index: 200;
+      transform: translateX(-100%);
+      transition: transform .2s ease;
+      padding-top: 8px;
+      overflow-y: auto;
+      border-right: 1px solid var(--q-dark-header-border);
+    }
+
+    .drawer.open { transform: translateX(0); }
+
+    .drawer.desktop-open {
+      transform: translateX(0);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      transition: background .15s;
+    }
+
+    .nav-item:hover {
+      background: rgba(212, 183, 106, .08);
+    }
+
+    .nav-item .ni-icon {
+      width: 24px;
+      text-align: center;
+      opacity: .85;
+      flex-shrink: 0;
+    }
+
+    .nav-item .ni-main {
+      font-size: 14px;
+      font-weight: 400;
+    }
+
+    .nav-item .ni-sub {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      font-weight: 300;
+    }
+
+    /* —— Main push —— */
+    .layout-frame {
+      padding-top: var(--header-h);
       min-height: 100vh;
     }
 
-    /* —— Drawer (Ryo-style sidebar) —— */
-    .drawer {
-      width: var(--drawer-width);
-      flex-shrink: 0;
-      background: linear-gradient(180deg, var(--bg-drawer) 0%, #0a0c11 100%);
-      border-right: 1px solid var(--border-subtle);
-      padding: 1.25rem 0;
+    .layout-frame.with-desktop-drawer {
+      padding-left: var(--drawer-w);
+    }
+
+    .q-page {
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h6.section-title {
+      font-size: 14px;
+      font-weight: 300;
+      margin: 8px 0 16px;
+      color: var(--text-primary);
+    }
+
+    /* infoBox — ported from Ryo app.styl (dark body variant) */
+    .row.gutter-sm {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      margin: -8px;
     }
 
-    .brand {
-      padding: 0 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--border-subtle);
+    .row.gutter-sm > .col {
+      padding: 8px;
+      flex: 1 1 100%;
     }
 
-    .brand-logo {
-      font-size: 1.35rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-      color: var(--accent);
-      margin: 0;
+    @media (min-width: 600px) {
+      .row.gutter-sm > .col-sm-6 { flex: 0 0 50%; max-width: 50%; }
     }
 
-    .brand-tag {
-      display: block;
-      margin-top: 0.25rem;
-      font-size: 0.8rem;
-      font-weight: 400;
-      color: var(--text-muted);
-      text-transform: lowercase;
+    @media (min-width: 1024px) {
+      .row.gutter-sm > .col-md-3 { flex: 0 0 25%; max-width: 25%; }
     }
 
-    .nav {
-      padding: 1rem 0;
-      flex: 1;
+    .infoBox {
+      margin: 10px 0;
+      padding: 10px;
+      height: 80px;
+      border-radius: 3px;
+      box-shadow:
+        0 1px 5px rgba(0,0,0,.35),
+        0 2px 2px rgba(0,0,0,.22),
+        0 3px 1px -2px rgba(0,0,0,.28);
+      vertical-align: top;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, #1a1d26 0%, #161920 100%);
+      border: 1px solid rgba(212, 183, 106, .1);
     }
 
-    .nav a {
-      display: block;
-      padding: 0.65rem 1.25rem;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 0.9rem;
-      border-left: 3px solid transparent;
-      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    .infoBox .infoBoxContent {
+      display: inline-block;
     }
 
-    .nav a:hover {
-      color: var(--text);
-      background: rgba(212, 183, 106, 0.06);
-    }
-
-    .nav a.active {
-      color: var(--accent);
-      background: rgba(212, 183, 106, 0.08);
-      border-left-color: var(--accent);
-    }
-
-    .drawer-foot {
-      padding: 1rem 1.25rem;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      border-top: 1px solid var(--border-subtle);
-      line-height: 1.4;
-    }
-
-    /* —— Main —— */
-    .main {
-      flex: 1;
-      min-width: 0;
-      padding: 1.5rem 1.75rem 2.5rem;
-    }
-
-    .page-title {
-      font-size: 1.15rem;
-      font-weight: 500;
-      color: var(--text);
-      margin: 0 0 0.35rem;
-      letter-spacing: 0.02em;
-    }
-
-    .page-lead {
-      margin: 0 0 1.5rem;
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      max-width: 52rem;
-    }
-
-    .page-lead code {
-      font-size: 0.82em;
-      padding: 0.1em 0.35em;
-      border-radius: 4px;
-      background: rgba(212, 183, 106, 0.1);
-      color: var(--accent-soft);
-    }
-
-    /* Info tiles — Ryo “infoBox” feel */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .info-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: 4px;
-      padding: 0.85rem 1rem;
-      min-height: 76px;
-    }
-
-    .info-box .label {
-      display: block;
-      font-size: 0.7rem;
+    .infoBox .text {
+      font-size: 13px;
+      margin-top: 8px;
+      color: var(--info-label);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-muted);
-      margin-bottom: 0.35rem;
+      letter-spacing: .04em;
     }
 
-    .info-box .value {
-      font-size: 1.05rem;
-      font-weight: 500;
+    .infoBox .value {
+      font-size: 22px;
+      margin-top: 4px;
+      font-weight: 300;
+      color: var(--info-value);
       font-variant-numeric: tabular-nums;
-      color: var(--text);
     }
 
-    .section-head {
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: var(--accent-soft);
-      margin: 0 0 0.75rem;
-      padding-bottom: 0.35rem;
-      border-bottom: 1px solid var(--border-subtle);
+    /* Charts — Ryo uses blue line; Arqma uses gold */
+    .chart-wrap {
+      margin-bottom: 28px;
     }
 
-    /* Table card */
-    .table-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: 4px;
+    .chart-panel {
+      height: 280px;
+      background: #161920;
+      border: 1px solid rgba(212, 183, 106, .12);
+      border-radius: 3px;
+      position: relative;
       overflow: hidden;
     }
 
-    .table-scroll {
-      overflow-x: auto;
+    .chart-panel svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
-    table {
+    .chart-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 13px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    /* Blocks table */
+    .blocks-page .blockTable-wrap {
+      overflow-x: auto;
+      border-radius: 3px;
+      border: 1px solid rgba(212, 183, 106, .12);
+      background: #161920;
+    }
+
+    table.blockTable {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.8125rem;
+      font-size: 13px;
     }
 
-    thead th {
+    table.blockTable thead th {
       text-align: left;
-      padding: 0.65rem 1rem;
-      font-size: 0.68rem;
-      font-weight: 500;
+      padding: 10px 12px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      background: rgba(0, 0, 0, 0.25);
-      border-bottom: 1px solid var(--border-subtle);
+      letter-spacing: .06em;
+      color: var(--text-secondary);
+      background: rgba(0,0,0,.35);
+      border-bottom: 1px solid rgba(255,255,255,.08);
     }
 
-    tbody td {
-      padding: 0.55rem 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    table.blockTable tbody td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
       vertical-align: middle;
     }
 
-    tbody tr:hover td {
-      background: var(--bg-card-hover);
+    table.blockTable tbody tr:hover td {
+      background: rgba(212, 183, 106, .06);
     }
 
-    tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .mono {
-      font-family: ui-monospace, "Roboto Mono", monospace;
-      font-size: 0.78rem;
+    .monospace {
+      font-family: "Roboto Mono", ui-monospace, monospace;
+      font-size: 12px;
       word-break: break-all;
     }
 
-    .status-ok { color: var(--ok); }
-    .status-pending { color: var(--pending); }
-
-    a.link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 500;
+    .ellipsis {
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    a.link:hover {
-      text-decoration: underline;
-      color: var(--accent-soft);
+    .icon-status { font-size: 18px; vertical-align: middle; }
+
+    /* Getting started */
+    .getting-started {
+      max-width: 804px;
+    }
+
+    .getting-started p, .getting-started li {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 0 0 12px;
+    }
+
+    .getting-started code {
+      font-size: 12px;
+      background: rgba(212, 183, 106, .12);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: var(--accent);
     }
 
     .banner-err {
-      background: rgba(224, 122, 122, 0.12);
-      border: 1px solid rgba(224, 122, 122, 0.35);
+      background: rgba(224, 122, 122, .15);
+      border: 1px solid rgba(224, 122, 122, .4);
       color: #f0b0b0;
-      padding: 0.75rem 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      font-size: 0.875rem;
+      padding: 12px 16px;
+      border-radius: 3px;
+      margin-bottom: 16px;
+      font-size: 14px;
     }
 
-    .empty-hint {
-      color: var(--text-muted);
-      padding: 2rem 1rem;
+    .status-footer {
+      margin-top: 48px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--q-dark-header-border);
+      font-size: 12px;
+      color: var(--text-secondary);
       text-align: center;
-      font-size: 0.875rem;
     }
 
-    .menu-toggle {
-      display: none;
-      position: fixed;
-      top: 0.75rem;
-      left: 0.75rem;
-      z-index: 20;
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      color: var(--accent);
-      padding: 0.45rem 0.65rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-
-    @media (max-width: 900px) {
-      .menu-toggle { display: block; }
+    @media (min-width: 1024px) {
+      .drawer-backdrop { display: none !important; }
       .drawer {
-        position: fixed;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        z-index: 15;
-        transform: translateX(-100%);
-        transition: transform 0.2s ease;
-        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+        transform: translateX(0);
       }
-      .drawer.open { transform: translateX(0); }
-      .main { padding: 3rem 1rem 2rem; }
     }
   </style>
 </head>
-<body>
-  <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
-  <div class="layout">
-    <aside class="drawer" id="drawer">
-      <div class="brand">
-        <p class="brand-logo">Arqma</p>
-        <span class="brand-tag">solo mining</span>
-      </div>
-      <nav class="nav">
-        <a class="active" href="#">Blocks found</a>
-        <a href="#network-stats">Network stats</a>
-      </nav>
-      <div class="drawer-foot">
-        Coinbase <code style="font-size:0.68rem;color:var(--accent-dim)">extra</code> fingerprint for community dashboards. API: <code style="font-size:0.68rem">/api/stats</code>
-      </div>
-    </aside>
+<body class="dark">
 
-    <main class="main">
-      <h1 class="page-title">Blocks found</h1>
-      <p class="page-lead">
-        Indexed solo blocks from nodes using Arqma-Wallet solo pool with <strong style="color:var(--accent-soft)">“Mimic public pool”</strong> disabled
-        (<code>reserve_size</code> 1 → marker in <code>miner_tx.extra</code>, same idea as Ryo Atom).
-      </p>
+  <header class="app-header">
+    <button type="button" class="menu-btn" id="menuToggle" aria-label="Menu">☰</button>
+    <div class="toolbar-title">
+      <span class="brand-mark">Arqma</span>
+      <span class="brand-sub">solo mining</span>
+    </div>
+  </header>
+
+  <div class="drawer-backdrop" id="backdrop"></div>
+
+  <aside class="drawer" id="drawer">
+    <a class="nav-item" href="#dashboard">
+      <span class="ni-icon">▤</span>
+      <span><span class="ni-main">Dashboard</span><span class="ni-sub">Global solo miner stats</span></span>
+    </a>
+    <a class="nav-item" href="#worker-stats">
+      <span class="ni-icon">◎</span>
+      <span><span class="ni-main">Worker Statistics</span><span class="ni-sub">Individual miner stats</span></span>
+    </a>
+    <a class="nav-item" href="#blocks">
+      <span class="ni-icon">▦</span>
+      <span><span class="ni-main">Blocks</span><span class="ni-sub">Solo mined blocks</span></span>
+    </a>
+    <a class="nav-item" href="#getting-started">
+      <span class="ni-icon">✧</span>
+      <span><span class="ni-main">Getting Started</span><span class="ni-sub">How to solo mine</span></span>
+    </a>
+  </aside>
+
+  <div class="layout-frame" id="layoutFrame">
+    <div class="q-page">
 
       <div id="err" class="banner-err" hidden></div>
 
-      <h2 class="section-head" id="network-stats">Network stats</h2>
-      <div class="stats-grid" id="tiles"></div>
+      <!-- Dashboard -->
+      <section id="dashboard">
+        <div class="row gutter-sm">
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Estimated Solo Hashrate</span></div>
+                <div class="value" id="st-solo-hr">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Blocks Found Every</span></div>
+                <div class="value" id="st-block-time">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Last Block Found</span></div>
+                <div class="value" id="st-last-block">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Blocks Found</span></div>
+                <div class="value" id="st-blocks-found">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <h2 class="section-head">Solo blocks</h2>
-      <div class="table-card">
-        <div class="table-scroll">
-          <table>
+        <div class="row gutter-sm">
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Network Hashrate</span></div>
+                <div class="value" id="st-net-hr">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Network Difficulty</span></div>
+                <div class="value" id="st-net-diff">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Network Height</span></div>
+                <div class="value" id="st-net-height">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="col col-12 col-sm-6 col-md-3">
+            <div class="infoBox">
+              <div class="infoBoxContent">
+                <div class="text"><span>Solo Mining Fee</span></div>
+                <div class="value">0%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <h6 class="section-title">Estimated Solo Mining Hashrate (30 days)</h6>
+          <div class="chart-panel" id="chart-solo-wrap">
+            <div class="chart-empty" id="chart-solo-empty">Collecting data… Solo series uses Σ(difficulty) per UTC day (proxy).</div>
+            <svg id="chart-solo" viewBox="0 0 800 280" preserveAspectRatio="none" style="display:none"></svg>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <h6 class="section-title">Network Hashrate (30 days)</h6>
+          <div class="chart-panel" id="chart-net-wrap">
+            <div class="chart-empty" id="chart-net-empty">No poll samples yet — wait for the background daemon poll.</div>
+            <svg id="chart-net" viewBox="0 0 800 280" preserveAspectRatio="none" style="display:none"></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- Worker stats (static — Ryo used viewkey login; we stay local-only) -->
+      <section id="worker-stats" class="q-page" style="padding-top:32px">
+        <h6 class="section-title">Worker Statistics</h6>
+        <div class="getting-started">
+          <p>This community dashboard does not collect addresses or view keys (unlike the optional flow in the <a href="https://github.com/mosu-forge/ryo-wallet-solo-pool-website" style="color:var(--accent)" target="_blank" rel="noopener">Ryo solo pool site</a>). To verify which indexed blocks pay to your wallet, compare coinbase outputs locally or use your explorer.</p>
+        </div>
+      </section>
+
+      <!-- Blocks -->
+      <section id="blocks" class="blocks-page" style="padding-top:32px">
+        <h6 class="section-title">Blocks Found</h6>
+        <div class="blockTable-wrap">
+          <table class="blockTable">
             <thead>
               <tr>
-                <th>Height</th>
-                <th>Status</th>
-                <th>Difficulty</th>
-                <th>Time</th>
+                <th style="width:44px"></th>
                 <th>Hash</th>
+                <th>Height</th>
+                <th>Time</th>
+                <th>Difficulty</th>
+                <th>Reward</th>
                 <th>Explorer</th>
               </tr>
             </thead>
             <tbody id="rows"></tbody>
           </table>
         </div>
-      </div>
-    </main>
+      </section>
+
+      <!-- Getting started -->
+      <section id="getting-started" style="padding-top:32px">
+        <h6 class="section-title">Getting Started</h6>
+        <div class="getting-started">
+          <p><strong>1.</strong> Run a synced Arqma daemon and point <code>config.json</code> field <code>daemon_url</code> at its JSON-RPC.</p>
+          <p><strong>2.</strong> In Arqma-Wallet, enable the built-in solo pool and turn <strong>off</strong> “Mimic public pool reservation” so templates use <code>reserve_size</code> 1 — this stamps the coinbase <code>extra</code> fingerprint this site scans for.</p>
+          <p><strong>3.</strong> Tune <code>start_height</code> and fingerprint fields if no rows appear (see README).</p>
+        </div>
+      </section>
+
+      <footer class="status-footer" id="footer-status">
+        API <code style="font-size:11px">/api/stats</code> · Coinbase extra fingerprint · Poll samples stored locally for charts
+      </footer>
+    </div>
   </div>
 
   <script>
-    (function () {
-      const drawer = document.getElementById('drawer')
-      const toggle = document.getElementById('menuToggle')
-      toggle.addEventListener('click', function () {
-        drawer.classList.toggle('open')
-      })
-      drawer.querySelectorAll('a').forEach(function (a) {
-        a.addEventListener('click', function () {
-          if (window.innerWidth <= 900) drawer.classList.remove('open')
-        })
-      })
-    })()
-
     const LOCALE = 'en-US'
+
+    function fmtHashrate (h) {
+      if (h == null || h === '' || Number(h) === 0) return '—'
+      let n = Number(h)
+      let u = 0
+      const U = ['H/s', 'kH/s', 'MH/s', 'GH/s', 'TH/s']
+      while (n >= 1000 && u < U.length - 1) {
+        n /= 1000
+        u++
+      }
+      return (u >= 2 ? n.toFixed(2) : n.toFixed(2)) + ' ' + U[u]
+    }
+
+    function fmtTimeMs (ms) {
+      if (!ms) return '—'
+      const s = Math.floor(ms / 1000)
+      if (s < 60) return s + ' s'
+      if (s < 3600) return Math.floor(s / 60) + ' min'
+      if (s < 86400) return Math.floor(s / 3600) + ' h'
+      return Math.floor(s / 86400) + ' d'
+    }
+
+    function distanceInWords (sec) {
+      if (!sec) return '—'
+      const now = Math.floor(Date.now() / 1000)
+      let d = now - sec
+      if (d < 0) d = 0
+      if (d < 60) return d + ' seconds ago'
+      if (d < 3600) return Math.floor(d / 60) + ' minutes ago'
+      if (d < 86400) return Math.floor(d / 3600) + ' hours ago'
+      return Math.floor(d / 86400) + ' days ago'
+    }
+
+    function fmtTs (t) {
+      if (!t) return '—'
+      const ms = t > 2e11 ? t : t * 1000
+      return new Date(ms).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
+    }
+
+    function drawChart (svgEl, emptyEl, points, opts) {
+      const stroke = opts.stroke || 'rgb(212, 183, 106)'
+      const fillA = opts.fillA || 'rgba(212, 183, 106, 0.45)'
+      const fillB = opts.fillB || 'rgba(212, 183, 106, 0)'
+      if (!points || points.length === 0) {
+        svgEl.style.display = 'none'
+        emptyEl.style.display = 'flex'
+        return
+      }
+      emptyEl.style.display = 'none'
+      svgEl.style.display = 'block'
+      const W = 800
+      const H = 280
+      const pad = 36
+      const xs = points.map(function (p) { return p.t })
+      const ys = points.map(function (p) { return p.hr })
+      const minX = Math.min.apply(null, xs)
+      const maxX = Math.max.apply(null, xs)
+      let minY = Math.min.apply(null, ys)
+      let maxY = Math.max.apply(null, ys)
+      if (minY === maxY) {
+        minY = 0
+        maxY = Math.max(1, maxY)
+      }
+      const rx = function (x) {
+        return pad + ((x - minX) / (maxX - minX || 1)) * (W - 2 * pad)
+      }
+      const ry = function (y) {
+        return H - pad - ((y - minY) / (maxY - minY)) * (H - 2 * pad)
+      }
+      let d = ''
+      for (let i = 0; i < points.length; i++) {
+        const x = rx(points[i].t)
+        const y = ry(points[i].hr)
+        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' '
+      }
+      const firstX = rx(points[0].t)
+      const lastX = rx(points[points.length - 1].t)
+      const baseY = H - pad
+      const areaD = d + ' L ' + lastX + ',' + baseY + ' L ' + firstX + ',' + baseY + ' Z'
+      const gradId = 'grad-' + opts.id
+      svgEl.innerHTML =
+        '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="' + fillA + '"/>' +
+        '<stop offset="100%" stop-color="' + fillB + '"/></linearGradient></defs>' +
+        '<path d="' + areaD + '" fill="url(#' + gradId + ')"/>' +
+        '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="1.5"/>'
+    }
 
     async function load () {
       const err = document.getElementById('err')
@@ -369,77 +638,86 @@
         const d = await res.json()
         if (!res.ok) throw new Error(d.error || res.statusText)
 
-        const fmtHr = function (h) {
-          if (!h) return '—'
-          let n = Number(h)
-          let u = 0
-          const U = ['H/s', 'kH/s', 'MH/s', 'GH/s']
-          while (n >= 1000 && u < U.length - 1) {
-            n /= 1000
-            u++
-          }
-          return n.toFixed(2) + ' ' + U[u]
-        }
+        document.getElementById('st-solo-hr').textContent = fmtHashrate(d.estimated_solo_hashrate)
+        document.getElementById('st-block-time').textContent =
+          d.block_time_est_ms ? fmtTimeMs(d.block_time_est_ms) : '—'
+        document.getElementById('st-last-block').textContent = distanceInWords(
+          d.last_block_timestamp_sec,
+        )
+        document.getElementById('st-blocks-found').textContent = Number(
+          d.solo_blocks_found ?? 0,
+        ).toLocaleString(LOCALE)
+        document.getElementById('st-net-hr').textContent = fmtHashrate(d.network_hashrate_est)
+        document.getElementById('st-net-diff').textContent = Number(
+          d.network_difficulty ?? 0,
+        ).toLocaleString(LOCALE)
+        document.getElementById('st-net-height').textContent = Number(
+          d.chain_height ?? 0,
+        ).toLocaleString(LOCALE)
 
-        const fmtTs = function (t) {
-          if (!t) return '—'
-          const ms = t > 2e11 ? t : t * 1000
-          return new Date(ms).toLocaleString(LOCALE, {
-            dateStyle: 'medium',
-            timeStyle: 'medium'
-          })
-        }
-
-        const tiles = document.getElementById('tiles')
-        const rows = [
-          ['Chain height', (d.chain_height ?? '—').toLocaleString(LOCALE)],
-          ['Network hashrate (est.)', fmtHr(d.network_hashrate_est)],
-          ['Network difficulty', (d.network_difficulty ?? 0).toLocaleString(LOCALE)],
-          ['Solo blocks indexed', (d.solo_blocks_found ?? 0).toLocaleString(LOCALE)],
-          ['Unlock depth (confirmations)', (d.confirmation_depth ?? '—').toString()]
-        ]
-        tiles.innerHTML = rows.map(function (pair) {
-          return (
-            '<div class="info-box"><span class="label">' +
-            pair[0] +
-            '</span><span class="value">' +
-            pair[1] +
-            '</span></div>'
-          )
-        }).join('')
+        const chSolo = (d.charts && d.charts.solo) || []
+        const chNet = (d.charts && d.charts.network) || []
+        drawChart(
+          document.getElementById('chart-solo'),
+          document.getElementById('chart-solo-empty'),
+          chSolo,
+          { id: 'solo' },
+        )
+        drawChart(
+          document.getElementById('chart-net'),
+          document.getElementById('chart-net-empty'),
+          chNet,
+          { id: 'net' },
+        )
 
         const tb = document.getElementById('rows')
         const blocks = d.blocks || []
         tb.innerHTML = blocks
           .map(function (b) {
-            const st = b.confirmed
-              ? '<span class="status-ok">Confirmed</span>'
-              : '<span class="status-pending">Pending (' +
-                (b.confirmations_pending ?? 0) +
-                ')</span>'
+            let icon = ''
+            let title = ''
+            const st = Number(b.status)
+            if (st === 1) {
+              icon = '<span class="icon-status" style="color:var(--bad)" title="Orphaned">✕</span>'
+              title = 'Orphaned'
+            } else if (st === 2 || b.confirmed) {
+              icon = '<span class="icon-status" style="color:var(--ok)" title="Confirmed">✓</span>'
+              title = 'Confirmed'
+            } else {
+              icon =
+                '<span class="icon-status" style="color:var(--pending)" title="Pending">🔒</span>'
+              title = 'Pending'
+            }
+            const rew =
+              b.reward !== undefined && b.reward !== '' && b.reward !== '-1'
+                ? String(b.reward)
+                : '…'
             const ex = b.explorer_link
-              ? '<a class="link" href="' +
+              ? '<a href="' +
                 b.explorer_link +
-                '" target="_blank" rel="noopener">View</a>'
+                '" style="color:var(--accent)" target="_blank" rel="noopener">View</a>'
               : '—'
-            const hashShort = (b.hash || '').slice(0, 14)
             return (
-              '<tr>' +
+              '<tr title="' +
+              title +
+              '">' +
+              '<td>' +
+              icon +
+              '</td>' +
+              '<td><div class="monospace ellipsis">' +
+              (b.hash || '') +
+              '</div></td>' +
               '<td>' +
               Number(b.height).toLocaleString(LOCALE) +
               '</td>' +
               '<td>' +
-              st +
+              fmtTs(b.timestamp) +
               '</td>' +
               '<td>' +
               Number(b.difficulty || 0).toLocaleString(LOCALE) +
               '</td>' +
-              '<td>' +
-              fmtTs(b.timestamp) +
-              '</td>' +
-              '<td class="mono">' +
-              hashShort +
-              (b.hash && b.hash.length > 14 ? '…' : '') +
+              '<td class="monospace">' +
+              rew +
               '</td>' +
               '<td>' +
               ex +
@@ -448,16 +726,55 @@
             )
           })
           .join('')
-
         if (!blocks.length) {
           tb.innerHTML =
-            '<tr><td colspan="6" class="empty-hint">No matching blocks yet — check your daemon URL, <code>start_height</code> and fingerprint fields in <code>config.json</code> (see README).</td></tr>'
+            '<tr><td colspan="7" style="padding:24px;color:var(--text-secondary);text-align:center">No matching blocks yet — check your daemon URL, <code>start_height</code>, and fingerprint fields in <code>config.json</code>.</td></tr>'
         }
       } catch (e) {
         err.textContent = 'Error: ' + e.message
         err.hidden = false
       }
     }
+
+    /* Drawer + desktop layout */
+    const drawer = document.getElementById('drawer')
+    const backdrop = document.getElementById('backdrop')
+    const menuToggle = document.getElementById('menuToggle')
+    const layoutFrame = document.getElementById('layoutFrame')
+
+    function applyLayout () {
+      if (window.innerWidth >= 1024) {
+        drawer.classList.add('desktop-open')
+        layoutFrame.classList.add('with-desktop-drawer')
+        backdrop.classList.remove('open')
+      } else {
+        drawer.classList.remove('desktop-open')
+        layoutFrame.classList.remove('with-desktop-drawer')
+      }
+    }
+
+    menuToggle.addEventListener('click', function () {
+      if (window.innerWidth >= 1024) return
+      drawer.classList.toggle('open')
+      backdrop.classList.toggle('open')
+    })
+
+    backdrop.addEventListener('click', function () {
+      drawer.classList.remove('open')
+      backdrop.classList.remove('open')
+    })
+
+    document.querySelectorAll('.nav-item').forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (window.innerWidth < 1024) {
+          drawer.classList.remove('open')
+          backdrop.classList.remove('open')
+        }
+      })
+    })
+
+    window.addEventListener('resize', applyLayout)
+    applyLayout()
 
     load()
     setInterval(load, 15000)

@@ -16,6 +16,9 @@ import {
   saveScanCursor,
   upsertBlock,
   listBlocks,
+  insertPollSample,
+  getNetworkPollSeries,
+  getSoloDifficultyDailySeries,
 } from './store.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -23,6 +26,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CFG_PATH =
   process.env.ARQMA_SOLO_BLOCKS_CONFIG ||
   path.join(__dirname, 'config.json')
+
+const THIRTY_DAYS_SEC = 30 * 86400
 
 function loadCfg () {
   if (!fs.existsSync(CFG_PATH)) {
@@ -90,7 +95,6 @@ async function scanRange (cfg, db, tip) {
   let start = loadScanCursor(db)
   if (!Number.isFinite(start) || start < 0) start = cfg.start_height
 
-  /** chainHeight from poll is current top index; daemon height is inclusive */
   if (start > tip) {
     saveScanCursor(db, start)
     return
@@ -153,6 +157,79 @@ async function scanRange (cfg, db, tip) {
   }
 }
 
+/**
+ * One JSON payload for the Ryo-style dashboard + blocks table.
+ */
+function buildStatsPayload (cfg, db, info) {
+  const tip = Number(info.height ?? 0)
+  const netDiff = Number(info.difficulty ?? 0) || 0
+  const target =
+    Number(info.target ?? cfg.block_target_seconds) || cfg.block_target_seconds
+  const networkHr = netDiff && target ? Math.floor(netDiff / target) : 0
+
+  const rawBlocks = listBlocks(db, 2000)
+  const blocks = rawBlocks.map((b) => {
+    const conf = tip - Number(b.height)
+    const tmpl = cfg.explorer_block_url_template
+    const ts = Number(b.timestamp) || 0
+    return {
+      hash: b.hash,
+      miner_tx_hash: b.miner_tx_hash,
+      height: b.height,
+      difficulty: b.difficulty,
+      timestamp: ts,
+      reward: b.reward,
+      status: Number(b.status ?? 0),
+      confirmed: conf >= cfg.confirmation_depth,
+      confirmations_pending: Math.max(0, cfg.confirmation_depth - conf),
+      explorer_link:
+        tmpl &&
+        tmpl
+          .replace('{height}', String(b.height))
+          .replace('{hash}', b.hash || ''),
+    }
+  })
+
+  const newest = blocks[0]
+  const lastTsSec = newest ? Number(newest.timestamp) || 0 : 0
+
+  /** Naive solo HR: last indexed block difficulty / target interval (like wallet effort scaling). */
+  let estimatedSoloHr = 0
+  if (newest && newest.difficulty) {
+    estimatedSoloHr = Math.floor(Number(newest.difficulty) / target)
+  }
+
+  let blockTimeEstMs = 0
+  if (estimatedSoloHr > 0 && networkHr > 0) {
+    blockTimeEstMs = Math.floor(
+      (1000 * target * networkHr) / estimatedSoloHr,
+    )
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000)
+  const sinceSec = nowSec - THIRTY_DAYS_SEC
+
+  const charts = {
+    network: getNetworkPollSeries(db, sinceSec),
+    solo: getSoloDifficultyDailySeries(db, sinceSec),
+  }
+
+  return {
+    chain_height: tip,
+    network_difficulty: netDiff,
+    network_hashrate_est: networkHr,
+    network_target_interval_sec: target,
+    confirmation_depth: cfg.confirmation_depth,
+    solo_blocks_found: blocks.length,
+    estimated_solo_hashrate: estimatedSoloHr,
+    block_time_est_ms: blockTimeEstMs,
+    last_block_timestamp_sec: lastTsSec,
+    solo_fee_percent: 0,
+    blocks,
+    charts,
+  }
+}
+
 const once = process.argv.includes('--once')
 
 ;(async () => {
@@ -163,6 +240,17 @@ const once = process.argv.includes('--once')
   async function tick () {
     const tip = await pollChainTip(cfg)
     await scanRange(cfg, db, tip)
+    try {
+      const info = (await daemonRpc(cfg, 'get_info')) || {}
+      const netDiff = Number(info.difficulty ?? 0) || 0
+      const target =
+        Number(info.target ?? cfg.block_target_seconds) ||
+        cfg.block_target_seconds
+      const networkHr = netDiff && target ? Math.floor(netDiff / target) : 0
+      insertPollSample(db, Math.floor(Date.now() / 1000), networkHr, tip)
+    } catch (_) {
+      /**/
+    }
     return tip
   }
 
@@ -191,41 +279,11 @@ const once = process.argv.includes('--once')
       let info = {}
       try {
         info = (await daemonRpc(cfg, 'get_info')) || {}
-      } catch {
-        /**/
+      } catch (e) {
+        reply.code(503).send({ error: String(e.message || e) })
+        return
       }
-      const tip = Number(info.height ?? 0)
-      const netDiff = Number(info.difficulty ?? 0) || 0
-      const target = Number(info.target ?? cfg.block_target_seconds) || cfg.block_target_seconds
-      const networkHr = netDiff && target ? Math.floor(netDiff / target) : 0
-      const blocks = listBlocks(db, 2000).map((b) => {
-        const conf = tip - Number(b.height)
-        const tmpl = cfg.explorer_block_url_template
-        return {
-          hash: b.hash,
-          miner_tx_hash: b.miner_tx_hash,
-          height: b.height,
-          difficulty: b.difficulty,
-          timestamp: b.timestamp,
-          reward: b.reward,
-          confirmed: conf >= cfg.confirmation_depth,
-          confirmations_pending: Math.max(0, cfg.confirmation_depth - conf),
-          explorer_link:
-            tmpl &&
-            tmpl
-              .replace('{height}', String(b.height))
-              .replace('{hash}', b.hash || ''),
-        }
-      })
-
-      reply.send({
-        chain_height: tip,
-        network_difficulty: netDiff,
-        network_hashrate_est: networkHr,
-        confirmation_depth: cfg.confirmation_depth,
-        solo_blocks_found: blocks.length,
-        blocks,
-      })
+      reply.send(buildStatsPayload(cfg, db, info))
     } catch (e) {
       reply.code(500).send({ error: String(e.message || e) })
     }
