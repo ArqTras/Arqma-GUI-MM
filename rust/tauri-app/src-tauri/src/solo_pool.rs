@@ -160,6 +160,25 @@ fn is_persist_session (session_id: &str) -> bool {
   session_id.starts_with("persist-")
 }
 
+fn active_stratum_workers (workers: &HashMap<String, WorkerState>) -> usize {
+  workers
+    .values()
+    .filter(|ws| !is_persist_session(&ws.session_id))
+    .count()
+}
+
+/// `mining.uniform` from wallet config mimics classic pools (wider reservation). Unchecked/disabled uses
+/// `reserve_size: 1` so coinbase **`extra`** matches the fingerprint used by the optional `www/arqma-solo-blocks`
+/// scanner (Ryo-derived convention). Forces pool-like reservation when **>128** miners are connected.
+fn daemon_reserve_size_request (mining_uniform_cfg: bool, active_miners: usize) -> u64 {
+  let uniform_mode = mining_uniform_cfg || active_miners > 128;
+  if uniform_mode {
+    8
+  } else {
+    1
+  }
+}
+
 fn average_block_effort (blocks: &[Value]) -> f64 {
   let mut sum = 0f64;
   let mut n = 0u32;
@@ -807,13 +826,15 @@ async fn refresh_job (
   job: &Arc<Mutex<JobState>>,
   job_ring: &Arc<Mutex<Vec<JobState>>>,
   seq: &AtomicU64,
+  reserve_size_requested: u64,
 ) {
   if wallet_address.is_empty() {
     return;
   }
+  let rr = reserve_size_requested.clamp(1, 255);
   let params = json!({
     "wallet_address": wallet_address,
-    "reserve_size": 1
+    "reserve_size": rr
   });
   let Ok(v) = daemon_post(http, &daemon.0, daemon.1, "get_block_template", 0, &params).await else {
     solo_pool_log("get_block_template: RPC request failed (daemon unreachable or HTTP error)");
@@ -907,7 +928,7 @@ async fn refresh_job (
     .collect();
   let next_e = next_seed_hash.is_empty();
   solo_pool_log(&format!(
-    "template OK job_id={} height={} network_diff={} stratum_blob_hex_len={} template_hex_len={} blob_fp={} reserved_off={} res_sz={} next_seed_empty={} seed_prefix={}",
+    "template OK job_id={} height={} network_diff={} stratum_blob_hex_len={} template_hex_len={} blob_fp={} reserved_off={} daemon_res_sz={} reserve_req={} next_seed_empty={} seed_prefix={}",
     id,
     height,
     difficulty,
@@ -916,6 +937,7 @@ async fn refresh_job (
     hex_prefix_suffix(&blob, 16, 16),
     reserved_offset,
     reserve_size,
+    rr,
     next_e,
     seed_prefix
   ));
@@ -1034,6 +1056,13 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     .unwrap_or(900)
     .saturating_mul(1000)
     .max(60_000) as i64;
+  let mining_uniform_cfg = st
+    .config_data
+    .get("pool")
+    .and_then(|p| p.get("mining"))
+    .and_then(|m| m.get("uniform"))
+    .and_then(|v| v.as_bool())
+    .unwrap_or(true);
   let (tx, mut rx) = oneshot::channel::<()>();
   st.solo_pool_shutdown = Some(tx);
   let app = app.clone();
@@ -1125,7 +1154,20 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     // Miners that timed out: last WorkerState for the table until the same name reconnects.
     let last_disconnected: Arc<Mutex<HashMap<String, WorkerState>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut prev_job_id = String::new();
-    refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
+    let rs_boot = {
+      let w = workers.lock().await;
+      daemon_reserve_size_request(mining_uniform_cfg, active_stratum_workers(&w))
+    };
+    refresh_job(
+      &http,
+      &daemon,
+      &mining_address,
+      &current_job,
+      &job_ring,
+      job_seq.as_ref(),
+      rs_boot,
+    )
+    .await;
     let mut beat = interval(Duration::from_secs(5));
     beat.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut persist_tick = interval(Duration::from_secs(30));
@@ -1168,7 +1210,20 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           save_persisted(&config_dir, &PersistData { workers: workers_snapshot, blocks: blocks_snapshot });
         }
         _ = beat.tick() => {
-          refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
+          let rs = {
+            let w = workers.lock().await;
+            daemon_reserve_size_request(mining_uniform_cfg, active_stratum_workers(&w))
+          };
+          refresh_job(
+            &http,
+            &daemon,
+            &mining_address,
+            &current_job,
+            &job_ring,
+            job_seq.as_ref(),
+            rs,
+          )
+          .await;
           let now = now_ms();
           let current = current_job.lock().await.clone();
           let job_changed = current.id != prev_job_id;
@@ -1394,6 +1449,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           let round_hashes2 = round_hashes.clone();
           let last_disconnected2 = last_disconnected.clone();
           let config_dir_dump = config_dir.clone();
+          let mining_uniform_cfg_conn = mining_uniform_cfg;
           tokio::spawn(async move {
             solo_pool_log(&format!("stratum: accepted connection from {peer_l}"));
             let (reader_half, mut writer_half) = socket.into_split();
@@ -1523,6 +1579,10 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                 if j.id.is_empty() || j.blob.is_empty() || !blocktemplate_blob_ok(&j.blob) {
                   for _ in 0u32..20 {
                     tokio::time::sleep(Duration::from_millis(150)).await;
+                    let rs = {
+                      let w = workers2.lock().await;
+                      daemon_reserve_size_request(mining_uniform_cfg_conn, active_stratum_workers(&w))
+                    };
                     refresh_job(
                       &http2,
                       &daemon2,
@@ -1530,6 +1590,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                       &current_job2,
                       &job_ring2,
                       job_seq2.as_ref(),
+                      rs,
                     )
                     .await;
                     j = current_job2.lock().await.clone();

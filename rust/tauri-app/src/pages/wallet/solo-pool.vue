@@ -64,6 +64,20 @@
         :dark="theme === 'dark'"
       />
 
+      <q-checkbox
+        v-model="settings.mining.uniform"
+        class="q-mt-md"
+        :disable="daemonType === 'remote'"
+        :dark="theme === 'dark'"
+        :label="$t('components.solo_pool.uniform_pool_header')"
+      />
+      <div
+        class="text-caption q-mt-xs q-mb-none"
+        :class="theme === 'dark' ? 'text-grey-5' : 'text-grey-8'"
+      >
+        {{ $t("components.solo_pool.uniform_hint") }}
+      </div>
+
       <div class="row q-col-gutter-md q-mt-sm">
         <div class="col-8">
           <q-select
@@ -579,6 +593,16 @@ export default defineComponent({
       const prevVardiff = prevPool?.varDiff
       await api.send("core", "save_pool_config", settings.value)
       $q.notify({ type: "positive", message: t("components.solo_pool.saved"), timeout: 1500 })
+      if (
+        prevPool?.mining &&
+        prevPool.mining.uniform !== settings.value.mining.uniform
+      ) {
+        $q.notify({
+          type: "info",
+          message: t("components.solo_pool.uniform_restart_hint"),
+          timeout: 4000,
+        })
+      }
       if (
         prevPool &&
         varDiffParamsChanged(prevVardiff, settings.value.varDiff) &&

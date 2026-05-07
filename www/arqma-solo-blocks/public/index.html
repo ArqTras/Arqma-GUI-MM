@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arqma — bloki solo (fingerprint)</title>
+  <style>
+    :root {
+      --bg: #0f121a;
+      --card: #1a1f2e;
+      --text: #e8e4dc;
+      --muted: #9a9390;
+      --accent: #d4b76a;
+      --good: #5cb85c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 1.25rem;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 .5rem; color: var(--accent); }
+    .sub { color: var(--muted); font-size: .9rem; margin-bottom: 1.25rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+    .tile {
+      background: var(--card);
+      border-radius: 10px;
+      padding: .75rem 1rem;
+      border: 1px solid rgba(212, 183, 106, .12);
+    }
+    .tile label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: .2rem; }
+    .tile .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid rgba(255,255,255,.06); }
+    th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+    tr:hover td { background: rgba(212,183,106,.06); }
+    .mono { font-family: ui-monospace, monospace; font-size: .82rem; word-break: break-all; }
+    .ok { color: var(--good); }
+    .pend { color: #e0c36a; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .err { color: #e07a7a; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Arqma — solo bloki (Arqma-Wallet)</h1>
+  <p class="sub">
+    Lista indeksuje bloki z sygnaturą <code class="mono">extra</code> (36 B, bajty [33]=2, [34]=1) — tryb bez „Mimic public pool” w portfelu.
+    Źródło: API <code class="mono">/api/stats</code>.
+  </p>
+  <div id="err" class="err" hidden></div>
+  <div class="grid" id="tiles"></div>
+  <div class="tile" style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Wysokość</th>
+          <th>Status</th>
+          <th>Trudność</th>
+          <th>Czas</th>
+          <th>Hash</th>
+          <th>Explorer</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <script>
+    async function load() {
+      const err = document.getElementById('err')
+      err.hidden = true
+      try {
+        const res = await fetch('/api/stats')
+        const d = await res.json()
+        if (!res.ok) throw new Error(d.error || res.statusText)
+        const tiles = document.getElementById('tiles')
+        const fmtHr = (h) => {
+          if (!h) return '—'
+          let n = Number(h); let u = 0
+          const U = ['H/s','kH/s','MH/s','GH/s']
+          while (n >= 1000 && u < U.length - 1) { n /= 1000; u++ }
+          return n.toFixed(2) + ' ' + U[u]
+        }
+        const fmtTs = (t) => {
+          if (!t) return '—'
+          const ms = t > 2e11 ? t : t * 1000
+          return new Date(ms).toLocaleString()
+        }
+        tiles.innerHTML = [
+          ['Wysokość łańcucha', d.chain_height ?? '—'],
+          ['Szac. hashrate sieci', fmtHr(d.network_hashrate_est)],
+          ['Trudność sieci', (d.network_difficulty ?? 0).toLocaleString()],
+          ['Zarejestrowane solo', (d.solo_blocks_found ?? 0).toLocaleString()],
+          ['Potwierdzenia (głęb.)', d.confirmation_depth ?? '—'],
+        ].map(([l,v]) => `<div class="tile"><label>${l}</label><div class="v">${v}</div></div>`).join('')
+        const tb = document.getElementById('rows')
+        const blocks = d.blocks || []
+        tb.innerHTML = blocks.map(b => {
+          const st = b.confirmed ? '<span class="ok">potwierdzony</span>' : `<span class="pend">oczekuje (${b.confirmations_pending})</span>`
+          const ex = b.explorer_link ? `<a href="${b.explorer_link}" rel="noopener">link</a>` : '—'
+          return `<tr>
+            <td>${b.height}</td>
+            <td>${st}</td>
+            <td>${Number(b.difficulty||0).toLocaleString()}</td>
+            <td>${fmtTs(b.timestamp)}</td>
+            <td class="mono">${(b.hash||'').slice(0,12)}…</td>
+            <td>${ex}</td>
+          </tr>`
+        }).join('')
+        if (!blocks.length) {
+          tb.innerHTML = '<tr><td colspan="6" class="mono" style="color:var(--muted)">Brak dopasowanych bloków — sprawdź daemon, start_height w config.json oraz fingerprint (README).</td></tr>'
+        }
+      } catch (e) {
+        err.textContent = 'Błąd: ' + e.message
+        err.hidden = false
+      }
+    }
+    load()
+    setInterval(load, 15000)
+  </script>
+</body>
+</html>

@@ -43,6 +43,15 @@
           :label="$t('components.solo_pool.mining_address')"
         />
 
+        <q-checkbox
+          v-model="settings.mining.uniform"
+          :disable="daemonType === 'remote'"
+          :label="$t('components.solo_pool.uniform_pool_header')"
+        />
+        <div class="text-caption text-grey-7">
+          {{ $t("components.solo_pool.uniform_hint") }}
+        </div>
+
         <div class="row q-col-gutter-md">
           <div class="col-8">
             <q-select
@@ -462,6 +471,16 @@ export default defineComponent({
       const prevVardiff = prevPool?.varDiff
       await api.send("core", "save_pool_config", settings.value)
       $q.notify({ type: "positive", message: t("components.solo_pool.saved"), timeout: 1500 })
+      if (
+        prevPool?.mining &&
+        prevPool.mining.uniform !== settings.value.mining.uniform
+      ) {
+        $q.notify({
+          type: "info",
+          message: t("components.solo_pool.uniform_restart_hint"),
+          timeout: 4000,
+        })
+      }
       isVisible.value = false
       if (
         prevPool &&
