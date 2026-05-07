@@ -2,6 +2,10 @@
 
 Indeksuje bloki wygenerowane przez **wbudowany solo pool** w **Arqma-Wallet (Tauri)** wyłączeniem opcji **„Mimic public pool reservation”** (`pool.mining.uniform: false`). Wtedy daemon dostaje `get_block_template` z `reserve_size: 1`, co nadaje coinbase **`miner_tx.extra`** przewidywalny wzorzec (zgodny z konwencją z portfela Ryo / skanerem społecznościowym).
 
+## Zgodność Fastify
+
+`fastify` **5.x** wymaga `@fastify/static` **≥ 8.x**. Starsza seria 7.x jest tylko dla Fastify 4 — przy `FST_ERR_PLUGIN_VERSION_MISMATCH` usuń `node_modules`, zrób ponownie `npm install` po aktualizacji `package.json`.
+
 ## Uruchomienie
 
 ```bash
