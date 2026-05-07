@@ -19,6 +19,8 @@ import {
   insertPollSample,
   getNetworkPollSeries,
   getSoloDifficultyDailySeries,
+  computeChainScanProgress,
+  aggregateSoloFingerprintBlocks,
 } from './store.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -214,6 +216,15 @@ function buildStatsPayload (cfg, db, info) {
     solo: getSoloDifficultyDailySeries(db, sinceSec),
   }
 
+  const scanProg = computeChainScanProgress(db, tip, cfg.start_height)
+  const fpAgg = aggregateSoloFingerprintBlocks(db)
+  const recentFp = listBlocks(db, 20).map((b) => ({
+    height: b.height,
+    difficulty: b.difficulty,
+    timestamp: b.timestamp,
+    hash: b.hash,
+  }))
+
   return {
     chain_height: tip,
     network_difficulty: netDiff,
@@ -227,6 +238,14 @@ function buildStatsPayload (cfg, db, info) {
     solo_fee_percent: 0,
     blocks,
     charts,
+    chain_fingerprint_scan: {
+      ...scanProg,
+      ...fpAgg,
+      start_height_config: cfg.start_height,
+      scan_batch_heights: cfg.scan_batch_heights,
+      poll_interval_seconds: cfg.poll_interval_seconds,
+      recent_blocks: recentFp,
+    },
   }
 }
 

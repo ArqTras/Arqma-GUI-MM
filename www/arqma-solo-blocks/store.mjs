@@ -36,6 +36,42 @@ export function loadScanCursor (db) {
   return Number.isFinite(n) ? n : -1
 }
 
+/** Next height to scan + % toward tip (same convention as the former wallet solo scan). */
+export function computeChainScanProgress (db, chainTip, cfgStartHeight) {
+  let next = loadScanCursor(db)
+  if (!Number.isFinite(next) || next < 0) next = cfgStartHeight
+  const tip = Math.max(0, Number(chainTip) || 0)
+  const denom = tip + 1
+  let progressPct = 0
+  if (denom > 0) {
+    progressPct = Math.min(100, (Math.min(next, denom) / denom) * 100)
+  }
+  const scannedThrough = next > 0 ? next - 1 : 0
+  return {
+    next_scan_height: next,
+    chain_tip: tip,
+    progress_pct: progressPct,
+    scanned_through: scannedThrough,
+    caught_up: next > tip,
+  }
+}
+
+export function aggregateSoloFingerprintBlocks (db) {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS c,
+           COALESCE(SUM(CAST(difficulty AS REAL)), 0) AS s,
+           MIN(height) AS hmin,
+           MAX(height) AS hmax
+    FROM solo_blocks
+  `).get()
+  return {
+    fingerprint_blocks: Number(row.c) || 0,
+    sum_difficulty: Number(row.s) || 0,
+    min_height: row.hmin != null ? Number(row.hmin) : null,
+    max_height: row.hmax != null ? Number(row.hmax) : null,
+  }
+}
+
 export function saveScanCursor (db, height) {
   db.prepare(
     'INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v = excluded.v',

@@ -262,6 +262,26 @@
       display: block;
     }
 
+    .chart-panel svg .chart-grid {
+      stroke: rgba(255, 255, 255, 0.07);
+      stroke-width: 1;
+    }
+
+    .chart-panel svg .chart-axis-text {
+      fill: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 300;
+      font-family: Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .chart-panel svg .chart-axis-title {
+      fill: var(--text-secondary);
+      font-size: 10px;
+      font-weight: 400;
+      font-family: Roboto, Helvetica, Arial, sans-serif;
+      opacity: 0.85;
+    }
+
     .chart-empty {
       position: absolute;
       inset: 0;
@@ -272,6 +292,77 @@
       font-size: 13px;
       padding: 16px;
       text-align: center;
+    }
+
+    .chain-scan-panel {
+      margin-bottom: 28px;
+      padding: 16px;
+      background: #161920;
+      border: 1px solid rgba(212, 183, 106, .12);
+      border-radius: 3px;
+    }
+
+    .chain-scan-panel .hint {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin: 0 0 12px;
+      line-height: 1.45;
+    }
+
+    .scan-progress-track {
+      height: 8px;
+      background: rgba(255, 255, 255, .08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .scan-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, rgba(212, 183, 106, .85), rgba(212, 183, 106, .55));
+      transition: width 0.35s ease;
+    }
+
+    .scan-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .scan-stat-grid .lbl {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-secondary);
+    }
+
+    .scan-stat-grid .val {
+      font-size: 15px;
+      font-weight: 400;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    table.scan-mini {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    table.scan-mini th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    table.scan-mini td {
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05);
     }
 
     /* Blocks table */
@@ -324,25 +415,6 @@
 
     .icon-status { font-size: 18px; vertical-align: middle; }
 
-    /* Getting started */
-    .getting-started {
-      max-width: 804px;
-    }
-
-    .getting-started p, .getting-started li {
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin: 0 0 12px;
-    }
-
-    .getting-started code {
-      font-size: 12px;
-      background: rgba(212, 183, 106, .12);
-      padding: 2px 6px;
-      border-radius: 3px;
-      color: var(--accent);
-    }
-
     .banner-err {
       background: rgba(224, 122, 122, .15);
       border: 1px solid rgba(224, 122, 122, .4);
@@ -387,17 +459,13 @@
       <span class="ni-icon">▤</span>
       <span><span class="ni-main">Dashboard</span><span class="ni-sub">Global solo miner stats</span></span>
     </a>
-    <a class="nav-item" href="#worker-stats">
-      <span class="ni-icon">◎</span>
-      <span><span class="ni-main">Worker Statistics</span><span class="ni-sub">Individual miner stats</span></span>
+    <a class="nav-item" href="#chain-scan">
+      <span class="ni-icon">⌗</span>
+      <span><span class="ni-main">Chain fingerprint scan</span><span class="ni-sub">Indexer progress</span></span>
     </a>
     <a class="nav-item" href="#blocks">
       <span class="ni-icon">▦</span>
       <span><span class="ni-main">Blocks</span><span class="ni-sub">Solo mined blocks</span></span>
-    </a>
-    <a class="nav-item" href="#getting-started">
-      <span class="ni-icon">✧</span>
-      <span><span class="ni-main">Getting Started</span><span class="ni-sub">How to solo mine</span></span>
     </a>
   </aside>
 
@@ -493,13 +561,48 @@
             <svg id="chart-net" viewBox="0 0 800 280" preserveAspectRatio="none" style="display:none"></svg>
           </div>
         </div>
-      </section>
 
-      <!-- Worker stats (static — Ryo used viewkey login; we stay local-only) -->
-      <section id="worker-stats" class="q-page" style="padding-top:32px">
-        <h6 class="section-title">Worker Statistics</h6>
-        <div class="getting-started">
-          <p>This community dashboard does not collect addresses or view keys (unlike the optional flow in the <a href="https://github.com/mosu-forge/ryo-wallet-solo-pool-website" style="color:var(--accent)" target="_blank" rel="noopener">Ryo solo pool site</a>). To verify which indexed blocks pay to your wallet, compare coinbase outputs locally or use your explorer.</p>
+        <div class="chain-scan-panel" id="chain-scan">
+          <h6 class="section-title">Chain fingerprint scan</h6>
+          <p class="hint">
+            Runs automatically in the background: each poll fetches the next batch of blocks via daemon JSON-RPC and matches the solo coinbase <code>extra</code> fingerprint (same rules as this indexer). Scan cursor is persisted in <code>solo_blocks.sqlite</code> (<code>meta.last_scanned_height</code>).
+          </p>
+          <div class="scan-progress-track">
+            <div class="scan-progress-fill" id="scan-progress-fill" style="width: 0%"></div>
+          </div>
+          <div class="text-caption" id="scan-progress-label" style="margin-top:8px;color:var(--text-secondary);font-size:13px">—</div>
+          <div class="scan-stat-grid">
+            <div>
+              <div class="lbl">Fingerprint blocks (chain)</div>
+              <div class="val" id="scan-fp-count">0</div>
+            </div>
+            <div>
+              <div class="lbl">Sum of difficulties</div>
+              <div class="val" id="scan-sum-diff">0</div>
+            </div>
+            <div>
+              <div class="lbl">Height span (min → max)</div>
+              <div class="val" id="scan-height-span">— → —</div>
+            </div>
+            <div>
+              <div class="lbl">Indexer cadence</div>
+              <div class="val" id="scan-cadence">—</div>
+            </div>
+          </div>
+          <h6 class="section-title" style="margin-top:20px">Recent fingerprint blocks</h6>
+          <div style="overflow-x:auto">
+            <table class="scan-mini">
+              <thead>
+                <tr>
+                  <th>Height</th>
+                  <th>Difficulty</th>
+                  <th>Block time</th>
+                  <th>Block hash</th>
+                </tr>
+              </thead>
+              <tbody id="scan-recent-rows"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -524,16 +627,6 @@
         </div>
       </section>
 
-      <!-- Getting started -->
-      <section id="getting-started" style="padding-top:32px">
-        <h6 class="section-title">Getting Started</h6>
-        <div class="getting-started">
-          <p><strong>1.</strong> Run a synced Arqma daemon and point <code>config.json</code> field <code>daemon_url</code> at its JSON-RPC.</p>
-          <p><strong>2.</strong> In Arqma-Wallet, enable the built-in solo pool and turn <strong>off</strong> “Mimic public pool reservation” so templates use <code>reserve_size</code> 1 — this stamps the coinbase <code>extra</code> fingerprint this site scans for.</p>
-          <p><strong>3.</strong> Tune <code>start_height</code> and fingerprint fields if no rows appear (see README).</p>
-        </div>
-      </section>
-
       <footer class="status-footer" id="footer-status">
         API <code style="font-size:11px">/api/stats</code> · Coinbase extra fingerprint · Poll samples stored locally for charts
       </footer>
@@ -542,6 +635,8 @@
 
   <script>
     const LOCALE = 'en-US'
+    /** Odświeżanie `/api/stats`: dashboard, wykresy, tabela bloków oraz postęp Chain fingerprint scan (ten sam request). */
+    const STATS_POLL_MS = 15000
 
     function fmtHashrate (h) {
       if (h == null || h === '' || Number(h) === 0) return '—'
@@ -581,10 +676,55 @@
       return new Date(ms).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
     }
 
+    function linearNiceTicks (minVal, maxVal, maxTicks) {
+      if (!isFinite(minVal) || !isFinite(maxVal)) {
+        return { min: 0, max: 1, ticks: [0, 0.5, 1] }
+      }
+      if (maxVal <= minVal) {
+        const c = minVal
+        minVal = c > 0 ? c * 0.95 : c - 1
+        maxVal = c > 0 ? c * 1.05 : c + 1
+        if (minVal < 0 && c >= 0) minVal = 0
+      }
+      const span = maxVal - minVal
+      const roughStep = span / Math.max(2, maxTicks - 1)
+      const pow10 = Math.pow(10, Math.floor(Math.log10(Math.max(roughStep, 1e-18))))
+      const err = roughStep / pow10
+      const niceErr = err <= 1 ? 1 : err <= 2 ? 2 : err <= 5 ? 5 : 10
+      const step = niceErr * pow10
+      let niceMin = Math.floor(minVal / step) * step
+      let niceMax = Math.ceil(maxVal / step) * step
+      if (niceMax <= niceMin) niceMax = niceMin + step
+      const ticks = []
+      for (let v = niceMin; v <= niceMax + step * 1e-9; v += step) {
+        ticks.push(v)
+        if (ticks.length > 14) break
+      }
+      return { min: niceMin, max: niceMax, ticks }
+    }
+
+    function fmtAxisTime (ms) {
+      const d = new Date(ms)
+      return d.toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' })
+    }
+
+    function fmtAxisHashrateAxis (n) {
+      if (n == null || !isFinite(n)) return '0'
+      let v = Number(n)
+      const sign = v < 0 ? '-' : ''
+      v = Math.abs(v)
+      if (v >= 1e12) return sign + (v / 1e12).toFixed(2) + ' TH/s'
+      if (v >= 1e9) return sign + (v / 1e9).toFixed(2) + ' GH/s'
+      if (v >= 1e6) return sign + (v / 1e6).toFixed(2) + ' MH/s'
+      if (v >= 1e3) return sign + (v / 1e3).toFixed(2) + ' kH/s'
+      return sign + Math.round(v) + ' H/s'
+    }
+
     function drawChart (svgEl, emptyEl, points, opts) {
       const stroke = opts.stroke || 'rgb(212, 183, 106)'
       const fillA = opts.fillA || 'rgba(212, 183, 106, 0.45)'
       const fillB = opts.fillB || 'rgba(212, 183, 106, 0)'
+      const yAxisCaption = opts.yAxisCaption || 'Hashrate'
       if (!points || points.length === 0) {
         svgEl.style.display = 'none'
         emptyEl.style.display = 'flex'
@@ -592,42 +732,155 @@
       }
       emptyEl.style.display = 'none'
       svgEl.style.display = 'block'
+
       const W = 800
       const H = 280
-      const pad = 36
+      const M = { L: 82, R: 16, T: 22, B: 46 }
+      const plotW = W - M.L - M.R
+      const plotH = H - M.T - M.B
+      const plotBottom = M.T + plotH
+
       const xs = points.map(function (p) { return p.t })
       const ys = points.map(function (p) { return p.hr })
-      const minX = Math.min.apply(null, xs)
-      const maxX = Math.max.apply(null, xs)
+      let minX = Math.min.apply(null, xs)
+      let maxX = Math.max.apply(null, xs)
+      if (minX === maxX) {
+        minX -= 43200000
+        maxX += 43200000
+      }
+
       let minY = Math.min.apply(null, ys)
       let maxY = Math.max.apply(null, ys)
-      if (minY === maxY) {
-        minY = 0
-        maxY = Math.max(1, maxY)
-      }
+      const nice = linearNiceTicks(minY, maxY, 6)
+      const yMin = nice.min
+      const yMax = nice.max
+
       const rx = function (x) {
-        return pad + ((x - minX) / (maxX - minX || 1)) * (W - 2 * pad)
+        return M.L + ((x - minX) / (maxX - minX || 1)) * plotW
       }
       const ry = function (y) {
-        return H - pad - ((y - minY) / (maxY - minY)) * (H - 2 * pad)
+        return plotBottom - ((y - yMin) / (yMax - yMin || 1)) * plotH
       }
-      let d = ''
+
+      let lineD = ''
       for (let i = 0; i < points.length; i++) {
         const x = rx(points[i].t)
         const y = ry(points[i].hr)
-        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' '
+        lineD += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1) + ' '
       }
       const firstX = rx(points[0].t)
       const lastX = rx(points[points.length - 1].t)
-      const baseY = H - pad
-      const areaD = d + ' L ' + lastX + ',' + baseY + ' L ' + firstX + ',' + baseY + ' Z'
+      const baseY = plotBottom
+      const areaD =
+        lineD + ' L ' + lastX.toFixed(1) + ',' + baseY + ' L ' + firstX.toFixed(1) + ',' + baseY + ' Z'
+
       const gradId = 'grad-' + opts.id
-      svgEl.innerHTML =
-        '<defs><linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
-        '<stop offset="0%" stop-color="' + fillA + '"/>' +
-        '<stop offset="100%" stop-color="' + fillB + '"/></linearGradient></defs>' +
-        '<path d="' + areaD + '" fill="url(#' + gradId + ')"/>' +
-        '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-width="1.5"/>'
+      const parts = []
+
+      parts.push(
+        '<defs><linearGradient id="' +
+          gradId +
+          '" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="' +
+          fillA +
+          '"/>' +
+          '<stop offset="100%" stop-color="' +
+          fillB +
+          '"/></linearGradient></defs>',
+      )
+
+      parts.push(
+        '<rect x="' +
+          M.L +
+          '" y="' +
+          M.T +
+          '" width="' +
+          plotW +
+          '" height="' +
+          plotH +
+          '" fill="none" stroke="rgba(212,183,106,0.15)" stroke-width="1"/>',
+      )
+
+      for (let ti = 0; ti < nice.ticks.length; ti++) {
+        const tv = nice.ticks[ti]
+        const yy = ry(tv)
+        parts.push(
+          '<line class="chart-grid" x1="' +
+            M.L +
+            '" y1="' +
+            yy.toFixed(1) +
+            '" x2="' +
+            (M.L + plotW) +
+            '" y2="' +
+            yy.toFixed(1) +
+            '"/>',
+        )
+        parts.push(
+          '<text class="chart-axis-text" text-anchor="end" x="' +
+            (M.L - 8) +
+            '" y="' +
+            (yy + 4) +
+            '">' +
+            fmtAxisHashrateAxis(tv) +
+            '</text>',
+        )
+      }
+
+      const xTickCount = Math.min(6, Math.max(2, points.length))
+      const xTicks = []
+      for (let i = 0; i < xTickCount; i++) {
+        xTicks.push(minX + (i / (xTickCount - 1)) * (maxX - minX))
+      }
+      for (let i = 0; i < xTicks.length; i++) {
+        const tx = rx(xTicks[i])
+        parts.push(
+          '<line class="chart-grid" x1="' +
+            tx.toFixed(1) +
+            '" y1="' +
+            M.T +
+            '" x2="' +
+            tx.toFixed(1) +
+            '" y2="' +
+            plotBottom +
+            '"/>',
+        )
+        parts.push(
+          '<text class="chart-axis-text" text-anchor="middle" x="' +
+            tx.toFixed(1) +
+            '" y="' +
+            (H - 12) +
+            '">' +
+            fmtAxisTime(xTicks[i]) +
+            '</text>',
+        )
+      }
+
+      parts.push('<path d="' + areaD + '" fill="url(#' + gradId + ')"/>')
+      parts.push(
+        '<path d="' +
+          lineD +
+          '" fill="none" stroke="' +
+          stroke +
+          '" stroke-width="1.6" stroke-linejoin="round"/>',
+      )
+
+      parts.push(
+        '<text class="chart-axis-title" text-anchor="middle" x="' +
+          (M.L + plotW / 2) +
+          '" y="' +
+          (H - 2) +
+          '">Time (local)</text>',
+      )
+      const midPlotY = M.T + plotH / 2
+      parts.push(
+        '<text class="chart-axis-title" transform="translate(18,' +
+          midPlotY +
+          ') rotate(-90)" text-anchor="middle" dominant-baseline="middle">' +
+          yAxisCaption +
+          '</text>',
+      )
+
+      svgEl.innerHTML = parts.join('')
     }
 
     async function load () {
@@ -661,14 +914,59 @@
           document.getElementById('chart-solo'),
           document.getElementById('chart-solo-empty'),
           chSolo,
-          { id: 'solo' },
+          { id: 'solo', yAxisCaption: 'Σ diff/day (UTC, proxy)' },
         )
         drawChart(
           document.getElementById('chart-net'),
           document.getElementById('chart-net-empty'),
           chNet,
-          { id: 'net' },
+          { id: 'net', yAxisCaption: 'Network hashrate (est.)' },
         )
+
+        const cfs = d.chain_fingerprint_scan || {}
+        const pctRaw = Math.min(100, Math.max(0, Number(cfs.progress_pct) || 0))
+        document.getElementById('scan-progress-fill').style.width = pctRaw + '%'
+        const pctStr = pctRaw.toFixed(2)
+        const thru = Number(cfs.scanned_through ?? 0).toLocaleString(LOCALE)
+        const tipStr = Number(cfs.chain_tip ?? 0).toLocaleString(LOCALE)
+        const tail = cfs.caught_up ? ' (caught up — waiting for new blocks)' : ''
+        document.getElementById('scan-progress-label').textContent =
+          pctStr + '% — indexed through ' + thru + ' / ' + tipStr + tail
+        document.getElementById('scan-fp-count').textContent = Number(
+          cfs.fingerprint_blocks ?? 0,
+        ).toLocaleString(LOCALE)
+        document.getElementById('scan-sum-diff').textContent = Number(
+          Math.round(Number(cfs.sum_difficulty ?? 0)),
+        ).toLocaleString(LOCALE)
+        const mn = cfs.min_height != null ? Number(cfs.min_height).toLocaleString(LOCALE) : '—'
+        const mx = cfs.max_height != null ? Number(cfs.max_height).toLocaleString(LOCALE) : '—'
+        document.getElementById('scan-height-span').textContent = mn + ' → ' + mx
+        const pollS = cfs.poll_interval_seconds
+        const bat = cfs.scan_batch_heights
+        document.getElementById('scan-cadence').textContent =
+          pollS != null && bat != null
+            ? 'poll every ' + pollS + 's · up to ' + bat + ' heights/tick'
+            : '—'
+
+        const scanRows = document.getElementById('scan-recent-rows')
+        const recentFp = cfs.recent_blocks || []
+        scanRows.innerHTML = recentFp.length
+          ? recentFp
+              .map(function (b) {
+                return (
+                  '<tr><td>' +
+                  Number(b.height).toLocaleString(LOCALE) +
+                  '</td><td>' +
+                  Number(b.difficulty || 0).toLocaleString(LOCALE) +
+                  '</td><td>' +
+                  fmtTs(b.timestamp) +
+                  '</td><td class="monospace ellipsis">' +
+                  (b.hash ? String(b.hash).slice(0, 22) + '…' : '—') +
+                  '</td></tr>'
+                )
+              })
+              .join('')
+          : '<tr><td colspan="4" style="color:var(--text-secondary);padding:12px">No fingerprint matches yet.</td></tr>'
 
         const tb = document.getElementById('rows')
         const blocks = d.blocks || []
@@ -777,7 +1075,7 @@
     applyLayout()
 
     load()
-    setInterval(load, 15000)
+    setInterval(load, STATS_POLL_MS)
   </script>
 </body>
 </html>

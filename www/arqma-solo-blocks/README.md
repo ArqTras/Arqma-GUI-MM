@@ -1,6 +1,6 @@
 # Arqma solo blocks dashboard
 
-Indeksuje bloki wygenerowane przez **wbudowany solo pool** w **Arqma-Wallet (Tauri)** wyłączeniem opcji **„Mimic public pool reservation”** (`pool.mining.uniform: false`). Wtedy daemon dostaje `get_block_template` z `reserve_size: 1`, co nadaje coinbase **`miner_tx.extra`** przewidywalny wzorzec (zgodny z konwencją z portfela Ryo / skanerem społecznościowym).
+Skanuje łańcuch po **`miner_tx.extra`** pasującym do fingerprintu (konwencja z rodziny portfeli Ryo). **Aktualny Arqma-Wallet** z solo pool zawsze żąda `get_block_template` z **`reserve_size: 8`** (jak publiczna pula); ten serwis nadal znajduje **historyczne** bloki z wcześniejszych wydań / innych narzędzi, które kopały przy **`reserve_size: 1`** i tym samym wzorcu `extra`.
 
 ## Zgodność Fastify
 

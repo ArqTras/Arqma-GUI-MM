@@ -146,6 +146,9 @@ pub async fn handle_core (
         .cloned()
         .unwrap_or_else(|| json!({}));
       st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
+      if let Some(pool) = st.config_data.get_mut("pool") {
+        crate::solo_pool::strip_legacy_uniform_pool_option(pool);
+      }
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
       st.shutdown_subprocesses_async(http, _rpc_lane_shutdown).await;
       st.startup_seq_done = false;
@@ -190,7 +193,8 @@ pub async fn handle_core (
       } else {
         merged_pool
       };
-      let merged_pool = normalize_pool_var_diff(merged_pool);
+      let mut merged_pool = normalize_pool_var_diff(merged_pool);
+      crate::solo_pool::strip_legacy_uniform_pool_option(&mut merged_pool);
       st.config_data = merge_json(&st.config_data, &json!({ "pool": merged_pool }));
       if daemon_type == "remote" {
         st.config_data = merge_json(
