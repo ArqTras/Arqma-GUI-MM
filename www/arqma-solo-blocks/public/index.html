@@ -1,128 +1,464 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arqma — bloki solo (fingerprint)</title>
+  <title>Arqma Solo Blocks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
+    /* Arqma wallet solo-pool palette: gold accent #d4b76a, dark slate base */
     :root {
-      --bg: #0f121a;
-      --card: #1a1f2e;
-      --text: #e8e4dc;
-      --muted: #9a9390;
+      --bg-page: #101218;
+      --bg-drawer: #0c0e14;
+      --bg-card: #161a24;
+      --bg-card-hover: #1c212e;
+      --border-subtle: rgba(212, 183, 106, 0.14);
+      --border-strong: rgba(212, 183, 106, 0.28);
+      --text: #f2f2f2;
+      --text-muted: #9a9390;
       --accent: #d4b76a;
-      --good: #5cb85c;
+      --accent-soft: #c9a86c;
+      --accent-dim: #8b7355;
+      --ok: #6abf69;
+      --pending: #e8c97a;
+      --err: #e07a7a;
+      --drawer-width: 260px;
     }
-    * { box-sizing: border-box; }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg);
+      min-height: 100vh;
+      font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-weight: 400;
+      background: var(--bg-page);
       color: var(--text);
-      line-height: 1.45;
-      padding: 1.25rem;
+      line-height: 1.5;
     }
-    h1 { font-size: 1.35rem; margin: 0 0 .5rem; color: var(--accent); }
-    .sub { color: var(--muted); font-size: .9rem; margin-bottom: 1.25rem; }
-    .grid {
+
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* —— Drawer (Ryo-style sidebar) —— */
+    .drawer {
+      width: var(--drawer-width);
+      flex-shrink: 0;
+      background: linear-gradient(180deg, var(--bg-drawer) 0%, #0a0c11 100%);
+      border-right: 1px solid var(--border-subtle);
+      padding: 1.25rem 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      padding: 0 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-logo {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .brand-tag {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-transform: lowercase;
+    }
+
+    .nav {
+      padding: 1rem 0;
+      flex: 1;
+    }
+
+    .nav a {
+      display: block;
+      padding: 0.65rem 1.25rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .nav a:hover {
+      color: var(--text);
+      background: rgba(212, 183, 106, 0.06);
+    }
+
+    .nav a.active {
+      color: var(--accent);
+      background: rgba(212, 183, 106, 0.08);
+      border-left-color: var(--accent);
+    }
+
+    .drawer-foot {
+      padding: 1rem 1.25rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-subtle);
+      line-height: 1.4;
+    }
+
+    /* —— Main —— */
+    .main {
+      flex: 1;
+      min-width: 0;
+      padding: 1.5rem 1.75rem 2.5rem;
+    }
+
+    .page-title {
+      font-size: 1.15rem;
+      font-weight: 500;
+      color: var(--text);
+      margin: 0 0 0.35rem;
+      letter-spacing: 0.02em;
+    }
+
+    .page-lead {
+      margin: 0 0 1.5rem;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      max-width: 52rem;
+    }
+
+    .page-lead code {
+      font-size: 0.82em;
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      background: rgba(212, 183, 106, 0.1);
+      color: var(--accent-soft);
+    }
+
+    /* Info tiles — Ryo “infoBox” feel */
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: .75rem;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .info-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 0.85rem 1rem;
+      min-height: 76px;
+    }
+
+    .info-box .label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .info-box .value {
+      font-size: 1.05rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+
+    .section-head {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--accent-soft);
+      margin: 0 0 0.75rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    /* Table card */
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+
+    thead th {
+      text-align: left;
+      padding: 0.65rem 1rem;
+      font-size: 0.68rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.25);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    tbody td {
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      vertical-align: middle;
+    }
+
+    tbody tr:hover td {
+      background: var(--bg-card-hover);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: ui-monospace, "Roboto Mono", monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+
+    .status-ok { color: var(--ok); }
+    .status-pending { color: var(--pending); }
+
+    a.link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    a.link:hover {
+      text-decoration: underline;
+      color: var(--accent-soft);
+    }
+
+    .banner-err {
+      background: rgba(224, 122, 122, 0.12);
+      border: 1px solid rgba(224, 122, 122, 0.35);
+      color: #f0b0b0;
+      padding: 0.75rem 1rem;
+      border-radius: 4px;
       margin-bottom: 1rem;
+      font-size: 0.875rem;
     }
-    .tile {
-      background: var(--card);
-      border-radius: 10px;
-      padding: .75rem 1rem;
-      border: 1px solid rgba(212, 183, 106, .12);
+
+    .empty-hint {
+      color: var(--text-muted);
+      padding: 2rem 1rem;
+      text-align: center;
+      font-size: 0.875rem;
     }
-    .tile label { display: block; font-size: .75rem; color: var(--muted); margin-bottom: .2rem; }
-    .tile .v { font-weight: 600; font-variant-numeric: tabular-nums; }
-    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-    th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid rgba(255,255,255,.06); }
-    th { color: var(--muted); font-weight: 500; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
-    tr:hover td { background: rgba(212,183,106,.06); }
-    .mono { font-family: ui-monospace, monospace; font-size: .82rem; word-break: break-all; }
-    .ok { color: var(--good); }
-    .pend { color: #e0c36a; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .err { color: #e07a7a; margin: 1rem 0; }
+
+    .menu-toggle {
+      display: none;
+      position: fixed;
+      top: 0.75rem;
+      left: 0.75rem;
+      z-index: 20;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent);
+      padding: 0.45rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      .menu-toggle { display: block; }
+      .drawer {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 15;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
+      }
+      .drawer.open { transform: translateX(0); }
+      .main { padding: 3rem 1rem 2rem; }
+    }
   </style>
 </head>
 <body>
-  <h1>Arqma — solo bloki (Arqma-Wallet)</h1>
-  <p class="sub">
-    Lista indeksuje bloki z sygnaturą <code class="mono">extra</code> (36 B, bajty [33]=2, [34]=1) — tryb bez „Mimic public pool” w portfelu.
-    Źródło: API <code class="mono">/api/stats</code>.
-  </p>
-  <div id="err" class="err" hidden></div>
-  <div class="grid" id="tiles"></div>
-  <div class="tile" style="overflow-x:auto">
-    <table>
-      <thead>
-        <tr>
-          <th>Wysokość</th>
-          <th>Status</th>
-          <th>Trudność</th>
-          <th>Czas</th>
-          <th>Hash</th>
-          <th>Explorer</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+  <div class="layout">
+    <aside class="drawer" id="drawer">
+      <div class="brand">
+        <p class="brand-logo">Arqma</p>
+        <span class="brand-tag">solo mining</span>
+      </div>
+      <nav class="nav">
+        <a class="active" href="#">Blocks found</a>
+        <a href="#network-stats">Network stats</a>
+      </nav>
+      <div class="drawer-foot">
+        Coinbase <code style="font-size:0.68rem;color:var(--accent-dim)">extra</code> fingerprint for community dashboards. API: <code style="font-size:0.68rem">/api/stats</code>
+      </div>
+    </aside>
+
+    <main class="main">
+      <h1 class="page-title">Blocks found</h1>
+      <p class="page-lead">
+        Indexed solo blocks from nodes using Arqma-Wallet solo pool with <strong style="color:var(--accent-soft)">“Mimic public pool”</strong> disabled
+        (<code>reserve_size</code> 1 → marker in <code>miner_tx.extra</code>, same idea as Ryo Atom).
+      </p>
+
+      <div id="err" class="banner-err" hidden></div>
+
+      <h2 class="section-head" id="network-stats">Network stats</h2>
+      <div class="stats-grid" id="tiles"></div>
+
+      <h2 class="section-head">Solo blocks</h2>
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Height</th>
+                <th>Status</th>
+                <th>Difficulty</th>
+                <th>Time</th>
+                <th>Hash</th>
+                <th>Explorer</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
+
   <script>
-    async function load() {
+    (function () {
+      const drawer = document.getElementById('drawer')
+      const toggle = document.getElementById('menuToggle')
+      toggle.addEventListener('click', function () {
+        drawer.classList.toggle('open')
+      })
+      drawer.querySelectorAll('a').forEach(function (a) {
+        a.addEventListener('click', function () {
+          if (window.innerWidth <= 900) drawer.classList.remove('open')
+        })
+      })
+    })()
+
+    const LOCALE = 'en-US'
+
+    async function load () {
       const err = document.getElementById('err')
       err.hidden = true
       try {
         const res = await fetch('/api/stats')
         const d = await res.json()
         if (!res.ok) throw new Error(d.error || res.statusText)
-        const tiles = document.getElementById('tiles')
-        const fmtHr = (h) => {
+
+        const fmtHr = function (h) {
           if (!h) return '—'
-          let n = Number(h); let u = 0
-          const U = ['H/s','kH/s','MH/s','GH/s']
-          while (n >= 1000 && u < U.length - 1) { n /= 1000; u++ }
+          let n = Number(h)
+          let u = 0
+          const U = ['H/s', 'kH/s', 'MH/s', 'GH/s']
+          while (n >= 1000 && u < U.length - 1) {
+            n /= 1000
+            u++
+          }
           return n.toFixed(2) + ' ' + U[u]
         }
-        const fmtTs = (t) => {
+
+        const fmtTs = function (t) {
           if (!t) return '—'
           const ms = t > 2e11 ? t : t * 1000
-          return new Date(ms).toLocaleString()
+          return new Date(ms).toLocaleString(LOCALE, {
+            dateStyle: 'medium',
+            timeStyle: 'medium'
+          })
         }
-        tiles.innerHTML = [
-          ['Wysokość łańcucha', d.chain_height ?? '—'],
-          ['Szac. hashrate sieci', fmtHr(d.network_hashrate_est)],
-          ['Trudność sieci', (d.network_difficulty ?? 0).toLocaleString()],
-          ['Zarejestrowane solo', (d.solo_blocks_found ?? 0).toLocaleString()],
-          ['Potwierdzenia (głęb.)', d.confirmation_depth ?? '—'],
-        ].map(([l,v]) => `<div class="tile"><label>${l}</label><div class="v">${v}</div></div>`).join('')
+
+        const tiles = document.getElementById('tiles')
+        const rows = [
+          ['Chain height', (d.chain_height ?? '—').toLocaleString(LOCALE)],
+          ['Network hashrate (est.)', fmtHr(d.network_hashrate_est)],
+          ['Network difficulty', (d.network_difficulty ?? 0).toLocaleString(LOCALE)],
+          ['Solo blocks indexed', (d.solo_blocks_found ?? 0).toLocaleString(LOCALE)],
+          ['Unlock depth (confirmations)', (d.confirmation_depth ?? '—').toString()]
+        ]
+        tiles.innerHTML = rows.map(function (pair) {
+          return (
+            '<div class="info-box"><span class="label">' +
+            pair[0] +
+            '</span><span class="value">' +
+            pair[1] +
+            '</span></div>'
+          )
+        }).join('')
+
         const tb = document.getElementById('rows')
         const blocks = d.blocks || []
-        tb.innerHTML = blocks.map(b => {
-          const st = b.confirmed ? '<span class="ok">potwierdzony</span>' : `<span class="pend">oczekuje (${b.confirmations_pending})</span>`
-          const ex = b.explorer_link ? `<a href="${b.explorer_link}" rel="noopener">link</a>` : '—'
-          return `<tr>
-            <td>${b.height}</td>
-            <td>${st}</td>
-            <td>${Number(b.difficulty||0).toLocaleString()}</td>
-            <td>${fmtTs(b.timestamp)}</td>
-            <td class="mono">${(b.hash||'').slice(0,12)}…</td>
-            <td>${ex}</td>
-          </tr>`
-        }).join('')
+        tb.innerHTML = blocks
+          .map(function (b) {
+            const st = b.confirmed
+              ? '<span class="status-ok">Confirmed</span>'
+              : '<span class="status-pending">Pending (' +
+                (b.confirmations_pending ?? 0) +
+                ')</span>'
+            const ex = b.explorer_link
+              ? '<a class="link" href="' +
+                b.explorer_link +
+                '" target="_blank" rel="noopener">View</a>'
+              : '—'
+            const hashShort = (b.hash || '').slice(0, 14)
+            return (
+              '<tr>' +
+              '<td>' +
+              Number(b.height).toLocaleString(LOCALE) +
+              '</td>' +
+              '<td>' +
+              st +
+              '</td>' +
+              '<td>' +
+              Number(b.difficulty || 0).toLocaleString(LOCALE) +
+              '</td>' +
+              '<td>' +
+              fmtTs(b.timestamp) +
+              '</td>' +
+              '<td class="mono">' +
+              hashShort +
+              (b.hash && b.hash.length > 14 ? '…' : '') +
+              '</td>' +
+              '<td>' +
+              ex +
+              '</td>' +
+              '</tr>'
+            )
+          })
+          .join('')
+
         if (!blocks.length) {
-          tb.innerHTML = '<tr><td colspan="6" class="mono" style="color:var(--muted)">Brak dopasowanych bloków — sprawdź daemon, start_height w config.json oraz fingerprint (README).</td></tr>'
+          tb.innerHTML =
+            '<tr><td colspan="6" class="empty-hint">No matching blocks yet — check your daemon URL, <code>start_height</code> and fingerprint fields in <code>config.json</code> (see README).</td></tr>'
         }
       } catch (e) {
-        err.textContent = 'Błąd: ' + e.message
+        err.textContent = 'Error: ' + e.message
         err.hidden = false
       }
     }
+
     load()
     setInterval(load, 15000)
   </script>
