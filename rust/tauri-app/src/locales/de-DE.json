@@ -676,7 +676,7 @@
       "status_waiting": "Waiting for daemon",
       "status_not_ready": "Not ready",
       "status_error": "Error",
-      "vardiff_section": "Variable difficulty (VarDiff)",
+      "vardiff_section": "Pool-Einstellungen",
       "vardiff_caption": "VarDiff is always active. It targets a steady interval between accepted shares. Lower max jump for gentler changes.",
       "vardiff_restart_prompt": "VarDiff settings were saved. Restart the wallet so the solo pool can apply the new values.",
       "vardiff_start_diff": "Starting difficulty (new sessions)",
