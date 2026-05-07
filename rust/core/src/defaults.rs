@@ -59,12 +59,11 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
         "bindIP": pool_bind_ip,
         "bindPort": 3333
       },
-      "mining": {
+        "mining": {
         "address": "",
         "enableBlockRefreshInterval": false,
         "blockRefreshInterval": 5,
-        "minerTimeout": 900,
-        "uniform": true
+        "minerTimeout": 900
       },
       "varDiff": {
         "enabled": true,

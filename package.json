@@ -1,6 +1,6 @@
 {
   "name": "arqma-wallet",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "Arqma Wallet — desktop (Electron + Tauri).",
   "productName": "Arqma Wallet",
   "repository": {

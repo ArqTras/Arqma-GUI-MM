@@ -21,6 +21,9 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   let snap = load_config_snapshot(&st.paths).map_err(|e| e.to_string())?;
   st.defaults = snap.defaults.clone();
   st.config_data = snap.config_data.clone();
+  if let Some(pool) = st.config_data.get_mut("pool") {
+    crate::solo_pool::strip_legacy_uniform_pool_option(pool);
+  }
   st.remotes = snap.remotes.clone();
   st.ethereum = snap.ethereum.clone();
   let bind_ip = st

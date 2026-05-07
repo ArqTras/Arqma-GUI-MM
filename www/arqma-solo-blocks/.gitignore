@@ -1,0 +1,4 @@
+node_modules/
+solo_blocks.sqlite
+solo_blocks.sqlite-*
+config.json

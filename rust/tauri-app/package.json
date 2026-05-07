@@ -1,6 +1,6 @@
 {
   "name": "arqma-wallet",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "private": true,
   "type": "module",
   "description": "Arqma Desktop — UI (Vue + Quasar) + Tauri",
@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "kill:dev": "node scripts/kill-tauri-dev-processes.mjs",
-    "tauri:dev": "npm run kill:dev && node scripts/with-rust-target.mjs tauri dev",
+    "ensure-dist": "node scripts/ensure-frontend-dist.mjs",
+    "tauri:dev": "npm run kill:dev && npm run ensure-dist && node scripts/with-rust-target.mjs tauri dev",
     "tauri:build": "npm run kill:dev && node scripts/with-rust-target.mjs tauri build",
     "tauri:build:local": "npm run kill:dev && node scripts/with-rust-target.mjs tauri build -- --profile local",
     "copy:bins": "node ../../build/copy-to-tauri-bins.js",

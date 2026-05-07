@@ -160,6 +160,20 @@ fn is_persist_session (session_id: &str) -> bool {
   session_id.starts_with("persist-")
 }
 
+/// Public-pool-style block templates (“mimic uniform” / same reservation as typical pools).
+/// **Always on** in this build: `get_block_template` uses this `reserve_size` only — not read from
+/// `pool.mining.uniform` or any wallet UI toggle (legacy key is stripped from JSON on load/save).
+pub(crate) const PUBLIC_POOL_TEMPLATE_RESERVE_SIZE: u64 = 8;
+
+/// Drops obsolete `pool.mining.uniform` — template policy is fixed (always mimic public pool layout above).
+pub(crate) fn strip_legacy_uniform_pool_option (pool: &mut Value) {
+  if let Some(po) = pool.as_object_mut() {
+    if let Some(mining) = po.get_mut("mining").and_then(|m| m.as_object_mut()) {
+      mining.remove("uniform");
+    }
+  }
+}
+
 fn average_block_effort (blocks: &[Value]) -> f64 {
   let mut sum = 0f64;
   let mut n = 0u32;
@@ -641,7 +655,7 @@ fn pool_bind_addr (st: &WalletBackendState) -> Option<String> {
   Some(format!("{ip}:{port}"))
 }
 
-fn daemon_host_port (st: &WalletBackendState) -> Option<(String, u16)> {
+pub(crate) fn daemon_host_port (st: &WalletBackendState) -> Option<(String, u16)> {
   let net = st
     .config_data
     .get("app")
@@ -807,13 +821,15 @@ async fn refresh_job (
   job: &Arc<Mutex<JobState>>,
   job_ring: &Arc<Mutex<Vec<JobState>>>,
   seq: &AtomicU64,
+  reserve_size_requested: u64,
 ) {
   if wallet_address.is_empty() {
     return;
   }
+  let rr = reserve_size_requested.clamp(1, 255);
   let params = json!({
     "wallet_address": wallet_address,
-    "reserve_size": 1
+    "reserve_size": rr
   });
   let Ok(v) = daemon_post(http, &daemon.0, daemon.1, "get_block_template", 0, &params).await else {
     solo_pool_log("get_block_template: RPC request failed (daemon unreachable or HTTP error)");
@@ -907,7 +923,7 @@ async fn refresh_job (
     .collect();
   let next_e = next_seed_hash.is_empty();
   solo_pool_log(&format!(
-    "template OK job_id={} height={} network_diff={} stratum_blob_hex_len={} template_hex_len={} blob_fp={} reserved_off={} res_sz={} next_seed_empty={} seed_prefix={}",
+    "template OK job_id={} height={} network_diff={} stratum_blob_hex_len={} template_hex_len={} blob_fp={} reserved_off={} daemon_res_sz={} reserve_req={} next_seed_empty={} seed_prefix={}",
     id,
     height,
     difficulty,
@@ -916,6 +932,7 @@ async fn refresh_job (
     hex_prefix_suffix(&blob, 16, 16),
     reserved_offset,
     reserve_size,
+    rr,
     next_e,
     seed_prefix
   ));
@@ -1125,7 +1142,16 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     // Miners that timed out: last WorkerState for the table until the same name reconnects.
     let last_disconnected: Arc<Mutex<HashMap<String, WorkerState>>> = Arc::new(Mutex::new(HashMap::new()));
     let mut prev_job_id = String::new();
-    refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
+    refresh_job(
+      &http,
+      &daemon,
+      &mining_address,
+      &current_job,
+      &job_ring,
+      job_seq.as_ref(),
+      PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
+    )
+    .await;
     let mut beat = interval(Duration::from_secs(5));
     beat.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut persist_tick = interval(Duration::from_secs(30));
@@ -1168,7 +1194,16 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           save_persisted(&config_dir, &PersistData { workers: workers_snapshot, blocks: blocks_snapshot });
         }
         _ = beat.tick() => {
-          refresh_job(&http, &daemon, &mining_address, &current_job, &job_ring, job_seq.as_ref()).await;
+          refresh_job(
+            &http,
+            &daemon,
+            &mining_address,
+            &current_job,
+            &job_ring,
+            job_seq.as_ref(),
+            PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
+          )
+          .await;
           let now = now_ms();
           let current = current_job.lock().await.clone();
           let job_changed = current.id != prev_job_id;
@@ -1530,6 +1565,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
                       &current_job2,
                       &job_ring2,
                       job_seq2.as_ref(),
+                      PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
                     )
                     .await;
                     j = current_job2.lock().await.clone();

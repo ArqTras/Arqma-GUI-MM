@@ -1,0 +1,19 @@
+{
+  "name": "arqma-solo-blocks-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tracks Arqma blocks mined via Arqma-Wallet solo pool (coinbase-extra fingerprint).",
+  "scripts": {
+    "start": "node server.mjs",
+    "scan-once": "node server.mjs --once"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "better-sqlite3": "^11.10.0",
+    "fastify": "^5.5.0"
+  }
+}

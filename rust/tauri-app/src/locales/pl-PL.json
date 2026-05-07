@@ -412,7 +412,7 @@
             "status_waiting": "Oczekiwanie na demona",
             "status_not_ready": "Niegotowy",
             "status_error": "Błąd",
-            "vardiff_section": "Zmienna trudność (VarDiff)",
+            "vardiff_section": "Ustawienia puli",
             "vardiff_caption": "VarDiff jest zawsze włączony. Utrzymuje sensowny odstęp między share’ami. Mniejszy maks. skok = łagodniejsze zmiany trudności.",
             "vardiff_restart_prompt": "Zapisano ustawienia VarDiff. Uruchom portfel ponownie, aby solo pool zastosował nowe wartości.",
             "vardiff_start_diff": "Trudność startowa (nowe sesje)",
