@@ -6,12 +6,14 @@ DEST="${ARQMA_CLONE_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 REPO="${ARQMA_UPSTREAM_REPO:-https://github.com/arqtras/arqma.git}"
 REF="${ARQMA_UPSTREAM_REF:-pospow}"
 
-if [[ -f "$DEST/src/wallet/api/wallet2_api.h" ]]; then
+if [[ ! -f "$DEST/src/wallet/api/wallet2_api.h" ]]; then
+  rm -rf "$DEST"
+  mkdir -p "$(dirname "$DEST")"
+  git clone --depth 1 --branch "$REF" "$REPO" "$DEST"
+  echo "[clone-arqma] cloned $REF from $REPO -> $DEST"
+else
   echo "[clone-arqma] existing checkout at $DEST"
-  exit 0
 fi
 
-rm -rf "$DEST"
-mkdir -p "$(dirname "$DEST")"
-git clone --depth 1 --branch "$REF" "$REPO" "$DEST"
-echo "[clone-arqma] cloned $REF from $REPO -> $DEST"
+# MinGW g++ 16+ (MSYS2 / CI): epee uses floor() without <cmath> — must run for cached clones too.
+bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$DEST"

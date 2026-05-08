@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 cd "$UP"
 
+bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$UP"
+
 BUILD_DIR="${ARQMA_CMAKE_BUILD_DIR:-$UP/build/ci-native-release}"
 mkdir -p "$BUILD_DIR"
 
