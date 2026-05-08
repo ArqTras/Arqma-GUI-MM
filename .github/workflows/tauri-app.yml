@@ -62,6 +62,7 @@ jobs:
         run: rustup target add x86_64-pc-windows-gnu
 
       - name: MSYS2 / MinGW64 (Windows — Arqma native libs)
+        id: msys2
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
         with:
@@ -181,7 +182,11 @@ jobs:
         working-directory: rust/tauri-app
         shell: pwsh
         run: |
-          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:Path
+          # setup-msys2 puts the install under RUNNER_TEMP on many hosted runners (not always C:\msys64).
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          $env:Path = "$root\mingw64\bin;$root\usr\bin;" + $env:Path
+          $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
           $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
           npm install
           npm run ci:tauri:native:windows-gnu

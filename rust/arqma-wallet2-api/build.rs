@@ -39,6 +39,27 @@ fn msvc_sdk_include_dirs () -> Vec<PathBuf> {
   }
 }
 
+/// MinGW g++ for `windows-gnu` Rust target (cxx-build). CI may use a non-default MSYS2 root.
+fn resolve_mingw_gxx_exe () -> Option<String> {
+  if let Ok(explicit) = std::env::var("ARQMA_WALLET2_GXX") {
+    let p = Path::new(explicit.trim());
+    if p.is_file() {
+      return Some(p.to_string_lossy().into_owned());
+    }
+  }
+  if let Ok(root) = std::env::var("ARQMA_WALLET2_MSYS_ROOT") {
+    let p = Path::new(root.trim()).join("bin").join("x86_64-w64-mingw32-g++.exe");
+    if p.is_file() {
+      return Some(p.to_string_lossy().into_owned());
+    }
+  }
+  let legacy = Path::new(r"C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe");
+  if legacy.is_file() {
+    return Some(legacy.to_string_lossy().into_owned());
+  }
+  None
+}
+
 fn main () {
   if std::env::var_os("CARGO_FEATURE_NATIVE_WALLET2").is_none() {
     return;
@@ -75,13 +96,17 @@ fn main () {
   println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_LIB_DIR");
   println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_LIB_NAME");
   println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_MSYS_ROOT");
+  println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_GXX");
 
   let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
   let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   let mut b = cxx_build::bridge("src/native.rs");
-  // `*-linux-gnu` also sets target_env=gnu — only pin MinGW when building for Windows GNU.
+  // GitHub-hosted Windows often installs MSYS2 under RUNNER_TEMP, not `C:\msys64`. Only pass an
+  // explicit g++ path when we know the file exists; otherwise rely on PATH (cxx-build default).
   if target_os == "windows" && target_env == "gnu" {
-    b.compiler(r"C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe");
+    if let Some(compiler) = resolve_mingw_gxx_exe() {
+      b.compiler(compiler);
+    }
   }
   b
     .file("src/wallet2_api_wrapper.cpp")
