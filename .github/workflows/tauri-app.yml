@@ -154,7 +154,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\bin" | Out-Null
-          tar -xvf "${{ github.workspace }}\downloads\latest.zip" -C "${{ github.workspace }}\bin"
+          tar -xvf "${{ github.workspace }}\downloads\latest.zip" -C "${{ github.workspace }}\bin" arqmad.exe
           Get-ChildItem "${{ github.workspace }}\bin"
 
       - name: Extract archive (macOS)
@@ -182,10 +182,12 @@ jobs:
         working-directory: rust/tauri-app
         shell: pwsh
         run: |
-          # setup-msys2 puts the install under RUNNER_TEMP on many hosted runners (not always C:\msys64).
+          # MSYS2 may ship `node` in mingw64\bin — if it appears before GitHub-hosted Node,
+          # @tauri-apps/cli loads the wrong native addon. Force PATH: Node (setup-node) first, then MinGW.
           $root = "${{ steps.msys2.outputs.msys2-location }}"
           if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
-          $env:Path = "$root\mingw64\bin;$root\usr\bin;" + $env:Path
+          $nodeDir = Split-Path -Parent (Get-Command node).Source
+          $env:Path = "$nodeDir;$root\mingw64\bin;$root\usr\bin;" + $env:Path
           $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
           $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
           $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
