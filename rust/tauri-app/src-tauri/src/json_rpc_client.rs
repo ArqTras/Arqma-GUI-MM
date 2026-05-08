@@ -1,6 +1,6 @@
 //! JSON-RPC helpers: wallet client lives in workspace crate `arqma-wallet-rpc` (digest HTTP); daemon stays plain POST.
 
-pub use arqma_wallet_rpc::WalletRpcClient;
+pub use arqma_wallet_rpc::WalletClient as WalletRpcClient;
 
 use serde_json::{json, Value};
 

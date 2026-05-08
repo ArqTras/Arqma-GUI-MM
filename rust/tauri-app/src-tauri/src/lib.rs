@@ -527,17 +527,9 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
         match wallet_res {
           Ok(v) => Ok(v),
           Err(e) if e.contains("open_wallet RPC timed out") || e.contains("open_wallet RPC failed") => {
-            eprintln!("[wallet] open_wallet failed/timed out, restarting wallet-rpc and retrying once");
-            crate::wallet_process::force_kill_wallet_rpc_process_tree();
-            {
-              let mut b = state.backend.lock().await;
-              b.wallet = None;
-              b.wallet_process = None;
-              b.wallet_salt.clear();
-            }
-            tokio::time::sleep(Duration::from_millis(260)).await;
-            let mut b = state.backend.lock().await;
-            crate::wallet_handler::handle_wallet(&app, &mut b, http, &message.method, data).await
+            // Native wallet2 backend mode: do not try to restart wallet-rpc subprocess.
+            eprintln!("[wallet] open_wallet failed/timed out (wallet2 backend): skipping wallet-rpc restart fallback");
+            Err(e)
           }
           Err(e) => Err(e),
         }

@@ -15,6 +15,9 @@ mod upstream_paths;
 mod http_digest;
 #[cfg(feature = "http-digest")]
 mod wallet_http_client;
+#[cfg(feature = "wallet2-api")]
+mod wallet2_client;
+mod unified_client;
 
 pub use error::WalletRpcError;
 pub use traits::WalletJsonRpc;
@@ -24,3 +27,8 @@ pub use upstream_paths::{
 
 #[cfg(feature = "http-digest")]
 pub use wallet_http_client::WalletRpcClient;
+#[cfg(feature = "wallet2-api")]
+pub use wallet2_client::{Wallet2ApiClient, Wallet2ApiConfig};
+#[cfg(feature = "wallet2-api")]
+pub use arqma_wallet2_api::NetworkKind;
+pub use unified_client::WalletClient;

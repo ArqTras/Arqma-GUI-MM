@@ -3,13 +3,13 @@ name: Rust
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, norpc]
     paths:
       - "rust/**"
       - "rust/README.md"
       - ".github/workflows/rust.yml"
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, norpc]
     paths:
       - "rust/**"
       - "rust/README.md"

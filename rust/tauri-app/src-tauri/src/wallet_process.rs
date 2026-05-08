@@ -2,6 +2,7 @@ use crate::backend_state::WalletBackendState;
 use crate::gateway_emit::emit_receive;
 use crate::json_rpc_client::WalletRpcClient;
 use std::sync::Arc;
+use arqma_wallet_rpc::{NetworkKind, Wallet2ApiClient, Wallet2ApiConfig};
 use crate::native_bin::{bundled_exe_candidates, resolve_wallet_rpc_exe};
 use crate::subprocess::new_child_command;
 use rand::RngCore;
@@ -24,6 +25,33 @@ pub enum WalletRpcStartResult {
   SpawnFailed(String),
   /// Process spawned but HTTP JSON-RPC never answered (daemon down, wrong port, crash on start).
   RpcTimeout,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WalletBackendMode {
+  Rpc,
+  Wallet2,
+}
+
+fn wallet_backend_mode () -> WalletBackendMode {
+  // Native wallet2 backend is now the default and required path.
+  // Keep the enum for compatibility with existing code branches,
+  // but always select wallet2 to avoid spawning wallet-rpc subprocess.
+  WalletBackendMode::Wallet2
+}
+
+fn network_from_config (st: &WalletBackendState) -> NetworkKind {
+  match st
+    .config_data
+    .get("app")
+    .and_then(|a| a.get("net_type"))
+    .and_then(|n| n.as_str())
+  {
+    Some("testnet") => NetworkKind::Testnet,
+    Some("stagenet") => NetworkKind::Stagenet,
+    _ => NetworkKind::Mainnet,
+  }
 }
 
 #[cfg(unix)]
@@ -314,6 +342,25 @@ pub async fn try_start_wallet_rpc (
       json!({}),
     );
     return WalletRpcStartResult::AlreadyRunning;
+  }
+  if wallet_backend_mode() == WalletBackendMode::Wallet2 {
+    if st.wallet.is_some() {
+      return WalletRpcStartResult::AlreadyRunning;
+    }
+    let Some(daemon_addr_raw) = wallet_daemon_addr(&st.config_data) else {
+      return WalletRpcStartResult::MissingDaemonInConfig;
+    };
+    let Some(wdir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) else {
+      return WalletRpcStartResult::MissingWalletDir;
+    };
+    let client = Wallet2ApiClient::new(Wallet2ApiConfig {
+      wallet_dir: wdir.to_string_lossy().to_string(),
+      daemon_address: daemon_addr_raw.trim().to_string(),
+      network: network_from_config(st),
+    });
+    st.wallet = Some(Arc::new(WalletRpcClient::from_wallet2(client)));
+    eprintln!("[wallet] backend=wallet2: native wallet API client ready");
+    return WalletRpcStartResult::Started;
   }
   if st.wallet_process.is_some() && st.wallet.is_none() {
     if let Some(mut ch) = st.wallet_process.take() {

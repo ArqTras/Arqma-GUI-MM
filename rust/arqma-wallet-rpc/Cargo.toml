@@ -9,6 +9,7 @@ description = "Integration boundary for Arqma wallet JSON-RPC (subprocess today,
 [features]
 default = []
 http-digest = ["dep:reqwest", "dep:md5", "dep:base64", "dep:rand"]
+wallet2-api = ["dep:arqma-wallet2-api", "arqma-wallet2-api/native-wallet2"]
 
 [dependencies]
 async-trait = "0.1"
@@ -22,3 +23,4 @@ reqwest = { version = "0.12", default-features = false, features = [
   "json",
   "rustls-tls",
 ], optional = true }
+arqma-wallet2-api = { path = "../arqma-wallet2-api", optional = true }

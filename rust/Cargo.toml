@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "daemon", "arqma-wallet-rpc", "tauri-app/src-tauri"]
+members = ["core", "daemon", "arqma-wallet-rpc", "arqma-wallet2-api", "tauri-app/src-tauri"]
 
 [workspace.package]
 version = "5.0.2"
