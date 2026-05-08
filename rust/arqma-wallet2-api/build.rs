@@ -330,7 +330,12 @@ fn configure_wallet2_linking(upstream_path: &Path, target_env: &str) {
                 .filter(|s| !s.trim().is_empty())
                 .unwrap_or_else(|| "wallet_merged".to_string());
             println!("cargo:rustc-link-search=native={lib_dir}");
-            println!("cargo:rustc-link-lib=static={lib_name}");
+            // windows-gnu: `wallet_merged` uses `#[link(..., modifiers = "+whole-archive")]` in
+            // `src/lib.rs`; `rustc-link-lib=static=wallet_merged` here triggers "overriding linking
+            // modifiers from command line is not supported".
+            if target_env != "gnu" || lib_name != "wallet_merged" {
+                println!("cargo:rustc-link-lib=static={lib_name}");
+            }
             add_wallet2_external_libs(target_env);
             return;
         }
@@ -341,7 +346,7 @@ fn configure_wallet2_linking(upstream_path: &Path, target_env: &str) {
         let auto_lib_dir = upstream_path.join("build-mingw").join("src").join("wallet");
         if auto_lib_dir.join("libwallet_merged.a").exists() {
             println!("cargo:rustc-link-search=native={}", auto_lib_dir.display());
-            println!("cargo:rustc-link-lib=static=wallet_merged");
+            // `libwallet_merged.a`: link + whole-archive only via `force_wallet_static` in lib.rs
             add_wallet2_external_libs(target_env);
             return;
         }

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 // Whole-archive + bundle: macOS / Linux cdylib need it so static archive members are not dropped.
-// windows-gnu: `+whole-archive` without `+bundle` (PE); avoids conflicting with a second
-// `-Wl,--whole-archive` in build.rs. Arqma RandomX needs full archive for JitCompilerX86.
+// windows-gnu: `+whole-archive` without `+bundle` (PE). RandomX needs full archive for JitCompilerX86.
+// Do not also emit `rustc-link-lib=static=wallet_merged` from build.rs — rustc forbids mixing that
+// with these #[link] modifiers ("overriding linking modifiers from command line").
 #[cfg(all(
   feature = "native-wallet2",
   not(all(target_os = "windows", target_env = "gnu"))
