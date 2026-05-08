@@ -187,6 +187,7 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
           $env:Path = "$root\mingw64\bin;$root\usr\bin;" + $env:Path
           $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
+          $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
           $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
           npm install
           npm run ci:tauri:native:windows-gnu
