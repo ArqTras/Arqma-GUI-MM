@@ -46,6 +46,23 @@ jobs:
             librsvg2-dev \
             patchelf
 
+      - name: Ensure Tauri dist placeholder (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          mkdir -p tauri-app/dist
+          if [ ! -f tauri-app/dist/index.html ]; then
+            printf '%s\n' '<!doctype html><html><body>CI placeholder</body></html>' > tauri-app/dist/index.html
+          fi
+
+      - name: Ensure Tauri dist placeholder (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "tauri-app/dist" | Out-Null
+          if (-not (Test-Path "tauri-app/dist/index.html")) {
+            '<!doctype html><html><body>CI placeholder</body></html>' | Out-File -FilePath "tauri-app/dist/index.html" -Encoding utf8
+          }
+
       - name: cargo check --workspace
         run: cargo check --workspace --all-targets
 
