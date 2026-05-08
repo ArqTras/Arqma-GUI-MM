@@ -2,19 +2,13 @@
 # Windows uses MinGW + Rust `x86_64-pc-windows-gnu` so wallet2 linking matches build.rs (gnu). See rust/docs/NATIVE_WALLET2.md.
 name: Tauri app
 
+# Tag push (v*): run unconditionally so release jobs always receive CI bundles.
+# Do not combine `paths` with `tags` under `push` — a tag-only push often has no
+# matching path diff, so the workflow would skip and GitHub Release would stay empty.
 on:
   push:
     tags:
       - "v*"
-    paths:
-      - "rust/**"
-      - "build/**"
-      - "build/copy-to-tauri-bins.js"
-      - "build/download-binaries.js"
-      - "rust/README.md"
-      - "CONTRIBUTING.md"
-      - "rust/docs/**"
-      - ".github/workflows/tauri-app.yml"
   pull_request:
     paths:
       - "rust/**"
@@ -225,6 +219,12 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: List downloaded artifacts
+        run: |
+          set -euo pipefail
+          find artifacts -type f | head -200
+          echo "---"
+
       - name: Collect release files
         run: |
           set -euo pipefail
@@ -232,7 +232,7 @@ jobs:
           find artifacts -type f \( \
             -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" \
             -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \
-            -o -name "*.tar.gz" \
+            -o -name "*.tar.gz" -o -name "*.nsis.zip" \
             \) -exec cp -f {} release-files/ \;
           COUNT=$(find release-files -type f | wc -l | tr -d ' ')
           echo "Collected $COUNT asset(s)"
