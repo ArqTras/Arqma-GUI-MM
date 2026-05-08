@@ -77,9 +77,10 @@ fn main () {
   println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_MSYS_ROOT");
 
   let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+  let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   let mut b = cxx_build::bridge("src/native.rs");
-  if target_env == "gnu" {
-    // On Windows GNU targets, force mingw g++ explicitly.
+  // `*-linux-gnu` also sets target_env=gnu — only pin MinGW when building for Windows GNU.
+  if target_os == "windows" && target_env == "gnu" {
     b.compiler(r"C:\msys64\mingw64\bin\x86_64-w64-mingw32-g++.exe");
   }
   b
@@ -95,7 +96,6 @@ fn main () {
   }
   b.compile("arqma_wallet2_api_bridge");
 
-  let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   if target_os == "windows" {
     configure_wallet2_linking(&upstream_path, &target_env);
   } else if target_os == "macos" {
