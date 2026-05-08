@@ -17,9 +17,3 @@
 #    a custom target dir (e.g. remote agents) do not store bundles outside the repo.
 [build]
 target-dir = "target"
-
-[target.x86_64-pc-windows-gnu]
-rustflags = [
-  "-C", "link-arg=-static-libstdc++",
-  "-C", "link-arg=-static-libgcc",
-]
