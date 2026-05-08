@@ -8,9 +8,15 @@ BUILD_DIR="${ARQMA_MINGW_BUILD_DIR:-$UP/build-mingw}"
 bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$UP"
 
 mkdir -p "$BUILD_DIR"
+# RandomX only adds `jit_compiler_x86.cpp` when ARCH_ID matches x86_64 (derived from
+# CMAKE_SYSTEM_PROCESSOR). Some MSYS2 CMake runs leave it empty / wrong — then
+# `librandomx.a` lacks `JitCompilerX86` and GNU ld fails when linking `wallet_merged`.
+# `ARCH=native` enables `-march=native` for RandomX (optional; drop for strict reproducibility).
 cmake -S "$UP" -B "$BUILD_DIR" \
   -G "MinGW Makefiles" \
   -D CMAKE_BUILD_TYPE=Release \
+  -D CMAKE_SYSTEM_PROCESSOR=x86_64 \
+  -D ARCH=native \
   -D BUILD_GUI_DEPS=ON \
   -D BUILD_TESTS=OFF
 

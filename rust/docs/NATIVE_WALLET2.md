@@ -70,3 +70,8 @@ node scripts/with-rust-target.mjs tauri build
 - **Linux:** you may need to set **`ARQMA_WALLET2_LIB_DIR`** (and matching system dev packages) similar to Windows until first-class auto-linking is added.
 
 If the build fails on **missing `wallet2_api.h`**, fix **`ARQMA_WALLET2_UPSTREAM_DIR`** or clone upstream into **`rust/arqma-rpc-upstream`** (section 1), or temporarily build with **`stub-wallet2`** (top of this file).
+
+## Windows MinGW (`x86_64-pc-windows-gnu`)
+
+1. **Rebuild upstream** after CMake fixes: use **`build/ci/build-arqma-mingw.sh`** (sets **`CMAKE_SYSTEM_PROCESSOR=x86_64`** and **`ARCH=native`** so RandomX includes **`jit_compiler_x86`**). If `cmake --build … randomx` produced a **`librandomx.a`** without x86 JIT objects, GNU ld reports undefined references to **`randomx::JitCompilerX86::*`** when linking the Tauri DLL.
+2. **`rust/tauri-app/scripts/with-rust-target.mjs`** sets **`CARGO_PROFILE_RELEASE_LTO=thin`** when the Rust target is **`x86_64-pc-windows-gnu`** (unless you already export **`CARGO_PROFILE_RELEASE_LTO`**). This avoids occasional MinGW / libstdc++ issues such as **`__real___cxa_throw`** during the final link.

@@ -20,6 +20,15 @@ if (rest.length === 0) {
   process.exit(1)
 }
 
+// Full workspace `lto = true` + huge MinGW static archives can trigger unresolved
+// libstdc++ symbols (`__real___cxa_throw`) at the final GNU ld step. Thin LTO keeps most
+// Rust optimizations without that edge case. Override: set CARGO_PROFILE_RELEASE_LTO
+// yourself (e.g. `false` or `fat`).
+const joined = rest.join(" ")
+if (/\bx86_64-pc-windows-gnu\b/.test(joined) && process.env.CARGO_PROFILE_RELEASE_LTO === undefined) {
+  process.env.CARGO_PROFILE_RELEASE_LTO = "thin"
+}
+
 // Win: `spawnSync('tauri', …)` ignores PATHEXT / .cmd shims; EINVAL on direct *.cmd spawn.
 const r = spawnSync(rest[0], rest.slice(1), {
   stdio: "inherit",
