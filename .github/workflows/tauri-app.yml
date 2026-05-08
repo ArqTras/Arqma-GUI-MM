@@ -82,6 +82,7 @@ jobs:
             mingw-w64-x86_64-lmdb
             mingw-w64-x86_64-icu
             mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libunwind
             git
 
       - name: Linux — dependencies (Tauri WebKit + Arqma build)

@@ -8,8 +8,11 @@ import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const appRoot = join(__dirname, "..")
-const targetRelease = join(appRoot, "..", "target", "release")
-const from = join(targetRelease, "arqma-wallet.exe")
+const targetDir = join(appRoot, "..", "target")
+const gnuRelease = join(targetDir, "x86_64-pc-windows-gnu", "release", "arqma-wallet.exe")
+const hostRelease = join(targetDir, "release", "arqma-wallet.exe")
+const from = existsSync(gnuRelease) ? gnuRelease : hostRelease
+const targetRelease = dirname(from)
 const to = join(targetRelease, "Arqma-Wallet.exe")
 
 if (process.platform !== "win32") {
@@ -18,7 +21,10 @@ if (process.platform !== "win32") {
 }
 
 if (!existsSync(from)) {
-  console.error(`postbuild-rename-windows: missing ${from} — run: cargo build --release -p arqma-wallet (from repo rust/ or any workspace cwd).`)
+  console.error(
+    `postbuild-rename-windows: missing exe — expected ${gnuRelease} or ${hostRelease}\n` +
+      "Run: npm run release:win (GNU target) or cargo build --release -p arqma-wallet",
+  )
   process.exit(1)
 }
 

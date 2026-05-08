@@ -21,7 +21,7 @@
     "ci:tauri:native:windows-gnu": "npm run copy:bins && npm run build && npm run kill:dev && node scripts/with-rust-target.mjs tauri build -- --features native-wallet2 --target x86_64-pc-windows-gnu",
     "ci:tauri": "npm run ci:tauri:native",
     "ci:tauri:local": "npm run copy:bins && npm run build && npm run tauri:build:local",
-    "release:win": "npm run copy:bins && npm run build && node scripts/with-rust-target.mjs cargo build --release -p arqma-wallet --features native-wallet2 && node scripts/postbuild-rename-windows.mjs",
+    "release:win": "npm run copy:bins && npm run build && node scripts/with-rust-target.mjs cargo build --release -p arqma-wallet --features native-wallet2 --target x86_64-pc-windows-gnu && node scripts/postbuild-rename-windows.mjs",
     "pack:linux-tarball": "bash scripts/pack-linux-tarball.sh"
   },
   "dependencies": {
