@@ -17,6 +17,8 @@
     "tauri:build:native": "npm run tauri:build",
     "tauri:build:local": "npm run kill:dev && node scripts/with-rust-target.mjs tauri build -- --profile local --features native-wallet2",
     "copy:bins": "node ../../build/copy-to-tauri-bins.js",
+    "clone:arqma": "bash ../../build/ci/clone-arqma.sh",
+    "build:arqma:mingw": "bash ../../build/ci/build-arqma-mingw.sh",
     "ci:tauri:native": "npm run copy:bins && npm run build && npm run kill:dev && node scripts/with-rust-target.mjs tauri build -- --features native-wallet2",
     "ci:tauri:native:windows-gnu": "npm run copy:bins && npm run build && npm run kill:dev && node scripts/with-rust-target.mjs tauri build -- --features native-wallet2 --target x86_64-pc-windows-gnu",
     "ci:tauri": "npm run ci:tauri:native",

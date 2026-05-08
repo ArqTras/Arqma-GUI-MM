@@ -73,5 +73,14 @@ If the build fails on **missing `wallet2_api.h`**, fix **`ARQMA_WALLET2_UPSTREAM
 
 ## Windows MinGW (`x86_64-pc-windows-gnu`)
 
-1. **Rebuild upstream** after CMake fixes: use **`build/ci/build-arqma-mingw.sh`** (sets **`CMAKE_SYSTEM_PROCESSOR=x86_64`** and **`ARCH=native`** so RandomX includes **`jit_compiler_x86`**). If `cmake --build … randomx` produced a **`librandomx.a`** without x86 JIT objects, GNU ld reports undefined references to **`randomx::JitCompilerX86::*`** when linking the Tauri DLL.
+From **`rust/tauri-app`**, after installing MSYS2 **MINGW64** toolchain and deps (Boost, OpenSSL, … — mirror **`tauri-app.yml`** MSYS package list):
+
+```bash
+npm run clone:arqma
+npm run build:arqma:mingw
+```
+
+Equivalent: run **`build/ci/clone-arqma.sh`** and **`build/ci/build-arqma-mingw.sh`** from a **MINGW64** shell (`bash`), with **`ARQMA_WALLET2_UPSTREAM_DIR`** pointing at your checkout if it is not **`rust/arqma-rpc-upstream`**.
+
+1. **Rebuild upstream** after CMake fixes: **`build-arqma-mingw.sh`** sets **`CMAKE_SYSTEM_PROCESSOR=x86_64`** and **`ARCH=native`** so RandomX includes **`jit_compiler_x86`**. If **`librandomx.a`** was built without x86 JIT objects, GNU ld reports undefined references to **`randomx::JitCompilerX86::*`** when linking the Tauri DLL.
 2. **`rust/tauri-app/scripts/with-rust-target.mjs`** sets **`CARGO_PROFILE_RELEASE_LTO=thin`** when the command line includes **`x86_64-pc-windows-gnu`** (unless **`CARGO_PROFILE_RELEASE_LTO`** is already set). Applies to **`npm run ci:tauri:native:windows-gnu`**, **`npm run release:win`**, and any **`node scripts/with-rust-target.mjs cargo … --target x86_64-pc-windows-gnu`**. This avoids occasional MinGW / libstdc++ issues such as **`__real___cxa_throw`** during the final link.

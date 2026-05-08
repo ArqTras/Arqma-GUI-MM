@@ -31,7 +31,7 @@ cargo clippy --workspace --all-targets
 
 The Tauri crate defaults to **`native-wallet2`** (real `wallet2_api`). You need an Arqma core checkout and a successful link; see [`docs/NATIVE_WALLET2.md`](docs/NATIVE_WALLET2.md).
 
-**GitHub Actions** [`tauri-app.yml`](../.github/workflows/tauri-app.yml) builds **native** `wallet2` (clone + CMake Arqma, then `npm run ci:tauri`). The [**Rust**](../.github/workflows/rust.yml) workflow uses **`cargo check -p arqma-wallet --no-default-features --features stub-wallet2`** only so PRs can compile without C++; **`npm` scripts always pass `--features native-wallet2`** for real installs.
+**GitHub Actions** [`tauri-app.yml`](../.github/workflows/tauri-app.yml) builds **native** `wallet2` (clone + CMake Arqma). Linux/macOS run **`npm run ci:tauri`**; **Windows** runs **`npm run ci:tauri:native:windows-gnu`** (MinGW + `x86_64-pc-windows-gnu`). The [**Rust**](../.github/workflows/rust.yml) workflow uses **`cargo check -p arqma-wallet --no-default-features --features stub-wallet2`** only so PRs can compile without C++; **`npm` scripts always pass `--features native-wallet2`** for real installs.
 
 ## Tauri application (release build)
 
@@ -51,6 +51,8 @@ The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-ta
    **`npm run ci:tauri`** and **`npm run tauri:build`** both build **native** wallet2. On Windows GNU (CI-style), use **`npm run ci:tauri:native:windows-gnu`**. **`npm run release:win`** builds **`arqma-wallet.exe`** for **`x86_64-pc-windows-gnu`** (MinGW, aligned with CI) and copies **`Arqma-Wallet.exe`** via `scripts/postbuild-rename-windows.mjs`.
 
 Artifacts: **`rust/target/x86_64-pc-windows-gnu/release/`** on Windows GNU (e.g. **`arqma-wallet.exe`**, **`bundle/`** installers). Host-default MSVC builds (no `--target`), if any, stay under **`rust/target/release/`**.
+
+To produce **`libwallet_merged.a`** locally on Windows, use MSYS2 **MINGW64** and from **`rust/tauri-app`**: **`npm run clone:arqma`** then **`npm run build:arqma:mingw`** (needs **`bash`** on `PATH`, e.g. Git Bash or MSYS).
 
 On **Linux** CI, an extra `.tar.gz` of the release binary and `resources/` is produced by `scripts/pack-linux-tarball.sh` after `tauri build`.
 
