@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 // Whole-archive + bundle: macOS / Linux cdylib need it so static archive members are not dropped.
-// windows-gnu: rustc errors if #[link(modifiers)] overlaps with -Wl,--whole-archive from build.rs.
+// windows-gnu: `+whole-archive` without `+bundle` (PE); avoids conflicting with a second
+// `-Wl,--whole-archive` in build.rs. Arqma RandomX needs full archive for JitCompilerX86.
 #[cfg(all(
   feature = "native-wallet2",
   not(all(target_os = "windows", target_env = "gnu"))
@@ -30,17 +31,21 @@ mod force_wallet_static {
 #[cfg(all(feature = "native-wallet2", target_os = "windows", target_env = "gnu"))]
 mod force_wallet_static {
   #![allow(dead_code)]
-  #[link(name = "wallet_merged", kind = "static")]
+  #[link(name = "wallet_merged", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
-  #[link(name = "epee", kind = "static")]
+  #[link(name = "epee", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
-  #[link(name = "easylogging", kind = "static")]
+  #[link(name = "easylogging", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
-  #[link(name = "randomx", kind = "static")]
+  #[link(name = "randomx", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
-  #[link(name = "lmdb", kind = "static")]
+  #[link(name = "lmdb", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
-  #[link(name = "cryptonote_format_utils_basic", kind = "static")]
+  #[link(
+    name = "cryptonote_format_utils_basic",
+    kind = "static",
+    modifiers = "+whole-archive"
+  )]
   extern "C" {}
 }
 

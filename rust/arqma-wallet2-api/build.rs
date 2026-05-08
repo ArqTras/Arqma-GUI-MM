@@ -393,13 +393,9 @@ fn add_wallet2_external_libs(target_env: &str) {
         println!("cargo:rustc-link-lib=static=sodium");
         println!("cargo:rustc-link-lib=static=hidapi");
         println!("cargo:rustc-link-lib=static=unbound");
-        println!("cargo:rustc-link-lib=static=epee");
-        println!("cargo:rustc-link-lib=static=easylogging");
-        // RandomX has mutually-referencing objects; force full archive inclusion.
-        println!("cargo:rustc-link-arg=-Wl,--whole-archive");
-        println!("cargo:rustc-link-lib=static=randomx");
-        println!("cargo:rustc-link-arg=-Wl,--no-whole-archive");
-        println!("cargo:rustc-link-lib=static=lmdb");
+        // `epee`, `easylogging`, `randomx`, `lmdb` (+ wallet merged stack) come from
+        // `force_wallet_static` in `src/lib.rs` with `+whole-archive` on windows-gnu — avoid
+        // duplicate `-l` lines that reorder or relink without modifiers.
         println!("cargo:rustc-link-lib=static=icuuc");
         println!("cargo:rustc-link-lib=static=icuin");
         println!("cargo:rustc-link-lib=static=icudt");
