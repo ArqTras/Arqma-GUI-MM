@@ -48,9 +48,9 @@ The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-ta
    npm run tauri:build
    ```
 
-   **`npm run ci:tauri`** and **`npm run tauri:build`** both build **native** wallet2. On Windows GNU (CI-style), use **`npm run ci:tauri:native:windows-gnu`**. **`npm run release:win`** builds the MSVC release binary and runs `scripts/postbuild-rename-windows.mjs`.
+   **`npm run ci:tauri`** and **`npm run tauri:build`** both build **native** wallet2. On Windows GNU (CI-style), use **`npm run ci:tauri:native:windows-gnu`**. **`npm run release:win`** builds **`arqma-wallet.exe`** for **`x86_64-pc-windows-gnu`** (MinGW, aligned with CI) and copies **`Arqma-Wallet.exe`** via `scripts/postbuild-rename-windows.mjs`.
 
-Artifacts are written under `rust/target/release/` (e.g. `arqma-wallet.exe`, `resources/`, and `rust/target/release/bundle/` for installers).
+Artifacts: **`rust/target/x86_64-pc-windows-gnu/release/`** on Windows GNU (e.g. **`arqma-wallet.exe`**, **`bundle/`** installers). Host-default MSVC builds (no `--target`), if any, stay under **`rust/target/release/`**.
 
 On **Linux** CI, an extra `.tar.gz` of the release binary and `resources/` is produced by `scripts/pack-linux-tarball.sh` after `tauri build`.
 
