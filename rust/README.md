@@ -27,6 +27,12 @@ cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets
 ```
 
+## Native `wallet2` (FFI)
+
+The Tauri crate defaults to **`native-wallet2`** (real `wallet2_api`). You need an Arqma core checkout and a successful link; see [`docs/NATIVE_WALLET2.md`](docs/NATIVE_WALLET2.md).
+
+**GitHub Actions** Tauri and **Rust** workflows build **`arqma-wallet`** with **`stub-wallet2`** (`--no-default-features`) so CI does not compile C++ upstream. Locally, use `npm run tauri:build:stub` / `tauri:dev:stub` if you have no core tree.
+
 ## Tauri application (release build)
 
 The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-tauri/`.
@@ -34,16 +40,15 @@ The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-ta
 1. Install **Node.js** (see root `README.md` for version).
 2. Optional but recommended for a **bundled** app: put official Arqma `arqmad` / `arqma-wallet-rpc` in `./bin` at repo root, then from repo root run `node build/copy-to-tauri-bins.js`, or `scripts/prepare-release-bins.ps1` / `scripts/prepare-release-bins.sh`. Without bundled binaries, set `ARQMA_BUILD_DIR` (upstream `build/release`) or `ARQMA_WALLET_RPC` / `ARQMA_DAEMON` — see `docs/WALLET_RUST_PORT.md` and `rust/tauri-app/src-tauri/bin/README.txt`.
 
-3. Build frontend, then release binary (Tauri **`custom-protocol`** is enabled so the exe embeds `dist/` — no dev server on port 1420):
+3. Build frontend, then the app (Tauri **`custom-protocol`** embeds `dist/`). Defaults use **native** `wallet2_api` (needs Arqma core per `docs/NATIVE_WALLET2.md`); use **`npm run tauri:build:stub`** if you have no upstream.
 
    ```bash
    cd rust/tauri-app
    npm install
-   npm run build
-   cargo build --release -p arqma-wallet
+   npm run tauri:build
    ```
 
-   For **installers** (NSIS / dmg / AppImage): `npm run ci:tauri` (runs `vite build` + `tauri build`). On Windows, `npm run release:win` builds the exe and runs `scripts/postbuild-rename-windows.mjs`.
+   **CI / headless installers:** `npm run ci:tauri` builds with **`stub-wallet2`**. For **native** installers after building upstream libraries, use `npm run tauri:build`. On Windows, `npm run release:win` builds the release binary and runs `scripts/postbuild-rename-windows.mjs`.
 
 Artifacts are written under `rust/target/release/` (e.g. `arqma-wallet.exe`, `resources/`, and `rust/target/release/bundle/` for installers).
 

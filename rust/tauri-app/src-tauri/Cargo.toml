@@ -9,6 +9,13 @@ license.workspace = true
 rust-version = "1.70"
 default-run = "arqma-wallet"
 
+# Default: **native** `wallet2_api` (C++/FFI). Requires Arqma core checkout + build; see `rust/docs/NATIVE_WALLET2.md`.
+# CI / machines without upstream: `--no-default-features --features stub-wallet2` (stub backend at runtime for `open_wallet`).
+[features]
+default = ["native-wallet2"]
+native-wallet2 = ["arqma-wallet-rpc/wallet2-api-native"]
+stub-wallet2 = ["arqma-wallet-rpc/wallet2-api"]
+
 [lib]
 name = "arqma_wallet_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -30,7 +37,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.40.0", features = ["time", "rt", "rt-multi-thread", "macros"] }
 async-trait = "0.1"
-arqma-wallet-rpc = { path = "../../arqma-wallet-rpc", features = ["http-digest", "wallet2-api"] }
+arqma-wallet-rpc = { path = "../../arqma-wallet-rpc", features = ["http-digest"] }
 arqma-wallet-core = { path = "../../core" }
 arboard = "3.4.0"
 rfd = "0.15.0"
@@ -51,5 +58,3 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rusqlite = { version = "0.32.1", features = ["bundled"] }
 regex = "1.11.1"
 
-[target.'cfg(all(target_os = "windows", target_env = "gnu"))'.dependencies]
-arqma-wallet-rpc = { path = "../../arqma-wallet-rpc", features = ["wallet2-api-native"] }

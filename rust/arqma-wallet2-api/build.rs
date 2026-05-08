@@ -39,11 +39,28 @@ fn main () {
     return;
   }
 
-  let upstream_dir = std::env::var("ARQMA_WALLET2_UPSTREAM_DIR")
-    .unwrap_or_else(|_| "../../arqma-rpc-upstream".to_string());
-  let upstream_path = std::path::PathBuf::from(upstream_dir);
+  let manifest_dir =
+    PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+  let upstream_path = match std::env::var("ARQMA_WALLET2_UPSTREAM_DIR") {
+    Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
+    // `arqma-wallet2-api` lives in `rust/`; upstream clone is `rust/arqma-rpc-upstream`.
+    _ => manifest_dir.join("../arqma-rpc-upstream"),
+  };
   let api_dir = upstream_path.join("src").join("wallet").join("api");
   let upstream_src_dir = upstream_path.join("src");
+  let header = api_dir.join("wallet2_api.h");
+  if !header.is_file() {
+    panic!(
+      "native-wallet2: expected Arqma core headers at {} (missing {}).\n\
+       From the `rust/` directory in this repo, run for example:\n\
+         git clone -b pospow https://github.com/arqtras/arqma.git arqma-rpc-upstream\n\
+       so that `rust/arqma-rpc-upstream/src/wallet/api/wallet2_api.h` exists, or set\n\
+       ARQMA_WALLET2_UPSTREAM_DIR to the root of your Arqma core checkout.\n\
+       See rust/docs/NATIVE_WALLET2.md",
+      api_dir.display(),
+      header.display()
+    );
+  }
 
   println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_UPSTREAM_DIR");
   println!("cargo:rerun-if-changed=src/native.rs");
@@ -76,6 +93,192 @@ fn main () {
   let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
   if target_os == "windows" {
     configure_wallet2_linking(&upstream_path, &target_env);
+  } else if target_os == "macos" {
+    configure_wallet2_linking_macos(&upstream_path);
+  } else if target_os == "linux" {
+    configure_wallet2_linking_linux(&upstream_path);
+  }
+}
+
+fn find_wallet_merged_dir (upstream: &Path) -> Option<PathBuf> {
+  for root in [upstream.join("build"), upstream.join("build-mingw")] {
+    if let Some(p) = find_wallet_merged_under(&root) {
+      return Some(p);
+    }
+  }
+  None
+}
+
+fn find_wallet_merged_under (root: &Path) -> Option<PathBuf> {
+  if !root.is_dir() {
+    return None;
+  }
+  let mut stack = vec![root.to_path_buf()];
+  while let Some(dir) = stack.pop() {
+    if dir.join("libwallet_merged.a").is_file() {
+      return Some(dir);
+    }
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+      for e in entries.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+          stack.push(p);
+        }
+      }
+    }
+  }
+  None
+}
+
+fn brew_prefix () -> PathBuf {
+  std::env::var_os("HOMEBREW_PREFIX")
+    .map(PathBuf::from)
+    .filter(|p| p.is_dir())
+    .unwrap_or_else(|| PathBuf::from("/opt/homebrew"))
+}
+
+fn configure_wallet2_linking_macos (upstream_path: &Path) {
+  let lib_dir = std::env::var("ARQMA_WALLET2_LIB_DIR")
+    .ok()
+    .filter(|s| !s.trim().is_empty())
+    .map(PathBuf::from)
+    .or_else(|| find_wallet_merged_dir(upstream_path));
+
+  let Some(lib_dir) = lib_dir else {
+    println!("cargo:warning=native-wallet2 (macOS): build upstream with `-D BUILD_GUI_DEPS=ON`, run `cmake --build . --target wallet_merged`, or set ARQMA_WALLET2_LIB_DIR to the folder containing libwallet_merged.a.");
+    return;
+  };
+
+  println!("cargo:rustc-link-search=native={}", lib_dir.display());
+  if let Some(cmake_binary) = lib_dir.parent().and_then(|p| p.parent()) {
+    for d in [
+      "contrib/epee/src",
+      "external/easylogging++",
+      "external/randomarq",
+      "src/lmdb/liblmdb",
+      "src/cryptonote_basic",
+    ] {
+      let p = cmake_binary.join(d);
+      if p.is_dir() {
+        println!("cargo:rustc-link-search=native={}", p.display());
+      }
+    }
+  }
+
+  let bp = brew_prefix();
+  println!(
+    "cargo:rustc-link-arg=-Wl,-search_paths_first,-headerpad_max_install_names"
+  );
+  for rel in [
+    "lib",
+    "opt/openssl@3/lib",
+    "opt/boost/lib",
+    "opt/libsodium/lib",
+    "opt/unbound/lib",
+    "opt/readline/lib",
+    "opt/hidapi/lib",
+    "opt/icu4c/lib",
+    "opt/icu4c@78/lib",
+    "opt/lmdb/lib",
+    "opt/zeromq/lib",
+  ] {
+    let p = bp.join(rel);
+    if p.is_dir() {
+      println!("cargo:rustc-link-search=native={}", p.display());
+    }
+  }
+
+  for lib in [
+    "hidapi",
+    "boost_program_options",
+    "boost_thread",
+    "boost_container",
+    "boost_date_time",
+    "unbound",
+    "boost_filesystem",
+    "boost_atomic",
+    "boost_chrono",
+    "ssl",
+    "crypto",
+    "readline",
+    "boost_serialization",
+    "boost_regex",
+    "boost_locale",
+    "zmq",
+    "sodium",
+    "icuuc",
+    "icui18n",
+    "icudata",
+    "z",
+  ] {
+    println!("cargo:rustc-link-lib=dylib={lib}");
+  }
+
+  println!("cargo:rustc-link-lib=framework=AppKit");
+  println!("cargo:rustc-link-lib=framework=IOKit");
+  println!("cargo:rustc-link-lib=framework=CoreFoundation");
+}
+
+fn configure_wallet2_linking_linux (upstream_path: &Path) {
+  let lib_dir = std::env::var("ARQMA_WALLET2_LIB_DIR")
+    .ok()
+    .filter(|s| !s.trim().is_empty())
+    .map(PathBuf::from)
+    .or_else(|| find_wallet_merged_dir(upstream_path));
+
+  let Some(lib_dir) = lib_dir else {
+    println!("cargo:warning=native-wallet2 (Linux): build upstream with `-D BUILD_GUI_DEPS=ON`, target `wallet_merged`, or set ARQMA_WALLET2_LIB_DIR.");
+    return;
+  };
+
+  println!("cargo:rustc-link-search=native={}", lib_dir.display());
+  if let Some(cmake_binary) = lib_dir.parent().and_then(|p| p.parent()) {
+    for d in [
+      "contrib/epee/src",
+      "external/easylogging++",
+      "external/randomarq",
+      "src/lmdb/liblmdb",
+      "src/cryptonote_basic",
+    ] {
+      let p = cmake_binary.join(d);
+      if p.is_dir() {
+        println!("cargo:rustc-link-search=native={}", p.display());
+      }
+    }
+  }
+
+  for dir in ["/usr/lib/x86_64-linux-gnu", "/usr/lib", "/lib/x86_64-linux-gnu"] {
+    if Path::new(dir).is_dir() {
+      println!("cargo:rustc-link-search=native={dir}");
+    }
+  }
+
+  for lib in [
+    "hidapi-libusb",
+    "boost_program_options",
+    "boost_thread",
+    "boost_container",
+    "boost_date_time",
+    "unbound",
+    "boost_filesystem",
+    "boost_atomic",
+    "boost_chrono",
+    "ssl",
+    "crypto",
+    "readline",
+    "boost_serialization",
+    "boost_regex",
+    "boost_locale",
+    "zmq",
+    "sodium",
+    "icuuc",
+    "icui18n",
+    "icudata",
+    "z",
+    "dl",
+    "pthread",
+  ] {
+    println!("cargo:rustc-link-lib=dylib={lib}");
   }
 }
 

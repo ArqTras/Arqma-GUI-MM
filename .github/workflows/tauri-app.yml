@@ -1,4 +1,5 @@
-# Build Arqma Wallet (Tauri) installers — Windows, Linux, macOS. Version: package.json / tauri.conf / Rust workspace.
+# Build Arqma Wallet (Tauri) installers — clones Arqma core, builds libwallet_merged (static), then native-wallet2 Tauri.
+# Windows uses MinGW + Rust `x86_64-pc-windows-gnu` so wallet2 linking matches build.rs (gnu). See rust/docs/NATIVE_WALLET2.md.
 name: Tauri app
 
 on:
@@ -7,19 +8,30 @@ on:
       - "v*"
     paths:
       - "rust/**"
+      - "build/**"
       - "build/copy-to-tauri-bins.js"
       - "build/download-binaries.js"
       - "rust/README.md"
       - "CONTRIBUTING.md"
+      - "rust/docs/**"
       - ".github/workflows/tauri-app.yml"
   pull_request:
     paths:
       - "rust/**"
+      - "build/**"
       - "build/copy-to-tauri-bins.js"
       - "rust/README.md"
       - "CONTRIBUTING.md"
+      - "rust/docs/**"
       - ".github/workflows/tauri-app.yml"
   workflow_dispatch:
+
+concurrency:
+  group: tauri-app-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+env:
+  ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
 
 jobs:
   tauri:
@@ -32,6 +44,8 @@ jobs:
           - macos-latest
 
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+
     steps:
       - uses: actions/checkout@v5
 
@@ -39,12 +53,43 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Cache Cargo (workspace)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      - name: Linux — Install Tauri dependencies (WebKit, etc.)
+      - name: Rust GNU target (Windows native wallet2)
+        if: matrix.os == 'windows-latest'
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: MSYS2 / MinGW64 (Windows — Arqma native libs)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libsodium
+            mingw-w64-x86_64-zeromq
+            mingw-w64-x86_64-hidapi
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-unbound
+            mingw-w64-x86_64-lmdb
+            mingw-w64-x86_64-icu
+            mingw-w64-x86_64-zlib
+            git
+
+      - name: Linux — dependencies (Tauri WebKit + Arqma build)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
@@ -54,7 +99,50 @@ jobs:
             librsvg2-dev \
             patchelf \
             build-essential \
-            curl
+            curl \
+            cmake \
+            pkg-config \
+            libboost-all-dev \
+            libssl-dev \
+            libzmq3-dev \
+            libsodium-dev \
+            libhidapi-dev \
+            libunbound-dev \
+            liblzma-dev \
+            libreadline-dev \
+            liblmdb-dev \
+            libusb-1.0-0-dev \
+            libudev-dev \
+            libicu-dev
+
+      - name: macOS — Homebrew (Arqma build)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake pkg-config boost openssl libsodium zeromq unbound readline hidapi icu4c lmdb xz 2>/dev/null || true
+
+      - name: Make CI scripts executable
+        run: chmod +x build/ci/*.sh || true
+
+      - name: Clone Arqma upstream (pospow)
+        run: bash build/ci/clone-arqma.sh
+        env:
+          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
+          ARQMA_UPSTREAM_REF: pospow
+
+      - name: Build Arqma wallet_merged (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: bash build/ci/build-arqma-linux.sh
+
+      - name: Build Arqma wallet_merged (macOS)
+        if: matrix.os == 'macos-latest'
+        run: bash build/ci/build-arqma-macos.sh
+
+      - name: Build Arqma wallet_merged (Windows MinGW)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
 
       - name: Download Arqma binaries (daemon / wallet-rpc)
         run: node ./build/download-binaries.js
@@ -74,7 +162,7 @@ jobs:
           tar -xvf "${{ github.workspace }}\downloads\latest.zip" -C "${{ github.workspace }}\bin"
           Get-ChildItem "${{ github.workspace }}\bin"
 
-      - name: Rozpakuj (macOS)
+      - name: Extract archive (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           mkdir -p bin
@@ -84,11 +172,25 @@ jobs:
       - name: Copy binaries into src-tauri/bin
         run: node build/copy-to-tauri-bins.js
 
-      - name: npm install + Vite + tauri build
+      - name: npm install + Vite + Tauri (Linux / macOS)
+        if: matrix.os != 'windows-latest'
         working-directory: rust/tauri-app
         run: |
           npm install
           npm run ci:tauri
+        env:
+          ARQMA_WALLET2_UPSTREAM_DIR: ${{ env.ARQMA_WALLET2_UPSTREAM_DIR }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: npm install + Vite + Tauri (Windows, GNU target)
+        if: matrix.os == 'windows-latest'
+        working-directory: rust/tauri-app
+        shell: pwsh
+        run: |
+          $env:Path = "C:\msys64\mingw64\bin;C:\msys64\usr\bin;" + $env:Path
+          $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
+          npm install
+          npm run ci:tauri:native:windows-gnu
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -104,9 +206,11 @@ jobs:
             rust/target/release/bundle/**/*.msi
             rust/target/release/bundle/**/*.dmg
             rust/target/release/bundle/**/*.app.tar.gz
+            rust/target/x86_64-pc-windows-gnu/release/bundle/**/Arqma Wallet*.exe
+            rust/target/x86_64-pc-windows-gnu/release/bundle/**/*.msi
+            rust/target/x86_64-pc-windows-gnu/release/bundle/**/*.nsis.zip
           if-no-files-found: ignore
 
-  # Tag `v*` only: attach all matrix bundle artifacts to the GitHub Release (Tauri-only publishing).
   tauri-release:
     name: GitHub Release (Tauri)
     needs: tauri

@@ -7,12 +7,14 @@ on:
     paths:
       - "rust/**"
       - "rust/README.md"
+      - "rust/docs/**"
       - ".github/workflows/rust.yml"
   pull_request:
     branches: [main, dev, norpc]
     paths:
       - "rust/**"
       - "rust/README.md"
+      - "rust/docs/**"
       - ".github/workflows/rust.yml"
   workflow_dispatch:
 
@@ -63,8 +65,13 @@ jobs:
             '<!doctype html><html><body>CI placeholder</body></html>' | Out-File -FilePath "tauri-app/dist/index.html" -Encoding utf8
           }
 
+      # `arqma-wallet` defaults to `native-wallet2` (needs Arqma core). CI uses `stub-wallet2` instead.
       - name: cargo check --workspace
-        run: cargo check --workspace --all-targets
+        run: |
+          cargo check --workspace --all-targets --exclude arqma-wallet
+          cargo check -p arqma-wallet --no-default-features --features stub-wallet2 --all-targets
 
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets
+        run: |
+          cargo clippy --workspace --all-targets --exclude arqma-wallet
+          cargo clippy -p arqma-wallet --no-default-features --features stub-wallet2 --all-targets

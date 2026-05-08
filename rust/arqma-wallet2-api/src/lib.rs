@@ -1,6 +1,30 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+// Whole-archive: macOS cdylib link would otherwise drop unreferenced `.o` from static libs and
+// `Monero::Wallet*` / epee / LMDB symbols never make it into `libarqma_wallet_lib.dylib`.
+#[cfg(feature = "native-wallet2")]
+mod force_wallet_static {
+  #![allow(dead_code)]
+  #[link(name = "wallet_merged", kind = "static", modifiers = "+bundle,+whole-archive")]
+  extern "C" {}
+  #[link(name = "epee", kind = "static", modifiers = "+bundle,+whole-archive")]
+  extern "C" {}
+  #[link(name = "easylogging", kind = "static", modifiers = "+bundle,+whole-archive")]
+  extern "C" {}
+  #[link(name = "randomx", kind = "static", modifiers = "+bundle,+whole-archive")]
+  extern "C" {}
+  #[link(name = "lmdb", kind = "static", modifiers = "+bundle,+whole-archive")]
+  extern "C" {}
+  // Upstream `wallet_merged` omits `obj_cryptonote_format_utils_basic` from the object bundle.
+  #[link(
+    name = "cryptonote_format_utils_basic",
+    kind = "static",
+    modifiers = "+bundle,+whole-archive"
+  )]
+  extern "C" {}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NetworkKind {
   Mainnet,
@@ -24,7 +48,7 @@ pub struct Wallet2Balance {
 
 #[derive(Debug, Error)]
 pub enum Wallet2Error {
-  #[error("wallet2 native backend disabled (build with feature `native-wallet2`)")]
+  #[error("wallet2 native backend disabled (built with stub-wallet2 or without native-wallet2 — use default Cargo features and an Arqma core checkout; see rust/docs/NATIVE_WALLET2.md)")]
   NativeBackendDisabled,
   #[error("wallet2 operation failed: {0}")]
   OperationFailed(String),

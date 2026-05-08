@@ -41,6 +41,8 @@ package-lock.json
 
 # Optional local clone of github.com/arqma/arqma (see scripts/checkout-arqma.*)
 /vendor/arqma/
+# Arqma core for native wallet2 (CI clones to workspace; do not commit)
+/rust/arqma-rpc-upstream/
 
 # Rust workspace (Tauri, core, daemon)
 /rust/target
