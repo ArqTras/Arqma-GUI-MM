@@ -484,7 +484,7 @@ async fn backend_send (app: tauri::AppHandle, state: tauri::State<'_, AppData>, 
             );
             {
               let mut b = state.backend.lock().await;
-              crate::wallet_process::force_shutdown_wallet_rpc(&mut *b).await;
+              crate::wallet_process::force_shutdown_wallet_rpc(&mut b).await;
             }
             state.wallet_closing.store(false, Ordering::SeqCst);
             return Err(format!(
@@ -614,10 +614,8 @@ pub fn run () {
   tauri::Builder::default()
     .on_window_event(|window, event| {
       if let WindowEvent::CloseRequested { api, .. } = event {
-        if window.label() == MAIN_WINDOW_LABEL {
-          if window.hide().is_ok() {
-            api.prevent_close();
-          }
+        if window.label() == MAIN_WINDOW_LABEL && window.hide().is_ok() {
+          api.prevent_close();
         }
       }
     })
