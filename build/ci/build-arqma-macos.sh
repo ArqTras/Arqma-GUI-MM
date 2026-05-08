@@ -13,6 +13,11 @@ cmake -S "$UP" -B "$BUILD_DIR" \
   -D BUILD_GUI_DEPS=ON \
   -D BUILD_TESTS=OFF
 
-cmake --build "$BUILD_DIR" --target wallet_merged -j"$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+# rust/arqma-wallet2-api/src/lib.rs links these static libs (+ wallet_merged). Building only
+# wallet_merged leaves libepee.a etc. unbuilt → rustc: could not find native static library `epee`.
+J="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+cmake --build "$BUILD_DIR" \
+  --target epee easylogging randomx lmdb cryptonote_format_utils_basic wallet_merged \
+  -j"$J"
 test -f "$BUILD_DIR/src/wallet/libwallet_merged.a"
 echo "[build-arqma-macos] OK: $BUILD_DIR/src/wallet/libwallet_merged.a"

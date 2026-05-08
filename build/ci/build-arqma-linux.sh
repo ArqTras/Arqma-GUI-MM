@@ -13,6 +13,9 @@ cmake -S "$UP" -B "$BUILD_DIR" \
   -D BUILD_GUI_DEPS=ON \
   -D BUILD_TESTS=OFF
 
-cmake --build "$BUILD_DIR" --target wallet_merged -j"$(nproc)"
+# rust/arqma-wallet2-api/src/lib.rs expects libepee.a, libeasylogging.a, etc. on the link path.
+cmake --build "$BUILD_DIR" \
+  --target epee easylogging randomx lmdb cryptonote_format_utils_basic wallet_merged \
+  -j"$(nproc)"
 test -f "$BUILD_DIR/src/wallet/libwallet_merged.a"
 echo "[build-arqma-linux] OK: $BUILD_DIR/src/wallet/libwallet_merged.a"

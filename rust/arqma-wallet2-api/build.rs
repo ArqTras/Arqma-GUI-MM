@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "windows")]
 fn newest_subdir (root: &Path) -> Option<PathBuf> {
   let mut dirs: Vec<PathBuf> = std::fs::read_dir(root)
     .ok()?
@@ -11,11 +12,15 @@ fn newest_subdir (root: &Path) -> Option<PathBuf> {
 }
 
 fn msvc_sdk_include_dirs () -> Vec<PathBuf> {
-  let mut out = Vec::new();
+  #[cfg(not(target_os = "windows"))]
+  {
+    return Vec::new();
+  }
   #[cfg(target_os = "windows")]
   {
     // Make native-wallet2 build independent from Developer Prompt.
     // We add common MSVC/Windows SDK include locations explicitly.
+    let mut out = Vec::new();
     if let Some(vc_tools) = newest_subdir(Path::new(
       r"C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC",
     )) {
@@ -30,8 +35,8 @@ fn msvc_sdk_include_dirs () -> Vec<PathBuf> {
       out.push(win10_inc_ver.join("winrt"));
       out.push(win10_inc_ver.join("cppwinrt"));
     }
+    out
   }
-  out
 }
 
 fn main () {
