@@ -384,36 +384,9 @@ fn add_wallet2_external_libs(target_env: &str) {
             }
         }
 
-        // External dependencies pulled by wallet_merged from mingw build.
-        // `--start-group` / `--end-group`: BFD repeats archives until undefined refs between Boost /
-        // OpenSSL static libs resolve (same ordering issue as Linux `-Wl,-z,muldefs` elsewhere).
-        println!("cargo:rustc-link-arg=-Wl,--start-group");
-        println!("cargo:rustc-link-lib=static=boost_atomic-mt");
-        println!("cargo:rustc-link-lib=static=boost_container-mt");
-        println!("cargo:rustc-link-lib=static=boost_filesystem-mt");
-        println!("cargo:rustc-link-lib=static=boost_thread-mt");
-        println!("cargo:rustc-link-lib=static=boost_chrono-mt");
-        println!("cargo:rustc-link-lib=static=boost_date_time-mt");
-        println!("cargo:rustc-link-lib=static=boost_serialization-mt");
-        println!("cargo:rustc-link-lib=static=boost_program_options-mt");
-        println!("cargo:rustc-link-lib=static=boost_locale-mt");
-        println!("cargo:rustc-link-lib=static=ssl");
-        println!("cargo:rustc-link-lib=static=crypto");
-        println!("cargo:rustc-link-lib=static=zmq");
-        println!("cargo:rustc-link-lib=static=sodium");
-        println!("cargo:rustc-link-lib=static=hidapi");
-        println!("cargo:rustc-link-lib=static=unbound");
-        println!("cargo:rustc-link-arg=-Wl,--end-group");
-        // `epee`, `easylogging`, `randomx`, `lmdb` (+ wallet merged stack) come from
-        // `force_wallet_static` in `src/lib.rs` with `+whole-archive` on windows-gnu — avoid
-        // duplicate `-l` lines that reorder or relink without modifiers.
-        println!("cargo:rustc-link-lib=static=icuuc");
-        println!("cargo:rustc-link-lib=static=icuin");
-        println!("cargo:rustc-link-lib=static=icudt");
-        println!("cargo:rustc-link-lib=static=iconv");
-        println!("cargo:rustc-link-lib=ws2_32");
-        println!("cargo:rustc-link-lib=iphlpapi");
-        println!("cargo:rustc-link-lib=crypt32");
-        println!("cargo:rustc-link-lib=userenv");
+        // Boost / OpenSSL / ICU / Win32 — emit from `rust/tauri-app/src-tauri/build.rs` on windows-gnu
+        // so flags sit **after** `#[link]` whole-archive `wallet_merged` / epee / … in `lib.rs`.
+        // Otherwise GNU ld processes Boost before `libwallet_merged.a`, drops unused objects, then
+        // linking fails with undefined refs to `boost::serialization`, `boost::locale`, etc.
     }
 }

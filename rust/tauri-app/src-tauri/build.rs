@@ -10,6 +10,15 @@ fn main() {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
     }
 
+    // `#[link]` for MSYS2 libs does not reach the final `cdylib` link line (no `-lboost_*` emitted).
+    // `rustc-cdylib-link-arg` appends near the end so `-l…` runs after `libwallet_merged.a`.
+    if target_os == "windows"
+        && target_env == "gnu"
+        && std::env::var_os("CARGO_FEATURE_NATIVE_WALLET2").is_some()
+    {
+        mingw_wallet2_native_libs_cdylib_args();
+    }
+
     let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let dist_index = manifest_dir.join("../dist/index.html");
     let profile = std::env::var("PROFILE").unwrap_or_default();
@@ -63,6 +72,40 @@ fn main() {
             }
         }
     }
+}
+
+fn mingw_wallet2_native_libs_cdylib_args() {
+    println!("cargo:rustc-cdylib-link-arg=-Wl,--start-group");
+    for lib in [
+        "boost_atomic-mt",
+        "boost_container-mt",
+        "boost_filesystem-mt",
+        "boost_thread-mt",
+        "boost_chrono-mt",
+        "boost_date_time-mt",
+        "boost_serialization-mt",
+        "boost_program_options-mt",
+        "boost_locale-mt",
+        "ssl",
+        "crypto",
+        "zmq",
+        "sodium",
+        "hidapi",
+        "unbound",
+    ] {
+        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+    }
+    println!("cargo:rustc-cdylib-link-arg=-Wl,--end-group");
+    for lib in ["icuuc", "icuin", "icudt", "iconv"] {
+        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+    }
+    for lib in ["ws2_32", "iphlpapi", "crypt32", "userenv"] {
+        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+    }
+    // Stack trace in merged wallet uses libunwind; RandomX JIT members must survive `-Wl,--gc-sections`.
+    println!("cargo:rustc-cdylib-link-arg=-lunwind");
+    println!("cargo:rustc-cdylib-link-arg=-lstdc++");
+    println!("cargo:rustc-cdylib-link-arg=-Wl,--no-gc-sections");
 }
 
 fn mingw_tools_bin_from_env() -> Option<String> {

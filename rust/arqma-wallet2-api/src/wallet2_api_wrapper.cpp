@@ -780,3 +780,25 @@ std::uint64_t wallet2_unlocked_balance(const Wallet2Bridge& bridge) {
   }
   return bridge.wallet->unlockedBalanceAll();
 }
+
+// `cryptonote_core` in `libwallet_merged.a` references `windows::check_admin` from
+// `daemonizer/windows_service.cpp`; some CMake targets omit that TU from `wallet_merged`.
+#if defined(WIN32)
+#undef UNICODE
+#undef _UNICODE
+#include <windows.h>
+namespace windows {
+bool check_admin(bool& result) {
+  BOOL is_member = FALSE;
+  PSID admin_group = nullptr;
+  SID_IDENTIFIER_AUTHORITY nt_auth = SECURITY_NT_AUTHORITY;
+  if (AllocateAndInitializeSid(&nt_auth, 2, SECURITY_BUILTIN_DOMAIN_RID,
+          DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &admin_group)) {
+    CheckTokenMembership(nullptr, admin_group, &is_member);
+    FreeSid(admin_group);
+  }
+  result = is_member != FALSE;
+  return true;
+}
+}
+#endif
