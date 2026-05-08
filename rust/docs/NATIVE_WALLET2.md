@@ -3,25 +3,19 @@
 **Default Tauri / Cargo settings** enable **`native-wallet2`** — the real `wallet2_api` (FFI + C++). That requires:
 
 1. **Arqma core sources** (headers; after building upstream, also static libraries for linking).
-2. A normal `npm run tauri:dev` / `npm run tauri:build` (no extra `--features`).
+2. **`npm run tauri:dev`** / **`npm run tauri:build`** / **`npm run ci:tauri`** — these scripts pass **`--features native-wallet2`** to Cargo so the packaged app always uses the native stack when built via npm.
 
-**Stub backend (no C++):** use Cargo feature **`stub-wallet2`** with **`--no-default-features`** when you have no upstream checkout (quick UI work or `npm run ci:tauri:stub`):
-
-```bash
-npm run tauri:dev:stub
-# or
-npm run tauri:build:stub
-```
-
-Equivalent Cargo:
+**Stub backend (no C++):** only for local experiments without a core tree — invoke Cargo directly (there are no npm scripts for stub):
 
 ```bash
 cargo build -p arqma-wallet --no-default-features --features stub-wallet2
+# or from rust/tauri-app:
+npx tauri build -- --no-default-features --features stub-wallet2
 ```
 
 At runtime, `open_wallet` on the stub reports *wallet2 native backend disabled* unless you use the native build.
 
-**CI note:** The [Tauri app workflow](../../.github/workflows/tauri-app.yml) clones **Arqma** (`arqtras/arqma`, `pospow`), builds **`libwallet_merged.a`**, then **`npm run ci:tauri:native`**. **Windows** uses the **`x86_64-pc-windows-gnu`** Rust target and MSYS2 MinGW. Quick builds without upstream: **`npm run ci:tauri:stub`**.
+**CI note:** The [Tauri app workflow](../../.github/workflows/tauri-app.yml) clones **Arqma** (`arqtras/arqma`, `pospow`), builds **`libwallet_merged.a`**, then **`npm run ci:tauri`** (native). **Windows** uses the **`x86_64-pc-windows-gnu`** Rust target and MSYS2 MinGW (`npm run ci:tauri:native:windows-gnu`). The separate [**Rust**](../../.github/workflows/rust.yml) workflow may **`cargo check`** `arqma-wallet` with **`stub-wallet2`** so PRs compile without building C++; that does not affect installer builds.
 
 ## 0. Building Arqma core on macOS (native + `libwallet_merged`)
 
@@ -53,7 +47,7 @@ export ARQMA_WALLET2_UPSTREAM_DIR=/path/to/Arqma
 
 ## 2. Building the Tauri GUI (native — default)
 
-From **`rust/tauri-app`**, default scripts already use **`native-wallet2`**:
+From **`rust/tauri-app`**, npm scripts pass **`--features native-wallet2`**:
 
 ```bash
 npm run tauri:dev
