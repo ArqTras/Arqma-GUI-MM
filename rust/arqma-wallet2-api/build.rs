@@ -285,6 +285,11 @@ fn configure_wallet2_linking_linux (upstream_path: &Path) {
   ] {
     println!("cargo:rustc-link-lib=dylib={lib}");
   }
+
+  // Upstream CMake: `libepee.a` and `libcryptonote_format_utils_basic.a` both contain
+  // `readline_buffer.cpp.o`. With `#[link(.., whole-archive)]` rustc surfaces duplicate globals;
+  // GNU lld (Rust default on Linux CI) fails the final `cdylib` link without coalescing.
+  println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
 }
 
 fn configure_wallet2_linking (upstream_path: &Path, target_env: &str) {
