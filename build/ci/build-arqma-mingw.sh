@@ -6,6 +6,7 @@ UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 BUILD_DIR="${ARQMA_MINGW_BUILD_DIR:-$UP/build-mingw}"
 
 bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$UP"
+bash "$ROOT/build/ci/patch-arqma-mingw-gui.sh" "$UP"
 
 mkdir -p "$BUILD_DIR"
 # RandomX only adds `jit_compiler_x86.cpp` when ARCH_ID matches x86_64 (derived from
