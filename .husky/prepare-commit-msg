@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Usuwa z wiadomości commita dopiski Cursor/Anysphere (patrz build/strip-cursor-commit-trailers.mjs).
+msg_file="$1"
+[ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+node "$(dirname "$0")/../build/strip-cursor-commit-trailers.mjs" "$msg_file" || true
+
