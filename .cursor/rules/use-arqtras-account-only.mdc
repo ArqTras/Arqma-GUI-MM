@@ -1,0 +1,10 @@
+---
+description: Tylko konto GitHub / git ArqTras w tym repozytorium
+alwaysApply: true
+---
+
+# Konto: wyłącznie ArqTras
+
+- **GitHub (`gh`), PR, release, Actions, klony z zapisem:** używaj wyłącznie organizacji / użytkownika **ArqTras** (np. `github.com/ArqTras/…`, zdalne `origin` wskazujące na to konto). Nie przełączaj na inne konta ani nie sugeruj commitów z cudzym autorem.
+- **Autor commitów w tym workspace:** `user.name` = **ArqTras**, e-mail zgodny z kontem GitHub (np. `…+ArqTras@users.noreply.github.com`). Nie zmieniaj tożsamości autora na inne konto.
+- **Upstream Arqma** (`arqtras/arqma`) to osobne repozytorium źródła kodu — tam `arqtras` w URL jest OK; chodzi o **pracę na tym repo** (`Arqma-GUI-MM`) i **operacje GitHub jako Ty**: zawsze **ArqTras**.
