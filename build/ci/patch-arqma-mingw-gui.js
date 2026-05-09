@@ -28,15 +28,21 @@ function patchRandomarqCMake () {
   ) {
     return
   }
-  const re = /(endif\(\)\r?\n)(\s+if\(NOT ARM_ID\))/
-  if (!re.test(s)) {
-    console.warn("[patch-arqma-mingw-gui] skip randomarq CMakeLists.txt (pattern not found)")
-    return
-  }
   const insert =
     "\n# Arqma-GUI-MM: normalize ARCH_ID for RandomX JIT (Windows CMAKE may pass AMD64).\n" +
     "string(TOLOWER \"${ARCH_ID}\" ARCH_ID)\n\n"
-  s = s.replace(re, (_, a, b) => a + insert + b)
+  const reAfterArchEndifArm =
+    /(endif\(\)\r?\n)(\s+if\(NOT ARM_ID\))/
+  const reAfterProject =
+    /(project\(RandomARQ\)\r?\n)/
+  if (reAfterArchEndifArm.test(s)) {
+    s = s.replace(reAfterArchEndifArm, (_, a, b) => a + insert + b)
+  } else if (reAfterProject.test(s)) {
+    s = s.replace(reAfterProject, (_, a) => a + insert)
+  } else {
+    console.warn("[patch-arqma-mingw-gui] skip randomarq CMakeLists.txt (pattern not found)")
+    return
+  }
   fs.writeFileSync(f, s)
   console.log("[patch-arqma-mingw-gui] patched external/randomarq/CMakeLists.txt")
 }

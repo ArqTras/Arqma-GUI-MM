@@ -115,9 +115,10 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     for lib in ["icuuc", "icuin", "icudt", "iconv"] {
         emit(&format!("-l{}", lib));
     }
-    for lib in ["ws2_32", "iphlpapi", "crypt32", "userenv"] {
+    for lib in ["ws2_32", "iphlpapi", "crypt32", "userenv", "kernel32"] {
         emit(&format!("-l{}", lib));
     }
+    emit("-lm");
     // Stack trace in merged wallet uses libunwind; RandomX JIT members must survive `-Wl,--gc-sections`.
     emit("-lunwind");
     emit("-lstdc++");

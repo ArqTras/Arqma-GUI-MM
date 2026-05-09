@@ -31,6 +31,7 @@ cmake -S "$UP" -B "$BUILD_DIR" \
   -G "MinGW Makefiles" \
   -D CMAKE_BUILD_TYPE=Release \
   -D CMAKE_SYSTEM_PROCESSOR=x86_64 \
+  -D ARCH_ID=x86_64 \
   -D ARCH=native \
   -D BUILD_GUI_DEPS=ON \
   -D BUILD_TESTS=OFF
