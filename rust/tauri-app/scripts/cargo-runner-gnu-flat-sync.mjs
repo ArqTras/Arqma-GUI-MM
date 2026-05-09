@@ -69,8 +69,7 @@ function copyMingwRuntimeDlls(gnuDir) {
     "libbz2-1.dll",
     "liblzma-5.dll",
     "libzstd.dll",
-    "libiconv-2.dll",
-    "libintl-8.dll",
+    // iconv/intl sonames vary by MSYS2 revision — also pick up libiconv-*.dll / libintl-*.dll below.
     "libssp-0.dll",
     "libsqlite3-0.dll",
   ]
@@ -89,6 +88,8 @@ function copyMingwRuntimeDlls(gnuDir) {
     /^libsodium.*\.dll$/i,
     /^libunbound.*\.dll$/i,
     /^libicu(in|uc|dt)/i,
+    /^libiconv-/i,
+    /^libintl-/i,
     /^libhogweed-/i,
     /^libnettle-/i,
     /^libgmp-/i,
