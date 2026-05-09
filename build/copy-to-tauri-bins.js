@@ -39,7 +39,7 @@ function main () {
   }
   if (n === 0) {
     console.log(
-      `[copy-to-tauri-bins] no matching daemon in ./bin (expected ${[...allowed].join(", ")}) — skipping`,
+      `[copy-to-tauri-bins] no matching daemon in ./bin (expected ${[...allowed].join(", ")}) — skipping`
     )
     return
   }

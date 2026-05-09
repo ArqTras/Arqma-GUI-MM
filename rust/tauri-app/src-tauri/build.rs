@@ -75,7 +75,12 @@ fn main() {
 }
 
 fn mingw_wallet2_native_libs_cdylib_args() {
-    println!("cargo:rustc-cdylib-link-arg=-Wl,--start-group");
+    let emit = |flag: &str| {
+        println!("cargo:rustc-cdylib-link-arg={}", flag);
+        // Same crate also builds `[[bin]]`; `rustc-cdylib-link-arg` does not apply to the exe link.
+        println!("cargo:rustc-link-arg={}", flag);
+    };
+    emit("-Wl,--start-group");
     for lib in [
         "boost_atomic-mt",
         "boost_container-mt",
@@ -93,19 +98,19 @@ fn mingw_wallet2_native_libs_cdylib_args() {
         "hidapi",
         "unbound",
     ] {
-        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+        emit(&format!("-l{}", lib));
     }
-    println!("cargo:rustc-cdylib-link-arg=-Wl,--end-group");
+    emit("-Wl,--end-group");
     for lib in ["icuuc", "icuin", "icudt", "iconv"] {
-        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+        emit(&format!("-l{}", lib));
     }
     for lib in ["ws2_32", "iphlpapi", "crypt32", "userenv"] {
-        println!("cargo:rustc-cdylib-link-arg=-l{}", lib);
+        emit(&format!("-l{}", lib));
     }
     // Stack trace in merged wallet uses libunwind; RandomX JIT members must survive `-Wl,--gc-sections`.
-    println!("cargo:rustc-cdylib-link-arg=-lunwind");
-    println!("cargo:rustc-cdylib-link-arg=-lstdc++");
-    println!("cargo:rustc-cdylib-link-arg=-Wl,--no-gc-sections");
+    emit("-lunwind");
+    emit("-lstdc++");
+    emit("-Wl,--no-gc-sections");
 }
 
 fn mingw_tools_bin_from_env() -> Option<String> {
