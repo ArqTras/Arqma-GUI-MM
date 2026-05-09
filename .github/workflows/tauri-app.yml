@@ -85,6 +85,15 @@ jobs:
             mingw-w64-x86_64-libunwind
             git
 
+      # setup-node updates PATH for pwsh/cmd, but MSYS2 bash starts with a minimal PATH — export the
+      # resolved Node directory so build-arqma-mingw.sh can prepend it before `node` (patch scripts).
+      - name: Export Node directory for MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $dir = Split-Path -Parent (Get-Command node).Source
+          Add-Content -Path $env:GITHUB_ENV -Value "ARQMA_CI_WINDOWS_NODE_DIR=$dir"
+
       - name: Linux — dependencies (Tauri WebKit + Arqma build)
         if: matrix.os == 'ubuntu-latest'
         run: |
