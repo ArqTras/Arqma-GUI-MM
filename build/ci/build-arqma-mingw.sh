@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Build libwallet_merged.a with MinGW (run inside MSYS2 MINGW64 shell). CMake output: <upstream>/build-mingw/...
-set +o posix 2>/dev/null || true
-set -euo pipefail
+set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 BUILD_DIR="${ARQMA_MINGW_BUILD_DIR:-$UP/build-mingw}"

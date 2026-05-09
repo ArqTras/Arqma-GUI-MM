@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Configure + build libwallet_merged.a on Linux (Debian/Ubuntu-style CI).
-set +o posix 2>/dev/null || true
-set -euo pipefail
+set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 cd "$UP"

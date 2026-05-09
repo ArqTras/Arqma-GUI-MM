@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Delegates to Node so CMake `${ARCH_ID}` and regex stay reliable on all shells.
-set +o posix 2>/dev/null || true
-set -euo pipefail
+set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${1:-}"
 if [[ -z "$UP" ]]; then

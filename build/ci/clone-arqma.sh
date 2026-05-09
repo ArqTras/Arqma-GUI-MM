@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Clone Arqma core into rust/arqma-rpc-upstream (CI / local). Override with env vars.
-# Avoid `set -o pipefail` alone: some runners invoke bash in POSIX mode where it errors.
-set +o posix 2>/dev/null || true
-set -euo pipefail
+# Do not use `pipefail`: GitHub Actions often runs bash in POSIX mode where it is unsupported.
+set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEST="${ARQMA_CLONE_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 REPO="${ARQMA_UPSTREAM_REPO:-https://github.com/arqtras/arqma.git}"

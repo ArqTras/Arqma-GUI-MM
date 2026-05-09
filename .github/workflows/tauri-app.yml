@@ -138,6 +138,11 @@ jobs:
         shell: msys2 {0}
         run: |
           export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
+          # MSYS2 bash starts with a minimal PATH — Node from actions/setup-node is not visible unless we add it.
+          _win_node="$(cmd //c "where.exe node" 2>/dev/null | head -1 | tr -d '\r')"
+          if [[ -n "${_win_node}" ]]; then
+            export PATH="$(dirname "$(cygpath -u "${_win_node}")"):$PATH"
+          fi
           bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
 
       - name: Download Arqma binaries (daemon / wallet-rpc)
@@ -230,13 +235,13 @@ jobs:
 
       - name: List downloaded artifacts
         run: |
-          set -euo pipefail
+          set -eu
           find artifacts -type f | head -200
           echo "---"
 
       - name: Collect release files
         run: |
-          set -euo pipefail
+          set -eu
           mkdir -p release-files
           find artifacts -type f \( \
             -name "*.AppImage" -o -name "*.deb" -o -name "*.snap" \
