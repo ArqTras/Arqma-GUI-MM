@@ -3,6 +3,9 @@
 # Use this script so visibility is public BEFORE pushes that trigger CI (commit/tag/release), then
 # private again after the Tauri workflow run finishes.
 #
+# If secret `ARQMA_REPO_VISIBILITY_PAT` is set in the repo, the Tauri workflow job
+# `repo-private-after-build` switches the repository to private after tag builds (no local script).
+#
 # Typical flow:
 #   1) ./build/ci/github-repo-visibility-for-release.sh public
 #   2) git commit … && git push … && git tag vX.Y.Z && git push origin vX.Y.Z && gh release create …
