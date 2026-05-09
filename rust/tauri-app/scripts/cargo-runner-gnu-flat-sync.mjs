@@ -45,6 +45,70 @@ function targetTripleFromArgs(args) {
 const rustRoot = join(__dirname, "..", "..")
 const targetRoot = process.env.CARGO_TARGET_DIR || join(rustRoot, "target")
 
+/** MinGW runtime + common deps next to the PE so NSIS/MSI and flat-dir sync bundle them. */
+function copyMingwRuntimeDlls(gnuDir) {
+  if (process.platform !== "win32") {
+    return
+  }
+  const mingwBin =
+    process.env.ARQMA_MINGW_BIN?.trim() ||
+    (process.env.ARQMA_WALLET2_MSYS_ROOT?.trim()
+      ? join(process.env.ARQMA_WALLET2_MSYS_ROOT.trim().replace(/[/\\]+$/, ""), "bin")
+      : "")
+  if (!mingwBin || !existsSync(mingwBin)) {
+    console.warn(
+      "cargo-runner-gnu-flat-sync: ARQMA_MINGW_BIN / ARQMA_WALLET2_MSYS_ROOT not set — skip MinGW DLL copy (bundle may miss runtime DLLs).",
+    )
+    return
+  }
+  const fixed = [
+    "libstdc++-6.dll",
+    "libgcc_s_seh-1.dll",
+    "libwinpthread-1.dll",
+    "zlib1.dll",
+    "libbz2-1.dll",
+    "liblzma-5.dll",
+    "libzstd.dll",
+    "libiconv-2.dll",
+    "libintl-8.dll",
+    "libssp-0.dll",
+    "libsqlite3-0.dll",
+  ]
+  let n = 0
+  for (const name of fixed) {
+    const src = join(mingwBin, name)
+    if (existsSync(src)) {
+      copyFileSync(src, join(gnuDir, name))
+      n++
+    }
+  }
+  const dynRes = [
+    /^libssl-3.*\.dll$/i,
+    /^libcrypto-3.*\.dll$/i,
+    /^libzmq.*\.dll$/i,
+    /^libsodium.*\.dll$/i,
+    /^libunbound.*\.dll$/i,
+    /^libicu(in|uc|dt)/i,
+    /^libhogweed-/i,
+    /^libnettle-/i,
+    /^libgmp-/i,
+  ]
+  for (const f of readdirSync(mingwBin)) {
+    if (!f.endsWith(".dll")) {
+      continue
+    }
+    if (dynRes.some((re) => re.test(f))) {
+      const src = join(mingwBin, f)
+      const dst = join(gnuDir, f)
+      if (!existsSync(dst)) {
+        copyFileSync(src, dst)
+        n++
+      }
+    }
+  }
+  console.log(`cargo-runner-gnu-flat-sync: copied ${n} MinGW runtime/helper DLL(s) -> ${gnuDir}`)
+}
+
 const r = spawnSync(cargoBin(), cargoArgs, {
   stdio: "inherit",
   env: process.env,
@@ -70,6 +134,8 @@ if (!existsSync(gnuDir)) {
 }
 
 mkdirSync(flatDir, { recursive: true })
+
+copyMingwRuntimeDlls(gnuDir)
 
 let n = 0
 for (const name of readdirSync(gnuDir)) {

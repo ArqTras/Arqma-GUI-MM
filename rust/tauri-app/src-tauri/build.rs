@@ -91,9 +91,9 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     }
 
     emit("-Wl,--start-group");
+    // MSYS2 Boost ≥1.86: `boost_system` is header-only — no `libboost_system-mt` (linker: cannot find -lboost_system-mt).
     for lib in [
         "boost_atomic-mt",
-        "boost_system-mt",
         "boost_container-mt",
         "boost_filesystem-mt",
         "boost_thread-mt",
