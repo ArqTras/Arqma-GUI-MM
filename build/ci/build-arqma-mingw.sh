@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # Build libwallet_merged.a with MinGW (run inside MSYS2 MINGW64 shell). CMake output: <upstream>/build-mingw/...
 set -eu
+# GitHub Actions often runs this script with pipefail; `where node` can fail while stderr is empty — do not fail the step.
+set +o pipefail 2>/dev/null || true
+# MSYS2 bash has a minimal PATH — prepend hosted Node (setup-node) so patch-arqma-mingw-gui.sh can run `node`.
+if ! command -v node >/dev/null 2>&1 && command -v cygpath >/dev/null 2>&1; then
+  _win_node=""
+  _win_node=$(cmd.exe /d /s /c "where node" 2>/dev/null | tr -d '\r' | head -n 1) || true
+  if [ -n "${_win_node}" ]; then
+    export PATH="$(dirname "$(cygpath -u "${_win_node}")"):$PATH"
+  fi
+fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
 BUILD_DIR="${ARQMA_MINGW_BUILD_DIR:-$UP/build-mingw}"
