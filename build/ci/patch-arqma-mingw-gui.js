@@ -81,24 +81,53 @@ function patchStackTrace () {
     return
   }
   let s = fs.readFileSync(f, "utf8")
-  const guardIdx = s.indexOf("#if !defined(ARQMA_SKIP_CXA_THROW_HOOK)")
-  if (guardIdx === -1) {
-    console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (ARQMA_SKIP guard not found)")
+  if (s.includes("MinGW STATICLIB: Tauri cdylib is linked without GNU ld")) {
     return
   }
-  const head = s.slice(0, guardIdx)
-  if (/defined\s*\(\s*__MINGW32__\s*\)/.test(head)) {
-    return
-  }
-  const re = /(#if !defined\(ARQMA_SKIP_CXA_THROW_HOOK\))/
-  const prefix =
-    "// MinGW: STATICLIB builds expect GNU ld `--wrap,__cxa_throw` so `__real___cxa_throw` resolves.\n" +
-    "// We do not pass that flag when linking the Tauri cdylib (it breaks other archives); skip the\n" +
-    "// hook and use the normal libc++abi symbol instead.\n" +
+  const oldDecl =
+    "#ifdef STATICLIB\n" +
+    "#define CXA_THROW __wrap___cxa_throw\n" +
+    "extern \"C\"\n" +
+    "__attribute__((noreturn))\n" +
+    "void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));\n" +
+    "#else // !STATICLIB"
+  const newDecl =
+    "#ifdef STATICLIB\n" +
     "#if defined(__MINGW32__) || defined(__MINGW64__)\n" +
-    "#define ARQMA_SKIP_CXA_THROW_HOOK 1\n" +
-    "#endif\n\n"
-  s = s.replace(re, prefix + "$1")
+    "// MinGW STATICLIB: Tauri cdylib is linked without GNU ld `--wrap,__cxa_throw`; call libc++abi directly.\n" +
+    "#define CXA_THROW __wrap___cxa_throw\n" +
+    "extern \"C\"\n" +
+    "__attribute__((noreturn))\n" +
+    "void __cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));\n" +
+    "#else\n" +
+    "#define CXA_THROW __wrap___cxa_throw\n" +
+    "extern \"C\"\n" +
+    "__attribute__((noreturn))\n" +
+    "void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));\n" +
+    "#endif\n" +
+    "#else // !STATICLIB"
+  const oldTail =
+    "#endif // !STATICLIB\n" +
+    "  __real___cxa_throw(ex, info, dest);\n" +
+    "}"
+  const newTail =
+    "#endif // !STATICLIB\n" +
+    "#if defined(STATICLIB) && (defined(__MINGW32__) || defined(__MINGW64__))\n" +
+    "  __cxa_throw(ex, info, dest);\n" +
+    "#else\n" +
+    "  __real___cxa_throw(ex, info, dest);\n" +
+    "#endif\n" +
+    "}"
+  if (!s.includes(oldDecl)) {
+    console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (STATICLIB/__real___cxa_throw block not found)")
+    return
+  }
+  if (!s.includes(oldTail)) {
+    console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (tail __real___cxa_throw call not found)")
+    return
+  }
+  s = s.replace(oldDecl, newDecl)
+  s = s.replace(oldTail, newTail)
   fs.writeFileSync(f, s)
   console.log("[patch-arqma-mingw-gui] patched src/common/stack_trace.cpp")
 }

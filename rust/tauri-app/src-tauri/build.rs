@@ -119,6 +119,7 @@ fn mingw_wallet2_native_libs_cdylib_args() {
         emit(&format!("-l{}", lib));
     }
     emit("-lm");
+    emit("-lmingwex");
     // Stack trace in merged wallet uses libunwind; RandomX JIT members must survive `-Wl,--gc-sections`.
     emit("-lunwind");
     emit("-lstdc++");
