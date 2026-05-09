@@ -65,13 +65,17 @@ jobs:
             '<!doctype html><html><body>CI placeholder</body></html>' | Out-File -FilePath "tauri-app/dist/index.html" -Encoding utf8
           }
 
-      # `arqma-wallet` defaults to `native-wallet2` (needs Arqma core). CI uses `stub-wallet2` instead.
+      # Native wallet2 (`arqma-wallet2-api` + Tauri) needs Arqma core + CMake — validated in `tauri-app.yml`.
       - name: cargo check --workspace
         run: |
-          cargo check --workspace --all-targets --exclude arqma-wallet
-          cargo check -p arqma-wallet --no-default-features --features stub-wallet2 --all-targets
+          cargo check --workspace --all-targets \
+            --exclude arqma-wallet \
+            --exclude arqma-wallet-rpc \
+            --exclude arqma-wallet2-api
 
       - name: cargo clippy
         run: |
-          cargo clippy --workspace --all-targets --exclude arqma-wallet
-          cargo clippy -p arqma-wallet --no-default-features --features stub-wallet2 --all-targets
+          cargo clippy --workspace --all-targets \
+            --exclude arqma-wallet \
+            --exclude arqma-wallet-rpc \
+            --exclude arqma-wallet2-api

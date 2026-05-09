@@ -14,10 +14,7 @@ fn main() {
 
     // `#[link]` for MSYS2 libs does not reach the final `cdylib` link line (no `-lboost_*` emitted).
     // `rustc-cdylib-link-arg` appends near the end so `-l…` runs after `libwallet_merged.a`.
-    if target_os == "windows"
-        && target_env == "gnu"
-        && std::env::var_os("CARGO_FEATURE_NATIVE_WALLET2").is_some()
-    {
+    if target_os == "windows" && target_env == "gnu" {
         mingw_wallet2_native_libs_cdylib_args();
     }
 

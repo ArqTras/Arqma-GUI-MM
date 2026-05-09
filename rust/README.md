@@ -29,9 +29,9 @@ cargo clippy --workspace --all-targets
 
 ## Native `wallet2` (FFI)
 
-The Tauri crate defaults to **`native-wallet2`** (real `wallet2_api`). You need an Arqma core checkout and a successful link; see [`docs/NATIVE_WALLET2.md`](docs/NATIVE_WALLET2.md).
+The Tauri shell **always** links **`wallet2_api`** via `arqma-wallet2-api`. You need an Arqma core checkout and a successful link; see [`docs/NATIVE_WALLET2.md`](docs/NATIVE_WALLET2.md).
 
-**GitHub Actions** [`tauri-app.yml`](../.github/workflows/tauri-app.yml) builds **native** `wallet2` (clone + CMake Arqma). Linux/macOS run **`npm run ci:tauri`**; **Windows** runs **`npm run ci:tauri:native:windows-gnu`** (MinGW + `x86_64-pc-windows-gnu`). The [**Rust**](../.github/workflows/rust.yml) workflow uses **`cargo check -p arqma-wallet --no-default-features --features stub-wallet2`** only so PRs can compile without C++; **`npm` scripts always pass `--features native-wallet2`** for real installs.
+**GitHub Actions** [`tauri-app.yml`](../.github/workflows/tauri-app.yml) builds **native** `wallet2` (clone + CMake Arqma). Linux/macOS run **`npm run ci:tauri`**; **Windows** runs **`npm run ci:tauri:native:windows-gnu`** (MinGW + `x86_64-pc-windows-gnu`). The [**Rust**](../.github/workflows/rust.yml) workflow type-checks **`arqma-wallet-core`** and **`arqma-daemon-helpers`** only (it excludes the Tauri + FFI crates that need the full upstream build).
 
 ## Tauri application (release build)
 
@@ -40,7 +40,7 @@ The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-ta
 1. Install **Node.js** (see root `README.md` for version).
 2. Optional but recommended for a **bundled** app: put official Arqma `arqmad` / `arqma-wallet-rpc` in `./bin` at repo root, then from repo root run `node build/copy-to-tauri-bins.js`, or `scripts/prepare-release-bins.ps1` / `scripts/prepare-release-bins.sh`. Without bundled binaries, set `ARQMA_BUILD_DIR` (upstream `build/release`) or `ARQMA_WALLET_RPC` / `ARQMA_DAEMON` — see `docs/WALLET_RUST_PORT.md` and `rust/tauri-app/src-tauri/bin/README.txt`.
 
-3. Build frontend, then the app (Tauri **`custom-protocol`** embeds `dist/`). All **`npm run tauri:*`** / **`ci:tauri*`** scripts enable **`native-wallet2`** (needs Arqma core per `docs/NATIVE_WALLET2.md`). For UI-only experiments without C++, use Cargo manually: `--no-default-features --features stub-wallet2`.
+3. Build frontend, then the app (Tauri **`custom-protocol`** embeds `dist/`). All **`npm run tauri:*`** / **`ci:tauri*`** targets expect a built upstream wallet stack per `docs/NATIVE_WALLET2.md`.
 
    ```bash
    cd rust/tauri-app

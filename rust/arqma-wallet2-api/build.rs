@@ -18,7 +18,7 @@ fn msvc_sdk_include_dirs() -> Vec<PathBuf> {
     }
     #[cfg(target_os = "windows")]
     {
-        // Make native-wallet2 build independent from Developer Prompt.
+        // Make MSVC wallet2 build independent from Developer Prompt.
         // We add common MSVC/Windows SDK include locations explicitly.
         let mut out = Vec::new();
         if let Some(vc_tools) = newest_subdir(Path::new(
@@ -63,10 +63,6 @@ fn resolve_mingw_gxx_exe() -> Option<String> {
 }
 
 fn main() {
-    if std::env::var_os("CARGO_FEATURE_NATIVE_WALLET2").is_none() {
-        return;
-    }
-
     let manifest_dir =
         PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let upstream_path = match std::env::var("ARQMA_WALLET2_UPSTREAM_DIR") {
@@ -79,7 +75,7 @@ fn main() {
     let header = api_dir.join("wallet2_api.h");
     if !header.is_file() {
         panic!(
-            "native-wallet2: expected Arqma core headers at {} (missing {}).\n\
+            "arqma-wallet2-api: expected Arqma core headers at {} (missing {}).\n\
        From the `rust/` directory in this repo, run for example:\n\
          git clone -b pospow https://github.com/arqtras/arqma.git arqma-rpc-upstream\n\
        so that `rust/arqma-rpc-upstream/src/wallet/api/wallet2_api.h` exists, or set\n\
@@ -179,7 +175,7 @@ fn configure_wallet2_linking_macos(upstream_path: &Path) {
         .or_else(|| find_wallet_merged_dir(upstream_path));
 
     let Some(lib_dir) = lib_dir else {
-        println!("cargo:warning=native-wallet2 (macOS): build upstream with `-D BUILD_GUI_DEPS=ON`, run `cmake --build . --target wallet_merged`, or set ARQMA_WALLET2_LIB_DIR to the folder containing libwallet_merged.a.");
+        println!("cargo:warning=arqma-wallet2-api (macOS): build upstream with `-D BUILD_GUI_DEPS=ON`, run `cmake --build . --target wallet_merged`, or set ARQMA_WALLET2_LIB_DIR to the folder containing libwallet_merged.a.");
         return;
     };
 
@@ -259,7 +255,7 @@ fn configure_wallet2_linking_linux(upstream_path: &Path) {
         .or_else(|| find_wallet_merged_dir(upstream_path));
 
     let Some(lib_dir) = lib_dir else {
-        println!("cargo:warning=native-wallet2 (Linux): build upstream with `-D BUILD_GUI_DEPS=ON`, target `wallet_merged`, or set ARQMA_WALLET2_LIB_DIR.");
+        println!("cargo:warning=arqma-wallet2-api (Linux): build upstream with `-D BUILD_GUI_DEPS=ON`, target `wallet_merged`, or set ARQMA_WALLET2_LIB_DIR.");
         return;
     };
 

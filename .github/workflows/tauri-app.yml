@@ -1,4 +1,4 @@
-# Build Arqma Wallet (Tauri) installers — clones Arqma core, builds libwallet_merged (static), then native-wallet2 Tauri.
+# Build Arqma Wallet (Tauri) installers — clones Arqma core, builds libwallet_merged (static), then Tauri with native wallet2.
 # Windows uses MinGW + Rust `x86_64-pc-windows-gnu` so wallet2 linking matches build.rs (gnu). See rust/docs/NATIVE_WALLET2.md.
 name: Tauri app
 

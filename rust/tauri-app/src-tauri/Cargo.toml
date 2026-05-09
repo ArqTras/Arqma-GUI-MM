@@ -9,12 +9,8 @@ license.workspace = true
 rust-version = "1.70"
 default-run = "arqma-wallet"
 
-# Default: **native** `wallet2_api` (C++/FFI). Requires Arqma core checkout + build; see `rust/docs/NATIVE_WALLET2.md`.
-# `npm run tauri:*` / `ci:tauri*` pass `--features native-wallet2`. Stub only via explicit Cargo: `--no-default-features --features stub-wallet2`.
-[features]
-default = ["native-wallet2"]
-native-wallet2 = ["arqma-wallet-rpc/wallet2-api-native"]
-stub-wallet2 = ["arqma-wallet-rpc/wallet2-api"]
+# Native `wallet2_api` (C++/FFI) is always linked via `arqma-wallet-rpc` → `arqma-wallet2-api`.
+# Requires Arqma core checkout + build; see `rust/docs/NATIVE_WALLET2.md`.
 
 [lib]
 name = "arqma_wallet_lib"

@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use serde_json::Value;
-#[cfg(any(feature = "http-digest", feature = "wallet2-api"))]
 use std::sync::Arc;
 
 use crate::{WalletJsonRpc, WalletRpcError};
@@ -9,7 +8,6 @@ pub enum WalletClient {
   Disabled,
   #[cfg(feature = "http-digest")]
   HttpDigest(Arc<crate::WalletRpcClient>),
-  #[cfg(feature = "wallet2-api")]
   Wallet2(Arc<crate::Wallet2ApiClient>),
 }
 
@@ -19,7 +17,6 @@ impl Clone for WalletClient {
       Self::Disabled => Self::Disabled,
       #[cfg(feature = "http-digest")]
       Self::HttpDigest(c) => Self::HttpDigest(Arc::clone(c)),
-      #[cfg(feature = "wallet2-api")]
       Self::Wallet2(c) => Self::Wallet2(Arc::clone(c)),
     }
   }
@@ -31,7 +28,6 @@ impl WalletClient {
     Self::HttpDigest(Arc::new(crate::WalletRpcClient::new(http, host, port, user, pass)))
   }
 
-  #[cfg(feature = "wallet2-api")]
   pub fn from_wallet2 (client: crate::Wallet2ApiClient) -> Self {
     Self::Wallet2(Arc::new(client))
   }
@@ -41,7 +37,6 @@ impl WalletClient {
       Self::Disabled => Self::Disabled,
       #[cfg(feature = "http-digest")]
       Self::HttpDigest(c) => Self::HttpDigest(Arc::new(c.fork_for_heartbeat())),
-      #[cfg(feature = "wallet2-api")]
       Self::Wallet2(c) => Self::Wallet2(Arc::new(c.fork_for_heartbeat())),
     }
   }
@@ -51,7 +46,6 @@ impl WalletClient {
       Self::Disabled => Self::Disabled,
       #[cfg(feature = "http-digest")]
       Self::HttpDigest(c) => Self::HttpDigest(Arc::new(c.split_session())),
-      #[cfg(feature = "wallet2-api")]
       Self::Wallet2(c) => Self::Wallet2(Arc::new(c.split_session())),
     }
   }
@@ -61,7 +55,6 @@ impl WalletClient {
       Self::Disabled => Err("wallet backend not configured".to_string()),
       #[cfg(feature = "http-digest")]
       Self::HttpDigest(c) => c.call(_method, _params).await,
-      #[cfg(feature = "wallet2-api")]
       Self::Wallet2(c) => c
         .call_json(_method, _params)
         .await
