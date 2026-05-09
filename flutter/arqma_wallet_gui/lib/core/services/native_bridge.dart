@@ -12,11 +12,12 @@ abstract class NativeBridge {
 
   Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]);
 
-  Future<dynamic> backendSend(String module, String method, [Map<String, dynamic>? data]);
+  /// [data] is usually a [Map] (RPC params); `change_remotes` passes a JSON array like Vue.
+  Future<dynamic> backendSend(String module, String method, [Object? data]);
 }
 
-/// Optional [MethodChannel] integration (`com.arqma.wallet/native`) for a future
-/// Flutter desktop embedder that wraps the existing Rust `backend_send` path.
+/// Platform [MethodChannel] (`com.arqma.wallet/native`) — primary **native** path when the
+/// embedder implements `native_ping` + `backend_send` / `backend_receive` (see `native_bridge_resolver.dart`).
 final class MethodChannelNativeBridge implements NativeBridge {
   MethodChannelNativeBridge({MethodChannel? channel})
       : _channel = channel ?? const MethodChannel('com.arqma.wallet/native');
@@ -48,18 +49,20 @@ final class MethodChannelNativeBridge implements NativeBridge {
   }
 
   @override
-  Future<dynamic> backendSend(String module, String method, [Map<String, dynamic>? data]) {
+  Future<dynamic> backendSend(String module, String method, [Object? data]) {
     return invoke('backend_send', {
-      'message': {'module': module, 'method': method, 'data': data ?? <String, dynamic>{}},
+      'message': <String, dynamic>{
+        'module': module,
+        'method': method,
+        'data': data ?? <String, dynamic>{},
+      },
     });
   }
 
   void emitTestEvent(Map<String, dynamic> payload) => _controller.add(payload);
 }
 
-/// UI development / tests without native code: drives the same event stream the
-/// Vue `Receiver` consumes. Replace with [MethodChannelNativeBridge] once the
-/// Rust shell exposes `backend_send` + `backend-receive` to Flutter.
+/// In-memory backend for tests / `ARQMA_FLUTTER_USE_STUB=1`. Prefer [resolveAppNativeBridge] for apps.
 final class StubNativeBridge implements NativeBridge {
   StubNativeBridge({this.navigateWalletSelectAfterInit = true});
 
@@ -68,6 +71,19 @@ final class StubNativeBridge implements NativeBridge {
   final bool navigateWalletSelectAfterInit;
 
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
+
+  static Map<String, dynamic> _coerceMap(Object? data) {
+    if (data == null) {
+      return <String, dynamic>{};
+    }
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return <String, dynamic>{};
+  }
 
   @override
   Stream<Map<String, dynamic>> get backendReceive => _controller.stream;
@@ -88,7 +104,7 @@ final class StubNativeBridge implements NativeBridge {
   }
 
   @override
-  Future<dynamic> backendSend(String module, String method, [Map<String, dynamic>? data]) async {
+  Future<dynamic> backendSend(String module, String method, [Object? data]) async {
     debugPrint('[StubNativeBridge] backend_send $module::$method');
     if (module == 'core' && method == 'init' && navigateWalletSelectAfterInit) {
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -97,6 +113,125 @@ final class StubNativeBridge implements NativeBridge {
         'data': {
           'status': {'code': 0, 'message': 'stub-init'},
         },
+      });
+      _controller.add({
+        'event': 'wallet_list',
+        'data': {
+          'list': <dynamic>[
+            <String, dynamic>{
+              'name': 'Demo',
+              'address': 'arQmDemoAddress1111111111111111111111111111111111111111111111111111111111111',
+              'password_protected': false,
+            },
+          ],
+          'legacy': <dynamic>[],
+          'directories': <dynamic>['/path/to/old/gui/wallets'],
+        },
+      });
+    }
+    if (module == 'wallet' && method == 'has_password') {
+      _controller.add(<String, dynamic>{'event': 'set_has_password', 'data': false});
+    }
+    if (module == 'wallet' && method == 'validate_address') {
+      final String addr = '${_coerceMap(data)['address'] ?? ''}';
+      _controller.add(<String, dynamic>{
+        'event': 'set_valid_address',
+        'data': <String, dynamic>{'address': addr, 'valid': addr.isNotEmpty, 'nettype': 'mainnet'},
+      });
+    }
+    if (module == 'wallet' && method == 'create_wallet') {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      final String name = '${_coerceMap(data)['name'] ?? 'Demo'}';
+      _controller.add(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': name,
+          'address': 'arQmStubAddress1111111111111111111111111111111111111111111111111111111111111',
+          'balance': 0,
+          'unlocked_balance': 0,
+        },
+      });
+      _controller.add(<String, dynamic>{
+        'event': 'set_wallet_secret',
+        'data': <String, dynamic>{
+          'mnemonic': 'stub mnemonic words for ui development only do not use',
+          'view_key': '0'.padRight(64, '0'),
+          'spend_key': '0'.padRight(64, '0'),
+        },
+      });
+      _controller.add(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{'code': 0, 'message': 'stub'},
+      });
+    }
+    if (module == 'wallet' && method == 'restore_wallet') {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      _controller.add(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': '${_coerceMap(data)['name'] ?? 'Restored'}',
+          'address': 'arQmStubRestored1111111111111111111111111111111111111111111111111111111111',
+          'balance': 0,
+          'unlocked_balance': 0,
+        },
+      });
+      _controller.add(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{'code': 0, 'message': 'stub'},
+      });
+    }
+    if (module == 'wallet' && method == 'import_wallet') {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      _controller.add(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': '${_coerceMap(data)['name'] ?? 'Imported'}',
+          'address': 'arQmStubImported11111111111111111111111111111111111111111111111111111111111',
+          'balance': 0,
+          'unlocked_balance': 0,
+        },
+      });
+      _controller.add(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{'code': 0, 'message': 'stub'},
+      });
+    }
+    if (module == 'wallet' && method == 'restore_view_wallet') {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      _controller.add(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': '${_coerceMap(data)['name'] ?? 'ViewOnly'}',
+          'address': '${_coerceMap(data)['address'] ?? 'arQmView'}',
+          'balance': 0,
+          'unlocked_balance': 0,
+          'view_only': true,
+        },
+      });
+      _controller.add(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{'code': 0, 'message': 'stub'},
+      });
+    }
+    if (module == 'wallet' && method == 'copy_old_gui_wallets') {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      _controller.add(<String, dynamic>{
+        'event': 'set_old_gui_import_status',
+        'data': <String, dynamic>{'code': 0, 'failed_wallets': <dynamic>[]},
+      });
+    }
+    if (module == 'wallet' && method == 'open_wallet') {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      _controller.add(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{'code': 0, 'message': null},
+      });
+    }
+    if (module == 'wallet' && method == 'transfer') {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      _controller.add(<String, dynamic>{
+        'event': 'set_tx_status',
+        'data': <String, dynamic>{'code': 201, 'message': 'stub sent', 'sending': false},
       });
     }
     if (module == 'wallet' && method == 'get_coin_price') {

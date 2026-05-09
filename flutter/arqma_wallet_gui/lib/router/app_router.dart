@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app_nav.dart';
 import '../layouts/init_loading_layout.dart';
 import '../layouts/init_welcome_layout.dart';
 import '../layouts/wallet_main_layout.dart';
@@ -28,6 +29,7 @@ import '../store/gateway_store.dart';
 
 GoRouter createAppRouter(GatewayStore store) {
   return GoRouter(
+    navigatorKey: appNavigatorKey,
     initialLocation: '/',
     refreshListenable: store,
     redirect: (BuildContext context, GoRouterState state) {
@@ -38,6 +40,14 @@ GoRouter createAppRouter(GatewayStore store) {
             return '/welcome';
           case 0:
             return '/wallet-select';
+        }
+      }
+      // Wallet layout expects an open account (`wallet.status.code == 0` after `open_wallet`).
+      final bool wantsWalletChrome = path == '/wallet' || path.startsWith('/wallet/');
+      if (wantsWalletChrome) {
+        final int walletCode = (store.wallet['status'] as Map?)?['code'] as int? ?? 1;
+        if (walletCode != 0) {
+          return '/wallet-select';
         }
       }
       return null;

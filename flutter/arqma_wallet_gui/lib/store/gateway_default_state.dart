@@ -2,9 +2,10 @@
 /// (functions in filters are omitted; filters use `index` / `label` only in Flutter).
 Map<String, dynamic> defaultGatewayState() {
   return {
-    'notifier': {'save': false},
+    'notifier': <String, dynamic>{'save': false},
     'app': {
       'status': {'code': 1, 'message': null},
+      'defaults': <String, dynamic>{},
       'config': {
         'appearance': {'theme': 'dark'},
         'pool': {
@@ -48,13 +49,18 @@ Map<String, dynamic> defaultGatewayState() {
       'daysOfTransactions': 1,
       'inactivityTimeout': 5,
     },
-    'ethereum': <String, dynamic>{},
+    'ethereum': <String, dynamic>{
+      'ethereum_network_index': 0,
+      'networks': <dynamic>[
+        <String, dynamic>{'code': 'eth', 'name': 'Ethereum', 'symbol': 'ETH'},
+      ],
+    },
     'wallets': {
       'list': <dynamic>[],
       'legacy': <dynamic>[],
       'directories': <dynamic>[],
     },
-    'old_gui_import_status': {'code': 0, 'failed_wallets': <dynamic>[]},
+    'old_gui_import_status': {'code': 1, 'failed_wallets': <dynamic>[]},
     'wallet': {
       'status': {'code': 1, 'message': null},
       'info': {
@@ -69,6 +75,7 @@ Map<String, dynamic> defaultGatewayState() {
       'secret': {'mnemonic': '', 'view_key': '', 'spend_key': ''},
       'transactions': {'tx_list': <dynamic>[]},
       'address_list': {
+        'primary': <dynamic>[],
         'used': <dynamic>[],
         'unused': <dynamic>[],
         'address_book': <dynamic>[],
@@ -79,7 +86,14 @@ Map<String, dynamic> defaultGatewayState() {
       'operator_pools': <dynamic>[],
       'nonoperator_pools': <dynamic>[],
       'staker': {
-        'stake': <String, dynamic>{},
+        'stake': <String, dynamic>{
+          'burnt_xeq': 0,
+          'total_staked': 0,
+          'staked_nodes': 0,
+          'num_operating': 0,
+          'total_contributed': 0,
+          'active_pool_count': 0,
+        },
       },
     },
     'pool': {

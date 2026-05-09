@@ -1,37 +1,213 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-/// Parity with `pages/wallet-select/index.vue` (wallet list / actions — UI shell).
-class WalletSelectIndexPage extends StatelessWidget {
+import '../../core/app_api.dart';
+import '../../i18n/locale_controller.dart';
+import '../../store/gateway_store.dart';
+import '../../widgets/address_identicon.dart';
+import '../../widgets/app_loading.dart';
+
+/// Parity with `pages/wallet-select/index.vue`.
+class WalletSelectIndexPage extends StatefulWidget {
   const WalletSelectIndexPage({super.key});
 
   @override
+  State<WalletSelectIndexPage> createState() => _WalletSelectIndexPageState();
+}
+
+class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
+  StreamSubscription<Map<String, dynamic>>? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    final GatewayStore store = context.read<GatewayStore>();
+    store.addListener(_onWalletStatus);
+    _sub = context.read<AppApi>().bridge.backendReceive.listen((Map<String, dynamic> msg) {
+      if (msg['event'] == 'reset_wallet_status' || msg['event'] == 'set_wallet_error') {
+        _onWalletStatus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    context.read<GatewayStore>().removeListener(_onWalletStatus);
+    super.dispose();
+  }
+
+  void _onWalletStatus() {
+    if (!mounted) {
+      return;
+    }
+    final Map<String, dynamic> st = context.read<GatewayStore>().wallet['status'] as Map<String, dynamic>;
+    final int code = st['code'] as int? ?? 1;
+    if (code == 0) {
+      AppLoading.hide();
+      context.go('/wallet');
+    } else if (code == -1 || code == -22) {
+      AppLoading.hide();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${st['message'] ?? ''}')),
+      );
+      context.read<GatewayStore>().resetWalletStatus({'code': 1, 'message': null});
+    }
+  }
+
+  Future<void> _openWallet(Map<String, dynamic> wallet) async {
+    final LocaleController loc = context.read<LocaleController>();
+    final AppApi api = context.read<AppApi>();
+    final String name = '${wallet['name']}';
+    final bool pwdProt = wallet['password_protected'] != false;
+    String? password = '';
+    if (pwdProt) {
+      password = await showDialog<String>(
+        context: context,
+        builder: (BuildContext c) {
+          final TextEditingController pw = TextEditingController();
+          return AlertDialog(
+            title: Text(loc.tr('pages.wallet_select.index.open_wallet_password_title')),
+            content: TextField(
+              controller: pw,
+              obscureText: true,
+              decoration: InputDecoration(labelText: loc.tr('pages.wallet_select.index.open_wallet_password_message')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text(loc.tr('pages.wallet_select.index.open_wallet_cancel_label')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(c, pw.text),
+                child: Text(loc.tr('pages.wallet_select.index.open_wallet_ok_label')),
+              ),
+            ],
+          );
+        },
+      );
+      if (password == null) {
+        return;
+      }
+    }
+    AppLoading.show();
+    await api.send('wallet', 'open_wallet', <String, dynamic>{'name': name, 'password': password ?? ''});
+  }
+
+  Future<void> _copyAddress(String address) async {
+    final AppApi api = context.read<AppApi>();
+    final LocaleController loc = context.read<LocaleController>();
+    await api.writeText(address);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.tr('pages.wallet_select.index.copy_address_message'))),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final LocaleController loc = context.watch<LocaleController>();
+    final GatewayStore store = context.watch<GatewayStore>();
+    final Map<String, dynamic> wallets = Map<String, dynamic>.from(store.raw['wallets'] as Map? ?? {});
+    final List<dynamic> list = (wallets['list'] as List<dynamic>?) ?? const <dynamic>[];
+    final List<dynamic> directories = (wallets['directories'] as List<dynamic>?) ?? const <dynamic>[];
+
+    final List<Map<String, String>> actions = <Map<String, String>>[
+      <String, String>{'name': loc.tr('pages.wallet_select.index.create_new_account'), 'path': '/wallet-select/create'},
+      <String, String>{'name': loc.tr('pages.wallet_select.index.restore_account_from_seed'), 'path': '/wallet-select/restore'},
+      <String, String>{
+        'name': loc.tr('pages.wallet_select.index.restore_account_from_viewkey'),
+        'path': '/wallet-select/import-view-only',
+      },
+    ];
+    if (directories.isNotEmpty) {
+      actions.add(<String, String>{
+        'name': loc.tr('pages.wallet_select.index.import_accounts_from_old_gui'),
+        'path': '/wallet-select/import-old-gui',
+      });
+    }
+
+    Widget walletRow(Map<String, dynamic> w) {
+      return Card(
+        color: const Color(0xFF1a1a1a),
+        child: ListTile(
+          leading: AddressIdenticon(address: '${w['address'] ?? ''}', size: 44),
+          title: Text('${w['name']}', style: const TextStyle(fontSize: 17)),
+          subtitle: Text('${w['address']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+          onTap: () => _openWallet(w),
+          trailing: PopupMenuButton<String>(
+            onSelected: (String v) {
+              if (v == 'open') {
+                _openWallet(w);
+              } else if (v == 'copy') {
+                _copyAddress('${w['address']}');
+              }
+            },
+            itemBuilder: (BuildContext c) => [
+              PopupMenuItem<String>(value: 'open', child: Text(loc.tr('pages.wallet_select.index.open_account'))),
+              PopupMenuItem<String>(value: 'copy', child: Text(loc.tr('pages.wallet_select.index.copy_address'))),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _tile(context, 'Create new wallet', '/wallet-select/create'),
-        _tile(context, 'Restore wallet from seed', '/wallet-select/restore'),
-        _tile(context, 'Import view-only wallet', '/wallet-select/import-view-only'),
-        _tile(context, 'Import wallet from file', '/wallet-select/import'),
-        _tile(context, 'Import legacy wallet', '/wallet-select/import-legacy'),
-        _tile(context, 'Import old GUI wallets', '/wallet-select/import-old-gui'),
-        const SizedBox(height: 24),
-        OutlinedButton(
-          onPressed: () => context.go('/wallet'),
-          child: const Text('Open main wallet UI (dev)'),
-        ),
+        if (list.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 56),
+                  child: Text(
+                    loc.tr('pages.wallet_select.index.accounts'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const Spacer(),
+                PopupMenuButton<Map<String, String>>(
+                  icon: const Icon(Icons.add, color: Color(0xFFdbd19c)),
+                  onSelected: (Map<String, String> a) => context.push(a['path']!),
+                  itemBuilder: (BuildContext c) =>
+                      actions.map((Map<String, String> a) => PopupMenuItem<Map<String, String>>(value: a, child: Text(a['name']!))).toList(),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 24),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              itemCount: list.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (BuildContext c, int i) => walletRow(Map<String, dynamic>.from(list[i] as Map)),
+            ),
+          ),
+        ] else
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: actions
+                  .map(
+                    (Map<String, String> a) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: ElevatedButton(
+                        onPressed: () => context.push(a['path']!),
+                        child: Align(alignment: Alignment.centerLeft, child: Text(a['name']!)),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
       ],
-    );
-  }
-
-  Widget _tile(BuildContext context, String label, String path) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ElevatedButton(
-        onPressed: () => context.push(path),
-        child: Align(alignment: Alignment.centerLeft, child: Text(label)),
-      ),
     );
   }
 }

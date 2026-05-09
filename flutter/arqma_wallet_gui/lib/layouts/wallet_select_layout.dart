@@ -86,9 +86,16 @@ class WalletSelectLayout extends StatelessWidget {
           child: Divider(height: 1, color: Colors.white),
         ),
       ),
+      // Do not wrap [child] in [SingleChildScrollView]: several wallet-select pages use
+      // [Column] + [Expanded] + [ListView], which require a bounded height from this [Expanded].
       body: Column(
         children: [
-          Expanded(child: SingleChildScrollView(padding: const EdgeInsets.all(16), child: child)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          ),
           const StatusFooter(),
         ],
       ),

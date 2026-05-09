@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../app_strings.dart';
 import '../core/services/native_bridge.dart';
+import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
+import 'daemon_settings_dialog.dart';
 
-/// Parity with `components/mainmenu.vue` (settings modal still TODO).
+/// Parity with `components/mainmenu.vue` (settings via [showDaemonSettingsDialog]).
 class WalletMainMenu extends StatefulWidget {
   const WalletMainMenu({super.key, this.disableSwitchWallet = false});
 
@@ -39,16 +40,17 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
   }
 
   Future<void> _exitWallet(BuildContext context) async {
+    final LocaleController loc = context.read<LocaleController>();
     final ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext c) => AlertDialog(
-        title: const Text('Exit'),
-        content: const Text(AppStrings.confirmClose),
+        title: Text(loc.tr('components.mainmenu.exit_wallet')),
+        content: Text(loc.tr('components.mainmenu.confirm_close')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('composables.cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Exit'),
+            child: Text(loc.tr('components.mainmenu.exit_wallet')),
           ),
         ],
       ),
@@ -61,6 +63,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
 
   @override
   Widget build(BuildContext context) {
+    final LocaleController loc = context.watch<LocaleController>();
     return PopupMenuButton<String>(
       icon: const Icon(Icons.menu, size: 32, color: Colors.white),
       color: const Color(0xFF1d1d1d),
@@ -70,11 +73,11 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
             final go = await showDialog<bool>(
               context: context,
               builder: (BuildContext c) => AlertDialog(
-                title: const Text(AppStrings.menuSwitchAccount),
-                content: const Text(AppStrings.confirmClose),
+                title: Text(loc.tr('components.mainmenu.switch_account')),
+                content: Text(loc.tr('components.mainmenu.confirm_close')),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-                  TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Switch')),
+                  TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('components.mainmenu.switch_account_cancel_label'))),
+                  TextButton(onPressed: () => Navigator.pop(c, true), child: Text(loc.tr('components.mainmenu.switch_account_ok_label'))),
                 ],
               ),
             );
@@ -91,9 +94,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
             }
             break;
           case 'settings':
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Daemon settings — UI parity pending')),
-            );
+            await showDaemonSettingsDialog(context);
             break;
           case 'about':
             final NativeBridge bridgeForAbout = context.read<NativeBridge>();
@@ -119,10 +120,48 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
                           await bridgeForAbout.backendSend(
                             'core',
                             'open_url',
-                            {'url': 'https://arqma.com/'},
+                            <String, dynamic>{'url': 'https://arqma.com/'},
                           );
                         },
                         child: const Text('https://arqma.com/'),
+                      ),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 8,
+                        children: [
+                          TextButton(
+                            onPressed: () async {
+                              await bridgeForAbout.backendSend(
+                                'core',
+                                'open_url',
+                                <String, dynamic>{'url': 'https://chat.arqma.com'},
+                              );
+                            },
+                            child: const Text('Discord'),
+                          ),
+                          const Text('—', style: TextStyle(color: Colors.white54)),
+                          TextButton(
+                            onPressed: () async {
+                              await bridgeForAbout.backendSend(
+                                'core',
+                                'open_url',
+                                <String, dynamic>{'url': 'https://telegram.arqma.com'},
+                              );
+                            },
+                            child: const Text('Telegram'),
+                          ),
+                          const Text('—', style: TextStyle(color: Colors.white54)),
+                          TextButton(
+                            onPressed: () async {
+                              await bridgeForAbout.backendSend(
+                                'core',
+                                'open_url',
+                                <String, dynamic>{'url': 'https://github.com/Arqma/Arqma'},
+                              );
+                            },
+                            child: const Text('GitHub'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -130,7 +169,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(c),
-                    child: const Text(AppStrings.aboutClose),
+                    child: Text(loc.tr('components.wallet_settings.close')),
                   ),
                 ],
               ),
@@ -143,21 +182,21 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
       },
       itemBuilder: (BuildContext context) => [
         if (!widget.disableSwitchWallet)
-          const PopupMenuItem<String>(
+          PopupMenuItem<String>(
             value: 'switch',
-            child: Text(AppStrings.menuSwitchAccount),
+            child: Text(loc.tr('components.mainmenu.switch_account')),
           ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'settings',
-          child: Text(AppStrings.menuDaemonSettings),
+          child: Text(loc.tr('components.mainmenu.daemon_settings')),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'about',
-          child: Text(AppStrings.menuAbout),
+          child: Text(loc.tr('components.mainmenu.about')),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           value: 'exit',
-          child: Text(AppStrings.menuExitWallet),
+          child: Text(loc.tr('components.mainmenu.exit_wallet')),
         ),
       ],
     );

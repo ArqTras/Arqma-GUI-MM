@@ -1,61 +1,177 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/arqma_colors.dart';
+import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
-import '../../widgets/format_arqma.dart';
+import '../../widgets/arqma_field.dart';
+import '../../widgets/tx_list_widget.dart';
 
-/// Parity with `pages/wallet/txhistory.vue` (list shell + amount coloring).
-class TxHistoryPage extends StatelessWidget {
+/// Parity with `pages/wallet/txhistory.vue`.
+class TxHistoryPage extends StatefulWidget {
   const TxHistoryPage({super.key});
 
-  Color _amountColor(String? type) {
-    if (type == null) {
-      return Colors.white70;
+  @override
+  State<TxHistoryPage> createState() => _TxHistoryPageState();
+}
+
+class _TxHistoryPageState extends State<TxHistoryPage> with WidgetsBindingObserver {
+  final TextEditingController _txid = TextEditingController();
+  int _typeIndex = 0;
+  Timer? _txidDebounce;
+
+  static const List<Map<String, dynamic>> _typeOptions = <Map<String, dynamic>>[
+    <String, dynamic>{'index': 0, 'label': 'pages.wallet.txhistory.all'},
+    <String, dynamic>{'index': 1, 'label': 'pages.wallet.txhistory.incoming'},
+    <String, dynamic>{'index': 2, 'label': 'pages.wallet.txhistory.outgoing'},
+    <String, dynamic>{'index': 3, 'label': 'pages.wallet.txhistory.pending'},
+    <String, dynamic>{'index': 4, 'label': 'pages.wallet.txhistory.service_node'},
+    <String, dynamic>{'index': 5, 'label': 'pages.wallet.txhistory.stake'},
+    <String, dynamic>{'index': 6, 'label': 'pages.wallet.txhistory.failed'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final GatewayStore s = context.read<GatewayStore>();
+      final Map<String, dynamic> cur = Map<String, dynamic>.from(s.raw['transactions_filter'] as Map? ?? {});
+      final int idx = cur['index'] as int? ?? 0;
+      if (_typeOptions.any((Map<String, dynamic> e) => e['index'] == idx)) {
+        setState(() => _typeIndex = idx);
+      }
+      final Map<String, dynamic> tid = Map<String, dynamic>.from(s.raw['transaction_id_filter'] as Map? ?? {});
+      final String v = '${tid['value'] ?? ''}';
+      if (v.isNotEmpty) {
+        _txid.text = v;
+      }
+      // Keep store filters aligned with the text field + dropdown on first paint (Vue watchers do this).
+      _pushFilter();
+    });
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (mounted) {
+      setState(() {});
     }
-    if (type.contains('in') || type.contains('pool') || type.contains('miner')) {
-      return ArqmaColors.txIn;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _txidDebounce?.cancel();
+    final String tidSnapshot = _txid.text.trim();
+    final int typeSnapshot = _typeIndex;
+    _txid.dispose();
+    try {
+      final GatewayStore s = context.read<GatewayStore>();
+      final Map<String, dynamic> opt = Map<String, dynamic>.from(
+        _typeOptions.firstWhere((Map<String, dynamic> e) => e['index'] == typeSnapshot),
+      );
+      s.setTransactionsFilter(opt);
+      s.setTransactionIdFilter(<String, dynamic>{'index': 7, 'label': 'Transaction', 'value': tidSnapshot});
+    } catch (_) {
+      // Provider tree may already be torn down.
     }
-    if (type.contains('stake')) {
-      return Colors.amber.shade600;
-    }
-    return Colors.white70;
+    super.dispose();
+  }
+
+  void _scheduleTxidFilter() {
+    _txidDebounce?.cancel();
+    _txidDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) {
+        return;
+      }
+      _pushFilter();
+    });
+  }
+
+  void _pushFilter() {
+    final GatewayStore s = context.read<GatewayStore>();
+    final Map<String, dynamic> opt = Map<String, dynamic>.from(_typeOptions.firstWhere((Map<String, dynamic> e) => e['index'] == _typeIndex));
+    s.setTransactionsFilter(opt);
+    s.setTransactionIdFilter(<String, dynamic>{'index': 7, 'label': 'Transaction', 'value': _txid.text.trim()});
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<GatewayStore>();
-    final txs = store.filteredTransactions;
-
-    if (txs.isEmpty) {
-      return ListView(
-        children: const [
-          SizedBox(height: 8),
-          Text('No transactions', style: TextStyle(color: Colors.white54)),
-        ],
-      );
-    }
-
-    return ListView.separated(
-      itemCount: txs.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.white12),
-      itemBuilder: (BuildContext context, int i) {
-        final m = txs[i] as Map<String, dynamic>;
-        final type = m['type']?.toString();
-        final amount = num.tryParse('${m['amount'] ?? 0}') ?? 0;
-        return ListTile(
-          title: Text(
-            m['txid']?.toString() ?? '',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.white70),
+    final LocaleController loc = context.watch<LocaleController>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                flex: 5,
+                child: ArqmaField(
+                  label: loc.tr('pages.wallet.txhistory.filter_by_transactionid'),
+                  disableMenu: false,
+                  child: TextField(
+                    controller: _txid,
+                    decoration: InputDecoration(
+                      hintText: loc.tr('pages.wallet.txhistory.filter_by_transactionid_placeholder'),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (_) => _scheduleTxidFilter(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: ArqmaField(
+                  label: loc.tr('pages.wallet.txhistory.filter_by_transaction_type'),
+                  child: DropdownButtonFormField<int>(
+                    value: _typeIndex,
+                    dropdownColor: const Color(0xFF1d1d1d),
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    items: _typeOptions
+                        .map(
+                          (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                            value: o['index'] as int,
+                            child: Text(loc.tr(o['label'] as String)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (int? v) {
+                      if (v != null) {
+                        setState(() => _typeIndex = v);
+                        _pushFilter();
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          subtitle: Text(type ?? '', style: const TextStyle(color: Colors.white54)),
-          trailing: FormatArqma(
-            amount: amount,
-            digits: 5,
-            textColor: _amountColor(type),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(loc.tr('pages.wallet.txhistory.transactions')),
+        ),
+        // `.scroller` in `txhistory.vue`: `max-height: viewport - 400px`.
+        Expanded(
+          child: LayoutBuilder(
+            builder: (BuildContext ctx, BoxConstraints inner) {
+              final double viewportH = MediaQuery.sizeOf(ctx).height;
+              final double capByVue = (viewportH - 400).clamp(200.0, 9000.0);
+              final double maxListH = math.min(inner.maxHeight, capByVue);
+              return ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxListH),
+                child: const TxListWidget(),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

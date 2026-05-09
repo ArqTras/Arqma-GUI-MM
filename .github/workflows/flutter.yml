@@ -1,0 +1,74 @@
+# Flutter GUI — verify analyze, tests, and a desktop build on branch `flutter`.
+# Does not upload artifacts, attach binaries to releases, or publish packages.
+name: Flutter GUI
+
+on:
+  push:
+    branches:
+      - flutter
+    paths:
+      - "flutter/**"
+      - ".github/workflows/flutter.yml"
+  pull_request:
+    branches:
+      - flutter
+    paths:
+      - "flutter/**"
+      - ".github/workflows/flutter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: flutter/arqma_wallet_gui
+
+jobs:
+  analyze-and-test:
+    name: Analyze and test (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      # Fail only on analyzer *errors*; warnings/infos still print (repo has known lints).
+      - name: Analyze
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+  build-macos:
+    name: Build macOS (no artifacts)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Build macOS
+        run: flutter build macos --release

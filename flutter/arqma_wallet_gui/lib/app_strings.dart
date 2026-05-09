@@ -23,7 +23,6 @@ abstract final class AppStrings {
   static const initStartingWallet = "Starting wallet…";
   static const initReadingWalletList = "Reading wallet list…";
   static const initRecalculating = "Recalculating service nodes…";
-  static const notFound = "Page not found";
   static const walletPagePlaceholder =
       "Screen parity with Vue is implemented incrementally; backend calls require the native bridge.";
 }

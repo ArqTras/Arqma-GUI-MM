@@ -5,6 +5,15 @@ import 'gateway_default_state.dart';
 
 typedef GatewayEventListener = void Function(String event, dynamic data);
 
+/// Avoid `target.addAll(merged)` when [target] was inferred as `Map<String, Object>`
+/// from map literals (e.g. default gateway state) while [merged] is `Map<String, dynamic>`.
+void _assignMergedEntries(Map<dynamic, dynamic> target, Map<String, dynamic> merged) {
+  target.clear();
+  merged.forEach((String k, dynamic v) {
+    target[k] = v;
+  });
+}
+
 /// Vuex `gateway` module + `receiver.js` commit paths, backed by a deep tree.
 class GatewayStore extends ChangeNotifier {
   GatewayStore() : _state = defaultGatewayState();
@@ -35,24 +44,21 @@ class GatewayStore extends ChangeNotifier {
 
   void setAppData(Map<String, dynamic> data) {
     final merged = deepMergeMaps(app, data) as Map<String, dynamic>;
-    app.clear();
-    app.addAll(merged);
+    _assignMergedEntries(app, merged);
     _notify();
   }
 
   void setDaemonData(Map<String, dynamic> data) {
     final d = daemon;
     final merged = deepMergeMaps(d, data) as Map<String, dynamic>;
-    d.clear();
-    d.addAll(merged);
+    _assignMergedEntries(d, merged);
     _notify();
   }
 
   void resetWalletData(Map<String, dynamic> data) {
     final w = wallet;
     final merged = deepMergeMaps(w, data) as Map<String, dynamic>;
-    w.clear();
-    w.addAll(merged);
+    _assignMergedEntries(w, merged);
     _notify();
   }
 
@@ -82,8 +88,7 @@ class GatewayStore extends ChangeNotifier {
   void setWalletAddressList(Map<String, dynamic> data) {
     final al = wallet['address_list'] as Map<String, dynamic>;
     final merged = deepMergeMaps(al, data) as Map<String, dynamic>;
-    al.clear();
-    al.addAll(merged);
+    _assignMergedEntries(al, merged);
     _notify();
   }
 
@@ -118,8 +123,7 @@ class GatewayStore extends ChangeNotifier {
     }
     final wi = wallet['info'] as Map<String, dynamic>;
     final merged = deepMergeMaps(wi, patch) as Map<String, dynamic>;
-    wi.clear();
-    wi.addAll(merged);
+    _assignMergedEntries(wi, merged);
     _notify();
   }
 
@@ -141,8 +145,7 @@ class GatewayStore extends ChangeNotifier {
   void setPoolData(Map<String, dynamic> data) {
     final p = _state['pool'] as Map<String, dynamic>;
     final merged = deepMergeMaps(p, data) as Map<String, dynamic>;
-    p.clear();
-    p.addAll(merged);
+    _assignMergedEntries(p, merged);
     _notify();
   }
 
@@ -185,16 +188,14 @@ class GatewayStore extends ChangeNotifier {
     final sn = _state['service_node_status'] as Map<String, dynamic>;
     final u = sn['unlock'] as Map<String, dynamic>;
     final merged = deepMergeMaps(u, data) as Map<String, dynamic>;
-    u.clear();
-    u.addAll(merged);
+    _assignMergedEntries(u, merged);
     _notify();
   }
 
   void setEthereumData(Map<String, dynamic> data) {
     final e = _state['ethereum'] as Map<String, dynamic>;
     final merged = deepMergeMaps(e, data) as Map<String, dynamic>;
-    e.clear();
-    e.addAll(merged);
+    _assignMergedEntries(e, merged);
     _notify();
   }
 
@@ -217,6 +218,7 @@ class GatewayStore extends ChangeNotifier {
       'secret': {'mnemonic': '', 'view_key': '', 'spend_key': ''},
       'transactions': {'tx_list': <dynamic>[]},
       'address_list': {
+        'primary': <dynamic>[],
         'used': <dynamic>[],
         'unused': <dynamic>[],
         'address_book': <dynamic>[],
@@ -342,11 +344,32 @@ class GatewayStore extends ChangeNotifier {
         setWalletList(Map<String, dynamic>.from(data as Map));
         break;
       case 'daemon_version':
-        setDaemonVersion((data as Map)['version'] as String? ?? '');
+        final Map<String, dynamic> dv = Map<String, dynamic>.from(data as Map);
+        final Object? v = dv['version'];
+        setDaemonVersion(v is String ? v : '');
+        break;
+      case 'reset_wallet_error':
+        resetWalletStatus({'code': 1, 'message': null});
         break;
       default:
         break;
     }
+  }
+
+  Map<String, dynamic> get notifierMap =>
+      Map<String, dynamic>.from(_state['notifier'] as Map<String, dynamic>? ?? <String, dynamic>{});
+
+  void setNotifier(Map<String, dynamic> n) {
+    _state['notifier'] = n;
+    _notify();
+  }
+
+  /// Vuex `save_pending_config`: merge `{ config: pending }` into `app`.
+  void savePendingConfig(Map<String, dynamic> pending) {
+    final Map<String, dynamic> mergedApp = deepMergeMaps(app, <String, dynamic>{'config': pending}) as Map<String, dynamic>;
+    app.clear();
+    app.addAll(mergedApp);
+    _notify();
   }
 
   // --- Getters (`store/gateway/getters.js`) ---
@@ -397,19 +420,146 @@ class GatewayStore extends ChangeNotifier {
     return walletAtTip;
   }
 
+  void setTransactionsFilter(Map<String, dynamic> data) {
+    _state['transactions_filter'] = Map<String, dynamic>.from(data);
+    _notify();
+  }
+
+  void setTransactionIdFilter(Map<String, dynamic> data) {
+    _state['transaction_id_filter'] = Map<String, dynamic>.from(data);
+    _notify();
+  }
+
+  bool _txTypeMatch(Map<String, dynamic> c, int index) {
+    final String ty = '${c['type'] ?? ''}';
+    switch (index) {
+      case 0:
+        return true;
+      case 1:
+        return ty == 'in';
+      case 2:
+        return ty == 'out';
+      case 3:
+        return ty == 'pending' || ty == 'pool';
+      case 4:
+        return ty == 'snode';
+      case 5:
+        return ty == 'stake';
+      case 6:
+        return ty == 'failed';
+      default:
+        return true;
+    }
+  }
+
   List<dynamic> get filteredTransactions {
     final txList =
         ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
-    final tf = _state['transactions_filter'] as Map<String, dynamic>;
-    final tid = _state['transaction_id_filter'] as Map<String, dynamic>;
-    final tidVal = '${tid['value'] ?? ''}';
-    if ((tf['index'] as int? ?? 0) == 0 && tidVal.isEmpty) {
-      return List<dynamic>.from(txList);
-    }
-    // Predicate from JS not serializable — list unfiltered when custom filter is set until per-screen logic lands.
+    final Map<String, dynamic> tf = _state['transactions_filter'] as Map<String, dynamic>;
+    final Map<String, dynamic> tid = _state['transaction_id_filter'] as Map<String, dynamic>;
+    final String tidVal = '${tid['value'] ?? ''}';
+    final int idx = tf['index'] as int? ?? 0;
+    Iterable<dynamic> out = txList.where((dynamic x) => _txTypeMatch(Map<String, dynamic>.from(x as Map), idx));
     if (tidVal.isNotEmpty) {
-      return txList.where((c) => '${(c as Map)['txid']}'.startsWith(tidVal)).toList();
+      out = out.where((dynamic x) => '${(x as Map)['txid']}'.startsWith(tidVal));
     }
-    return List<dynamic>.from(txList);
+    return out.toList();
+  }
+
+  Map<String, dynamic> get poolsRoot => Map<String, dynamic>.from(_state['pools'] as Map? ?? <String, dynamic>{});
+
+  int get poolCount {
+    final Map<String, dynamic> p = poolsRoot;
+    final List<dynamic> op = p['operator_pools'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> nop = p['nonoperator_pools'] as List<dynamic>? ?? const <dynamic>[];
+    return op.length + nop.length;
+  }
+
+  int get activePoolCount {
+    final Map<String, dynamic>? st = (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
+    final Map<String, dynamic>? stake = st?['stake'] as Map<String, dynamic>?;
+    return (stake?['active_pool_count'] as num?)?.toInt() ?? 0;
+  }
+
+  num get totalContributedStake {
+    final Map<String, dynamic>? st = (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
+    final Map<String, dynamic>? stake = st?['stake'] as Map<String, dynamic>?;
+    return stake?['total_contributed'] as num? ?? 0;
+  }
+
+  static bool _poolPassesPoolsFilterIndex(Map<String, dynamic> c, int index) {
+    final num tc = num.tryParse('${c['total_contributed']}') ?? 0;
+    final num sr = num.tryParse('${c['staking_requirement']}') ?? 0;
+    switch (index) {
+      case 0:
+        return true;
+      case 1:
+        return tc < sr;
+      case 2:
+        return tc == sr;
+      case 3:
+        return c['is_operator'] == true;
+      case 4:
+        return c['is_contributor'] == true;
+      default:
+        return true;
+    }
+  }
+
+  /// Same filtering rules as `store/gateway/getters.js` `filterPools`.
+  List<Map<String, dynamic>> filteredPools(String poolType) {
+    final Map<String, dynamic> p = poolsRoot;
+    final List<dynamic> raw = poolType == 'operator_pools'
+        ? (p['operator_pools'] as List<dynamic>? ?? const <dynamic>[])
+        : (p['nonoperator_pools'] as List<dynamic>? ?? const <dynamic>[]);
+    final Map<String, dynamic> pf = _state['pools_filter'] as Map<String, dynamic>;
+    final int idx = pf['index'] as int? ?? 0;
+    final String nid = '${(_state['node_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
+    final String oid = '${(_state['operator_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
+    final bool isDefault = idx == 0 && nid.isEmpty && oid.isEmpty;
+    Iterable<Map<String, dynamic>> it =
+        raw.map((dynamic e) => Map<String, dynamic>.from(e as Map));
+    if (!isDefault) {
+      it = it.where((Map<String, dynamic> c) => _poolPassesPoolsFilterIndex(c, idx));
+      if (nid.isNotEmpty) {
+        it = it.where((Map<String, dynamic> c) => '${c['service_node_pubkey']}'.startsWith(nid));
+      }
+      if (oid.isNotEmpty) {
+        it = it.where((Map<String, dynamic> c) => '${c['operator_address']}'.startsWith(oid));
+      }
+    }
+    return it.toList();
+  }
+
+  void setPoolsFilterState(Map<String, dynamic> data) {
+    _state['pools_filter'] = Map<String, dynamic>.from(data);
+    _notify();
+  }
+
+  void setNodeIdFilterState(Map<String, dynamic> data) {
+    _state['node_id_filter'] = Map<String, dynamic>.from(data);
+    _notify();
+  }
+
+  void setOperatorIdFilterState(Map<String, dynamic> data) {
+    _state['operator_id_filter'] = Map<String, dynamic>.from(data);
+    _notify();
+  }
+
+  void resetPoolsData() {
+    setPoolsData(<String, dynamic>{
+      'operator_pools': <dynamic>[],
+      'nonoperator_pools': <dynamic>[],
+      'staker': <String, dynamic>{
+        'stake': <String, dynamic>{
+          'burnt_xeq': 0,
+          'total_staked': 0,
+          'staked_nodes': 0,
+          'num_operating': 0,
+          'total_contributed': 0,
+          'active_pool_count': 0,
+        },
+      },
+    });
   }
 }

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../app_strings.dart';
 import '../core/services/native_bridge.dart';
 import '../core/theme/arqma_colors.dart';
+import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 
-/// Parity with `components/footer.vue` (locale picker simplified to EN).
+/// Parity with `components/footer.vue` (status + language picker).
 class StatusFooter extends StatefulWidget {
   const StatusFooter({super.key});
 
@@ -17,11 +17,26 @@ class StatusFooter extends StatefulWidget {
 class _StatusFooterState extends State<StatusFooter> {
   String _version = '';
 
+  static const List<Map<String, String>> _localeOptions = <Map<String, String>>[
+    <String, String>{'value': 'en-US', 'label': 'English'},
+    <String, String>{'value': 'de-DE', 'label': 'Deutsch'},
+    <String, String>{'value': 'fr-FR', 'label': 'Français'},
+    <String, String>{'value': 'ua-UA', 'label': 'українська'},
+    <String, String>{'value': 'pl-PL', 'label': 'Polski'},
+    <String, String>{'value': 'es-ES', 'label': 'Spanish'},
+    <String, String>{'value': 'cn-CN', 'label': '中國人'},
+    <String, String>{'value': 'jp-JP', 'label': '日本語'},
+    <String, String>{'value': 'ms-MY', 'label': 'Bahasa Melayu'},
+    <String, String>{'value': 'ar-SA', 'label': 'العربية'},
+    <String, String>{'value': 'pt-BR', 'label': 'Português (Brasil)'},
+    <String, String>{'value': 'ru-RU', 'label': 'Русский'},
+  ];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final v = await context.read<NativeBridge>().invoke('app_version_str');
+      final Object? v = await context.read<NativeBridge>().invoke('app_version_str');
       if (mounted) {
         setState(() => _version = v?.toString() ?? '');
       }
@@ -34,116 +49,136 @@ class _StatusFooterState extends State<StatusFooter> {
     return (h > th ? h : th).toInt();
   }
 
+  String _statusText(LocaleController loc, GatewayStore store) {
+    final Map<String, dynamic> cfg = store.app['config'] as Map<String, dynamic>? ?? {};
+    final String? net = (cfg['app'] as Map?)?['net_type'] as String?;
+    final Map<String, dynamic> daemons = cfg['daemons'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> configDaemon = daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
+    final String dtype = configDaemon['type'] as String? ?? 'local';
+    final Map<String, dynamic> info = store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final int targetHeight = _daemonChainTip(info);
+    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
+    if (targetHeight == 0) {
+      return '';
+    }
+    final bool walletBehind = walletHeight < targetHeight;
+    final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+    if (dtype == 'local') {
+      if (dwo < targetHeight) {
+        return loc.tr('components.footer.syncing');
+      }
+      if (walletBehind) {
+        return loc.tr('components.footer.scanning');
+      }
+      return loc.tr('components.footer.ready');
+    }
+    if (walletBehind) {
+      return loc.tr('components.footer.scanning');
+    }
+    if (dtype == 'local_remote' && dwo < targetHeight) {
+      return loc.tr('components.footer.syncing');
+    }
+    return loc.tr('components.footer.ready');
+  }
+
+  Color _statusColor(String s, LocaleController loc) {
+    final String ready = loc.tr('components.footer.ready');
+    if (s == ready) {
+      return ArqmaColors.arqmaGreenSolid;
+    }
+    final String scan = loc.tr('components.footer.scanning');
+    final String sync = loc.tr('components.footer.syncing');
+    if (s == scan || s == sync) {
+      return Colors.amber.shade600;
+    }
+    return Colors.white70;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<GatewayStore>();
-        final cfg = store.app['config'] as Map<String, dynamic>? ?? {};
-        final net = (cfg['app'] as Map?)?['net_type'] as String?;
-        final daemons = cfg['daemons'] as Map<String, dynamic>? ?? {};
-        final configDaemon = daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
-        final dtype = configDaemon['type'] as String? ?? 'local';
+    final GatewayStore store = context.watch<GatewayStore>();
+    final LocaleController loc = context.watch<LocaleController>();
 
-        final info = store.daemon['info'] as Map<String, dynamic>? ?? {};
-        final targetHeight = _daemonChainTip(info);
-        final walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
+    final Map<String, dynamic> cfg = store.app['config'] as Map<String, dynamic>? ?? {};
+    final String? net = (cfg['app'] as Map?)?['net_type'] as String?;
+    final Map<String, dynamic> daemons = cfg['daemons'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> configDaemon = daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
+    final String dtype = configDaemon['type'] as String? ?? 'local';
 
-        double daemonLocalPct() {
-          if (dtype == 'remote') {
-            return 0;
-          }
-          if (targetHeight == 0) {
-            return 0;
-          }
-          final dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-          var pct = (100 * dwo) / targetHeight;
-          if (dwo < targetHeight && (pct * 10).round() / 10 >= 100) {
-            pct = 99.9;
-          }
-          final decimals = pct >= 100 ? 1 : 2;
-          return double.parse(pct.clamp(0, 100).toStringAsFixed(decimals));
-        }
+    final Map<String, dynamic> info = store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final int targetHeight = _daemonChainTip(info);
+    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
 
-        double walletPct() {
-          if (targetHeight == 0) {
-            return 0;
-          }
-          final pct = (100 * walletHeight) / targetHeight;
-          if (pct >= 100) {
-            return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
-          }
-          if (walletHeight < targetHeight && pct >= 99) {
-            return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
-          }
-          return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
-        }
+    double daemonLocalPct() {
+      if (dtype == 'remote') {
+        return 0;
+      }
+      if (targetHeight == 0) {
+        return 0;
+      }
+      final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+      var pct = (100 * dwo) / targetHeight;
+      if (dwo < targetHeight && (pct * 10).round() / 10 >= 100) {
+        pct = 99.9;
+      }
+      final int decimals = pct >= 100 ? 1 : 2;
+      return double.parse(pct.clamp(0, 100).toStringAsFixed(decimals));
+    }
 
-        double barFloor(double pct) {
-          if (pct <= 0) {
-            return 0;
-          }
-          if (pct >= 100) {
-            return 100;
-          }
-          return pct < 1 ? 1 : pct;
-        }
+    double walletPct() {
+      if (targetHeight == 0) {
+        return 0;
+      }
+      final num pct = (100 * walletHeight) / targetHeight;
+      if (pct >= 100) {
+        return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
+      }
+      if (walletHeight < targetHeight && pct >= 99) {
+        return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
+      }
+      return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
+    }
 
-        final daemonPct = (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
-        final wPct = walletPct();
+    double barFloor(double pct) {
+      if (pct <= 0) {
+        return 0;
+      }
+      if (pct >= 100) {
+        return 100;
+      }
+      return pct < 1 ? 1 : pct;
+    }
 
-        final walletBlocksLeft = targetHeight == 0 ? 0 : (targetHeight - walletHeight).clamp(0, 1 << 62).toInt();
+    final double daemonPct = (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
+    final double wPct = walletPct();
 
-        bool showBars() {
-          if (targetHeight == 0) {
-            return false;
-          }
-          final walletNeeds = walletHeight < targetHeight;
-          if (dtype == 'remote') {
-            return walletNeeds;
-          }
-          final dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-          return dwo < targetHeight || walletNeeds;
-        }
+    final int walletBlocksLeft = targetHeight == 0 ? 0 : (targetHeight - walletHeight).clamp(0, 1 << 62).toInt();
 
-        String statusText() {
-          if (targetHeight == 0) {
-            return '';
-          }
-          final walletBehind = walletHeight < targetHeight;
-          final dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-          if (dtype == 'local') {
-            if (dwo < targetHeight) {
-              return 'SYNCING';
-            }
-            if (walletBehind) {
-              return 'SCANNING';
-            }
-            return 'READY';
-          }
-          if (walletBehind) {
-            return 'SCANNING';
-          }
-          if (dtype == 'local_remote' && dwo < targetHeight) {
-            return 'SYNCING';
-          }
-          return 'READY';
-        }
+    bool showBars() {
+      if (targetHeight == 0) {
+        return false;
+      }
+      final bool walletNeeds = walletHeight < targetHeight;
+      if (dtype == 'remote') {
+        return walletNeeds;
+      }
+      final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+      return dwo < targetHeight || walletNeeds;
+    }
 
-        Color statusColor(String s) {
-          if (s == 'READY') {
-            return ArqmaColors.arqmaGreenSolid;
-          }
-          if (s == 'SCANNING' || s == 'SYNCING') {
-            return Colors.amber.shade600;
-          }
-          return Colors.white70;
-        }
+    final String st = _statusText(loc, store);
+    final num dh = targetHeight == 0
+        ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
+        : (num.tryParse('${info['height_without_bootstrap']}') ?? 0).clamp(0, targetHeight);
+    final num whDisp = targetHeight == 0 ? walletHeight : walletHeight.clamp(0, targetHeight);
 
-        final st = statusText();
-        final dh = targetHeight == 0
-            ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-            : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-                .clamp(0, targetHeight);
-        final whDisp = targetHeight == 0 ? walletHeight : walletHeight.clamp(0, targetHeight);
+    String selectedLocaleLabel = loc.locale;
+    for (final Map<String, String> o in _localeOptions) {
+      if (o['value'] == loc.locale) {
+        selectedLocaleLabel = o['label']!;
+        break;
+      }
+    }
 
     return Material(
       color: ArqmaColors.black90,
@@ -166,19 +201,37 @@ class _StatusFooterState extends State<StatusFooter> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('${AppStrings.footerStatus}: '),
-                      Text(st, style: TextStyle(color: statusColor(st))),
+                      Text('${loc.tr('components.footer.status')}: '),
+                      Text(st, style: TextStyle(color: _statusColor(st, loc))),
                     ],
                   ),
-                  Text('${AppStrings.footerVersion} $_version'),
-                  Text('${AppStrings.footerLanguage}: English'),
+                  Text('${loc.tr('components.footer.version')} $_version'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('${loc.tr('components.footer.language')}: '),
+                      PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        onSelected: (String v) => context.read<LocaleController>().setLocale(v),
+                        itemBuilder: (BuildContext c) => _localeOptions
+                            .map(
+                              (Map<String, String> o) => PopupMenuItem<String>(
+                                value: o['value'],
+                                child: Text(o['label']!),
+                              ),
+                            )
+                            .toList(),
+                        child: Text(selectedLocaleLabel),
+                      ),
+                    ],
+                  ),
                   if (dtype != 'remote')
-                    Text('${AppStrings.footerDaemon}: $dh / $targetHeight (${daemonPct.toStringAsFixed(1)}%)'),
+                    Text('${loc.tr('components.footer.daemon')}: $dh / $targetHeight (${daemonPct.toStringAsFixed(1)}%)'),
                   if (dtype != 'local')
-                    Text('${AppStrings.footerRemote}: ${info['height']}'),
+                    Text('${loc.tr('components.footer.remote')}: ${info['height']}'),
                   Text(
-                    '${AppStrings.footerWallet}: $whDisp / $targetHeight (${wPct.toStringAsFixed(2)}%)'
-                    '${walletBlocksLeft > 0 ? ' · ${AppStrings.footerBlocksLeft.replaceAll('{n}', walletBlocksLeft.toString())}' : ''}',
+                    '${loc.tr('components.footer.wallet')}: $whDisp / $targetHeight (${wPct.toStringAsFixed(2)}%)'
+                    '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {'n': walletBlocksLeft.toString()})}' : ''}',
                   ),
                 ],
               ),
