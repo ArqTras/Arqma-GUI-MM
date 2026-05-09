@@ -1,6 +1,6 @@
 /**
- * prepare-commit-msg: usuwa z COMMIT_EDITMSG typowe linie dodawane przez Cursor / Anysphere.
- * Nie usuwa zwykłych Co-authored-by od ludzi (inna domena niż cursor.* / anysphere).
+ * prepare-commit-msg: removes typical Cursor / Anysphere lines from COMMIT_EDITMSG.
+ * Keeps normal human Co-authored-by lines (domains other than cursor.* / anysphere).
  */
 import fs from "fs"
 
@@ -22,7 +22,7 @@ const dropLine = (line) => {
 }
 
 const out = lines.filter((l) => !dropLine(l))
-// Usuń nadmiarowe puste linie na końcu po wycięciu trailerów
+// Trim trailing blank lines after removing trailers
 while (out.length && out[out.length - 1] === "") out.pop()
 const next = out.length ? out.join(nl) + nl : ""
 if (next !== raw) fs.writeFileSync(path, next, "utf8")

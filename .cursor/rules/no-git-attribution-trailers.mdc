@@ -1,9 +1,9 @@
 ---
-description: Bez atrybucji Git / Cursor w commitach i opisach PR
+description: No Git/Cursor attribution trailers in commits or PR descriptions
 alwaysApply: true
 ---
 
-# Git: bez dopisków Cursor / co-author
+# Git: no Cursor / co-author trailers
 
-- **Nie dopisuj** do treści commitów ani opisów pull requestów żadnych linii typu `Co-authored-by:`, `Made with Cursor`, `Made-with: Cursor`, stopki marketingowej Cursor / Anysphere ani innych trailerów atrybucji narzędzia.
-- Jeśli użytkownik prosi o sformułowanie wiadomości commita lub opisu PR, podaj **wyłącznie** merytoryczny tekst zgodny z konwencją projektu — **bez** sekcji trailerów na końcu.
+- **Do not append** to commit messages or pull request bodies any lines such as `Co-authored-by:`, `Made with Cursor`, `Made-with: Cursor`, Cursor / Anysphere marketing footers, or other tool-attribution trailers.
+- When the user asks for a commit message or PR description, provide **only** the substantive text that matches project conventions — **no** trailer block at the end.

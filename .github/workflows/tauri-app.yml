@@ -61,7 +61,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: rustup target add x86_64-pc-windows-gnu
 
-      - name: MSYS2 / MinGW64 (Windows — Arqma native libs)
+      - name: MSYS2 / MinGW64 (Windows, Arqma native libs)
         id: msys2
         if: matrix.os == 'windows-latest'
         uses: msys2/setup-msys2@v2
