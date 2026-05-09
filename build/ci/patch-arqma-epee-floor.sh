@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # MinGW g++ 16+ (MSYS2): unqualified floor() in epee fails without <cmath> (abstract_http_client.cpp).
 # Idempotent; safe on all platforms.
+set +o posix 2>/dev/null || true
 set -euo pipefail
 UP="${1:-}"
 if [[ -z "$UP" ]]; then

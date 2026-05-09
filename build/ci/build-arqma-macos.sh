@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Reconfigure + build libwallet_merged.a on macOS (Homebrew deps expected).
+set +o posix 2>/dev/null || true
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"

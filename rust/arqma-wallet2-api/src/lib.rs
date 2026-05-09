@@ -5,6 +5,8 @@ use thiserror::Error;
 // windows-gnu: `+whole-archive` without `+bundle` (PE). RandomX needs full archive for JitCompilerX86.
 // Do not also emit `rustc-link-lib=static=wallet_merged` from build.rs — rustc forbids mixing that
 // with these #[link] modifiers ("overriding linking modifiers from command line").
+// windows-gnu: `randomx` is not listed here — final `cdylib` link pulls `librandomx.a` with
+// `-Wl,--whole-archive` from `rust/tauri-app/src-tauri/build.rs` so `JitCompilerX86` survives ld.
 #[cfg(all(
   feature = "native-wallet2",
   not(all(target_os = "windows", target_env = "gnu"))
@@ -37,8 +39,6 @@ mod force_wallet_static {
   #[link(name = "epee", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
   #[link(name = "easylogging", kind = "static", modifiers = "+whole-archive")]
-  extern "C" {}
-  #[link(name = "randomx", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}
   #[link(name = "lmdb", kind = "static", modifiers = "+whole-archive")]
   extern "C" {}

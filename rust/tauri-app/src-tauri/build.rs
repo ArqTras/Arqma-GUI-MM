@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
@@ -80,9 +82,21 @@ fn mingw_wallet2_native_libs_cdylib_args() {
         // Same crate also builds `[[bin]]`; `rustc-cdylib-link-arg` does not apply to the exe link.
         println!("cargo:rustc-link-arg={}", flag);
     };
+    // Keep static deps that are only referenced from other `.a` members (e.g. OpenSSL from epee).
+    emit("-Wl,--no-as-needed");
+
+    // `#[link(+whole-archive)]` on `randomx` from a dependency does not reliably pull
+    // `jit_compiler_x86.cpp.o` into the final PE link — force the archive once here.
+    if let Some(rx) = mingw_librandomx_a_path() {
+        emit("-Wl,--whole-archive");
+        emit(&mingw_path_for_ld(&rx));
+        emit("-Wl,--no-whole-archive");
+    }
+
     emit("-Wl,--start-group");
     for lib in [
         "boost_atomic-mt",
+        "boost_system-mt",
         "boost_container-mt",
         "boost_filesystem-mt",
         "boost_thread-mt",
@@ -111,6 +125,29 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     emit("-lunwind");
     emit("-lstdc++");
     emit("-Wl,--no-gc-sections");
+}
+
+fn mingw_path_for_ld(p: &Path) -> String {
+    p.display().to_string().replace('\\', "/")
+}
+
+/// `librandomx.a` from the MinGW CMake tree (CI sets `ARQMA_WALLET2_UPSTREAM_DIR`).
+fn mingw_librandomx_a_path() -> Option<PathBuf> {
+    let upstream = std::env::var("ARQMA_WALLET2_UPSTREAM_DIR")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            let md = std::env::var_os("CARGO_MANIFEST_DIR")?;
+            let p = PathBuf::from(md);
+            Some(p.join("../../arqma-rpc-upstream"))
+        })?;
+    let lib = upstream.join("build-mingw/external/randomarq/librandomx.a");
+    if lib.is_file() {
+        Some(lib)
+    } else {
+        None
+    }
 }
 
 fn mingw_tools_bin_from_env() -> Option<String> {
