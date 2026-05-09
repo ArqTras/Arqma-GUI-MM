@@ -84,13 +84,6 @@ function patchStackTrace () {
   if (s.includes("MinGW STATICLIB: Tauri cdylib is linked without GNU ld")) {
     return
   }
-  const oldDecl =
-    "#ifdef STATICLIB\n" +
-    "#define CXA_THROW __wrap___cxa_throw\n" +
-    "extern \"C\"\n" +
-    "__attribute__((noreturn))\n" +
-    "void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));\n" +
-    "#else // !STATICLIB"
   const newDecl =
     "#ifdef STATICLIB\n" +
     "#if defined(__MINGW32__) || defined(__MINGW64__)\n" +
@@ -106,10 +99,10 @@ function patchStackTrace () {
     "void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));\n" +
     "#endif\n" +
     "#else // !STATICLIB"
-  const oldTail =
-    "#endif // !STATICLIB\n" +
-    "  __real___cxa_throw(ex, info, dest);\n" +
-    "}"
+  const declRe =
+    /#ifdef STATICLIB\r?\n#define CXA_THROW __wrap___cxa_throw\r?\nextern "C"\r?\n__attribute__\(\(noreturn\)\)\r?\nvoid __real___cxa_throw\(void \*ex, CXA_THROW_INFO_T \*info, void \(\*dest\)\(void\*\)\);\r?\n#else \/\/ !STATICLIB/
+  const tailRe =
+    /#endif \/\/ !STATICLIB\r?\n[ \t]*__real___cxa_throw\(ex, info, dest\);\r?\n\}/
   const newTail =
     "#endif // !STATICLIB\n" +
     "#if defined(STATICLIB) && (defined(__MINGW32__) || defined(__MINGW64__))\n" +
@@ -118,16 +111,16 @@ function patchStackTrace () {
     "  __real___cxa_throw(ex, info, dest);\n" +
     "#endif\n" +
     "}"
-  if (!s.includes(oldDecl)) {
-    console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (STATICLIB/__real___cxa_throw block not found)")
+  if (!declRe.test(s)) {
+    console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (STATICLIB decl block not found)")
     return
   }
-  if (!s.includes(oldTail)) {
+  if (!tailRe.test(s)) {
     console.warn("[patch-arqma-mingw-gui] skip stack_trace.cpp (tail __real___cxa_throw call not found)")
     return
   }
-  s = s.replace(oldDecl, newDecl)
-  s = s.replace(oldTail, newTail)
+  s = s.replace(declRe, newDecl)
+  s = s.replace(tailRe, newTail)
   fs.writeFileSync(f, s)
   console.log("[patch-arqma-mingw-gui] patched src/common/stack_trace.cpp")
 }
