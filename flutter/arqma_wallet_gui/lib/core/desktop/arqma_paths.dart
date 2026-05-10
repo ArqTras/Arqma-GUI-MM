@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import '../utils/deep_merge.dart';
+
 /// Expands a leading `~` to the user home directory (same convention as shell / legacy GUI paths).
 String expandArqUserPath(String input) {
   final String t = input.trim();
@@ -54,7 +56,13 @@ Map<String, dynamic> normalizeConfigStoragePaths(Map<String, dynamic> config) {
   return out;
 }
 
-/// Same layout as [arqma_wallet_core::default_paths] (`rust/core/src/config.rs`).
+/// Same layout as [arqma_wallet_core::default_paths] (`rust/core/src/config.rs`) and Electron
+/// `Backend` (`src-electron/main-process/modules/backend.js`): GUI metadata under `config_dir/gui`,
+/// daemon/wallet locations follow `app.data_dir` / `app.wallet_data_dir` in `config.json`.
+///
+/// Platform defaults (when creating a new `config.json`):
+/// - Windows — `C:\\ProgramData\\arqma` and `%USERPROFILE%\\Documents\\arqma`
+/// - Unix/macOS — `$HOME/.arqma` and `$HOME/arqma`
 class ArqmaPaths {
   ArqmaPaths({required this.configDir, required this.walletDir});
 
@@ -66,7 +74,8 @@ class ArqmaPaths {
       final String home = Platform.environment['USERPROFILE'] ?? '.';
       return ArqmaPaths(
         configDir: r'C:\ProgramData\arqma',
-        walletDir: '$home${Platform.pathSeparator}Documents${Platform.pathSeparator}arqma',
+        walletDir:
+            '$home${Platform.pathSeparator}Documents${Platform.pathSeparator}arqma',
       );
     }
     final String home = Platform.environment['HOME'] ?? '.';
@@ -102,14 +111,37 @@ String? walletFilesDirForNet(Map<String, dynamic> config, String net) {
 }
 
 String? walletFilesDir(Map<String, dynamic> config) {
-  final String net = (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  final String net =
+      (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   return walletFilesDirForNet(config, net);
+}
+
+/// Full wallet JSON (`config.json` shape): merge gateway `config` + `pending_config` like the UI, then expand `~`.
+/// Used to scan the same directory the user configured before/without a successful daemon startup.
+Map<String, dynamic>? mergedFilesystemConfig(
+    Map<String, dynamic> gatewayAppSection) {
+  final Object? c0 = gatewayAppSection['config'];
+  final Object? p0 = gatewayAppSection['pending_config'];
+  if (c0 is! Map && p0 is! Map) {
+    return null;
+  }
+  Map<String, dynamic> base = <String, dynamic>{};
+  if (c0 is Map) {
+    base = Map<String, dynamic>.from(c0);
+  }
+  if (p0 is Map) {
+    base = deepMergeMaps(base, Map<String, dynamic>.from(p0))
+        as Map<String, dynamic>;
+  }
+  return normalizeConfigStoragePaths(base);
 }
 
 /// RPC endpoint for current net (`daemon_rpc_host_port` in Rust).
 ({String host, int port})? daemonRpcHostPort(Map<String, dynamic> config) {
-  final String net = (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-  final Map<String, dynamic>? d = (config['daemons'] as Map?)?[net] as Map<String, dynamic>?;
+  final String net =
+      (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  final Map<String, dynamic>? d =
+      (config['daemons'] as Map?)?[net] as Map<String, dynamic>?;
   if (d == null) {
     return null;
   }

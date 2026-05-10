@@ -13,18 +13,21 @@ mixin WalletFlowListenerMixin<T extends StatefulWidget> on State<T> {
   void Function()? _walletFlowListener;
   String _walletFlowSuccessRoute = '/wallet-select/created';
 
-  void attachWalletFlowListener({String successRoute = '/wallet-select/created'}) {
+  void attachWalletFlowListener(
+      {String successRoute = '/wallet-select/created'}) {
     final GatewayStore store = context.read<GatewayStore>();
     detachWalletFlowListener();
     _walletFlowSuccessRoute = successRoute;
     _walletFlowStore = store;
-    final Map<String, dynamic> st0 = Map<String, dynamic>.from(store.wallet['status'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> st0 = Map<String, dynamic>.from(
+        store.wallet['status'] as Map? ?? <String, dynamic>{});
     _walletFlowLastToken = Object.hash(st0['code'], st0['message']);
     void listener() {
       if (!mounted || _walletFlowStore == null) {
         return;
       }
-      final Map<String, dynamic> st = Map<String, dynamic>.from(_walletFlowStore!.wallet['status'] as Map? ?? <String, dynamic>{});
+      final Map<String, dynamic> st = Map<String, dynamic>.from(
+          _walletFlowStore!.wallet['status'] as Map? ?? <String, dynamic>{});
       final int code = st['code'] as int? ?? 1;
       final Object token = Object.hash(code, st['message']);
       if (token == _walletFlowLastToken) {
@@ -42,10 +45,12 @@ mixin WalletFlowListenerMixin<T extends StatefulWidget> on State<T> {
           AppLoading.hide();
           final String msg = '${st['message'] ?? ''}';
           if (msg.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(msg)));
           }
       }
     }
+
     _walletFlowListener = listener;
     store.addListener(listener);
   }

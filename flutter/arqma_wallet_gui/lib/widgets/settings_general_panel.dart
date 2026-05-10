@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_api.dart';
+import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 import 'arqma_field.dart';
@@ -24,6 +25,10 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
   String _ethereumNetworkIndex = '0';
   bool _expandedAdvanced = false;
 
+  /// After folder picker; blocks overwriting paths from store until save clears it.
+  bool _storagePathsTouchedByPicker = false;
+  GatewayStore? _gatewayListenTarget;
+
   static Map<String, dynamic> _deepClone(Object? src) {
     if (src == null) {
       return <String, dynamic>{};
@@ -34,7 +39,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
   Map<String, dynamic> _daemon() {
     final Map<String, dynamic> pc = _pending;
     final String net = '${(pc['app'] as Map?)?['net_type'] ?? 'mainnet'}';
-    final Map<String, dynamic> daemons = Map<String, dynamic>.from(pc['daemons'] as Map? ?? {});
+    final Map<String, dynamic> daemons =
+        Map<String, dynamic>.from(pc['daemons'] as Map? ?? {});
     daemons.putIfAbsent(net, () => <String, dynamic>{'type': 'remote'});
     pc['daemons'] = daemons;
     return daemons[net]! as Map<String, dynamic>;
@@ -54,6 +60,27 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _bootstrapOnce();
+    final GatewayStore g = context.read<GatewayStore>();
+    if (_gatewayListenTarget != g) {
+      _gatewayListenTarget?.removeListener(_onGatewayStoreChanged);
+      _gatewayListenTarget = g;
+      g.addListener(_onGatewayStoreChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _gatewayListenTarget?.removeListener(_onGatewayStoreChanged);
+    super.dispose();
+  }
+
+  void _onGatewayStoreChanged() {
+    if (!mounted || _storagePathsTouchedByPicker) {
+      return;
+    }
+    final GatewayStore store = context.read<GatewayStore>();
+    _syncStoragePathsFromGateway(store);
+    setState(() {});
   }
 
   bool _didBoot = false;
@@ -64,10 +91,13 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     }
     _didBoot = true;
     final GatewayStore store = context.read<GatewayStore>();
-    final Map<String, dynamic> p = Map<String, dynamic>.from(store.app['pending_config'] as Map? ?? {});
-    final Map<String, dynamic> c = Map<String, dynamic>.from(store.app['config'] as Map? ?? {});
+    final Map<String, dynamic> p =
+        Map<String, dynamic>.from(store.app['pending_config'] as Map? ?? {});
+    final Map<String, dynamic> c =
+        Map<String, dynamic>.from(store.app['config'] as Map? ?? {});
     _pending = p.isNotEmpty ? _deepClone(p) : _deepClone(c);
-    _remotes = List<dynamic>.from(store.app['remotes'] as List<dynamic>? ?? const <dynamic>[]);
+    _remotes = List<dynamic>.from(
+        store.app['remotes'] as List<dynamic>? ?? const <dynamic>[]);
     _ethereum = _deepClone(store.raw['ethereum']);
     _ethereumNetworkIndex = '${_ethereum['ethereum_network_index'] ?? '0'}';
   }
@@ -82,7 +112,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     final AppApi api = context.read<AppApi>();
     final GatewayStore store = context.read<GatewayStore>();
     try {
-      await api.saveLoggingLevelToEnvironmentFile('${_app()['loggingLevel'] ?? 'info'}');
+      await api.saveLoggingLevelToEnvironmentFile(
+          '${_app()['loggingLevel'] ?? 'info'}');
       final Map<String, dynamic> newEth = _deepClone(_ethereum);
       newEth['ethereum_network_index'] = _ethereumNetworkIndex;
       await api.send('core', 'change_ethereum', newEth);
@@ -91,15 +122,25 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
       mergedPending['ethereum'] = newEth;
       await api.savePendingConfigToStore(mergedPending);
       await api.send('core', method, mergedPending);
-      final Map<String, dynamic> appMap = Map<String, dynamic>.from(mergedPending['app'] as Map? ?? <String, dynamic>{});
-      final int daysOfTx = int.tryParse('${appMap['daysOfTransactions'] ?? 1}') ?? 1;
-      await api.send('core', 'set_daysOfTransactions', <String, dynamic>{'daysOfTransactions': daysOfTx});
+      final Map<String, dynamic> appMap = Map<String, dynamic>.from(
+          mergedPending['app'] as Map? ?? <String, dynamic>{});
+      final int daysOfTx =
+          int.tryParse('${appMap['daysOfTransactions'] ?? 1}') ?? 1;
+      await api.send('core', 'set_daysOfTransactions',
+          <String, dynamic>{'daysOfTransactions': daysOfTx});
+      final int inactivityMin =
+          int.tryParse('${appMap['inactivityTimeout'] ?? 5}') ?? 5;
+      await api.send('core', 'set_inactivityTimeout',
+          <String, dynamic>{'inactivityTimeout': inactivityMin});
       await api.notifierClear();
       store.setAppData(<String, dynamic>{
         'pending_config': mergedPending,
         'config': mergedPending,
         'remotes': List<dynamic>.from(_remotes),
       });
+      if (mounted) {
+        setState(() => _storagePathsTouchedByPicker = false);
+      }
     } catch (e, st) {
       debugPrint('[SettingsGeneralPanel] save error $e\n$st');
       await api.logError('settings_general_panel', 'save', '$e');
@@ -110,15 +151,51 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     final AppApi api = context.read<AppApi>();
     final String? p = await api.pickDirectory('${_app()['data_dir'] ?? ''}');
     if (p != null) {
-      setState(() => _app()['data_dir'] = p);
+      setState(() {
+        _storagePathsTouchedByPicker = true;
+        _app()['data_dir'] = p;
+      });
     }
   }
 
   Future<void> _pickWalletDir() async {
     final AppApi api = context.read<AppApi>();
-    final String? p = await api.pickDirectory('${_app()['wallet_data_dir'] ?? ''}');
+    final String? p =
+        await api.pickDirectory('${_app()['wallet_data_dir'] ?? ''}');
     if (p != null) {
-      setState(() => _app()['wallet_data_dir'] = p);
+      setState(() {
+        _storagePathsTouchedByPicker = true;
+        _app()['wallet_data_dir'] = p;
+      });
+    }
+  }
+
+  /// `app.data_dir` / `app.wallet_data_dir` from gateway store (`config.json` via backend).
+  void _syncStoragePathsFromGateway(GatewayStore store) {
+    if (_storagePathsTouchedByPicker) {
+      return;
+    }
+    final Map<String, dynamic> p =
+        Map<String, dynamic>.from(store.app['pending_config'] as Map? ?? {});
+    final Map<String, dynamic> c =
+        Map<String, dynamic>.from(store.app['config'] as Map? ?? {});
+    final Map<String, dynamic> full = p.isNotEmpty ? p : c;
+    final Map<String, dynamic>? srcApp = full['app'] as Map<String, dynamic>?;
+    if (srcApp == null) {
+      return;
+    }
+    final Object? dd = srcApp['data_dir'];
+    final Object? wd = srcApp['wallet_data_dir'];
+    if ((dd == null || '$dd'.isEmpty) && (wd == null || '$wd'.isEmpty)) {
+      return;
+    }
+    _pending.putIfAbsent('app', () => <String, dynamic>{});
+    final Map<String, dynamic> app = _pending['app'] as Map<String, dynamic>;
+    if (dd != null && '$dd'.isNotEmpty) {
+      app['data_dir'] = dd;
+    }
+    if (wd != null && '$wd'.isNotEmpty) {
+      app['wallet_data_dir'] = wd;
     }
   }
 
@@ -156,13 +233,16 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     setState(() => _remotes.add(<String, dynamic>{'host': host, 'port': port}));
   }
 
-  Widget _lineField(Map<String, dynamic> target, String key, {bool disabled = false, TextInputType? keyboard}) {
+  Widget _lineField(Map<String, dynamic> target, String key,
+      {bool disabled = false, TextInputType? keyboard, Key? fieldKey}) {
     return TextFormField(
+      key: fieldKey,
       initialValue: '${target[key] ?? ''}',
       enabled: !disabled,
       keyboardType: keyboard,
-      style: const TextStyle(color: Colors.white),
-      decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+      style: const TextStyle(color: ArqmaColors.textPrimary),
+      decoration:
+          const InputDecoration(border: InputBorder.none, isDense: true),
       onChanged: (String v) {
         if (keyboard == TextInputType.number) {
           final int? n = int.tryParse(v);
@@ -183,7 +263,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     String inactivityLabel() {
       final int v = int.tryParse('${_app()['inactivityTimeout'] ?? 5}') ?? 5;
       if (v == 31) {
-        return loc.tr('components.general_settings.inactivity_timeout_infinity');
+        return loc
+            .tr('components.general_settings.inactivity_timeout_infinity');
       }
       return '$v${loc.tr('components.general_settings.minutes')}';
     }
@@ -198,7 +279,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               children: [
                 Expanded(
                   child: ArqmaField(
-                    label: loc.tr('components.general_settings.local_daemon_ip'),
+                    label:
+                        loc.tr('components.general_settings.local_daemon_ip'),
                     disable: true,
                     child: _lineField(d, 'rpc_bind_ip', disabled: true),
                   ),
@@ -206,8 +288,10 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ArqmaField(
-                    label: loc.tr('components.general_settings.local_daemon_port'),
-                    child: _lineField(d, 'rpc_bind_port', keyboard: TextInputType.number),
+                    label:
+                        loc.tr('components.general_settings.local_daemon_port'),
+                    child: _lineField(d, 'rpc_bind_port',
+                        keyboard: TextInputType.number),
                   ),
                 ),
               ],
@@ -219,7 +303,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               children: [
                 Expanded(
                   child: ArqmaField(
-                    label: loc.tr('components.general_settings.remote_node_host'),
+                    label:
+                        loc.tr('components.general_settings.remote_node_host'),
                     disableMenu: false,
                     child: _lineField(d, 'remote_host'),
                   ),
@@ -227,20 +312,24 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ArqmaField(
-                    label: loc.tr('components.general_settings.remote_node_port'),
+                    label:
+                        loc.tr('components.general_settings.remote_node_port'),
                     disableMenu: false,
-                    child: _lineField(d, 'remote_port', keyboard: TextInputType.number),
+                    child: _lineField(d, 'remote_port',
+                        keyboard: TextInputType.number),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                  icon: const Icon(Icons.arrow_drop_down,
+                      color: ArqmaColors.textSecondary),
                   onPressed: () async {
                     await showModalBottomSheet<void>(
                       context: context,
                       backgroundColor: const Color(0xFF1d1d1d),
                       builder: (BuildContext c) => ListView(
                         children: _remotes.map((dynamic r) {
-                          final Map<String, dynamic> m = Map<String, dynamic>.from(r as Map);
+                          final Map<String, dynamic> m =
+                              Map<String, dynamic>.from(r as Map);
                           return ListTile(
                             title: Text('${m['host']}:${m['port']}'),
                             onTap: () {
@@ -256,11 +345,18 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 ),
               ],
             ),
-            Text(loc.tr('components.general_settings.warning'), style: const TextStyle(color: Colors.white54)),
+            Text(loc.tr('components.general_settings.warning'),
+                style: const TextStyle(color: ArqmaColors.textMuted)),
             Row(
               children: [
-                TextButton(onPressed: _removeRemote, child: Text(loc.tr('components.general_settings.remove_node'))),
-                TextButton(onPressed: _addRemote, child: Text(loc.tr('components.general_settings.add_node'))),
+                TextButton(
+                    onPressed: _removeRemote,
+                    child: Text(
+                        loc.tr('components.general_settings.remove_node'))),
+                TextButton(
+                    onPressed: _addRemote,
+                    child:
+                        Text(loc.tr('components.general_settings.add_node'))),
               ],
             ),
           ],
@@ -276,7 +372,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
             label: loc.tr('components.general_settings.prompt_for_password'),
             child: Switch(
               value: (_app()['promptForPassword'] as bool?) ?? true,
-              onChanged: (bool v) => setState(() => _app()['promptForPassword'] = v),
+              onChanged: (bool v) =>
+                  setState(() => _app()['promptForPassword'] = v),
             ),
           ),
           ArqmaField(
@@ -286,27 +383,34 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 Radio<String>(
                   value: 'error',
                   groupValue: '${_app()['loggingLevel'] ?? 'info'}',
-                  onChanged: (String? v) => setState(() => _app()['loggingLevel'] = v),
+                  onChanged: (String? v) =>
+                      setState(() => _app()['loggingLevel'] = v),
                 ),
                 const Text('error'),
                 Radio<String>(
                   value: 'info',
                   groupValue: '${_app()['loggingLevel'] ?? 'info'}',
-                  onChanged: (String? v) => setState(() => _app()['loggingLevel'] = v),
+                  onChanged: (String? v) =>
+                      setState(() => _app()['loggingLevel'] = v),
                 ),
                 const Text('Info'),
               ],
             ),
           ),
           ArqmaField(
-            label: loc.tr('components.general_settings.transactions_to_display'),
+            label:
+                loc.tr('components.general_settings.transactions_to_display'),
             child: Slider(
-              value: (int.tryParse('${_app()['daysOfTransactions'] ?? 1}') ?? 1).toDouble().clamp(1, 30),
+              value: (int.tryParse('${_app()['daysOfTransactions'] ?? 1}') ?? 1)
+                  .toDouble()
+                  .clamp(1, 30),
               min: 1,
               max: 30,
               divisions: 29,
-              label: '${_app()['daysOfTransactions']}${loc.tr('components.general_settings.days')}',
-              onChanged: (double v) => setState(() => _app()['daysOfTransactions'] = v.round()),
+              label:
+                  '${_app()['daysOfTransactions']}${loc.tr('components.general_settings.days')}',
+              onChanged: (double v) =>
+                  setState(() => _app()['daysOfTransactions'] = v.round()),
             ),
           ),
           ArqmaField(
@@ -316,65 +420,100 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               children: [
                 Text(
                   '${loc.tr('components.general_settings.inactivity_timeout')} — ${loc.tr('components.general_settings.inactivity_timeout_infinity_note')}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: const TextStyle(
+                      color: ArqmaColors.textMuted, fontSize: 11),
                 ),
                 Slider(
-                  value: (int.tryParse('${_app()['inactivityTimeout'] ?? 5}') ?? 5).toDouble().clamp(1, 31),
+                  value:
+                      (int.tryParse('${_app()['inactivityTimeout'] ?? 5}') ?? 5)
+                          .toDouble()
+                          .clamp(1, 31),
                   min: 1,
                   max: 31,
                   divisions: 30,
                   label: inactivityLabel(),
-                  onChanged: (double v) => setState(() => _app()['inactivityTimeout'] = v.round()),
+                  onChanged: (double v) =>
+                      setState(() => _app()['inactivityTimeout'] = v.round()),
                 ),
               ],
             ),
           ),
           ExpansionTile(
             initiallyExpanded: _expandedAdvanced,
-            onExpansionChanged: (bool e) => setState(() => _expandedAdvanced = e),
+            onExpansionChanged: (bool e) =>
+                setState(() => _expandedAdvanced = e),
             title: Text(loc.tr('components.general_settings.advanced_options')),
             children: [
               RadioListTile<String>(
-                title: Text(loc.tr('components.general_settings.remote_daemon_only')),
+                title: Text(
+                    loc.tr('components.general_settings.remote_daemon_only')),
                 value: 'remote',
                 groupValue: t,
                 onChanged: (String? v) => setState(() => d['type'] = v),
               ),
               RadioListTile<String>(
-                title: Text(loc.tr('components.general_settings.local_and_remote_daemon')),
+                title: Text(loc
+                    .tr('components.general_settings.local_and_remote_daemon')),
                 value: 'local_remote',
                 groupValue: t,
                 onChanged: (String? v) => setState(() => d['type'] = v),
               ),
               RadioListTile<String>(
-                title: Text(loc.tr('components.general_settings.local_daemon_only')),
+                title: Text(
+                    loc.tr('components.general_settings.local_daemon_only')),
                 value: 'local',
                 groupValue: t,
                 onChanged: (String? v) => setState(() => d['type'] = v),
               ),
               if (t == 'local_remote')
-                Text(loc.tr('components.general_settings.local_remote_message'), style: const TextStyle(color: Colors.white70)),
+                Text(loc.tr('components.general_settings.local_remote_message'),
+                    style: const TextStyle(color: ArqmaColors.textSecondary)),
               if (t == 'local')
-                Text(loc.tr('components.general_settings.local_message'), style: const TextStyle(color: Colors.white70)),
+                Text(loc.tr('components.general_settings.local_message'),
+                    style: const TextStyle(color: ArqmaColors.textSecondary)),
               if (t == 'remote')
-                Text(loc.tr('components.general_settings.remote_message'), style: const TextStyle(color: Colors.white70)),
+                Text(loc.tr('components.general_settings.remote_message'),
+                    style: const TextStyle(color: ArqmaColors.textSecondary)),
               ArqmaField(
                 label: loc.tr('components.general_settings.data_storage_path'),
                 disableHover: true,
                 child: Row(
                   children: [
-                    Expanded(child: _lineField(_app(), 'data_dir', disabled: true)),
-                    TextButton(onPressed: _pickDataDir, child: Text(loc.tr('components.general_settings.select_location'))),
+                    Expanded(
+                      child: _lineField(
+                        _app(),
+                        'data_dir',
+                        disabled: true,
+                        fieldKey:
+                            ValueKey<String>('data_dir:${_app()['data_dir']}'),
+                      ),
+                    ),
+                    TextButton(
+                        onPressed: _pickDataDir,
+                        child: Text(loc.tr(
+                            'components.general_settings.select_location'))),
                   ],
                 ),
               ),
               ArqmaField(
-                label: loc.tr('components.general_settings.wallet_storage_path'),
+                label:
+                    loc.tr('components.general_settings.wallet_storage_path'),
                 disableHover: true,
                 child: Row(
                   children: [
-                    Expanded(child: _lineField(_app(), 'wallet_data_dir', disabled: true)),
-                    TextButton(onPressed: _pickWalletDir, child: Text(loc.tr('components.general_settings.select_location'))),
+                    Expanded(
+                      child: _lineField(
+                        _app(),
+                        'wallet_data_dir',
+                        disabled: true,
+                        fieldKey: ValueKey<String>(
+                            'wallet_data_dir:${_app()['wallet_data_dir']}'),
+                      ),
+                    ),
+                    TextButton(
+                        onPressed: _pickWalletDir,
+                        child: Text(loc.tr(
+                            'components.general_settings.select_location'))),
                   ],
                 ),
               ),
@@ -382,40 +521,92 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 children: [
                   Expanded(
                     child: ArqmaField(
-                      label: loc.tr('components.general_settings.daemon_log_level'),
-                      child: _lineField(d, 'log_level', disabled: t == 'remote', keyboard: TextInputType.number),
+                      label: loc
+                          .tr('components.general_settings.daemon_log_level'),
+                      child: _lineField(d, 'log_level',
+                          disabled: t == 'remote',
+                          keyboard: TextInputType.number),
                     ),
                   ),
                   Expanded(
                     child: ArqmaField(
-                      label: loc.tr('components.general_settings.wallet_log_level'),
-                      child: _lineField(_walletCfg(), 'log_level', keyboard: TextInputType.number),
+                      label: loc
+                          .tr('components.general_settings.wallet_log_level'),
+                      child: _lineField(_walletCfg(), 'log_level',
+                          keyboard: TextInputType.number),
                     ),
                   ),
                 ],
               ),
               Row(
                 children: [
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.max_incoming_peers'), child: _lineField(d, 'in_peers', disabled: t == 'remote', keyboard: TextInputType.number))),
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.max_outgoing_peers'), child: _lineField(d, 'out_peers', disabled: t == 'remote', keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.max_incoming_peers'),
+                          child: _lineField(d, 'in_peers',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.max_outgoing_peers'),
+                          child: _lineField(d, 'out_peers',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
                 ],
               ),
               Row(
                 children: [
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.limit_upload_rate'), child: _lineField(d, 'limit_rate_up', disabled: t == 'remote', keyboard: TextInputType.number))),
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.limit_download_rate'), child: _lineField(d, 'limit_rate_down', disabled: t == 'remote', keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.limit_upload_rate'),
+                          child: _lineField(d, 'limit_rate_up',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.limit_download_rate'),
+                          child: _lineField(d, 'limit_rate_down',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
                 ],
               ),
               Row(
                 children: [
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.daemon_p2p_port'), child: _lineField(d, 'p2p_bind_port', disabled: t == 'remote', keyboard: TextInputType.number))),
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.daemon_zmq_port'), child: _lineField(d, 'zmq_rpc_bind_port', disabled: t == 'remote', keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.daemon_p2p_port'),
+                          child: _lineField(d, 'p2p_bind_port',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.daemon_zmq_port'),
+                          child: _lineField(d, 'zmq_rpc_bind_port',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
                 ],
               ),
               Row(
                 children: [
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.internal_wallet_port'), child: _lineField(_app(), 'ws_bind_port', keyboard: TextInputType.number))),
-                  Expanded(child: ArqmaField(label: loc.tr('components.general_settings.wallet_rpc_port'), child: _lineField(_walletCfg(), 'rpc_bind_port', disabled: t == 'remote', keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.internal_wallet_port'),
+                          child: _lineField(_app(), 'ws_bind_port',
+                              keyboard: TextInputType.number))),
+                  Expanded(
+                      child: ArqmaField(
+                          label: loc.tr(
+                              'components.general_settings.wallet_rpc_port'),
+                          child: _lineField(_walletCfg(), 'rpc_bind_port',
+                              disabled: t == 'remote',
+                              keyboard: TextInputType.number))),
                 ],
               ),
               ArqmaField(
@@ -423,24 +614,31 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(loc.tr('components.general_settings.choose_a_network_helper'), style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                    Text(
+                        loc.tr(
+                            'components.general_settings.choose_a_network_helper'),
+                        style: const TextStyle(
+                            color: ArqmaColors.textMuted, fontSize: 11)),
                     RadioListTile<String>(
                       title: const Text('Main Net'),
                       value: 'mainnet',
                       groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) => setState(() => _app()['net_type'] = v),
+                      onChanged: (String? v) =>
+                          setState(() => _app()['net_type'] = v),
                     ),
                     RadioListTile<String>(
                       title: const Text('Stage Net'),
                       value: 'stagenet',
                       groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) => setState(() => _app()['net_type'] = v),
+                      onChanged: (String? v) =>
+                          setState(() => _app()['net_type'] = v),
                     ),
                     RadioListTile<String>(
                       title: const Text('Test Net'),
                       value: 'testnet',
                       groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) => setState(() => _app()['net_type'] = v),
+                      onChanged: (String? v) =>
+                          setState(() => _app()['net_type'] = v),
                     ),
                   ],
                 ),

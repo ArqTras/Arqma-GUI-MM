@@ -10,7 +10,8 @@ import '../utils/deep_merge.dart';
 /// Outbound interface IP (same idea as `solo_pool::preferred_bind_ip` using UDP in Rust).
 Future<String> preferredBindIp() async {
   try {
-    final Socket s = await Socket.connect('8.8.8.8', 80, timeout: const Duration(seconds: 2));
+    final Socket s = await Socket.connect('8.8.8.8', 80,
+        timeout: const Duration(seconds: 2));
     final String a = s.address.address;
     await s.close();
     return a;
@@ -72,7 +73,8 @@ bool _mainnetDaemonIsLocal(Map<String, dynamic> config) {
 }
 
 /// Parity with `startup_run::apply_scan_and_remote` (updates `daemons.mainnet` when `app.scan`).
-Future<void> applyScanAndFastestRemote(Map<String, dynamic> configData, dynamic remotes) async {
+Future<void> applyScanAndFastestRemote(
+    Map<String, dynamic> configData, dynamic remotes) async {
   if (_mainnetDaemonIsLocal(configData)) {
     return;
   }
@@ -114,7 +116,8 @@ Future<void> applyScanAndFastestRemote(Map<String, dynamic> configData, dynamic 
 }
 
 /// Same timing idea as `remote_scan::pick_fastest_remote` (fastest successful `get_info`).
-Future<({String host, int port})?> pickFastestRemote(List<Map<String, dynamic>> remotes) async {
+Future<({String host, int port})?> pickFastestRemote(
+    List<Map<String, dynamic>> remotes) async {
   if (remotes.isEmpty) {
     return null;
   }
@@ -127,10 +130,10 @@ Future<({String host, int port})?> pickFastestRemote(List<Map<String, dynamic>> 
     }
     final Stopwatch sw = Stopwatch()..start();
     try {
-      final Map<String, dynamic>? r =
-          await DaemonJsonRpc.getInfo(h, p).timeout(const Duration(milliseconds: 2500));
+      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(h, p)
+          .timeout(const Duration(milliseconds: 2500));
       sw.stop();
-      if (DaemonJsonRpc.result(r) == null) {
+      if (DaemonJsonRpc.getInfoPayload(r) == null) {
         continue;
       }
       final int ms = sw.elapsedMilliseconds;
@@ -150,8 +153,10 @@ Future<({String host, int port})?> pickFastestRemote(List<Map<String, dynamic>> 
 enum DaemonReachableResult { ok, netMismatch, inaccessible }
 
 /// Parity with `daemon_check::check_daemon_reachable`.
-Future<DaemonReachableResult> checkDaemonReachable(Map<String, dynamic> config) async {
-  final String net = (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+Future<DaemonReachableResult> checkDaemonReachable(
+    Map<String, dynamic> config) async {
+  final String net =
+      (config['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   final Map<String, dynamic>? d = _daemonEntryForNet(config, net);
   if (d == null) {
     return DaemonReachableResult.inaccessible;
@@ -164,8 +169,13 @@ Future<DaemonReachableResult> checkDaemonReachable(Map<String, dynamic> config) 
   if (ep == null) {
     return DaemonReachableResult.inaccessible;
   }
-  final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(ep.host, ep.port);
-  final Map<String, dynamic>? info = DaemonJsonRpc.result(r);
+  final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(
+    ep.host,
+    ep.port,
+    connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+    requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+  );
+  final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
   if (info == null) {
     return DaemonReachableResult.inaccessible;
   }
@@ -218,8 +228,10 @@ Future<String> arqmadVersionProbeStr() async {
 }
 
 /// `daemon_process::set_current_net_to_remote` + persist.
-Future<void> setCurrentNetDaemonTypeRemoteAndPersist(ArqmaPaths paths, Map<String, dynamic> configData) async {
-  final String net = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+Future<void> setCurrentNetDaemonTypeRemoteAndPersist(
+    ArqmaPaths paths, Map<String, dynamic> configData) async {
+  final String net =
+      (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   final Object? daemons = configData['daemons'];
   if (daemons is! Map) {
     return;
@@ -234,7 +246,8 @@ Future<void> setCurrentNetDaemonTypeRemoteAndPersist(ArqmaPaths paths, Map<Strin
   await writeGuiConfigFile(paths, configData);
 }
 
-Map<String, dynamic>? _daemonEntryForNet(Map<String, dynamic> config, String net) {
+Map<String, dynamic>? _daemonEntryForNet(
+    Map<String, dynamic> config, String net) {
   final Object? dm = (config['daemons'] as Map? ?? <dynamic, dynamic>{})[net];
   if (dm is! Map) {
     return null;
@@ -242,14 +255,16 @@ Map<String, dynamic>? _daemonEntryForNet(Map<String, dynamic> config, String net
   return Map<String, dynamic>.from(dm as Map);
 }
 
-Future<void> writeGuiConfigFile(ArqmaPaths paths, Map<String, dynamic> configData) async {
+Future<void> writeGuiConfigFile(
+    ArqmaPaths paths, Map<String, dynamic> configData) async {
   final File f = File(paths.configPath);
   await f.parent.create(recursive: true);
   await f.writeAsString(const JsonEncoder.withIndent('  ').convert(configData));
 }
 
 /// When remote bootstrap is unreachable, switch `local_remote` → `local` (Tauri `startup_run`).
-Future<void> flipLocalRemoteToLocalAndPersist(ArqmaPaths paths, Map<String, dynamic> configData, String net) async {
+Future<void> flipLocalRemoteToLocalAndPersist(
+    ArqmaPaths paths, Map<String, dynamic> configData, String net) async {
   final Object? daemons = configData['daemons'];
   if (daemons is! Map) {
     return;

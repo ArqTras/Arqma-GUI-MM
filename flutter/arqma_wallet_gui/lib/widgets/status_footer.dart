@@ -17,6 +17,21 @@ class StatusFooter extends StatefulWidget {
 class _StatusFooterState extends State<StatusFooter> {
   String _version = '';
 
+  static String _walletBackendSuffix(String? wb) {
+    switch (wb) {
+      case 'ffi':
+        return '+wallet-ffi';
+      case 'subprocess':
+        return '+wallet-rpc';
+      case 'none':
+        return '+wallet-off';
+      case 'off':
+        return '+wallet-disabled';
+      default:
+        return '';
+    }
+  }
+
   static const List<Map<String, String>> _localeOptions = <Map<String, String>>[
     <String, String>{'value': 'en-US', 'label': 'English'},
     <String, String>{'value': 'de-DE', 'label': 'Deutsch'},
@@ -36,7 +51,8 @@ class _StatusFooterState extends State<StatusFooter> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final Object? v = await context.read<NativeBridge>().invoke('app_version_str');
+      final Object? v =
+          await context.read<NativeBridge>().invoke('app_version_str');
       if (mounted) {
         setState(() => _version = v?.toString() ?? '');
       }
@@ -50,32 +66,44 @@ class _StatusFooterState extends State<StatusFooter> {
   }
 
   String _statusText(LocaleController loc, GatewayStore store) {
-    final Map<String, dynamic> cfg = store.app['config'] as Map<String, dynamic>? ?? {};
-    final String? net = (cfg['app'] as Map?)?['net_type'] as String?;
-    final Map<String, dynamic> daemons = cfg['daemons'] as Map<String, dynamic>? ?? {};
-    final Map<String, dynamic> configDaemon = daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
+    final Map<String, dynamic> cfg =
+        store.app['config'] as Map<String, dynamic>? ?? {};
+    // `daemons[null]` yields no RPC entry when `net_type` is missing — match Rust default `mainnet`.
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final Map<String, dynamic> daemons =
+        cfg['daemons'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> configDaemon =
+        daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
     final String dtype = configDaemon['type'] as String? ?? 'local';
-    final Map<String, dynamic> info = store.daemon['info'] as Map<String, dynamic>? ?? {};
-    final int targetHeight = _daemonChainTip(info);
+    final Map<String, dynamic> info =
+        store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final int daemonTip = _daemonChainTip(info);
     final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
-    if (targetHeight == 0) {
+    final int displayTip = daemonTip > 0
+        ? daemonTip
+        : (walletHeight > 0 ? walletHeight.toInt() : 0);
+    if (displayTip == 0) {
       return '';
     }
-    final bool walletBehind = walletHeight < targetHeight;
+    final bool walletBehind = walletHeight < displayTip;
     final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
     if (dtype == 'local') {
-      if (dwo < targetHeight) {
+      if (daemonTip > 0 && dwo < daemonTip) {
         return loc.tr('components.footer.syncing');
       }
       if (walletBehind) {
         return loc.tr('components.footer.scanning');
+      }
+      if (daemonTip == 0 && walletHeight > 0) {
+        return loc.tr('components.footer.syncing');
       }
       return loc.tr('components.footer.ready');
     }
     if (walletBehind) {
       return loc.tr('components.footer.scanning');
     }
-    if (dtype == 'local_remote' && dwo < targetHeight) {
+    if (dtype == 'local_remote' && daemonTip > 0 && dwo < daemonTip) {
       return loc.tr('components.footer.syncing');
     }
     return loc.tr('components.footer.ready');
@@ -91,7 +119,7 @@ class _StatusFooterState extends State<StatusFooter> {
     if (s == scan || s == sync) {
       return Colors.amber.shade600;
     }
-    return Colors.white70;
+    return ArqmaColors.textSecondary;
   }
 
   @override
@@ -99,26 +127,36 @@ class _StatusFooterState extends State<StatusFooter> {
     final GatewayStore store = context.watch<GatewayStore>();
     final LocaleController loc = context.watch<LocaleController>();
 
-    final Map<String, dynamic> cfg = store.app['config'] as Map<String, dynamic>? ?? {};
-    final String? net = (cfg['app'] as Map?)?['net_type'] as String?;
-    final Map<String, dynamic> daemons = cfg['daemons'] as Map<String, dynamic>? ?? {};
-    final Map<String, dynamic> configDaemon = daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
+    final Map<String, dynamic> app = store.app;
+    final String wb = '${app['wallet_backend'] ?? 'pending'}';
+    final Map<String, dynamic> cfg =
+        app['config'] as Map<String, dynamic>? ?? {};
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final Map<String, dynamic> daemons =
+        cfg['daemons'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> configDaemon =
+        daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
     final String dtype = configDaemon['type'] as String? ?? 'local';
 
-    final Map<String, dynamic> info = store.daemon['info'] as Map<String, dynamic>? ?? {};
-    final int targetHeight = _daemonChainTip(info);
+    final Map<String, dynamic> info =
+        store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final int daemonTip = _daemonChainTip(info);
     final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
+    final int displayTip = daemonTip > 0
+        ? daemonTip
+        : (walletHeight > 0 ? walletHeight.toInt() : 0);
 
     double daemonLocalPct() {
       if (dtype == 'remote') {
         return 0;
       }
-      if (targetHeight == 0) {
+      if (daemonTip == 0) {
         return 0;
       }
       final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-      var pct = (100 * dwo) / targetHeight;
-      if (dwo < targetHeight && (pct * 10).round() / 10 >= 100) {
+      var pct = (100 * dwo) / daemonTip;
+      if (dwo < daemonTip && (pct * 10).round() / 10 >= 100) {
         pct = 99.9;
       }
       final int decimals = pct >= 100 ? 1 : 2;
@@ -126,14 +164,14 @@ class _StatusFooterState extends State<StatusFooter> {
     }
 
     double walletPct() {
-      if (targetHeight == 0) {
+      if (displayTip == 0) {
         return 0;
       }
-      final num pct = (100 * walletHeight) / targetHeight;
+      final num pct = (100 * walletHeight) / displayTip;
       if (pct >= 100) {
         return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
       }
-      if (walletHeight < targetHeight && pct >= 99) {
+      if (walletHeight < displayTip && pct >= 99) {
         return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
       }
       return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
@@ -149,28 +187,33 @@ class _StatusFooterState extends State<StatusFooter> {
       return pct < 1 ? 1 : pct;
     }
 
-    final double daemonPct = (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
+    final double daemonPct =
+        (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
     final double wPct = walletPct();
 
-    final int walletBlocksLeft = targetHeight == 0 ? 0 : (targetHeight - walletHeight).clamp(0, 1 << 62).toInt();
+    final int walletBlocksLeft = displayTip == 0
+        ? 0
+        : (displayTip - walletHeight).clamp(0, 1 << 62).toInt();
 
     bool showBars() {
-      if (targetHeight == 0) {
+      if (displayTip == 0) {
         return false;
       }
-      final bool walletNeeds = walletHeight < targetHeight;
+      final bool walletNeeds = walletHeight < displayTip;
       if (dtype == 'remote') {
         return walletNeeds;
       }
       final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-      return dwo < targetHeight || walletNeeds;
+      return (daemonTip > 0 && dwo < daemonTip) || walletNeeds;
     }
 
     final String st = _statusText(loc, store);
-    final num dh = targetHeight == 0
+    final num dh = daemonTip == 0
         ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-        : (num.tryParse('${info['height_without_bootstrap']}') ?? 0).clamp(0, targetHeight);
-    final num whDisp = targetHeight == 0 ? walletHeight : walletHeight.clamp(0, targetHeight);
+        : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
+            .clamp(0, daemonTip);
+    final num whDisp =
+        displayTip == 0 ? walletHeight : walletHeight.clamp(0, displayTip);
 
     String selectedLocaleLabel = loc.locale;
     for (final Map<String, String> o in _localeOptions) {
@@ -191,7 +234,7 @@ class _StatusFooterState extends State<StatusFooter> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: ArqmaColors.textPrimary,
               ),
               child: Wrap(
                 spacing: 8,
@@ -205,14 +248,17 @@ class _StatusFooterState extends State<StatusFooter> {
                       Text(st, style: TextStyle(color: _statusColor(st, loc))),
                     ],
                   ),
-                  Text('${loc.tr('components.footer.version')} $_version'),
+                  Text(
+                    '${loc.tr('components.footer.version')} $_version${_walletBackendSuffix(wb == 'pending' ? null : wb)}',
+                  ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text('${loc.tr('components.footer.language')}: '),
                       PopupMenuButton<String>(
                         padding: EdgeInsets.zero,
-                        onSelected: (String v) => context.read<LocaleController>().setLocale(v),
+                        onSelected: (String v) =>
+                            context.read<LocaleController>().setLocale(v),
                         itemBuilder: (BuildContext c) => _localeOptions
                             .map(
                               (Map<String, String> o) => PopupMenuItem<String>(
@@ -226,12 +272,19 @@ class _StatusFooterState extends State<StatusFooter> {
                     ],
                   ),
                   if (dtype != 'remote')
-                    Text('${loc.tr('components.footer.daemon')}: $dh / $targetHeight (${daemonPct.toStringAsFixed(1)}%)'),
+                    Text(
+                      daemonTip > 0
+                          ? '${loc.tr('components.footer.daemon')}: $dh / $daemonTip (${daemonPct.toStringAsFixed(1)}%)'
+                          : '${loc.tr('components.footer.daemon')}: $dh / —',
+                    ),
                   if (dtype != 'local')
-                    Text('${loc.tr('components.footer.remote')}: ${info['height']}'),
+                    Text(
+                        '${loc.tr('components.footer.remote')}: ${info['height']}'),
                   Text(
-                    '${loc.tr('components.footer.wallet')}: $whDisp / $targetHeight (${wPct.toStringAsFixed(2)}%)'
-                    '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {'n': walletBlocksLeft.toString()})}' : ''}',
+                    '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
+                    '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
+                            'n': walletBlocksLeft.toString()
+                          })}' : ''}',
                   ),
                 ],
               ),
@@ -278,8 +331,17 @@ class _BarTrack extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(2),
-              gradient: const LinearGradient(colors: [Color(0xFFa89050), Color(0xFFc9a85a), Color(0xFFd4c48a)]),
-              boxShadow: [BoxShadow(color: Color(0xFFb49646), blurRadius: 8, spreadRadius: 0)],
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFa89050),
+                  Color(0xFFc9a85a),
+                  Color(0xFFd4c48a)
+                ],
+              ),
+              boxShadow: const [
+                BoxShadow(
+                    color: Color(0xFFb49646), blurRadius: 8, spreadRadius: 0)
+              ],
             ),
           ),
         ),

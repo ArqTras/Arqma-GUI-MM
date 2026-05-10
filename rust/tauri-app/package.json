@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "kill:dev": "node scripts/kill-tauri-dev-processes.mjs",
+    "build:flutter-solo-pool": "npm run kill:dev && cargo build --manifest-path src-tauri/Cargo.toml --bin arqma_flutter_solo_pool",
+    "build:flutter-solo-pool:release": "npm run kill:dev && cargo build --manifest-path src-tauri/Cargo.toml --release --bin arqma_flutter_solo_pool",
     "ensure-dist": "node scripts/ensure-frontend-dist.mjs",
     "tauri:dev": "npm run kill:dev && npm run ensure-dist && node scripts/with-rust-target.mjs tauri dev",
     "tauri:dev:native": "npm run tauri:dev",

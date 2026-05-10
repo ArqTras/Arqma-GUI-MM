@@ -1,5 +1,5 @@
 use crate::backend_state::WalletBackendState;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::json_rpc_client::WalletRpcClient;
 use std::sync::Arc;
 use arqma_wallet_rpc::{NetworkKind, Wallet2ApiClient, Wallet2ApiConfig};
@@ -293,7 +293,7 @@ fn spawn_wallet_scan_log_reader<R: std::io::Read + Send + 'static> (reader: R, a
       let app_emit = app.clone();
       // `emit` touches WebKit on macOS — must not run from the stdio reader std::thread.
       let _ = app_mt.run_on_main_thread(move || {
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           &app_emit,
           "set_wallet_info",
           json!({

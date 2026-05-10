@@ -12,7 +12,8 @@ class WalletPageStub extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w300)),
+        Text(title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w300)),
         const SizedBox(height: 12),
         const Text(AppStrings.walletPagePlaceholder),
       ],

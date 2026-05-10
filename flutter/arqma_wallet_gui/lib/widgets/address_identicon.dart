@@ -21,7 +21,8 @@ class AddressIdenticon extends StatelessWidget {
       return SizedBox(
         width: size,
         height: size,
-        child: Icon(Icons.account_balance_wallet, size: size * 0.85, color: const Color(0xFF434343)),
+        child: Icon(Icons.account_balance_wallet,
+            size: size * 0.85, color: const Color(0xFF434343)),
       );
     }
     return RepaintBoundary(

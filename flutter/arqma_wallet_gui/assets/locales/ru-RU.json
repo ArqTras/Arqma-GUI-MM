@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "ОТМЕНА",
                 "copy_address_message": "Адрес скопирован в буфер обмена",
                 "copy_address": "Копировать адрес",
-                "open_account": "Открыть аккаунт"
+                "open_account": "Открыть аккаунт",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "Полный кошелек",

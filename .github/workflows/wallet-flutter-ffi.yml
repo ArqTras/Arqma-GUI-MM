@@ -1,0 +1,187 @@
+# Verifies that `arqma-wallet-flutter-ffi` links after a native Arqma `wallet_merged` build.
+# Same dependency chain as `.github/workflows/tauri-app.yml` for wallet2 (no Tauri/Vite/npm).
+name: Wallet Flutter FFI
+
+on:
+  push:
+    branches: [main, dev, flutter, norpc]
+    paths:
+      - "rust/arqma-wallet-flutter-ffi/**"
+      - "rust/arqma-wallet-rpc/**"
+      - "rust/arqma-wallet2-api/**"
+      - "rust/Cargo.toml"
+      - "build/ci/**"
+      - ".github/workflows/wallet-flutter-ffi.yml"
+  pull_request:
+    branches: [main, dev, flutter, norpc]
+    paths:
+      - "rust/arqma-wallet-flutter-ffi/**"
+      - "rust/arqma-wallet-rpc/**"
+      - "rust/arqma-wallet2-api/**"
+      - "rust/Cargo.toml"
+      - "build/ci/**"
+      - ".github/workflows/wallet-flutter-ffi.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-flutter-ffi-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
+
+jobs:
+  native-ffi:
+    name: ${{ matrix.os }} — wallet_merged + arqma-wallet-flutter-ffi
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            timeout: 120
+          - os: ubuntu-latest
+            timeout: 120
+          - os: windows-latest
+            timeout: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache Cargo (workspace)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: ${{ matrix.os }}-ffi
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust GNU target (Windows)
+        if: matrix.os == 'windows-latest'
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: MSYS2 / MinGW64 (Windows)
+        id: msys2
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libsodium
+            mingw-w64-x86_64-zeromq
+            mingw-w64-x86_64-hidapi
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-unbound
+            mingw-w64-x86_64-lmdb
+            mingw-w64-x86_64-icu
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libunwind
+            git
+
+      - name: Export Node directory for MSYS2 (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $dir = Split-Path -Parent (Get-Command node).Source
+          Add-Content -Path $env:GITHUB_ENV -Value "ARQMA_CI_WINDOWS_NODE_DIR=$dir"
+
+      - name: Linux — dependencies (Arqma build)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            cmake \
+            pkg-config \
+            libboost-all-dev \
+            libssl-dev \
+            libzmq3-dev \
+            libsodium-dev \
+            libhidapi-dev \
+            libunbound-dev \
+            liblzma-dev \
+            libreadline-dev \
+            liblmdb-dev \
+            libusb-1.0-0-dev \
+            libudev-dev \
+            libicu-dev
+
+      - name: macOS — Homebrew (Arqma build)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake pkg-config boost openssl libsodium zeromq unbound readline hidapi icu4c lmdb xz 2>/dev/null || true
+
+      - name: Make CI scripts executable
+        shell: bash
+        run: chmod +x build/ci/*.sh || true
+
+      - name: Clone Arqma upstream (pospow)
+        shell: bash
+        run: bash build/ci/clone-arqma.sh
+        env:
+          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
+          ARQMA_UPSTREAM_REF: pospow
+
+      - name: Build Arqma wallet_merged (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: bash build/ci/build-arqma-macos.sh
+
+      - name: Build Arqma wallet_merged (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: bash build/ci/build-arqma-linux.sh
+
+      - name: Build Arqma wallet_merged (Windows MinGW)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
+
+      - name: cargo build — arqma-wallet-flutter-ffi (release)
+        if: matrix.os != 'windows-latest'
+        working-directory: rust
+        shell: bash
+        run: cargo build -p arqma-wallet-flutter-ffi --release
+
+      - name: cargo build — arqma-wallet-flutter-ffi (Windows GNU)
+        if: matrix.os == 'windows-latest'
+        working-directory: rust
+        shell: pwsh
+        env:
+          # Matches `rust/tauri-app/scripts/with-rust-target.mjs` for MinGW link stability.
+          CARGO_PROFILE_RELEASE_LTO: thin
+        run: |
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          $nodeDir = Split-Path -Parent (Get-Command node).Source
+          $env:Path = "$nodeDir;$root\mingw64\bin;$root\usr\bin;" + $env:Path
+          $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
+          $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
+          $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
+          cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu
+
+      - name: Verify native library
+        shell: bash
+        run: |
+          set -eu
+          case "${{ matrix.os }}" in
+            macos-latest) f="rust/target/release/libarqma_wallet_flutter_ffi.dylib" ;;
+            ubuntu-latest) f="rust/target/release/libarqma_wallet_flutter_ffi.so" ;;
+            windows-latest) f="rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll" ;;
+            *) echo "unknown matrix.os"; exit 1 ;;
+          esac
+          test -f "$f"
+          ls -la "$f"

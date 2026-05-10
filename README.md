@@ -109,11 +109,18 @@ npm run ci:tauri
 
 ---
 
+## Flutter shell (`flutter/arqma_wallet_gui`)
+
+Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event model as Tauri. See **`flutter/arqma_wallet_gui/README.md`** for `flutter run` and **solo pool** (`arqma_flutter_solo_pool`) build hints.
+
+---
+
 ## CI (GitHub Actions)
 
 - **`development.yml`** — Electron builds on push/PR to `main` / `dev`.
 - **`tauri-app.yml`** — Tauri installers/bundles on changes under `rust/` and related build scripts.
 - **`rust.yml`** — `cargo check` and `cargo clippy` for the Rust workspace on `main` / `dev`.
+- **`flutter.yml`** — Flutter GUI (`flutter/arqma_wallet_gui`): analyze, tests, and a macOS release build on branch `flutter` (also when solo-pool Rust sidecar sources change).
 - **`release.yml`** — Tag `v*`: Electron packages and GitHub Release.
 - **`publish-snap.yml`** — Snap publish on tags (Electron path).
 

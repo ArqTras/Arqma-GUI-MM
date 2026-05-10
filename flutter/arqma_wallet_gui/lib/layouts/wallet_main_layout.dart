@@ -65,9 +65,12 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
   }
 
   int _readInactivityMinutes(GatewayStore store) {
-    final Map<String, dynamic>? cfg = store.app['config'] as Map<String, dynamic>?;
-    final Map<String, dynamic>? appNested = cfg?['app'] as Map<String, dynamic>?;
-    final dynamic v = appNested?['inactivityTimeout'] ?? store.app['inactivityTimeout'];
+    final Map<String, dynamic>? cfg =
+        store.app['config'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? appNested =
+        cfg?['app'] as Map<String, dynamic>?;
+    final dynamic v =
+        appNested?['inactivityTimeout'] ?? store.app['inactivityTimeout'];
     final int m = int.tryParse('$v') ?? 5;
     if (m < 1 || m > 31) {
       return 5;
@@ -76,9 +79,11 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
   }
 
   bool _soloPoolServerEnabled(GatewayStore store) {
-    final Map<String, dynamic>? cfg = store.app['config'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? cfg =
+        store.app['config'] as Map<String, dynamic>?;
     final Map<String, dynamic>? pool = cfg?['pool'] as Map<String, dynamic>?;
-    final Map<String, dynamic>? server = pool?['server'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? server =
+        pool?['server'] as Map<String, dynamic>?;
     return server?['enabled'] == true;
   }
 
@@ -136,14 +141,16 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
         }),
       );
       unawaited(
-        bridge.backendSend('wallet', 'close_wallet', {}).catchError((Object e, StackTrace st) {
+        bridge.backendSend('wallet', 'close_wallet', {}).catchError(
+            (Object e, StackTrace st) {
           debugPrint('wallet_main_layout inactivity close_wallet: $e');
         }),
       );
     } catch (e) {
       appScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
-          content: Text('${loc.tr('components.mainmenu.switch_account_failed')}: $e'),
+          content: Text(
+              '${loc.tr('components.mainmenu.switch_account_failed')}: $e'),
           duration: const Duration(seconds: 8),
         ),
       );
@@ -161,27 +168,77 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     final unlocked = num.tryParse('${info['unlocked_balance'] ?? 0}') ?? 0;
 
     Future<void> refreshPrice() async {
-      await context.read<NativeBridge>().backendSend('wallet', 'get_coin_price', {});
+      await context
+          .read<NativeBridge>()
+          .backendSend('wallet', 'get_coin_price', {});
     }
 
     Widget navBtn(String route, String label, IconData icon) {
-      final active = path == route;
+      final bool active = path == route;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: active ? ArqmaColors.arqmaGreenSolid : ArqmaColors.arqmaGreenDarkSolid,
-            foregroundColor: Colors.black87,
-            minimumSize: const Size(100, 44),
-          ),
-          onPressed: () => context.go(route),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label),
-              const SizedBox(width: 6),
-              Icon(icon, size: 18),
-            ],
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => context.go(route),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: active
+                    ? ArqmaColors.arqmaGreenSolid
+                    : const Color(0xFF161410),
+                border: Border.all(
+                  color: active
+                      ? ArqmaColors.outlineBright
+                      : ArqmaColors.outlineDefault,
+                  width: active ? 1.4 : 1,
+                ),
+                boxShadow: active
+                    ? <BoxShadow>[
+                        BoxShadow(
+                          color: ArqmaColors.arqmaGreenSolid
+                              .withValues(alpha: 0.22),
+                          blurRadius: 10,
+                          spreadRadius: 0,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: ConstrainedBox(
+                  constraints:
+                      const BoxConstraints(minWidth: 96, minHeight: 44),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: active
+                              ? const Color(0xFF14110A)
+                              : ArqmaColors.textSecondary,
+                          fontWeight:
+                              active ? FontWeight.w600 : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        icon,
+                        size: 18,
+                        color: active
+                            ? const Color(0xFF14110A)
+                            : ArqmaColors.textMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       );
@@ -192,110 +249,154 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
       onPointerDown: (_) => _debouncedArmInactivity(),
       onPointerMove: (_) => _debouncedArmInactivity(),
       child: Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 8, top: 5),
-              child: Image.asset('assets/images/arq_logo_with_padding.png', height: 52),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (price != 0)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(r'$', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w300)),
-                        FormatArqma(amount: balance * price, digits: 2),
-                        IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: refreshPrice,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FormatArqma(amount: balance),
-                        const Text(' ARQ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w300)),
-                      ],
-                    ),
-                  if (price != 0)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FormatArqma(amount: balance),
-                        const Text(' ARQ', style: TextStyle(fontSize: 13, color: Colors.white70)),
-                      ],
-                    ),
-                  if (balance != unlocked)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
+          title: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 5),
+                child: Image.asset('assets/images/arq_logo_with_padding.png',
+                    height: 52),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (price != 0)
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            loc.tr('layouts.wallet.main.temporarily_locked'),
-                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          const Text(
+                            r'$',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w300,
+                              color: ArqmaColors.textPrimary,
+                            ),
                           ),
-                          FormatArqma(amount: (balance - unlocked).abs(), digits: 4),
-                          const Text(' ARQ', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                          FormatArqma(amount: balance * price, digits: 2),
+                          IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: refreshPrice,
+                            color: ArqmaColors.textSecondary,
+                          ),
+                        ],
+                      )
+                    else
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FormatArqma(amount: balance),
+                          const Text(
+                            ' ARQ',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w300,
+                              color: ArqmaColors.textPrimary,
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                ],
+                    if (price != 0)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FormatArqma(amount: balance),
+                          const Text(
+                            ' ARQ',
+                            style: TextStyle(
+                                fontSize: 13, color: ArqmaColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    if (balance != unlocked)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              loc.tr('layouts.wallet.main.temporarily_locked'),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: ArqmaColors.textSecondary),
+                            ),
+                            FormatArqma(
+                                amount: (balance - unlocked).abs(), digits: 4),
+                            const Text(
+                              ' ARQ',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: ArqmaColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(right: 4),
+                child: WalletMainMenu(),
+              ),
+            ],
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Divider(
+              height: 1,
+              color: ArqmaColors.outlineDefault.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    navBtn(
+                        '/wallet',
+                        loc.tr('layouts.wallet.main.transactions'),
+                        Icons.swap_horiz),
+                    navBtn('/wallet/send', loc.tr('layouts.wallet.main.send'),
+                        Icons.arrow_right_alt),
+                    navBtn('/wallet/receive',
+                        loc.tr('layouts.wallet.main.receive'), Icons.save_alt),
+                    // Swap route exists (`/wallet/swap`) but the main nav button is commented out in `layouts/wallet/main.vue`.
+                    navBtn(
+                        '/wallet/staking-pools',
+                        loc.tr('layouts.wallet.main.staking_pools'),
+                        Icons.arrow_right_alt),
+                    navBtn(
+                        '/wallet/addressbook',
+                        loc.tr('layouts.wallet.main.address_book'),
+                        Icons.person),
+                    navBtn(
+                        '/wallet/solo-pool',
+                        loc.tr('components.mainmenu.solo_pool'),
+                        Icons.engineering),
+                    const WalletSettingsButton(),
+                  ],
+                ),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: WalletMainMenu(),
+            const Divider(color: ArqmaColors.dividerLine, height: 24),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: widget.child,
+              ),
             ),
+            const StatusFooter(),
           ],
         ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Colors.white),
-        ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  navBtn('/wallet', loc.tr('layouts.wallet.main.transactions'), Icons.swap_horiz),
-                  navBtn('/wallet/send', loc.tr('layouts.wallet.main.send'), Icons.arrow_right_alt),
-                  navBtn('/wallet/receive', loc.tr('layouts.wallet.main.receive'), Icons.save_alt),
-                  // Swap route exists (`/wallet/swap`) but the main nav button is commented out in `layouts/wallet/main.vue`.
-                  navBtn('/wallet/staking-pools', loc.tr('layouts.wallet.main.staking_pools'), Icons.arrow_right_alt),
-                  navBtn('/wallet/addressbook', loc.tr('layouts.wallet.main.address_book'), Icons.person),
-                  navBtn('/wallet/solo-pool', loc.tr('components.mainmenu.solo_pool'), Icons.engineering),
-                  const WalletSettingsButton(),
-                ],
-              ),
-            ),
-          ),
-          const Divider(color: Colors.white24, height: 24),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: widget.child,
-            ),
-          ),
-          const StatusFooter(),
-        ],
-      ),
-    ),
     );
   }
 }

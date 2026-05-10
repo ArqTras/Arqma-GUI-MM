@@ -8,8 +8,10 @@ import '../../store/gateway_store.dart';
 import '../../widgets/address_identicon.dart';
 import '../../widgets/receive_address_details_dialog.dart';
 import '../../widgets/receive_common.dart';
+import '../../core/theme/arqma_colors.dart';
 
-Future<void> _receiveOpenAddressSheet(BuildContext context, Map<String, dynamic> row) async {
+Future<void> _receiveOpenAddressSheet(
+    BuildContext context, Map<String, dynamic> row) async {
   final String a = '${row['address'] ?? ''}'.trim();
   if (a.isEmpty) {
     return;
@@ -24,14 +26,17 @@ Future<void> _receiveOpenAddressSheet(BuildContext context, Map<String, dynamic>
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(loc.tr('pages.wallet.receive.address_actions_title'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(loc.tr('pages.wallet.receive.address_actions_title'),
+                style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: SelectableText(a, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            child: SelectableText(a,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
           ),
           ListTile(
-            leading: const Icon(Icons.info_outline, color: Colors.white70),
+            leading: const Icon(Icons.info_outline,
+                color: ArqmaColors.textSecondary),
             title: Text(loc.tr('components.receive_item.show_details')),
             onTap: () {
               Navigator.pop(sheet);
@@ -39,7 +44,7 @@ Future<void> _receiveOpenAddressSheet(BuildContext context, Map<String, dynamic>
             },
           ),
           ListTile(
-            leading: const Icon(Icons.copy, color: Colors.white70),
+            leading: const Icon(Icons.copy, color: ArqmaColors.textSecondary),
             title: Text(loc.tr('pages.wallet.receive.copy_address_action')),
             onTap: () async {
               if (sheet.mounted) {
@@ -51,7 +56,8 @@ Future<void> _receiveOpenAddressSheet(BuildContext context, Map<String, dynamic>
             },
           ),
           ListTile(
-            leading: const Icon(Icons.qr_code, color: Colors.white70),
+            leading:
+                const Icon(Icons.qr_code, color: ArqmaColors.textSecondary),
             title: Text(loc.tr('pages.wallet.receive.show_qr_action')),
             onTap: () {
               Navigator.pop(sheet);
@@ -94,8 +100,10 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
   }
 
   List<Map<String, dynamic>> _primaryList(GatewayStore store) {
-    final Map<String, dynamic> al = Map<String, dynamic>.from(store.wallet['address_list'] as Map? ?? <String, dynamic>{});
-    final List<dynamic> p = al['primary'] as List<dynamic>? ?? const <dynamic>[];
+    final Map<String, dynamic> al = Map<String, dynamic>.from(
+        store.wallet['address_list'] as Map? ?? <String, dynamic>{});
+    final List<dynamic> p =
+        al['primary'] as List<dynamic>? ?? const <dynamic>[];
     if (p.isNotEmpty) {
       return p.map((dynamic e) => Map<String, dynamic>.from(e as Map)).toList();
     }
@@ -114,7 +122,8 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
 
   List<Map<String, dynamic>> _asMapList(String key, GatewayStore store) {
     final List<dynamic> raw =
-        (store.wallet['address_list'] as Map?)?[key] as List<dynamic>? ?? const <dynamic>[];
+        (store.wallet['address_list'] as Map?)?[key] as List<dynamic>? ??
+            const <dynamic>[];
     return raw.map((dynamic e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
@@ -127,12 +136,15 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
     final List<Map<String, dynamic>> unused = _asMapList('unused', store);
 
     final List<Widget> listChildren = <Widget>[
-      if (primary.isNotEmpty) Text(loc.tr('pages.wallet.receive.my_primary_address'), style: Theme.of(context).textTheme.titleSmall),
+      if (primary.isNotEmpty)
+        Text(loc.tr('pages.wallet.receive.my_primary_address'),
+            style: Theme.of(context).textTheme.titleSmall),
       ...primary.map(
         (Map<String, dynamic> a) => _AddrTile(
           address: a,
           subLabel: loc.tr('pages.wallet.receive.sub_label'),
-          onCopy: () => receiveCopyAddressWithSnackBar(context, '${a['address']}'),
+          onCopy: () =>
+              receiveCopyAddressWithSnackBar(context, '${a['address']}'),
           onQr: () => showReceiveQrDialog(context, '${a['address']}'),
           onTileTap: () => showReceiveAddressDetailsDialog(context, a),
           onTileLongPress: () => _receiveOpenAddressSheet(context, a),
@@ -140,12 +152,15 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
       ),
       if (used.isNotEmpty) ...<Widget>[
         const SizedBox(height: 12),
-        Text(loc.tr('pages.wallet.receive.my_used_addresses'), style: Theme.of(context).textTheme.titleSmall),
+        Text(loc.tr('pages.wallet.receive.my_used_addresses'),
+            style: Theme.of(context).textTheme.titleSmall),
         ...used.map(
           (Map<String, dynamic> a) => _AddrTile(
             address: a,
-            subLabel: '${loc.tr('pages.wallet.receive.sub_address_label')} ${a['address_index'] is Map ? (a['address_index'] as Map)['minor'] : ''}',
-            onCopy: () => receiveCopyAddressWithSnackBar(context, '${a['address']}'),
+            subLabel:
+                '${loc.tr('pages.wallet.receive.sub_address_label')} ${a['address_index'] is Map ? (a['address_index'] as Map)['minor'] : ''}',
+            onCopy: () =>
+                receiveCopyAddressWithSnackBar(context, '${a['address']}'),
             onQr: () => showReceiveQrDialog(context, '${a['address']}'),
             onTileTap: () => showReceiveAddressDetailsDialog(context, a),
             onTileLongPress: () => _receiveOpenAddressSheet(context, a),
@@ -154,12 +169,15 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
       ],
       if (unused.isNotEmpty) ...<Widget>[
         const SizedBox(height: 12),
-        Text(loc.tr('pages.wallet.receive.my_unused_addresses'), style: Theme.of(context).textTheme.titleSmall),
+        Text(loc.tr('pages.wallet.receive.my_unused_addresses'),
+            style: Theme.of(context).textTheme.titleSmall),
         ...unused.map(
           (Map<String, dynamic> a) => _AddrTile(
             address: a,
-            subLabel: '${loc.tr('pages.wallet.receive.my_unused_address')} ${a['address_index'] is Map ? (a['address_index'] as Map)['minor'] : ''}',
-            onCopy: () => receiveCopyAddressWithSnackBar(context, '${a['address']}'),
+            subLabel:
+                '${loc.tr('pages.wallet.receive.my_unused_address')} ${a['address_index'] is Map ? (a['address_index'] as Map)['minor'] : ''}',
+            onCopy: () =>
+                receiveCopyAddressWithSnackBar(context, '${a['address']}'),
             onQr: () => showReceiveQrDialog(context, '${a['address']}'),
             onTileTap: () => showReceiveAddressDetailsDialog(context, a),
             onTileLongPress: () => _receiveOpenAddressSheet(context, a),

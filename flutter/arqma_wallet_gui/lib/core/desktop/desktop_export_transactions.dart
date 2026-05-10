@@ -7,7 +7,8 @@ import 'wallet_json_rpc.dart';
 
 const double _coinUnits = 1e9;
 
-bool _allZerosOrWhitespace(String t) => t.isEmpty || RegExp(r'^[0\s]+$').hasMatch(t);
+bool _allZerosOrWhitespace(String t) =>
+    t.isEmpty || RegExp(r'^[0\s]+$').hasMatch(t);
 
 /// Same `payment_id` rules as `wallet_handler::normalize_payment_id_for_export`.
 String normalizePaymentIdForExport(String pid) {
@@ -63,8 +64,11 @@ List<Map<String, dynamic>> mergeTransfersList(Map<String, dynamic> result) {
 }
 
 String _formatTimestampUtc(int ts) {
-  final DateTime dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
-  return DateFormat('MM/dd/yy hh:mm:ss a').format(dt.toLocal()).replaceAll(',', '');
+  final DateTime dt =
+      DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true);
+  return DateFormat('MM/dd/yy hh:mm:ss a')
+      .format(dt.toLocal())
+      .replaceAll(',', '');
 }
 
 String _csvCell(Object? v) {
@@ -82,7 +86,9 @@ String _csvCell(Object? v) {
 
 /// `wallet_export_transactions` — writes `transactions.csv` under [exportDir].
 Future<void> exportWalletTransactionsToCsv({
-  required Future<Map<String, dynamic>?> Function(String method, Map<String, dynamic> params) walletCall,
+  required Future<Map<String, dynamic>?> Function(
+          String method, Map<String, dynamic> params)
+      walletCall,
   required String exportDir,
 }) async {
   final Map<String, dynamic>? gt = await walletCall(
@@ -104,7 +110,8 @@ Future<void> exportWalletTransactionsToCsv({
   if (res is! Map) {
     throw StateError('get_transfers: missing result');
   }
-  final List<Map<String, dynamic>> list = mergeTransfersList(Map<String, dynamic>.from(res));
+  final List<Map<String, dynamic>> list =
+      mergeTransfersList(Map<String, dynamic>.from(res));
   for (final Map<String, dynamic> tx in list) {
     final Object? pid = tx['payment_id'];
     if (pid is String) {
@@ -129,7 +136,8 @@ Future<void> exportWalletTransactionsToCsv({
     headerKeys.insert(idx, 'destinations');
   }
 
-  final File csvPath = File('$exportDir${Platform.pathSeparator}transactions.csv');
+  final File csvPath =
+      File('$exportDir${Platform.pathSeparator}transactions.csv');
   await csvPath.parent.create(recursive: true);
   final StringBuffer bw = StringBuffer();
   bw.writeln(headerKeys.join('|'));

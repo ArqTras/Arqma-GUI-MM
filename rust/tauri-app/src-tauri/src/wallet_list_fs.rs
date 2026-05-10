@@ -31,6 +31,11 @@ pub fn list_wallet_files (wallet_dir: &Path) -> Result<serde_json::Value, String
       .is_some() {
       continue;
     }
+    // Flat layout: `name` + `name.keys` — ignore stray extensionless files (e.g. daemon binaries).
+    let keys_sibling = wallet_dir.join(format!("{name}.keys"));
+    if !keys_sibling.is_file() {
+      continue;
+    }
     let mut wallet_data = json!({
       "name": name,
       "address": serde_json::Value::Null,

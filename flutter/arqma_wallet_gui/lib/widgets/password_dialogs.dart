@@ -29,8 +29,11 @@ class PasswordDialogs {
           title: Text(title),
           content: Text(noPasswordMessage),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: Text(locale.tr('composables.cancel'))),
-            TextButton(onPressed: () => Navigator.pop(c, ''), child: Text(okLabel)),
+            TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: Text(locale.tr('composables.cancel'))),
+            TextButton(
+                onPressed: () => Navigator.pop(c, ''), child: Text(okLabel)),
           ],
         ),
       );
@@ -45,12 +48,16 @@ class PasswordDialogs {
           controller: pw,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: locale.tr('composables.enter_wallet_password_to_continue'),
+            labelText:
+                locale.tr('composables.enter_wallet_password_to_continue'),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(locale.tr('composables.cancel'))),
-          TextButton(onPressed: () => Navigator.pop(c, pw.text), child: Text(okLabel)),
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: Text(locale.tr('composables.cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, pw.text), child: Text(okLabel)),
         ],
       ),
     );

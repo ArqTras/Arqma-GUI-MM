@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "キャンセル",
                 "copy_address_message": "アドレスがクリップボードにコピーされました",
                 "copy_address": "アドレスをコピー",
-                "open_account": "アカウントを開く"
+                "open_account": "アカウントを開く",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "フルウォレット",

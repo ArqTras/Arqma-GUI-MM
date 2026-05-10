@@ -34,7 +34,8 @@ const String kArqmaNativePingMethod = 'native_ping';
 Future<bool> _methodChannelNativeAvailable() async {
   const MethodChannel channel = MethodChannel('com.arqma.wallet/native');
   try {
-    final Object? r = await channel.invokeMethod<Object>(kArqmaNativePingMethod);
+    final Object? r =
+        await channel.invokeMethod<Object>(kArqmaNativePingMethod);
     return r == true || r == 'ok' || r == 1;
   } on MissingPluginException {
     return false;

@@ -1,6 +1,6 @@
 //! Relay / cancel / prices / stake acquisition (from `wallet-rpc.js`).
 use crate::backend_state::{WalletBackendState, WalletTxMetadata};
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::json_rpc_client::WalletRpcClient;
 use tauri::AppHandle;
 use reqwest::Client;
@@ -93,7 +93,7 @@ pub async fn relay_sweep_all (
     }
   }
   if !err.is_empty() {
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -104,7 +104,7 @@ pub async fn relay_sweep_all (
       }),
     );
   } else {
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -162,13 +162,13 @@ pub async fn relay_transfer (
     }
   }
   if !err.is_empty() {
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({ "code": -200, "message": err, "sending": false }),
     );
   } else {
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -204,7 +204,7 @@ pub async fn relay_stake (
       Ok(v) if v.get("error").is_none() => {
         if let (Some(amt), Some(snk)) = (t.amount, t.service_node_key.as_deref()) {
           let a = amt as f64 / COIN_UNITS;
-          let _ = emit_receive(
+          let _ = BackendReceiveSink::emit_receive(
             app,
             "show_notification",
             json!({
@@ -229,7 +229,7 @@ pub async fn relay_stake (
           .get("error")
           .map(|e| rpc_err_text(e))
           .unwrap_or_else(|| "Unknown error".to_string());
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "set_tx_status",
           json!({ "code": -300, "message": &err, "sending": false, "origin": origin }),
@@ -238,7 +238,7 @@ pub async fn relay_stake (
         return;
       }
       Err(e) => {
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "set_tx_status",
           json!({ "code": -300, "message": e, "sending": false, "origin": origin }),
@@ -276,7 +276,7 @@ pub async fn get_coin_and_conversion (app: &AppHandle, http: &Client) {
       }
     }
   }
-  let _ = emit_receive(app, "set_coin_price", json!(coin));
+  let _ = BackendReceiveSink::emit_receive(app, "set_coin_price", json!(coin));
   let mut sats = 0.0f64;
   let mut usd_15m = 0.0f64;
   if let Ok(r) = http
@@ -297,7 +297,7 @@ pub async fn get_coin_and_conversion (app: &AppHandle, http: &Client) {
       }
     }
   }
-  let _ = emit_receive(
+  let _ = BackendReceiveSink::emit_receive(
     app,
     "set_conversion_data",
     json!({ "sats": sats, "currentPrice": usd_15m }),

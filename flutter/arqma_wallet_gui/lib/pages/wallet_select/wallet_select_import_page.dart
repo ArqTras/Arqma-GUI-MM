@@ -16,7 +16,8 @@ class WalletSelectImportPage extends StatefulWidget {
   State<WalletSelectImportPage> createState() => _WalletSelectImportPageState();
 }
 
-class _WalletSelectImportPageState extends State<WalletSelectImportPage> with WalletFlowListenerMixin {
+class _WalletSelectImportPageState extends State<WalletSelectImportPage>
+    with WalletFlowListenerMixin {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _path = TextEditingController();
   final TextEditingController _password = TextEditingController();
@@ -27,7 +28,8 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage> with Wa
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => attachWalletFlowListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => attachWalletFlowListener());
   }
 
   @override
@@ -60,32 +62,42 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage> with Wa
         _pathTouched = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import.import_file_path_message'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.import.import_file_path_message'))),
       );
       return;
     }
     if (name.isEmpty) {
       setState(() => _nameTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import.enter_account_name'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.import.enter_account_name'))),
       );
       return;
     }
     if (path.isEmpty) {
       setState(() => _pathTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import.enter_path_file'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.import.enter_path_file'))),
       );
       return;
     }
     if (_password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import.passwords_dont_match'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.import.passwords_dont_match'))),
       );
       return;
     }
     AppLoading.show();
-    await context.read<AppApi>().send('wallet', 'import_wallet', <String, dynamic>{
+    await context
+        .read<AppApi>()
+        .send('wallet', 'import_wallet', <String, dynamic>{
       'name': name,
       'path': path,
       'password': _password.text,
@@ -107,7 +119,8 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage> with Wa
             child: TextField(
               controller: _name,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import.wallet_name_placeholder'),
+                hintText: loc
+                    .tr('pages.wallet_select.import.wallet_name_placeholder'),
                 border: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
@@ -136,7 +149,8 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage> with Wa
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.import.select_account_file')),
+                  child: Text(
+                      loc.tr('pages.wallet_select.import.select_account_file')),
                 ),
               ],
             ),
@@ -148,7 +162,8 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage> with Wa
               controller: _password,
               obscureText: true,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import.password_placeholder'),
+                hintText:
+                    loc.tr('pages.wallet_select.import.password_placeholder'),
                 border: InputBorder.none,
               ),
               onSubmitted: (_) => _import(),

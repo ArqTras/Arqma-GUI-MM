@@ -41,7 +41,8 @@ class _AddressBookDetailsBody extends StatefulWidget {
   final Map<String, dynamic>? initialEntry;
 
   @override
-  State<_AddressBookDetailsBody> createState() => _AddressBookDetailsBodyState();
+  State<_AddressBookDetailsBody> createState() =>
+      _AddressBookDetailsBodyState();
 }
 
 class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
@@ -66,7 +67,8 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
       _viewEntry = null;
     } else {
       _mode = _AddressBookDialogMode.view;
-      _viewEntry = Map<String, dynamic>.from(widget.initialEntry ?? <String, dynamic>{});
+      _viewEntry =
+          Map<String, dynamic>.from(widget.initialEntry ?? <String, dynamic>{});
     }
     _syncFormFromViewOrClear();
   }
@@ -81,7 +83,8 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
       return;
     }
     if (_viewEntry != null &&
-        (_mode == _AddressBookDialogMode.view || _mode == _AddressBookDialogMode.edit)) {
+        (_mode == _AddressBookDialogMode.view ||
+            _mode == _AddressBookDialogMode.edit)) {
       final Map<String, dynamic> e = _viewEntry!;
       _address.text = '${e['address'] ?? ''}';
       _name.text = '${e['name'] ?? ''}';
@@ -122,25 +125,33 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
     final String name = _name.text.trim();
     if (addr.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('components.address_book_details.invalid_address'))),
+        SnackBar(
+            content: Text(
+                loc.tr('components.address_book_details.invalid_address'))),
       );
       return;
     }
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import.enter_account_name'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.import.enter_account_name'))),
       );
       return;
     }
     if (name.contains('::')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('components.address_book_details.name_must_not_contain_colons'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'components.address_book_details.name_must_not_contain_colons'))),
       );
       return;
     }
     if (_description.text.contains('::')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('components.address_book_details.description_must_not_contain_colons'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'components.address_book_details.description_must_not_contain_colons'))),
       );
       return;
     }
@@ -190,8 +201,11 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
       final String addr = '${e['address']}';
       return Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop()),
-          title: Text(loc.tr('components.address_book_details.address_book_detail')),
+          leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop()),
+          title: Text(
+              loc.tr('components.address_book_details.address_book_detail')),
           actions: [
             TextButton(
               onPressed: store.isReady
@@ -222,12 +236,16 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SelectableText(addr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      SelectableText(addr,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w500)),
                       if ('${e['name']}'.isNotEmpty) Text('${e['name']}'),
                       if ('${e['payment_id'] ?? ''}'.isNotEmpty)
-                        Text('${loc.tr('pages.wallet.address_header.payment_id')} ${e['payment_id']}'),
+                        Text(
+                            '${loc.tr('pages.wallet.address_header.payment_id')} ${e['payment_id']}'),
                       if ('${e['description'] ?? ''}'.isNotEmpty)
-                        Text('${loc.tr('components.address_book_details.notes')}: ${e['description']}'),
+                        Text(
+                            '${loc.tr('components.address_book_details.notes')}: ${e['description']}'),
                     ],
                   ),
                 ),
@@ -238,7 +256,9 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
               children: [
                 const Icon(Icons.history, size: 22),
                 const SizedBox(width: 6),
-                Expanded(child: Text(loc.tr('components.address_book_details.recent_transactions_with_address'))),
+                Expanded(
+                    child: Text(loc.tr(
+                        'components.address_book_details.recent_transactions_with_address'))),
               ],
             ),
             const SizedBox(height: 8),
@@ -288,7 +308,9 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
               },
               child: Text(loc.tr('components.address_book_details.cancel')),
             ),
-          TextButton(onPressed: _save, child: Text(loc.tr('components.address_book_details.save'))),
+          TextButton(
+              onPressed: _save,
+              child: Text(loc.tr('components.address_book_details.save'))),
         ],
       ),
       body: ListView(
@@ -328,7 +350,8 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
             child: TextField(
               controller: _paymentId,
               decoration: InputDecoration(
-                hintText: loc.tr('components.address_book_details.payment_id_placeholder'),
+                hintText: loc.tr(
+                    'components.address_book_details.payment_id_placeholder'),
                 border: InputBorder.none,
               ),
             ),
@@ -343,7 +366,8 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
               minLines: 2,
               maxLines: 6,
               decoration: InputDecoration(
-                hintText: loc.tr('components.address_book_details.additional_notes_placeholder'),
+                hintText: loc.tr(
+                    'components.address_book_details.additional_notes_placeholder'),
                 border: InputBorder.none,
               ),
             ),
@@ -351,7 +375,8 @@ class _AddressBookDetailsBodyState extends State<_AddressBookDetailsBody> {
           if (_mode == _AddressBookDialogMode.edit) ...[
             const SizedBox(height: 24),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade800),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade800),
               onPressed: _delete,
               child: Text(loc.tr('components.address_book_details.delete')),
             ),

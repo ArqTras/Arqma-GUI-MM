@@ -104,7 +104,8 @@ final class StubNativeBridge implements NativeBridge {
   }
 
   @override
-  Future<dynamic> backendSend(String module, String method, [Object? data]) async {
+  Future<dynamic> backendSend(String module, String method,
+      [Object? data]) async {
     debugPrint('[StubNativeBridge] backend_send $module::$method');
     if (module == 'core' && method == 'init' && navigateWalletSelectAfterInit) {
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -120,7 +121,8 @@ final class StubNativeBridge implements NativeBridge {
           'list': <dynamic>[
             <String, dynamic>{
               'name': 'Demo',
-              'address': 'arQmDemoAddress1111111111111111111111111111111111111111111111111111111111111',
+              'address':
+                  'arQmDemoAddress1111111111111111111111111111111111111111111111111111111111111',
               'password_protected': false,
             },
           ],
@@ -130,13 +132,18 @@ final class StubNativeBridge implements NativeBridge {
       });
     }
     if (module == 'wallet' && method == 'has_password') {
-      _controller.add(<String, dynamic>{'event': 'set_has_password', 'data': false});
+      _controller
+          .add(<String, dynamic>{'event': 'set_has_password', 'data': false});
     }
     if (module == 'wallet' && method == 'validate_address') {
       final String addr = '${_coerceMap(data)['address'] ?? ''}';
       _controller.add(<String, dynamic>{
         'event': 'set_valid_address',
-        'data': <String, dynamic>{'address': addr, 'valid': addr.isNotEmpty, 'nettype': 'mainnet'},
+        'data': <String, dynamic>{
+          'address': addr,
+          'valid': addr.isNotEmpty,
+          'nettype': 'mainnet'
+        },
       });
     }
     if (module == 'wallet' && method == 'create_wallet') {
@@ -146,7 +153,8 @@ final class StubNativeBridge implements NativeBridge {
         'event': 'set_wallet_info',
         'data': <String, dynamic>{
           'name': name,
-          'address': 'arQmStubAddress1111111111111111111111111111111111111111111111111111111111111',
+          'address':
+              'arQmStubAddress1111111111111111111111111111111111111111111111111111111111111',
           'balance': 0,
           'unlocked_balance': 0,
         },
@@ -170,7 +178,8 @@ final class StubNativeBridge implements NativeBridge {
         'event': 'set_wallet_info',
         'data': <String, dynamic>{
           'name': '${_coerceMap(data)['name'] ?? 'Restored'}',
-          'address': 'arQmStubRestored1111111111111111111111111111111111111111111111111111111111',
+          'address':
+              'arQmStubRestored1111111111111111111111111111111111111111111111111111111111',
           'balance': 0,
           'unlocked_balance': 0,
         },
@@ -186,7 +195,8 @@ final class StubNativeBridge implements NativeBridge {
         'event': 'set_wallet_info',
         'data': <String, dynamic>{
           'name': '${_coerceMap(data)['name'] ?? 'Imported'}',
-          'address': 'arQmStubImported11111111111111111111111111111111111111111111111111111111111',
+          'address':
+              'arQmStubImported11111111111111111111111111111111111111111111111111111111111',
           'balance': 0,
           'unlocked_balance': 0,
         },
@@ -231,7 +241,11 @@ final class StubNativeBridge implements NativeBridge {
       await Future<void>.delayed(const Duration(milliseconds: 40));
       _controller.add(<String, dynamic>{
         'event': 'set_tx_status',
-        'data': <String, dynamic>{'code': 201, 'message': 'stub sent', 'sending': false},
+        'data': <String, dynamic>{
+          'code': 201,
+          'message': 'stub sent',
+          'sending': false
+        },
       });
     }
     if (module == 'wallet' && method == 'get_coin_price') {

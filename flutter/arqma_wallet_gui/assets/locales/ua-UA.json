@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "СКАСУВАТИ",
                 "copy_address_message": "Адресу скопійовано в буфер обміну",
                 "copy_address": "Копіювати адресу",
-                "open_account": "Відкрити обліковий запис"
+                "open_account": "Відкрити обліковий запис",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "Повний гаманець",

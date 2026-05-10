@@ -17,7 +17,8 @@ Map<String, dynamic> buildInitialConfigData(ArqmaPaths paths) {
     'limit_rate_down': -1,
     'log_level': 0,
   };
-  Map<String, dynamic> d(Map<String, dynamic> extra) => <String, dynamic>{...daemonBase, ...extra};
+  Map<String, dynamic> d(Map<String, dynamic> extra) =>
+      <String, dynamic>{...daemonBase, ...extra};
   return <String, dynamic>{
     'daemons': <String, dynamic>{
       'mainnet': d(<String, dynamic>{

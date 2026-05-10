@@ -2,7 +2,7 @@
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
 use crate::daemon_process::restart_local_daemon_if_exited;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::sync_debug::is_sync_debug;
 use crate::json_rpc_client::daemon_post;
 use crate::json_util::{json_rpc_no_error, value_as_u64};
@@ -188,7 +188,7 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
   }
   // Emit on every successful poll so `target_height`, `height_without_bootstrap`, `is_ready`
   // stay fresh (wallet footer / sync logic); not only when `height` increases.
-  let _ = emit_receive(
+  let _ = BackendReceiveSink::emit_receive(
     app,
     "set_daemon_data",
     json!({ "info": result }),
@@ -196,7 +196,7 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
   if pool_enabled {
     // Solo `solo_pool` task owns `status`, `workers`, `activeWorkers` and hashrate stats.
     // Only push daemon-sourced network fields to avoid clobbering merged `stats` (incl. activeWorkers -> 0).
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_pool_data",
       json!({
@@ -209,7 +209,7 @@ async fn tick_fast (app: &AppHandle, http: &Client) {
       }),
     );
   } else {
-    let _ = emit_receive(
+    let _ = BackendReceiveSink::emit_receive(
       app,
       "set_pool_data",
       json!({
@@ -247,7 +247,7 @@ async fn tick_slow (app: &AppHandle, http: &Client) {
   };
   if pool_enabled {
     if let Some(sce) = explorer_clock_skew(http, testnet).await {
-      let _ = emit_receive(app, "set_pool_data", json!({ "system_clock_error": sce }));
+      let _ = BackendReceiveSink::emit_receive(app, "set_pool_data", json!({ "system_clock_error": sce }));
     }
   }
   let c1 = daemon_post(http, &host, port, "get_connections", 0, &Value::Null).await;
@@ -281,7 +281,7 @@ async fn tick_slow (app: &AppHandle, http: &Client) {
   if out.as_object().map(|m| m.is_empty()).unwrap_or(true) {
     return;
   }
-  let _ = emit_receive(app, "set_daemon_data", out);
+  let _ = BackendReceiveSink::emit_receive(app, "set_daemon_data", out);
 }
 
 /// Same idea as `Pool.watchdog` in arqma-electron-wallet `pool.js`: compare local clock to explorer.

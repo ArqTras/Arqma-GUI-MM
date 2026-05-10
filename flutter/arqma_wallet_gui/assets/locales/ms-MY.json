@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "BATAL",
                 "copy_address_message": "Alamat disalin ke papan keratan",
                 "copy_address": "Salin Alamat",
-                "open_account": "Buka Akaun"
+                "open_account": "Buka Akaun",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "Dompet penuh",

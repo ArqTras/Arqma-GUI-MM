@@ -12,10 +12,12 @@ class WalletSelectImportViewOnlyPage extends StatefulWidget {
   const WalletSelectImportViewOnlyPage({super.key});
 
   @override
-  State<WalletSelectImportViewOnlyPage> createState() => _WalletSelectImportViewOnlyPageState();
+  State<WalletSelectImportViewOnlyPage> createState() =>
+      _WalletSelectImportViewOnlyPageState();
 }
 
-class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewOnlyPage> with WalletFlowListenerMixin {
+class _WalletSelectImportViewOnlyPageState
+    extends State<WalletSelectImportViewOnlyPage> with WalletFlowListenerMixin {
   static const String _kFirstBlockDate = '2018/10/31';
 
   final TextEditingController _name = TextEditingController();
@@ -31,7 +33,8 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => attachWalletFlowListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => attachWalletFlowListener());
   }
 
   @override
@@ -85,48 +88,65 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
     final String viewkey = _viewkey.text.trim();
     if (name.isEmpty && address.isEmpty && viewkey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.enter_an_account_name_address_viewkey'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.enter_an_account_name_address_viewkey'))),
       );
       return;
     }
     if (name.isEmpty && address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.enter_an_account_name_address'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.enter_an_account_name_address'))),
       );
       return;
     }
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.enter_an_account_name'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.enter_an_account_name'))),
       );
       return;
     }
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.invalid_account_address'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.invalid_account_address'))),
       );
       return;
     }
     if (viewkey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.invalid_private_viewkey'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.invalid_private_viewkey'))),
       );
       return;
     }
-    if (_refreshType == 'height' && int.tryParse(_refreshHeight.text.trim()) == null) {
+    if (_refreshType == 'height' &&
+        int.tryParse(_refreshHeight.text.trim()) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.invalid_restore_height'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.invalid_restore_height'))),
       );
       return;
     }
     if (_password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_view_only.passwords_do_not_match'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_view_only.passwords_do_not_match'))),
       );
       return;
     }
     AppLoading.show();
-    await context.read<AppApi>().send('wallet', 'restore_view_wallet', <String, dynamic>{
+    await context
+        .read<AppApi>()
+        .send('wallet', 'restore_view_wallet', <String, dynamic>{
       'name': name,
       'address': address,
       'viewkey': viewkey,
@@ -151,31 +171,36 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
             child: TextField(
               controller: _name,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_view_only.account_name_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_view_only.account_name_placeholder'),
                 border: InputBorder.none,
               ),
             ),
           ),
           const SizedBox(height: 12),
           ArqmaField(
-            label: loc.tr('pages.wallet_select.import_view_only.account_address'),
+            label:
+                loc.tr('pages.wallet_select.import_view_only.account_address'),
             child: TextField(
               controller: _address,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_view_only.account_address_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_view_only.account_address_placeholder'),
                 border: InputBorder.none,
               ),
             ),
           ),
           const SizedBox(height: 12),
           ArqmaField(
-            label: loc.tr('pages.wallet_select.import_view_only.private_view_key'),
+            label:
+                loc.tr('pages.wallet_select.import_view_only.private_view_key'),
             child: TextField(
               controller: _viewkey,
               minLines: 2,
               maxLines: 6,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_view_only.private_view_key_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_view_only.private_view_key_placeholder'),
                 border: InputBorder.none,
               ),
             ),
@@ -187,20 +212,25 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
               Expanded(
                 child: _refreshType == 'date'
                     ? ArqmaField(
-                        label: loc.tr('pages.wallet_select.import_view_only.restore_from_date'),
+                        label: loc.tr(
+                            'pages.wallet_select.import_view_only.restore_from_date'),
                         child: Row(
                           children: [
                             Expanded(child: Text(_refreshStartDate)),
-                            IconButton(icon: const Icon(Icons.calendar_today), onPressed: _pickDate),
+                            IconButton(
+                                icon: const Icon(Icons.calendar_today),
+                                onPressed: _pickDate),
                           ],
                         ),
                       )
                     : ArqmaField(
-                        label: loc.tr('pages.wallet_select.import_view_only.restore_from_height'),
+                        label: loc.tr(
+                            'pages.wallet_select.import_view_only.restore_from_height'),
                         child: TextField(
                           controller: _refreshHeight,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(border: InputBorder.none),
+                          decoration:
+                              const InputDecoration(border: InputBorder.none),
                         ),
                       ),
               ),
@@ -212,7 +242,10 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.import_view_only.switch_to_height_select'), textAlign: TextAlign.center),
+                  child: Text(
+                      loc.tr(
+                          'pages.wallet_select.import_view_only.switch_to_height_select'),
+                      textAlign: TextAlign.center),
                 )
               else
                 ElevatedButton(
@@ -221,7 +254,10 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.import_view_only.switch_to_date_select'), textAlign: TextAlign.center),
+                  child: Text(
+                      loc.tr(
+                          'pages.wallet_select.import_view_only.switch_to_date_select'),
+                      textAlign: TextAlign.center),
                 ),
             ],
           ),
@@ -232,14 +268,16 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
               controller: _password,
               obscureText: true,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_view_only.password_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_view_only.password_placeholder'),
                 border: InputBorder.none,
               ),
             ),
           ),
           const SizedBox(height: 12),
           ArqmaField(
-            label: loc.tr('pages.wallet_select.import_view_only.confirm_password'),
+            label:
+                loc.tr('pages.wallet_select.import_view_only.confirm_password'),
             child: TextField(
               controller: _passwordConfirm,
               obscureText: true,
@@ -254,7 +292,8 @@ class _WalletSelectImportViewOnlyPageState extends State<WalletSelectImportViewO
               foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: Text(loc.tr('pages.wallet_select.import_view_only.restore_view_only_account')),
+            child: Text(loc.tr(
+                'pages.wallet_select.import_view_only.restore_view_only_account')),
           ),
         ],
       ),

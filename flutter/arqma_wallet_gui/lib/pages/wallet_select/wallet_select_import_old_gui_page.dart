@@ -12,10 +12,12 @@ class WalletSelectImportOldGuiPage extends StatefulWidget {
   const WalletSelectImportOldGuiPage({super.key});
 
   @override
-  State<WalletSelectImportOldGuiPage> createState() => _WalletSelectImportOldGuiPageState();
+  State<WalletSelectImportOldGuiPage> createState() =>
+      _WalletSelectImportOldGuiPageState();
 }
 
-class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiPage> {
+class _WalletSelectImportOldGuiPageState
+    extends State<WalletSelectImportOldGuiPage> {
   late final List<_DirRow> _rows;
   GatewayStore? _store;
   int _lastImportCode = 1;
@@ -27,13 +29,15 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
     super.initState();
     final GatewayStore store = context.read<GatewayStore>();
     _store = store;
-    _lastImportCode = (store.raw['old_gui_import_status'] as Map)['code'] as int? ?? 1;
+    _lastImportCode =
+        (store.raw['old_gui_import_status'] as Map)['code'] as int? ?? 1;
     _rows = _buildRows(store);
     void fn() {
       if (!mounted || _store == null) {
         return;
       }
-      final Map<String, dynamic> st = Map<String, dynamic>.from(_store!.raw['old_gui_import_status'] as Map? ?? <String, dynamic>{});
+      final Map<String, dynamic> st = Map<String, dynamic>.from(
+          _store!.raw['old_gui_import_status'] as Map? ?? <String, dynamic>{});
       final int code = st['code'] as int? ?? 1;
       if (code == _lastImportCode) {
         return;
@@ -42,11 +46,14 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
       if (_awaiting && code == 0) {
         _awaiting = false;
         AppLoading.hide();
-        final List<dynamic> failed = st['failed_wallets'] as List<dynamic>? ?? const <dynamic>[];
+        final List<dynamic> failed =
+            st['failed_wallets'] as List<dynamic>? ?? const <dynamic>[];
         final LocaleController loc = context.read<LocaleController>();
         for (final dynamic w in failed) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${loc.tr('pages.wallet_select.import_old_gui.failed_to_import_account')}: $w')),
+            SnackBar(
+                content: Text(
+                    '${loc.tr('pages.wallet_select.import_old_gui.failed_to_import_account')}: $w')),
           );
         }
         if (failed.isEmpty) {
@@ -54,13 +61,19 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
         }
       }
     }
+
     _listener = fn;
     store.addListener(fn);
   }
 
   List<_DirRow> _buildRows(GatewayStore store) {
-    final List<dynamic> dirs = (store.raw['wallets'] as Map?)?['directories'] as List<dynamic>? ?? const <dynamic>[];
-    return dirs.map((dynamic d) => _DirRow(directory: '$d', selected: false, net: 'mainnet')).toList();
+    final List<dynamic> dirs =
+        (store.raw['wallets'] as Map?)?['directories'] as List<dynamic>? ??
+            const <dynamic>[];
+    return dirs
+        .map((dynamic d) =>
+            _DirRow(directory: '$d', selected: false, net: 'mainnet'))
+        .toList();
   }
 
   @override
@@ -93,7 +106,8 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
     }
     _awaiting = true;
     AppLoading.show();
-    await context.read<AppApi>().send('wallet', 'copy_old_gui_wallets', <String, dynamic>{'wallets': selected});
+    await context.read<AppApi>().send('wallet', 'copy_old_gui_wallets',
+        <String, dynamic>{'wallets': selected});
   }
 
   @override
@@ -114,7 +128,8 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
                   child: ListTile(
                     leading: Checkbox(
                       value: r.selected,
-                      onChanged: (bool? v) => setState(() => r.selected = v ?? false),
+                      onChanged: (bool? v) =>
+                          setState(() => r.selected = v ?? false),
                     ),
                     title: Text(r.directory),
                     trailing: DropdownButton<String>(
@@ -147,7 +162,8 @@ class _WalletSelectImportOldGuiPageState extends State<WalletSelectImportOldGuiP
               backgroundColor: const Color(0xFF4caf50),
               foregroundColor: Colors.black87,
             ),
-            child: Text(loc.tr('pages.wallet_select.import_old_gui.import_accounts')),
+            child: Text(
+                loc.tr('pages.wallet_select.import_old_gui.import_accounts')),
           ),
         ],
       ),

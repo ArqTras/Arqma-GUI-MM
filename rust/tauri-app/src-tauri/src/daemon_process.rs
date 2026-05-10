@@ -183,7 +183,8 @@ pub async fn ensure_daemon_for_startup (
   let Some((h, port)) = daemon_rpc_host_port(&st.config_data) else {
     return Err("After start: missing host/port for get_info polling".to_string());
   };
-  for _ in 0..150 {
+  // ~120s wall time at 200ms sleep between attempts (Flutter `spawnLocalArqmadAndWait` uses the same idea).
+  for _ in 0..600 {
     let r = daemon_post(http, &h, port, "get_info", 0, &Value::Null).await;
     match r {
       Ok(v) if crate::json_util::json_rpc_no_error(&v) => {
@@ -204,8 +205,12 @@ pub async fn ensure_daemon_for_startup (
       }
     }
   }
-  eprintln!("[daemon] get_info timeout (check ports and firewall)");
-  Err("Timeout: local arqmad did not respond (get_info)".to_string())
+  eprintln!(
+    "[daemon] get_info timeout at http://{h}:{port}/json_rpc (check ports, firewall, rpc_bind vs config)"
+  );
+  Err(format!(
+    "Timeout: local arqmad did not respond (get_info at {h}:{port})"
+  ))
 }
 
 /// `stop_daemon` JSON-RPC (Monero/Arqma `COMMAND_RPC_STOP_DAEMON`), then wait for the child.

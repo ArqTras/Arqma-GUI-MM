@@ -5,7 +5,7 @@
 //! While catching up (wallet height behind daemon), `getheight` uses a **120 s** cap (Electron/Ryo-line
 //! GUIs use ~5 s per call but run the three RPCs **in parallel**; here each call waits on
 //! `wallet_rpc_lane`, so a single cap must cover queue + scan — see `gh_cap` below).
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::json_rpc_client::WalletRpcClient;
 use crate::json_util::{json_rpc_no_error, value_as_u64, wallet_height_from_getheight};
 use crate::sync_debug::is_sync_debug;
@@ -351,7 +351,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
         b.wh_stored_balance = 0;
         b.wh_stored_unlocked = 0;
       }
-      let _ = emit_receive(
+      let _ = BackendReceiveSink::emit_receive(
         app,
         "set_wallet_info",
         json!({
@@ -362,7 +362,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
           "scan_poll_ts": Utc::now().timestamp_millis()
         }),
       );
-      let _ = emit_receive(
+      let _ = BackendReceiveSink::emit_receive(
         app,
         "set_wallet_error",
         json!({
@@ -373,7 +373,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
           }
         }),
       );
-      let _ = emit_receive(
+      let _ = BackendReceiveSink::emit_receive(
         app,
         "reset_wallet_status",
         json!({
@@ -498,8 +498,8 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
   }
   info["scan_poll_ts"] = json!(Utc::now().timestamp_millis());
   // Footer needs `height` every tick; `info` always contains it after the fallback above.
-  let _ = emit_receive(app, "set_wallet_info", info.clone());
-  let _ = emit_receive(
+  let _ = BackendReceiveSink::emit_receive(app, "set_wallet_info", info.clone());
+  let _ = BackendReceiveSink::emit_receive(
     app,
     "reset_wallet_status",
     json!({ "code": 0, "message": "OK" }),
@@ -573,7 +573,7 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
                     wallet_diag::log(format!(
                       "HEAVY get_transfers: {n} txs (height_changed={heavy_height_changed} balance_change={bal_ch} open_pending={heavy_open_pending})"
                     ));
-                    let _ = emit_receive(
+                    let _ = BackendReceiveSink::emit_receive(
                       &app2,
                       "set_wallet_transactions",
                       json!({ "tx_list": list }),
@@ -585,14 +585,14 @@ async fn tick_once (app: &AppHandle, c: &WalletRpcClient) -> bool {
                 if json_rpc_no_error(&ga_ok) && json_rpc_no_error(&gb_ok) {
                   if let Some(built) = build_address_list_object(&ga_ok, &gb_ok) {
                     if let Some(final_al) = top_up_unused_subaddresses(&c2, built).await {
-                      let _ = emit_receive(&app2, "set_wallet_address_list", final_al);
+                      let _ = BackendReceiveSink::emit_receive(&app2, "set_wallet_address_list", final_al);
                     }
                   }
                 }
               }
               if extb {
                 if let Ok(bk) = fetch_address_book_map(&c2).await {
-                  let _ = emit_receive(&app2, "set_wallet_address_book", bk);
+                  let _ = BackendReceiveSink::emit_receive(&app2, "set_wallet_address_book", bk);
                 }
                 if let Some(adata) = app2.try_state::<AppData>() {
                   let mut b = adata.backend.lock().await;

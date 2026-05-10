@@ -3,7 +3,7 @@ use crate::backend_state::WalletBackendState;
 use crate::daemon_check::{check_daemon_reachable, RemoteNodeIssue};
 use crate::daemon_handler::arqmad_version_probe_str;
 use crate::daemon_process::{ensure_daemon_for_startup, set_current_net_to_remote};
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::remote_scan::pick_fastest_remote;
 use crate::wallet_list_fs::list_wallet_files;
 use crate::wallet_process::{try_start_wallet_rpc, WalletRpcStartResult};
@@ -17,7 +17,12 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 /// Startup sequence (`Backend.startup` in Node): config, daemon, `daemon_heartbeat`, optional `arqma-wallet-rpc`, wallet list.
-pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, http: &Client) -> Result<(), String> {
+pub async fn run_core_startup (
+  sink: &dyn BackendReceiveSink,
+  app: &AppHandle,
+  st: &mut WalletBackendState,
+  http: &Client,
+) -> Result<(), String> {
   let snap = load_config_snapshot(&st.paths).map_err(|e| e.to_string())?;
   st.defaults = snap.defaults.clone();
   st.config_data = snap.config_data.clone();
@@ -45,12 +50,11 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     &json!({ "wallet": { "rpc_bind_port": 19999_u64 } }),
   );
 
-  emit_receive(
-    app,
+  sink.emit_receive(
     "set_app_data",
     json!({ "remotes": snap.remotes, "defaults": snap.defaults }),
   )?;
-  emit_receive(app, "set_ethereum_data", st.ethereum.clone())?;
+  sink.emit_receive("set_ethereum_data", st.ethereum.clone())?;
   let pool_enabled = st
     .config_data
     .get("pool")
@@ -58,8 +62,7 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     .and_then(|s| s.get("enabled"))
     .and_then(|e| e.as_bool())
     .unwrap_or(false);
-  emit_receive(
-    app,
+  sink.emit_receive(
     "set_pool_data",
     json!({
       "status": if pool_enabled { 1 } else { 0 },
@@ -68,14 +71,13 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     }),
   )?;
   if pool_enabled {
-    crate::solo_pool::start(app, st);
+    crate::solo_pool::start(crate::solo_pool_sink::TauriSoloPoolSink(app.clone()), st);
   } else {
     crate::solo_pool::stop(st);
   }
 
   if !snap.had_config_file {
-    emit_receive(
-      app,
+    sink.emit_receive(
       "set_app_data",
       json!({
         "status": { "code": -1 },
@@ -96,8 +98,7 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
 
   let selected = selected_node_string(&st.config_data);
-  emit_receive(
-    app,
+  sink.emit_receive(
     "set_app_data",
     json!({
       "config": st.config_data,
@@ -105,16 +106,17 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
       "selected_node": selected
     }),
   )?;
-  emit_receive(app, "set_ethereum_data", st.ethereum.clone())?;
+  sink.emit_receive("set_ethereum_data", st.ethereum.clone())?;
+
+  // Create wallet/data dirs before existence check (otherwise fresh installs never reach mkdir).
+  ensure_datadir_layout(&st.config_data).map_err(|e| e.to_string())?;
 
   if let Err(msg) = required_dirs_exist(&st.config_data) {
-    emit_show_notification(app, "negative", &msg)?;
-    emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+    emit_show_notification(sink, "negative", &msg)?;
+    sink.emit_receive("set_app_data", json!({ "status": { "code": -1 } }))?;
     st.startup_seq_done = true;
     return Ok(());
   }
-
-  ensure_datadir_layout(&st.config_data).map_err(|e| e.to_string())?;
 
   let net = st
     .config_data
@@ -132,17 +134,17 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     .unwrap_or("remote")
     .to_string();
 
-  emit_receive(app, "set_app_data", json!({ "status": { "code": 3 } }))?;
+  sink.emit_receive("set_app_data", json!({ "status": { "code": 3 } }))?;
 
   match check_daemon_reachable(http, &st.config_data).await {
     Ok(()) => {}
     Err(RemoteNodeIssue::NetMismatch) => {
       emit_show_notification(
-        app,
+        sink,
         "negative",
         "Error: Remote node is using a different nettype",
       )?;
-      emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+      sink.emit_receive("set_app_data", json!({ "status": { "code": -1 } }))?;
       st.startup_seq_done = true;
       return Ok(());
     }
@@ -154,8 +156,7 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
           }
         }
         write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-        emit_receive(
-          app,
+        sink.emit_receive(
           "show_notification",
           json!({
             "type": "warning",
@@ -164,18 +165,17 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
             "timeout": 3000
           }),
         )?;
-        emit_receive(
-          app,
+        sink.emit_receive(
           "set_app_data",
           json!({ "config": st.config_data, "pending_config": st.config_data }),
         )?;
       } else {
         emit_show_notification(
-          app,
+          sink,
           "negative",
           "Error: Could not access remote node, please try another remote node",
         )?;
-        emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+        sink.emit_receive("set_app_data", json!({ "status": { "code": -1 } }))?;
         st.startup_seq_done = true;
         return Ok(());
       }
@@ -184,15 +184,13 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
 
   let ver = arqmad_version_probe_str(app);
   if ver != "unknown" {
-    emit_receive(
-      app,
+    sink.emit_receive(
       "set_app_data",
       json!({ "status": { "code": 4, "message": ver } }),
     )?;
   } else {
     set_current_net_to_remote(st);
-    emit_receive(
-      app,
+    sink.emit_receive(
       "set_app_data",
       json!({
         "status": { "code": 5 },
@@ -216,8 +214,8 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
     } else {
       "Local daemon internal error"
     };
-    emit_show_notification(app, "negative", msg)?;
-    emit_receive(app, "set_app_data", json!({ "status": { "code": -1 } }))?;
+    emit_show_notification(sink, "negative", msg)?;
+    sink.emit_receive("set_app_data", json!({ "status": { "code": -1 } }))?;
     st.startup_seq_done = true;
     return Ok(());
   }
@@ -225,8 +223,8 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
   let is_local = daemon_typ != "remote";
   crate::daemon_heartbeat::start(app, st, is_local, http);
 
-  emit_receive(app, "set_app_data", json!({ "status": { "code": 6 } }))?;
-  emit_receive(app, "set_app_data", json!({ "status": { "code": 7 } }))?;
+  sink.emit_receive("set_app_data", json!({ "status": { "code": 6 } }))?;
+  sink.emit_receive("set_app_data", json!({ "status": { "code": 7 } }))?;
   let wallets = if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
     list_wallet_files(&dir).unwrap_or_else(|e| {
       eprintln!("[wallet_list_fs] {e}");
@@ -284,28 +282,31 @@ pub async fn run_core_startup (app: &AppHandle, st: &mut WalletBackendState, htt
       }
     };
     if !msg.is_empty() {
-      emit_show_notification_timeout(app, kind, &msg, timeout_ms)?;
+      emit_show_notification_timeout(sink, kind, &msg, timeout_ms)?;
     }
   }
-  emit_receive(app, "wallet_list", wallets.clone())?;
-  emit_receive(app, "set_app_data", json!({ "status": { "code": 0 } }))?;
+  sink.emit_receive("wallet_list", wallets.clone())?;
+  sink.emit_receive("set_app_data", json!({ "status": { "code": 0 } }))?;
 
   st.startup_seq_done = true;
   Ok(())
 }
 
-fn emit_show_notification (app: &AppHandle, kind: &str, message: &str) -> Result<(), String> {
-  emit_show_notification_timeout(app, kind, message, 3000)
+fn emit_show_notification (
+  sink: &dyn BackendReceiveSink,
+  kind: &str,
+  message: &str,
+) -> Result<(), String> {
+  emit_show_notification_timeout(sink, kind, message, 3000)
 }
 
 fn emit_show_notification_timeout (
-  app: &AppHandle,
+  sink: &dyn BackendReceiveSink,
   kind: &str,
   message: &str,
   timeout_ms: u64,
 ) -> Result<(), String> {
-  emit_receive(
-    app,
+  sink.emit_receive(
     "show_notification",
     json!({ "type": kind, "message": message, "timeout": timeout_ms }),
   )

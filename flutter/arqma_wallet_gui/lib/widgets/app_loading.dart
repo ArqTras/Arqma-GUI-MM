@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_nav.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Simple global loading counter (parity with Quasar `Loading.show` / `hide`).
 class AppLoading {
@@ -19,12 +20,23 @@ class AppLoading {
     showDialog<void>(
       context: c,
       barrierDismissible: false,
-      builder: (BuildContext c) => const Center(
+      builder: (BuildContext c) => Center(
         child: Card(
-          color: Color(0xFF1d1d1d),
-          child: Padding(
+          color: const Color(0xFF161410),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: ArqmaColors.outlineBright.withValues(alpha: 0.65),
+              width: 1,
+            ),
+          ),
+          child: const Padding(
             padding: EdgeInsets.all(24),
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.2,
+              color: ArqmaColors.arqmaGreenSolid,
+            ),
           ),
         ),
       ),

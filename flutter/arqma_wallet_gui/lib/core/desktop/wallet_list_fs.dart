@@ -7,7 +7,11 @@ import 'package:flutter/foundation.dart';
 Map<String, dynamic> listWalletFiles(String walletDirPath) {
   final Directory dir = Directory(walletDirPath);
   if (!dir.existsSync()) {
-    return <String, dynamic>{'list': <dynamic>[], 'directories': <dynamic>[], 'legacy': <dynamic>[]};
+    return <String, dynamic>{
+      'list': <dynamic>[],
+      'directories': <dynamic>[],
+      'legacy': <dynamic>[]
+    };
   }
   final List<Map<String, dynamic>> list = <Map<String, dynamic>>[];
   final List<String> directories = <String>[];
@@ -41,12 +45,20 @@ Map<String, dynamic> listWalletFiles(String walletDirPath) {
       if (name.contains('.')) {
         continue;
       }
+      // Flat wallet layout is `name` + `name.keys` in the same folder (same as Monero/Arqma CLI).
+      // Skip extensionless noise (e.g. copied `arqmad` / `arqma-wallet-cli` binaries without `.keys`).
+      final File keysSibling =
+          File('${dir.path}${Platform.pathSeparator}$name.keys');
+      if (!keysSibling.existsSync()) {
+        continue;
+      }
       final Map<String, dynamic> walletData = <String, dynamic>{
         'name': name,
         'address': null,
         'password_protected': null,
       };
-      final File meta = File('${dir.path}${Platform.pathSeparator}$name.meta.json');
+      final File meta =
+          File('${dir.path}${Platform.pathSeparator}$name.meta.json');
       if (meta.existsSync()) {
         try {
           final dynamic m = jsonDecode(meta.readAsStringSync());
@@ -63,7 +75,8 @@ Map<String, dynamic> listWalletFiles(String walletDirPath) {
           debugPrint('[wallet_list_fs] meta $name: $e');
         }
       }
-      final File addrf = File('${dir.path}${Platform.pathSeparator}$name.address.txt');
+      final File addrf =
+          File('${dir.path}${Platform.pathSeparator}$name.address.txt');
       if (addrf.existsSync()) {
         final String s = addrf.readAsStringSync().trim();
         if (s.isNotEmpty) {
@@ -74,7 +87,15 @@ Map<String, dynamic> listWalletFiles(String walletDirPath) {
     }
   } catch (e, st) {
     debugPrint('[wallet_list_fs] $e\n$st');
-    return <String, dynamic>{'list': <dynamic>[], 'directories': <dynamic>[], 'legacy': <dynamic>[]};
+    return <String, dynamic>{
+      'list': <dynamic>[],
+      'directories': <dynamic>[],
+      'legacy': <dynamic>[]
+    };
   }
-  return <String, dynamic>{'list': list, 'directories': directories, 'legacy': <dynamic>[]};
+  return <String, dynamic>{
+    'list': list,
+    'directories': directories,
+    'legacy': <dynamic>[]
+  };
 }

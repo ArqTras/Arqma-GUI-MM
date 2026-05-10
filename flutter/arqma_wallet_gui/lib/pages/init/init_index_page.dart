@@ -38,7 +38,9 @@ class InitIndexPage extends StatelessWidget {
     final code = store.appStatusCode;
     final status = store.app['status'] as Map<String, dynamic>? ?? {};
     final msg = status['message']?.toString();
-    final line = code == 4 && (msg != null && msg.isNotEmpty) ? msg : _messageForCode(code);
+    final line = code == 4 && (msg != null && msg.isNotEmpty)
+        ? msg
+        : _messageForCode(code);
 
     return Center(
       child: Padding(
@@ -51,13 +53,15 @@ class InitIndexPage extends StatelessWidget {
             Text(
               line,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: Colors.white70),
+              style: const TextStyle(
+                  fontSize: 16, color: ArqmaColors.textSecondary),
             ),
             const SizedBox(height: 24),
             const SizedBox(
               width: 48,
               height: 48,
-              child: CircularProgressIndicator(strokeWidth: 2, color: ArqmaColors.arqmaGreenSolid),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: ArqmaColors.arqmaGreenSolid),
             ),
           ],
         ),

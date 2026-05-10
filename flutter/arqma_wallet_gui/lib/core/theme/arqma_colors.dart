@@ -24,4 +24,18 @@ abstract final class ArqmaColors {
 
   static const Color footerBorder = Color.fromRGBO(167, 144, 96, 0.35);
   static const Color barTrack = Color(0xFF2A2A2A);
+
+  /// Warm body text / chrome (replaces stark `Colors.white*` on dark panels).
+  static const Color textPrimary = Color(0xFFF4ECDA);
+  static const Color textSecondary = Color(0xFFC9B896);
+  static const Color textMuted = Color(0xFF8A7D62);
+
+  /// Gold-tinted borders and rules (replaces `Colors.white12` / `white24` dividers).
+  static const Color outlineSubtle = Color(0xFF2E2A22);
+  static const Color outlineDefault = Color(0xFF5C4F38);
+  static const Color outlineBright = Color(0xFF9A8658);
+  static const Color dividerLine = Color(0xFF3D3528);
+
+  /// Behind QR modules (needs high contrast for scanners; warm off-white).
+  static const Color qrLightSurface = Color(0xFFFFF8ED);
 }

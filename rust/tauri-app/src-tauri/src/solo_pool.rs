@@ -1,5 +1,5 @@
 use crate::backend_state::WalletBackendState;
-use crate::gateway_emit::emit_receive;
+use crate::solo_pool_sink::SoloPoolSink;
 use crate::json_rpc_client::daemon_post;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,6 @@ use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
@@ -959,15 +958,14 @@ async fn send_line (writer: &mut tokio::net::tcp::OwnedWriteHalf, payload: &Valu
   writer.write_all(s.as_bytes()).await.map_err(|e| e.to_string())
 }
 
-pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
+pub fn start<S: SoloPoolSink + Clone + Send + 'static> (sink: S, st: &mut WalletBackendState) {
   stop(st);
   if !pool_enabled(st) {
     return;
   }
   let mining_address = pool_mining_address(st);
   if mining_address.is_empty() {
-    let _ = emit_receive(
-      app,
+    sink.emit_receive(
       "set_pool_data",
       json!({ "status": -1 }),
     );
@@ -1053,7 +1051,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     .max(60_000) as i64;
   let (tx, mut rx) = oneshot::channel::<()>();
   st.solo_pool_shutdown = Some(tx);
-  let app = app.clone();
+  let sink = sink.clone();
   let http = reqwest::Client::builder()
     .timeout(Duration::from_secs(20))
     .build()
@@ -1077,8 +1075,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
     }
     let Some(listener) = listener_opt else {
       eprintln!("[solo-pool] TcpListener::bind({addr}) failed: {last_bind_err}");
-      let _ = emit_receive(
-        &app,
+      sink.emit_receive(
         "set_pool_data",
         json!({
           "status": -1,
@@ -1087,8 +1084,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
         }),
       );
       // OS error strings (e.g. invalid address) are locale-dependent; keep UI copy in English.
-      let _ = emit_receive(
-        &app,
+      sink.emit_receive(
         "show_notification",
         json!({
           "type": "negative",
@@ -1389,7 +1385,7 @@ pub fn start (app: &AppHandle, st: &mut WalletBackendState) {
           let blocks_snapshot = { blocks.lock().await.clone() };
           let blocks_found = blocks_snapshot.len() as u64;
           let avg_eff = average_block_effort(&blocks_snapshot);
-          let _ = emit_receive(&app, "set_pool_data", json!({
+          sink.emit_receive("set_pool_data", json!({
             "workers": list,
             "stats": {
               "activeWorkers": active_count,

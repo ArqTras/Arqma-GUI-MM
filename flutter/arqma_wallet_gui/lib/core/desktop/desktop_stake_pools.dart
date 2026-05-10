@@ -77,14 +77,57 @@ Map<String, dynamic> _unlockTime(int requested, int height) {
   }
   final int br = requested - height;
   if (br <= 0) {
-    return <String, dynamic>{'amount': '0', 'i18n': 'components.pool_list_tabular.days'};
+    return <String, dynamic>{
+      'amount': '0',
+      'i18n': 'components.pool_list_tabular.days'
+    };
   }
   if (br < 720) {
     final double h = br / 30.0;
-    return <String, dynamic>{'amount': h.toStringAsFixed(1), 'i18n': 'components.pool_list_tabular.hours'};
+    return <String, dynamic>{
+      'amount': h.toStringAsFixed(1),
+      'i18n': 'components.pool_list_tabular.hours'
+    };
   }
   final int d = ((br / 720.0).ceil());
-  return <String, dynamic>{'amount': '$d', 'i18n': 'components.pool_list_tabular.days'};
+  return <String, dynamic>{
+    'amount': '$d',
+    'i18n': 'components.pool_list_tabular.days'
+  };
+}
+
+/// Tauri `wallet_pools` uses `/result/service_node_states`; some daemons nest another `result`.
+List<dynamic>? _serviceNodeStatesFromRpc(Map<String, dynamic> sn) {
+  if (!walletJsonRpcNoError(sn)) {
+    return null;
+  }
+  Object? r = sn['result'];
+  for (int i = 0; i < 4; i++) {
+    if (r is! Map) {
+      break;
+    }
+    final Map<String, dynamic> m = Map<String, dynamic>.from(r);
+    final Object? states = m['service_node_states'];
+    if (states is List) {
+      return List<dynamic>.from(states);
+    }
+    // Some builds expose the array under alternate keys.
+    final Object? alt = m['service_nodes'] ?? m['snodes'];
+    if (alt is List) {
+      return List<dynamic>.from(alt);
+    }
+    final Object? inner = m['result'];
+    if (inner is Map) {
+      r = inner;
+      continue;
+    }
+    break;
+  }
+  if (r is List) {
+    return List<dynamic>.from(r);
+  }
+  // Electron `wallet-rpc.js`: if `service_node_states` is missing, treat as empty list (still success).
+  return <dynamic>[];
 }
 
 int _regHeight(Map<String, dynamic> v) {
@@ -99,7 +142,8 @@ int _regHeight(Map<String, dynamic> v) {
 }
 
 void _sortOperatorPools(List<Map<String, dynamic>> pools) {
-  pools.sort((Map<String, dynamic> a, Map<String, dynamic> b) => _regHeight(b).compareTo(_regHeight(a)));
+  pools.sort((Map<String, dynamic> a, Map<String, dynamic> b) =>
+      _regHeight(b).compareTo(_regHeight(a)));
 }
 
 void _sortNonoperatorPools(List<Map<String, dynamic>> pools) {
@@ -136,36 +180,40 @@ double _asDouble(Object? v) {
 Future<void> runDesktopStakePoolsTick({
   required void Function(Map<String, dynamic>) emit,
   required Map<String, dynamic> configData,
-  required Future<Map<String, dynamic>?> Function(String method, Map<String, dynamic> params) walletCall,
+  required Future<Map<String, dynamic>?> Function(
+          String method, Map<String, dynamic> params)
+      walletCall,
 }) async {
   final ({String host, int port})? ep = daemonRpcHostPort(configData);
   if (ep == null) {
     return;
   }
-  final Map<String, dynamic>? ginfo = await DaemonJsonRpc.getInfo(ep.host, ep.port);
-  final Map<String, dynamic>? infoRes = DaemonJsonRpc.result(ginfo);
+  final Map<String, dynamic>? ginfo =
+      await DaemonJsonRpc.getInfo(ep.host, ep.port);
+  final Map<String, dynamic>? infoRes = DaemonJsonRpc.getInfoPayload(ginfo);
   if (infoRes == null) {
     return;
   }
   final int height = (infoRes['height'] as num?)?.toInt() ?? 0;
 
-  final Map<String, dynamic>? addrR = await walletCall('get_address', <String, dynamic>{'account_index': 0});
+  final Map<String, dynamic>? addrR =
+      await walletCall('get_address', <String, dynamic>{'account_index': 0});
   if (!walletJsonRpcNoError(addrR) || addrR == null) {
     return;
   }
   final Object? res = addrR['result'];
-  final String my = (res is Map && res['address'] != null) ? '${res['address']}' : '';
+  final String my =
+      (res is Map && res['address'] != null) ? '${res['address']}' : '';
   if (my.isEmpty) {
     return;
   }
 
   final Map<String, dynamic>? sn =
-      await DaemonJsonRpc.post(ep.host, ep.port, 'get_service_nodes', <String, dynamic>{});
-  if (sn == null || sn['error'] != null) {
+      await DaemonJsonRpc.post(ep.host, ep.port, 'get_service_nodes');
+  if (sn == null) {
     return;
   }
-  final List<dynamic>? states =
-      (sn['result'] as Map?)?['service_node_states'] as List<dynamic>? ?? (sn['result'] as List<dynamic>?);
+  final List<dynamic>? states = _serviceNodeStatesFromRpc(sn);
   if (states == null) {
     return;
   }
@@ -190,7 +238,8 @@ Future<void> runDesktopStakePoolsTick({
     }
     final String stakedS = _enUsFormatAmount(totalC / _coinUnits);
     final double req = _asDouble(pool['staking_requirement']);
-    final String avail = _enUsFormatAmount(((req - totalC) / _coinUnits).clamp(0.0, double.infinity));
+    final String avail = _enUsFormatAmount(
+        ((req - totalC) / _coinUnits).clamp(0.0, double.infinity));
     final int runl = (pool['requested_unlock_height'] as num?)?.toInt() ?? 0;
     final Map<String, dynamic> lock = _unlockTime(runl, height);
     final double portions = _asDouble(pool['portions_for_operator']);
@@ -209,7 +258,9 @@ Future<void> runDesktopStakePoolsTick({
       'operator_fee': opFee,
       'is_contributor': false,
       'is_operator': false,
-      'contributors': (pool['contributors'] is List) ? (pool['contributors'] as List).length : 0,
+      'contributors': (pool['contributors'] is List)
+          ? (pool['contributors'] as List).length
+          : 0,
       'requested_unlock_height': pool['requested_unlock_height'],
       'last_reward_block_height': pool['last_reward_block_height'],
       'last_uptime_proof': pool['last_uptime_proof'],

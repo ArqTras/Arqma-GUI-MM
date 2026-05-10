@@ -1,5 +1,5 @@
 use crate::backend_state::WalletBackendState;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::startup_run::run_core_startup;
 use arqma_wallet_core::validate::validate_config_against_defaults;
 use arqma_wallet_core::{default_paths, merge_json, remotes_path, write_config_file};
@@ -13,10 +13,12 @@ use tauri::AppHandle;
 use tokio::sync::OwnedSemaphorePermit;
 
 /// Handles `module == "core"` in `Backend.handle` (IPC like Node: init, config, URL, SVG/PNG export, explorer).
+/// `sink` delivers `backend-receive`; `app` is for Tauri-only APIs (dialogs, solo pool, …).
 ///
 /// For `save_config_init`, `backend_send` acquires [`crate::AppData::wallet_rpc_lane`] first and passes
 /// [`Some`] as `_rpc_lane_shutdown` so [`WalletBackendState::shutdown_subprocesses_async`] can call `store`/`stop_wallet` exclusively.
 pub async fn handle_core (
+  sink: &dyn BackendReceiveSink,
   app: &AppHandle,
   st: &mut WalletBackendState,
   method: &str,
@@ -31,7 +33,7 @@ pub async fn handle_core (
       if st.startup_seq_done {
         return Ok(Value::Null);
       }
-      run_core_startup(app, st, http).await?;
+      run_core_startup(sink, app, st, http).await?;
     }
     "set_daysOfTransactions" => {
       let n = params.get("daysOfTransactions").cloned().unwrap_or(json!(1));
@@ -55,8 +57,7 @@ pub async fn handle_core (
         serde_json::to_string_pretty(params).map_err(|e| e.to_string())?,
       )
       .map_err(|e| e.to_string())?;
-      emit_receive(
-        app,
+      sink.emit_receive(
         "set_app_data",
         json!({ "remotes": st.remotes }),
       )?;
@@ -77,14 +78,14 @@ pub async fn handle_core (
         .get("ethereum")
         .cloned()
         .unwrap_or_else(|| json!({}));
-      emit_receive(app, "set_ethereum_data", st.ethereum.clone())?;
+      sink.emit_receive("set_ethereum_data", st.ethereum.clone())?;
     }
     "change_scan" => {
       st.config_data = merge_json(
         &st.config_data,
         &json!({ "app": { "scan": params } }),
       );
-      emit_receive(app, "set_app_data", json!({ "scan": params }))?;
+      sink.emit_receive("set_app_data", json!({ "scan": params }))?;
     }
     "quick_save_config" => {
       st.config_data = merge_json(
@@ -102,8 +103,7 @@ pub async fn handle_core (
         .cloned()
         .unwrap();
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      emit_receive(
-        app,
+      sink.emit_receive(
         "set_app_data",
         json!({ "config": params, "pending_config": params }),
       )?;
@@ -125,8 +125,7 @@ pub async fn handle_core (
         .map(|(a, b)| a != b)
         .unwrap_or(true);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      emit_receive(
-        app,
+      sink.emit_receive(
         "set_app_data",
         json!({
           "config": st.config_data,
@@ -134,7 +133,7 @@ pub async fn handle_core (
         }),
       )?;
       if config_changed {
-        emit_receive(app, "settings_changed_reboot", json!({}))?;
+        sink.emit_receive("settings_changed_reboot", json!({}))?;
       }
     }
     "save_config_init" => {
@@ -152,7 +151,7 @@ pub async fn handle_core (
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
       st.shutdown_subprocesses_async(http, _rpc_lane_shutdown).await;
       st.startup_seq_done = false;
-      run_core_startup(app, st, http).await?;
+      run_core_startup(sink, app, st, http).await?;
     }
     "save_pool_config" => {
       let net = st
@@ -201,8 +200,7 @@ pub async fn handle_core (
           &st.config_data,
           &json!({ "pool": { "server": { "enabled": false } } }),
         );
-        emit_receive(
-          app,
+        sink.emit_receive(
           "show_notification",
           json!({
             "type": "warning",
@@ -213,8 +211,7 @@ pub async fn handle_core (
       }
       st.config_data = validate_config_against_defaults(&st.config_data, &st.defaults);
       write_config_file(&st.paths, &st.config_data).map_err(|e| e.to_string())?;
-      emit_receive(
-        app,
+      sink.emit_receive(
         "set_app_data",
         json!({
           "config": st.config_data
@@ -235,12 +232,11 @@ pub async fn handle_core (
         1
       };
       if enabled {
-        crate::solo_pool::start(app, st);
+        crate::solo_pool::start(crate::solo_pool_sink::TauriSoloPoolSink(app.clone()), st);
       } else {
         crate::solo_pool::stop(st);
       }
-      emit_receive(
-        app,
+      sink.emit_receive(
         "set_pool_data",
         json!({
           "status": status
@@ -307,8 +303,7 @@ pub async fn handle_core (
             .unwrap_or("Plik"),
           p.display()
         );
-        emit_receive(
-          app,
+        sink.emit_receive(
           "show_notification",
           json!({ "type": "positive", "message": msg, "timeout": 3000 }),
         )?;
@@ -350,8 +345,7 @@ pub async fn handle_core (
             .unwrap_or("Plik"),
           p.display()
         );
-        emit_receive(
-          app,
+        sink.emit_receive(
           "show_notification",
           json!({ "type": "positive", "message": msg, "timeout": 3000 }),
         )?;

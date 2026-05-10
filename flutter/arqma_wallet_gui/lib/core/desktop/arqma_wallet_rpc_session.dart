@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' show Random;
 
@@ -6,18 +7,21 @@ import 'package:flutter/foundation.dart';
 import 'arqma_executable_resolve.dart';
 import 'arqma_paths.dart';
 import 'wallet_json_rpc.dart';
+import 'wallet_native_ffi.dart';
 
 /// Same random `rpc-login` shape as `wallet_process::generate_auth_triple` (160 bytes → 320 hex chars).
 (String user, String pass, String salt) generateWalletRpcAuthTriple() {
   final Random rnd = Random.secure();
   final List<int> bytes = List<int>.generate(160, (_) => rnd.nextInt(256));
-  final String s = bytes.map((int x) => x.toRadixString(16).padLeft(2, '0')).join();
+  final String s =
+      bytes.map((int x) => x.toRadixString(16).padLeft(2, '0')).join();
   return (s.substring(0, 64), s.substring(64, 128), s.substring(128, 192));
 }
 
 /// `wallet_process::wallet_daemon_addr` — `host:port` for `--daemon-address`.
 String? walletDaemonAddress(Map<String, dynamic> configData) {
-  final String net = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  final String net =
+      (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   final Object? daemons = configData['daemons'];
   if (daemons is! Map) {
     return null;
@@ -63,26 +67,37 @@ int walletRpcLogLevel(Map<String, dynamic> configData) {
   return int.tryParse('$raw')?.clamp(1, 4) ?? 1;
 }
 
-String? resolveWalletRpcExecutable() => resolveArqmaExecutable(ArqmaExecutableKind.walletRpc);
+String? resolveWalletRpcExecutable() =>
+    resolveArqmaExecutable(ArqmaExecutableKind.walletRpc);
 
-/// Started `arqma-wallet-rpc` child + authenticated JSON-RPC client (parity with subprocess path in Rust).
+/// Wallet JSON-RPC: **native** `Wallet2ApiClient` via `libarqma_wallet_flutter_ffi` (default on desktop).
+///
+/// There is **no** `arqma-wallet-rpc` subprocess unless you opt in with **`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`**
+/// (debug / migration only).
+///
+/// Build the FFI library: `bash rust/tool/build_wallet_flutter_ffi.sh` (needs Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
+/// Override discovery with **`ARQMA_FLUTTER_WALLET_FFI`**.
 final class ArqmaWalletRpcSession {
-  ArqmaWalletRpcSession._(this.process, this.client, this.rpcPbkdf2SaltHex);
+  ArqmaWalletRpcSession._subprocess(
+      this.process, this.client, this.rpcPbkdf2SaltHex)
+      : _native = null;
 
-  final Process process;
-  final WalletJsonRpcClient client;
+  ArqmaWalletRpcSession._native(this._native, this.rpcPbkdf2SaltHex)
+      : process = null,
+        client = null;
 
-  /// Third segment of `generateWalletRpcAuthTriple` — same role as `WalletBackendState.wallet_salt` in Tauri (PBKDF2 salt).
+  final Process? process;
+  final WalletJsonRpcClient? client;
+  final WalletNativeFfi? _native;
+
+  /// PBKDF2 salt for GUI password checks (same triple shape as RPC subprocess path).
   final String rpcPbkdf2SaltHex;
 
-  static Future<ArqmaWalletRpcSession?> tryStart(Map<String, dynamic> configData) async {
-    final String? exe = resolveWalletRpcExecutable();
-    if (exe == null) {
-      debugPrint(
-        '[WalletRpc] executable not found (ARQMA_WALLET_RPC, ARQMA_BUILD_DIR, ARQMA_INSTALL_PREFIX, PATH, src-tauri/bin)',
-      );
-      return null;
-    }
+  /// True when [WalletNativeFfi] is active (no `arqma-wallet-rpc` subprocess).
+  bool get usesNativeFfi => _native != null;
+
+  static Future<ArqmaWalletRpcSession?> tryStart(
+      Map<String, dynamic> configData) async {
     final String? daemonAddr = walletDaemonAddress(configData);
     if (daemonAddr == null || daemonAddr.isEmpty) {
       debugPrint('[WalletRpc] missing daemon address in config');
@@ -94,14 +109,73 @@ final class ArqmaWalletRpcSession {
       return null;
     }
     Directory(wdir).createSync(recursive: true);
-    final (String user, String pass, String saltHex) = generateWalletRpcAuthTriple();
+
+    final (String user, String pass, String saltHex) =
+        generateWalletRpcAuthTriple();
+    final String net =
+        (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final int netCode = networkCodeForNetType(net);
+
+    final bool useSubprocessOnly = !kIsWeb &&
+        Platform.environment[kArqmaFlutterWalletRpcModeEnv] == 'subprocess';
+
+    if (!kIsWeb && !useSubprocessOnly) {
+      final WalletNativeFfi? ffi = WalletNativeFfi.tryLoad();
+      if (ffi != null) {
+        final int cfg = ffi.configure(wdir, daemonAddr, netCode);
+        if (cfg == 0) {
+          for (int i = 0; i < 60; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+            final Map<String, dynamic>? r =
+                await ffi.callJsonRpc('get_languages', <String, dynamic>{});
+            if (walletJsonRpcNoError(r)) {
+              debugPrint(
+                  '[WalletRpc] native wallet2 FFI ready (get_languages OK)');
+              return ArqmaWalletRpcSession._native(ffi, saltHex);
+            }
+          }
+          debugPrint(
+              '[WalletRpc] native FFI: get_languages failed after retries; not starting subprocess (set '
+              '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
+          ffi.reset();
+        } else {
+          debugPrint(
+              '[WalletRpc] native FFI configure failed (code=$cfg); not starting subprocess (set '
+              '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
+          ffi.reset();
+        }
+      } else {
+        debugPrint(
+            '[WalletRpc] native dylib not loaded; not starting subprocess (set '
+            '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
+      }
+      return null;
+    }
+
+    if (kIsWeb) {
+      return null;
+    }
+
+    final String? exe = resolveWalletRpcExecutable();
+    if (exe == null) {
+      debugPrint(
+        '[WalletRpc] subprocess mode: `arqma-wallet-rpc` not found (ARQMA_WALLET_RPC, PATH, or '
+        '…/Contents/Resources/bin/arqma-wallet-rpc)',
+      );
+      return null;
+    }
+
     final int rpcPort = walletRpcBindPort(configData);
     final int logLevel = walletRpcLogLevel(configData);
-    final String net = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
 
-    final Directory? logDir = Directory(wdir).parent.path.isEmpty ? null : Directory('${Directory(wdir).parent.path}${Platform.pathSeparator}logs');
+    final Directory? logDir = Directory(wdir).parent.path.isEmpty
+        ? null
+        : Directory(
+            '${Directory(wdir).parent.path}${Platform.pathSeparator}logs');
     logDir?.createSync(recursive: true);
-    final String? logFile = logDir != null ? '${logDir.path}${Platform.pathSeparator}arqma-wallet-rpc.log' : null;
+    final String? logFile = logDir != null
+        ? '${logDir.path}${Platform.pathSeparator}arqma-wallet-rpc.log'
+        : null;
 
     final List<String> args = <String>[
       '--rpc-login',
@@ -124,13 +198,16 @@ final class ArqmaWalletRpcSession {
       args.add('--stagenet');
     }
 
-    debugPrint('[WalletRpc] starting: $exe ${args.join(' ')}');
+    debugPrint('[WalletRpc] starting subprocess: $exe ${args.join(' ')}');
     late final Process proc;
     try {
       proc = await Process.start(
         exe,
         args,
+        mode: ProcessStartMode.normal,
       );
+      unawaited(proc.stdout.drain());
+      unawaited(proc.stderr.drain());
     } catch (e) {
       debugPrint('[WalletRpc] spawn failed: $e');
       return null;
@@ -145,10 +222,11 @@ final class ArqmaWalletRpcSession {
 
     for (int i = 0; i < 60; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      final Map<String, dynamic>? r = await http.call('get_languages', <String, dynamic>{});
+      final Map<String, dynamic>? r =
+          await http.call('get_languages', <String, dynamic>{});
       if (walletJsonRpcNoError(r)) {
-        debugPrint('[WalletRpc] ready (get_languages OK)');
-        return ArqmaWalletRpcSession._(proc, http, saltHex);
+        debugPrint('[WalletRpc] subprocess ready (get_languages OK)');
+        return ArqmaWalletRpcSession._subprocess(proc, http, saltHex);
       }
     }
     debugPrint('[WalletRpc] timeout waiting for get_languages');
@@ -159,17 +237,32 @@ final class ArqmaWalletRpcSession {
     return null;
   }
 
-  Future<Map<String, dynamic>?> call(String method, Object params) => client.call(method, params);
+  Future<Map<String, dynamic>?> call(String method, Object params) {
+    final WalletNativeFfi? n = _native;
+    if (n != null) {
+      return n.callJsonRpc(method, params);
+    }
+    return client!.call(method, params);
+  }
 
   Future<void> shutdown() async {
+    final WalletNativeFfi? n = _native;
+    if (n != null) {
+      try {
+        await call('close_wallet', <String, dynamic>{});
+      } catch (_) {}
+      n.reset();
+      return;
+    }
     try {
       await call('close_wallet', <String, dynamic>{});
     } catch (_) {}
     try {
-      process.kill();
+      process?.kill();
     } catch (_) {}
     try {
-      await process.exitCode.timeout(const Duration(seconds: 4), onTimeout: () => 0);
+      await process?.exitCode
+          .timeout(const Duration(seconds: 4), onTimeout: () => 0);
     } catch (_) {}
   }
 }

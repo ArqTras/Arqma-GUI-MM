@@ -16,7 +16,8 @@ class WalletSelectCreatePage extends StatefulWidget {
   State<WalletSelectCreatePage> createState() => _WalletSelectCreatePageState();
 }
 
-class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with WalletFlowListenerMixin {
+class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
+    with WalletFlowListenerMixin {
   static const List<String> _seedLanguages = <String>[
     'English',
     'Deutsch',
@@ -41,7 +42,8 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => attachWalletFlowListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => attachWalletFlowListener());
   }
 
   @override
@@ -57,16 +59,20 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext c) => AlertDialog(
-        title: Text(loc.tr('pages.wallet_select.create.confirm_no_password_title')),
-        content: Text(loc.tr('pages.wallet_select.create.confirm_no_password_message')),
+        title: Text(
+            loc.tr('pages.wallet_select.create.confirm_no_password_title')),
+        content: Text(
+            loc.tr('pages.wallet_select.create.confirm_no_password_message')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: Text(loc.tr('pages.wallet_select.create.confirm_no_password_cancel_label')),
+            child: Text(loc.tr(
+                'pages.wallet_select.create.confirm_no_password_cancel_label')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(loc.tr('pages.wallet_select.create.confirm_no_password_ok_label')),
+            child: Text(loc
+                .tr('pages.wallet_select.create.confirm_no_password_ok_label')),
           ),
         ],
       ),
@@ -82,19 +88,25 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
     if (name.isEmpty) {
       setState(() => _nameTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.create.enter_an_account_name'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.create.enter_an_account_name'))),
       );
       return;
     }
     if (_password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.create.passwords_do_not_match'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.create.passwords_do_not_match'))),
       );
       return;
     }
     Future<void> send() async {
       AppLoading.show();
-      await context.read<AppApi>().send('wallet', 'create_wallet', <String, dynamic>{
+      await context
+          .read<AppApi>()
+          .send('wallet', 'create_wallet', <String, dynamic>{
         'name': name,
         'language': _language,
         'password': _password.text,
@@ -123,7 +135,8 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
             child: TextField(
               controller: _name,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.create.wallet_name_placeholder'),
+                hintText: loc
+                    .tr('pages.wallet_select.create.wallet_name_placeholder'),
                 border: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
@@ -134,11 +147,14 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
           ArqmaField(
             label: loc.tr('pages.wallet_select.create.seed_language'),
             child: DropdownButtonFormField<String>(
-              value: _seedLanguages.contains(_language) ? _language : _seedLanguages.first,
+              value: _seedLanguages.contains(_language)
+                  ? _language
+                  : _seedLanguages.first,
               dropdownColor: const Color(0xFF1d1d1d),
               decoration: const InputDecoration(border: InputBorder.none),
               items: _seedLanguages
-                  .map((String s) => DropdownMenuItem<String>(value: s, child: Text(s)))
+                  .map((String s) =>
+                      DropdownMenuItem<String>(value: s, child: Text(s)))
                   .toList(),
               onChanged: (String? v) {
                 if (v != null) {
@@ -155,7 +171,8 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage> with Wa
               controller: _password,
               obscureText: true,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.create.optional_password_for_account'),
+                hintText: loc.tr(
+                    'pages.wallet_select.create.optional_password_for_account'),
                 border: InputBorder.none,
               ),
             ),

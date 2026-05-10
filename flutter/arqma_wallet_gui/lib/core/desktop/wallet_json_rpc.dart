@@ -12,6 +12,9 @@ bool walletJsonRpcNoError(Map<String, dynamic>? v) {
   if (e == null) {
     return true;
   }
+  if (e == false) {
+    return true;
+  }
   if (e is Map && e.isEmpty) {
     return true;
   }
@@ -26,12 +29,13 @@ int? walletHeightFromGetheight(Map<String, dynamic>? v) {
   if (r is Map) {
     final Map<String, dynamic> rm = Map<String, dynamic>.from(r);
     final Object? h = rm['height'];
-    return _asInt(h);
+    return jsonRpcLooseInt(h);
   }
   return null;
 }
 
-int? _asInt(Object? v) {
+/// Integer fields from JSON-RPC (`height`, fee counts, …) — often `int`, `num`, or decimal string.
+int? jsonRpcLooseInt(Object? v) {
   if (v is int) {
     return v;
   }
@@ -61,7 +65,8 @@ final class WalletJsonRpcClient {
   Future<Map<String, dynamic>?> call(String method, Object params) async {
     final HttpClient client = HttpClient();
     try {
-      final Uri uri = Uri(scheme: 'http', host: host, port: port, path: '/json_rpc');
+      final Uri uri =
+          Uri(scheme: 'http', host: host, port: port, path: '/json_rpc');
       final HttpClientRequest req = await client.postUrl(uri);
       final String token = base64Encode(utf8.encode('$user:$pass'));
       req.headers.set(HttpHeaders.authorizationHeader, 'Basic $token');

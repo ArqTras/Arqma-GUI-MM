@@ -34,7 +34,8 @@ class IdenticonRand {
     final double h = (next() * 360).floorToDouble();
     final double s = next() * 60 + 40;
     final double l = (next() + next() + next() + next()) * 25;
-    return HSLColor.fromAHSL(1, h, (s / 100).clamp(0, 1), (l / 100).clamp(0, 1)).toColor();
+    return HSLColor.fromAHSL(1, h, (s / 100).clamp(0, 1), (l / 100).clamp(0, 1))
+        .toColor();
   }
 
   List<int> createImageData(int gridSize) {
@@ -89,7 +90,8 @@ bool identiconSeedLooksValid(String input) {
 }
 
 /// Paints identicon into [canvas] with top-left at (0,0), size [side]×[side].
-void paintIdenticon(Canvas canvas, String seed, double side, {int gridSize = 8}) {
+void paintIdenticon(Canvas canvas, String seed, double side,
+    {int gridSize = 8}) {
   final IdenticonRand r = IdenticonRand(seed);
   final Color bg = r.nextHslColor();
   final Color fg = r.nextHslColor();
@@ -112,7 +114,8 @@ void paintIdenticon(Canvas canvas, String seed, double side, {int gridSize = 8})
 }
 
 /// Rasterizes identicon for tests / optional export (Vue `save_png`).
-Future<ui.Image> rasterizeIdenticon(String seed, {int gridSize = 8, int pixelSide = 64}) async {
+Future<ui.Image> rasterizeIdenticon(String seed,
+    {int gridSize = 8, int pixelSide = 64}) async {
   final ui.PictureRecorder rec = ui.PictureRecorder();
   final Canvas c = Canvas(rec);
   paintIdenticon(c, seed, pixelSide.toDouble(), gridSize: gridSize);

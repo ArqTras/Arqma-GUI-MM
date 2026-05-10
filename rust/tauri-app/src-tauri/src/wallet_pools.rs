@@ -1,6 +1,6 @@
 //! `getPools` / `getPoolsData` — daemon `get_service_nodes` + wallet address (from `wallet-rpc.js`).
 use crate::arqma_paths_config::daemon_rpc_host_port;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::json_rpc_client::{WalletRpcClient, daemon_post};
 use crate::wallet_relay_ops::COIN_UNITS;
 use crate::AppData;
@@ -325,7 +325,7 @@ pub async fn run_pool_tick (
       "active_pool_count": active_count
     }}
   });
-  let _ = emit_receive(app, "set_pools_data", pools);
+  let _ = BackendReceiveSink::emit_receive(app, "set_pools_data", pools);
 }
 
 pub fn start_stake_acquisition (

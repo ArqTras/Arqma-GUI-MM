@@ -38,8 +38,10 @@ class _ArqmaFieldState extends State<ArqmaField> {
     if (ctx == null) {
       return;
     }
-    final String text = (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
-    final EditableTextState? et = ctx.findAncestorStateOfType<EditableTextState>();
+    final String text =
+        (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+    final EditableTextState? et =
+        ctx.findAncestorStateOfType<EditableTextState>();
     if (et != null) {
       final TextEditingValue v = et.textEditingValue;
       final TextSelection sel = v.selection;
@@ -58,9 +60,11 @@ class _ArqmaFieldState extends State<ArqmaField> {
     if (widget.disableMenu) {
       return;
     }
-    final RenderBox? rb = _contentKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? rb =
+        _contentKey.currentContext?.findRenderObject() as RenderBox?;
     final Offset pos = rb?.localToGlobal(Offset.zero) ?? Offset.zero;
-    final RelativeRect rect = RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1);
+    final RelativeRect rect =
+        RelativeRect.fromLTRB(pos.dx, pos.dy, pos.dx + 1, pos.dy + 1);
     final String? cmd = await showMenu<String>(
       context: context,
       position: rect,
@@ -88,14 +92,17 @@ class _ArqmaFieldState extends State<ArqmaField> {
                   Text(
                     widget.label,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: ArqmaColors.textPrimary.withValues(alpha: 0.92),
                       fontSize: 13,
                     ),
                   ),
                   if (widget.optional)
                     Text(
                       ' (Optional)',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+                      style: TextStyle(
+                        color: ArqmaColors.textMuted.withValues(alpha: 0.9),
+                        fontSize: 12,
+                      ),
                     ),
                 ],
               ),
@@ -106,10 +113,12 @@ class _ArqmaFieldState extends State<ArqmaField> {
               key: _contentKey,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF111111),
-                borderRadius: BorderRadius.circular(4),
+                color: const Color(0xFF14110E),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: widget.error ? ArqmaColors.negative : Colors.white24,
+                  color: widget.error
+                      ? ArqmaColors.negative
+                      : ArqmaColors.outlineDefault.withValues(alpha: 0.65),
                   width: widget.error ? 1.4 : 1,
                 ),
               ),
@@ -119,7 +128,9 @@ class _ArqmaFieldState extends State<ArqmaField> {
           if (widget.error && widget.errorLabel.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(widget.errorLabel, style: const TextStyle(color: ArqmaColors.negative, fontSize: 12)),
+              child: Text(widget.errorLabel,
+                  style: const TextStyle(
+                      color: ArqmaColors.negative, fontSize: 12)),
             ),
         ],
       ),

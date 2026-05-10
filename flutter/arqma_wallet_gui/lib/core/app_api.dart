@@ -14,16 +14,20 @@ class AppApi {
 
   NativeBridge get bridge => _bridge;
 
-  Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) => _bridge.invoke(cmd, args);
+  Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) =>
+      _bridge.invoke(cmd, args);
 
-  Future<dynamic> send(String module, String method, [Object? data]) => _bridge.backendSend(module, method, data);
+  Future<dynamic> send(String module, String method, [Object? data]) =>
+      _bridge.backendSend(module, method, data);
 
   Future<void> logError(String module, String method, String message) async {
-    await invoke('app_log_error', {'module': module, 'method': method, 'message': message});
+    await invoke('app_log_error',
+        {'module': module, 'method': method, 'message': message});
   }
 
   Future<void> logInfo(String module, String method, String message) async {
-    await invoke('app_log_info', {'module': module, 'method': method, 'message': message});
+    await invoke('app_log_info',
+        {'module': module, 'method': method, 'message': message});
   }
 
   Future<void> writeText(String text) async {
@@ -52,9 +56,10 @@ class AppApi {
       if (m['canceled'] == true || m['cancelled'] == true) {
         return null;
       }
-      final Object? fp = m['filePath'] ?? (m['filePaths'] is List && (m['filePaths'] as List).isNotEmpty
-          ? (m['filePaths'] as List).first
-          : null);
+      final Object? fp = m['filePath'] ??
+          (m['filePaths'] is List && (m['filePaths'] as List).isNotEmpty
+              ? (m['filePaths'] as List).first
+              : null);
       return fp?.toString();
     }
     return r.toString();

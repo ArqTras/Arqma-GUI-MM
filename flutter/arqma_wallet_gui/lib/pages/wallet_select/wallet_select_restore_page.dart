@@ -13,10 +13,12 @@ class WalletSelectRestorePage extends StatefulWidget {
   const WalletSelectRestorePage({super.key});
 
   @override
-  State<WalletSelectRestorePage> createState() => _WalletSelectRestorePageState();
+  State<WalletSelectRestorePage> createState() =>
+      _WalletSelectRestorePageState();
 }
 
-class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with WalletFlowListenerMixin {
+class _WalletSelectRestorePageState extends State<WalletSelectRestorePage>
+    with WalletFlowListenerMixin {
   static const String _kFirstBlockDate = '2018/10/31';
 
   final TextEditingController _name = TextEditingController();
@@ -33,7 +35,8 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => attachWalletFlowListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => attachWalletFlowListener());
   }
 
   @override
@@ -87,16 +90,20 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext c) => AlertDialog(
-        title: Text(loc.tr('pages.wallet_select.restore.confirm_no_password_title')),
-        content: Text(loc.tr('pages.wallet_select.restore.confirm_no_password_message')),
+        title: Text(
+            loc.tr('pages.wallet_select.restore.confirm_no_password_title')),
+        content: Text(
+            loc.tr('pages.wallet_select.restore.confirm_no_password_message')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: Text(loc.tr('pages.wallet_select.restore.confirm_no_password_cancel_label')),
+            child: Text(loc.tr(
+                'pages.wallet_select.restore.confirm_no_password_cancel_label')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(loc.tr('pages.wallet_select.restore.confirm_no_password_ok_label')),
+            child: Text(loc.tr(
+                'pages.wallet_select.restore.confirm_no_password_ok_label')),
           ),
         ],
       ),
@@ -116,21 +123,27 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
         _seedTouched = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.restore.restore_wallet_message'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.restore.restore_wallet_message'))),
       );
       return;
     }
     if (name.isEmpty) {
       setState(() => _nameTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.restore.enter_wallet_name'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.restore.enter_wallet_name'))),
       );
       return;
     }
     if (seedRaw.isEmpty) {
       setState(() => _seedTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.restore.enter_seed_words'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.restore.enter_seed_words'))),
       );
       return;
     }
@@ -145,27 +158,35 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
     final int n = words.length;
     if (n != 14 && n != 24 && n != 25 && n != 26) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.restore.invalid_seed_words'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet_select.restore.invalid_seed_words'))),
       );
       return;
     }
     if (_refreshType == 'height') {
       if (int.tryParse(_refreshHeight.text.trim()) == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.tr('pages.wallet_select.restore.invalid_restore_height'))),
+          SnackBar(
+              content: Text(loc
+                  .tr('pages.wallet_select.restore.invalid_restore_height'))),
         );
         return;
       }
     }
     if (_password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.restore.passwords_dont_match'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.restore.passwords_dont_match'))),
       );
       return;
     }
     Future<void> send() async {
       AppLoading.show();
-      await context.read<AppApi>().send('wallet', 'restore_wallet', <String, dynamic>{
+      await context
+          .read<AppApi>()
+          .send('wallet', 'restore_wallet', <String, dynamic>{
         'name': name,
         'seed': seedRaw,
         'refresh_type': _refreshType,
@@ -197,7 +218,8 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
             child: TextField(
               controller: _name,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.restore.wallet_name_placeholder'),
+                hintText: loc
+                    .tr('pages.wallet_select.restore.wallet_name_placeholder'),
                 border: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
@@ -212,7 +234,8 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
               minLines: 3,
               maxLines: 8,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.restore.mnemonic_seed_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.restore.mnemonic_seed_placeholder'),
                 border: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
@@ -225,7 +248,8 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
               Expanded(
                 child: _refreshType == 'date'
                     ? ArqmaField(
-                        label: loc.tr('pages.wallet_select.restore.restore_date'),
+                        label:
+                            loc.tr('pages.wallet_select.restore.restore_date'),
                         child: Row(
                           children: [
                             Expanded(
@@ -239,11 +263,13 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
                         ),
                       )
                     : ArqmaField(
-                        label: loc.tr('pages.wallet_select.restore.restore_from_block_height_label'),
+                        label: loc.tr(
+                            'pages.wallet_select.restore.restore_from_block_height_label'),
                         child: TextField(
                           controller: _refreshHeight,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(border: InputBorder.none),
+                          decoration:
+                              const InputDecoration(border: InputBorder.none),
                         ),
                       ),
               ),
@@ -255,7 +281,10 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.restore.switch_to_height_select'), textAlign: TextAlign.center),
+                  child: Text(
+                      loc.tr(
+                          'pages.wallet_select.restore.switch_to_height_select'),
+                      textAlign: TextAlign.center),
                 )
               else
                 ElevatedButton(
@@ -264,7 +293,10 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage> with 
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.restore.switch_to_date_select'), textAlign: TextAlign.center),
+                  child: Text(
+                      loc.tr(
+                          'pages.wallet_select.restore.switch_to_date_select'),
+                      textAlign: TextAlign.center),
                 ),
             ],
           ),

@@ -7,7 +7,8 @@ typedef GatewayEventListener = void Function(String event, dynamic data);
 
 /// Avoid `target.addAll(merged)` when [target] was inferred as `Map<String, Object>`
 /// from map literals (e.g. default gateway state) while [merged] is `Map<String, dynamic>`.
-void _assignMergedEntries(Map<dynamic, dynamic> target, Map<String, dynamic> merged) {
+void _assignMergedEntries(
+    Map<dynamic, dynamic> target, Map<String, dynamic> merged) {
   target.clear();
   merged.forEach((String k, dynamic v) {
     target[k] = v;
@@ -116,7 +117,8 @@ class GatewayStore extends ChangeNotifier {
       patch['balance'] = num.tryParse('${patch['balance']}') ?? 0;
     }
     if (patch['unlocked_balance'] != null && patch['unlocked_balance'] != '') {
-      patch['unlocked_balance'] = num.tryParse('${patch['unlocked_balance']}') ?? 0;
+      patch['unlocked_balance'] =
+          num.tryParse('${patch['unlocked_balance']}') ?? 0;
     }
     if (patch['scan_poll_ts'] != null && patch['scan_poll_ts'] != '') {
       patch['scan_poll_ts'] = num.tryParse('${patch['scan_poll_ts']}') ?? 0;
@@ -230,7 +232,8 @@ class GatewayStore extends ChangeNotifier {
 
   void _calculateSignatureData(List<dynamic> data) {
     final proc = (_state['processing_signature_data'] as List).cast<dynamic>();
-    final dataSigs = data.map((e) => (e as Map)['signature'].toString()).toSet();
+    final dataSigs =
+        data.map((e) => (e as Map)['signature'].toString()).toSet();
     final next = data.where((item) {
       final sig = (item as Map)['signature'].toString();
       if (proc.contains(sig)) {
@@ -320,7 +323,8 @@ class GatewayStore extends ChangeNotifier {
         setConversionData(Map<String, dynamic>.from(data as Map));
         break;
       case 'set_signature_data':
-        if ((_state['signature_data'] as List).isEmpty && (data as List).isEmpty) {
+        if ((_state['signature_data'] as List).isEmpty &&
+            (data as List).isEmpty) {
           return;
         }
         setSignatureData(List<dynamic>.from(data as List));
@@ -356,8 +360,8 @@ class GatewayStore extends ChangeNotifier {
     }
   }
 
-  Map<String, dynamic> get notifierMap =>
-      Map<String, dynamic>.from(_state['notifier'] as Map<String, dynamic>? ?? <String, dynamic>{});
+  Map<String, dynamic> get notifierMap => Map<String, dynamic>.from(
+      _state['notifier'] as Map<String, dynamic>? ?? <String, dynamic>{});
 
   void setNotifier(Map<String, dynamic> n) {
     _state['notifier'] = n;
@@ -366,9 +370,10 @@ class GatewayStore extends ChangeNotifier {
 
   /// Vuex `save_pending_config`: merge `{ config: pending }` into `app`.
   void savePendingConfig(Map<String, dynamic> pending) {
-    final Map<String, dynamic> mergedApp = deepMergeMaps(app, <String, dynamic>{'config': pending}) as Map<String, dynamic>;
-    app.clear();
-    app.addAll(mergedApp);
+    final Map<String, dynamic> mergedApp =
+        deepMergeMaps(app, <String, dynamic>{'config': pending})
+            as Map<String, dynamic>;
+    _assignMergedEntries(app, mergedApp);
     _notify();
   }
 
@@ -391,11 +396,14 @@ class GatewayStore extends ChangeNotifier {
       return false;
     }
     final cfg = app['config'] as Map<String, dynamic>?;
-    final net = (cfg?['app'] as Map?)?['net_type'] as String?;
+    final String net =
+        (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final dt = (cfg?['daemons'] as Map?)?[net] as Map?;
     final dtype = dt?['type'] as String?;
     if (dtype == 'local' || dtype == 'local_remote') {
-      final hwo = num.tryParse('${(daemon['info'] as Map)['height_without_bootstrap']}') ?? 0;
+      final hwo = num.tryParse(
+              '${(daemon['info'] as Map)['height_without_bootstrap']}') ??
+          0;
       if (hwo < targetHeight) {
         return false;
       }
@@ -405,16 +413,21 @@ class GatewayStore extends ChangeNotifier {
 
   bool get isAbleToSend {
     final cfg = app['config'] as Map<String, dynamic>?;
-    final net = (cfg?['app'] as Map?)?['net_type'] as String?;
+    final String net =
+        (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final daemons = cfg?['daemons'] as Map<String, dynamic>?;
-    final configDaemon = daemons?[net] as Map<String, dynamic>? ?? {'type': 'local'};
+    final configDaemon =
+        daemons?[net] as Map<String, dynamic>? ?? {'type': 'local'};
     final targetHeight = _daemonChainTip();
     if (targetHeight == 0) {
       return false;
     }
-    final walletAtTip = (num.tryParse('${walletInfo['height']}') ?? 0) == targetHeight;
+    final walletAtTip =
+        (num.tryParse('${walletInfo['height']}') ?? 0) == targetHeight;
     if (configDaemon['type'] == 'local_remote') {
-      final hwo = num.tryParse('${(daemon['info'] as Map)['height_without_bootstrap']}') ?? 0;
+      final hwo = num.tryParse(
+              '${(daemon['info'] as Map)['height_without_bootstrap']}') ??
+          0;
       return hwo >= targetHeight && walletAtTip;
     }
     return walletAtTip;
@@ -454,35 +467,45 @@ class GatewayStore extends ChangeNotifier {
 
   List<dynamic> get filteredTransactions {
     final txList =
-        ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
-    final Map<String, dynamic> tf = _state['transactions_filter'] as Map<String, dynamic>;
-    final Map<String, dynamic> tid = _state['transaction_id_filter'] as Map<String, dynamic>;
+        ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ??
+            const <dynamic>[];
+    final Map<String, dynamic> tf =
+        _state['transactions_filter'] as Map<String, dynamic>;
+    final Map<String, dynamic> tid =
+        _state['transaction_id_filter'] as Map<String, dynamic>;
     final String tidVal = '${tid['value'] ?? ''}';
     final int idx = tf['index'] as int? ?? 0;
-    Iterable<dynamic> out = txList.where((dynamic x) => _txTypeMatch(Map<String, dynamic>.from(x as Map), idx));
+    Iterable<dynamic> out = txList.where(
+        (dynamic x) => _txTypeMatch(Map<String, dynamic>.from(x as Map), idx));
     if (tidVal.isNotEmpty) {
-      out = out.where((dynamic x) => '${(x as Map)['txid']}'.startsWith(tidVal));
+      out =
+          out.where((dynamic x) => '${(x as Map)['txid']}'.startsWith(tidVal));
     }
     return out.toList();
   }
 
-  Map<String, dynamic> get poolsRoot => Map<String, dynamic>.from(_state['pools'] as Map? ?? <String, dynamic>{});
+  Map<String, dynamic> get poolsRoot =>
+      Map<String, dynamic>.from(_state['pools'] as Map? ?? <String, dynamic>{});
 
   int get poolCount {
     final Map<String, dynamic> p = poolsRoot;
-    final List<dynamic> op = p['operator_pools'] as List<dynamic>? ?? const <dynamic>[];
-    final List<dynamic> nop = p['nonoperator_pools'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> op =
+        p['operator_pools'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> nop =
+        p['nonoperator_pools'] as List<dynamic>? ?? const <dynamic>[];
     return op.length + nop.length;
   }
 
   int get activePoolCount {
-    final Map<String, dynamic>? st = (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
+    final Map<String, dynamic>? st =
+        (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
     final Map<String, dynamic>? stake = st?['stake'] as Map<String, dynamic>?;
     return (stake?['active_pool_count'] as num?)?.toInt() ?? 0;
   }
 
   num get totalContributedStake {
-    final Map<String, dynamic>? st = (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
+    final Map<String, dynamic>? st =
+        (poolsRoot['staker'] as Map?)?.cast<String, dynamic>();
     final Map<String, dynamic>? stake = st?['stake'] as Map<String, dynamic>?;
     return stake?['total_contributed'] as num? ?? 0;
   }
@@ -512,20 +535,26 @@ class GatewayStore extends ChangeNotifier {
     final List<dynamic> raw = poolType == 'operator_pools'
         ? (p['operator_pools'] as List<dynamic>? ?? const <dynamic>[])
         : (p['nonoperator_pools'] as List<dynamic>? ?? const <dynamic>[]);
-    final Map<String, dynamic> pf = _state['pools_filter'] as Map<String, dynamic>;
+    final Map<String, dynamic> pf =
+        _state['pools_filter'] as Map<String, dynamic>;
     final int idx = pf['index'] as int? ?? 0;
-    final String nid = '${(_state['node_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
-    final String oid = '${(_state['operator_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
+    final String nid =
+        '${(_state['node_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
+    final String oid =
+        '${(_state['operator_id_filter'] as Map<String, dynamic>)['value'] ?? ''}';
     final bool isDefault = idx == 0 && nid.isEmpty && oid.isEmpty;
     Iterable<Map<String, dynamic>> it =
         raw.map((dynamic e) => Map<String, dynamic>.from(e as Map));
     if (!isDefault) {
-      it = it.where((Map<String, dynamic> c) => _poolPassesPoolsFilterIndex(c, idx));
+      it = it.where(
+          (Map<String, dynamic> c) => _poolPassesPoolsFilterIndex(c, idx));
       if (nid.isNotEmpty) {
-        it = it.where((Map<String, dynamic> c) => '${c['service_node_pubkey']}'.startsWith(nid));
+        it = it.where((Map<String, dynamic> c) =>
+            '${c['service_node_pubkey']}'.startsWith(nid));
       }
       if (oid.isNotEmpty) {
-        it = it.where((Map<String, dynamic> c) => '${c['operator_address']}'.startsWith(oid));
+        it = it.where((Map<String, dynamic> c) =>
+            '${c['operator_address']}'.startsWith(oid));
       }
     }
     return it.toList();

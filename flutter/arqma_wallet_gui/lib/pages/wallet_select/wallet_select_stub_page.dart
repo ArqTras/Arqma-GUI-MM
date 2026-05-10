@@ -13,7 +13,8 @@ class WalletSelectStubPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w300)),
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w300)),
         const SizedBox(height: 12),
         const Text(AppStrings.walletPagePlaceholder),
       ],

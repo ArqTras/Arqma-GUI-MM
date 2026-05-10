@@ -32,9 +32,10 @@ Map<String, dynamic> defaultGatewayState() {
             'fixedDiffSeparator': '.',
           },
         },
-        'app': {'net_type': 'local'},
+        // Chain key for `daemons[net]` / `daemonRpcHostPort` — not the same as top-level `app.net_type`.
+        'app': {'net_type': 'mainnet'},
         'daemons': {
-          'local': {'type': 'remote'},
+          'mainnet': {'type': 'remote'},
         },
       },
       'pending_config': {
@@ -44,6 +45,9 @@ Map<String, dynamic> defaultGatewayState() {
       'scan': false,
       'remotes': <dynamic>[],
       'net_type': 'local',
+
+      /// Desktop bridge: `pending` → `ffi` | `subprocess` | `none` | `off` after wallet RPC session start.
+      'wallet_backend': 'pending',
       'promptForPassword': true,
       'loggingLevel': 'info',
       'daysOfTransactions': 1,

@@ -1,6 +1,6 @@
 use crate::arqma_paths_config::daemon_rpc_host_port;
 use crate::backend_state::WalletBackendState;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::json_rpc_client::daemon_post;
 use crate::native_bin::resolve_arqmad_exe;
 use crate::subprocess::new_child_command;
@@ -41,13 +41,13 @@ pub async fn handle_daemon (
   match method {
     "check_version" => {
       if let Some(ver) = arqmad_version_string(app) {
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "daemon_version",
           json!({ "version": ver.trim() }),
         )?;
       } else {
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "daemon_version",
           json!({ "version": false }),
@@ -73,7 +73,7 @@ pub async fn handle_daemon (
       let pban = json!({ "bans": [{ "host": host, "seconds": seconds, "ban": true }] });
       let r = daemon_post(http, &h, p, "set_bans", id, &pban).await?;
       if r.get("error").is_some() || r.get("result").is_none() {
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "show_notification",
           json!({ "type": "negative", "message": "Error banning peer", "timeout": 3000 }),
@@ -81,7 +81,7 @@ pub async fn handle_daemon (
         return Ok(Value::Null);
       }
       let msg = format!("Banned {host} for {seconds} s");
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "show_notification",
         json!({ "type": "positive", "message": msg, "timeout": 3000 }),

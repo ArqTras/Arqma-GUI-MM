@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../i18n/locale_controller.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Parity with `components/tx_type_icon.vue` (incoming / outgoing / pending / failed).
 class TxTypeIcon extends StatelessWidget {
@@ -38,18 +39,25 @@ class TxTypeIcon extends StatelessWidget {
     final LocaleController loc = context.watch<LocaleController>();
     final double sub = (mainSize * 0.35).clamp(12, 16);
     final Widget icon = switch (type) {
-      'in' => Icon(Icons.call_received, size: mainSize, color: Colors.white70),
-      'out' => Icon(Icons.call_made, size: mainSize, color: Colors.white70),
+      'in' => Icon(Icons.call_received,
+          size: mainSize, color: ArqmaColors.textSecondary),
+      'out' =>
+        Icon(Icons.call_made, size: mainSize, color: ArqmaColors.textSecondary),
       'pool' => _Stacked(
-          main: Icon(Icons.call_received, size: mainSize, color: Colors.white70),
-          sub: Icon(Icons.access_time, size: sub, color: Colors.white70),
+          main: Icon(Icons.call_received,
+              size: mainSize, color: ArqmaColors.textSecondary),
+          sub: Icon(Icons.access_time,
+              size: sub, color: ArqmaColors.textSecondary),
         ),
       'pending' => _Stacked(
-          main: Icon(Icons.call_made, size: mainSize, color: Colors.white70),
-          sub: Icon(Icons.access_time, size: sub, color: Colors.white70),
+          main: Icon(Icons.call_made,
+              size: mainSize, color: ArqmaColors.textSecondary),
+          sub: Icon(Icons.access_time,
+              size: sub, color: ArqmaColors.textSecondary),
         ),
       'failed' => Icon(Icons.close, size: mainSize, color: Colors.redAccent),
-      _ => Icon(Icons.swap_horiz, size: mainSize * 0.75, color: Colors.white54),
+      _ => Icon(Icons.swap_horiz,
+          size: mainSize * 0.75, color: ArqmaColors.textMuted),
     };
 
     final Widget sized = SizedBox(

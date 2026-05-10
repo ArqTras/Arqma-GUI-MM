@@ -20,7 +20,9 @@ class FormatArqma extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = textColor != null ? TextStyle(color: textColor) : null;
+    final TextStyle style = TextStyle(
+      color: textColor ?? Theme.of(context).colorScheme.onSurface,
+    );
     if (asWei) {
       return Text(NumberFormat.decimalPattern().format(amount), style: style);
     }

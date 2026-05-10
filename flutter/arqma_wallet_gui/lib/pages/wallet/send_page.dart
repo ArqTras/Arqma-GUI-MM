@@ -34,7 +34,11 @@ class _SendPageState extends State<SendPage> {
   @override
   void initState() {
     super.initState();
-    _txSub = context.read<AppApi>().bridge.backendReceive.listen((Map<String, dynamic> msg) {
+    _txSub = context
+        .read<AppApi>()
+        .bridge
+        .backendReceive
+        .listen((Map<String, dynamic> msg) {
       if (msg['event'] == 'set_tx_status') {
         _handleTx(Map<String, dynamic>.from(msg['data'] as Map));
       }
@@ -46,9 +50,11 @@ class _SendPageState extends State<SendPage> {
     _txSub?.cancel();
     try {
       final GatewayStore s = context.read<GatewayStore>();
-      final Map<String, dynamic> st = Map<String, dynamic>.from(s.raw['tx_status'] as Map? ?? <String, dynamic>{});
+      final Map<String, dynamic> st = Map<String, dynamic>.from(
+          s.raw['tx_status'] as Map? ?? <String, dynamic>{});
       if (st['sending'] == true) {
-        s.setTxStatus(<String, dynamic>{'code': 0, 'message': '', 'sending': false});
+        s.setTxStatus(
+            <String, dynamic>{'code': 0, 'message': '', 'sending': false});
         AppLoading.hide();
       }
     } catch (_) {}
@@ -114,14 +120,17 @@ class _SendPageState extends State<SendPage> {
             TextButton(
               onPressed: () {
                 Navigator.pop(c);
-                context.read<AppApi>().send('wallet', 'cancelTransaction', <String, dynamic>{'type': 'transfer_split'});
+                context.read<AppApi>().send('wallet', 'cancelTransaction',
+                    <String, dynamic>{'type': 'transfer_split'});
               },
               child: Text(loc.tr('pages.wallet.send.tx_status_cancel_label')),
             ),
             TextButton(
               onPressed: () {
                 Navigator.pop(c);
-                context.read<AppApi>().send('wallet', 'relay_transfer', <String, dynamic>{});
+                context
+                    .read<AppApi>()
+                    .send('wallet', 'relay_transfer', <String, dynamic>{});
               },
               child: Text(loc.tr('pages.wallet.send.tx_status_ok_label')),
             ),
@@ -129,7 +138,8 @@ class _SendPageState extends State<SendPage> {
         ),
       );
     } else if (code == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
       setState(() {
         _amount.clear();
         _address.clear();
@@ -140,29 +150,35 @@ class _SendPageState extends State<SendPage> {
         _saveToBook = false;
       });
     } else if (code == -200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
   bool _validate(LocaleController loc, GatewayStore store) {
-    final num unlocked = num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
+    final num unlocked =
+        num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
     final double maxArq = unlocked / 1e9;
     final double? amt = double.tryParse(_amount.text.trim());
     final String addr = _address.text.trim();
     if ((amt == null || amt <= 0 || amt > maxArq) && addr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_amount_address'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(loc.tr('pages.wallet.send.invalid_amount_address'))));
       return false;
     }
     if (amt == null || amt < 0.0001 || amt > maxArq) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_amount'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_amount'))));
       return false;
     }
     if (addr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_address'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_address'))));
       return false;
     }
     if (!_validPaymentId(_paymentId.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('pages.wallet.send.invalid_payment_id'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(loc.tr('pages.wallet.send.invalid_payment_id'))));
       return false;
     }
     return true;
@@ -180,7 +196,8 @@ class _SendPageState extends State<SendPage> {
       api: api,
       locale: loc,
       title: loc.tr('pages.wallet.send.show_password_confirmation_title'),
-      noPasswordMessage: loc.tr('pages.wallet.send.show_password_confirmation_message'),
+      noPasswordMessage:
+          loc.tr('pages.wallet.send.show_password_confirmation_message'),
       okLabel: loc.tr('pages.wallet.send.show_password_confirmation_ok_label'),
     );
     if (pw == null) {
@@ -200,16 +217,19 @@ class _SendPageState extends State<SendPage> {
       },
       'password': pw,
     };
-    store.setTxStatus(<String, dynamic>{'code': 0, 'message': '', 'sending': true});
+    store.setTxStatus(
+        <String, dynamic>{'code': 0, 'message': '', 'sending': true});
     AppLoading.show();
     await api.send('wallet', 'transfer', copy);
     AppLoading.hide();
-    store.setTxStatus(<String, dynamic>{'code': 0, 'message': '', 'sending': false});
+    store.setTxStatus(
+        <String, dynamic>{'code': 0, 'message': '', 'sending': false});
   }
 
   void _all() {
     final GatewayStore store = context.read<GatewayStore>();
-    final num u = num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
+    final num u =
+        num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
     setState(() => _amount.text = '${u / 1e9}');
   }
 
@@ -218,10 +238,12 @@ class _SendPageState extends State<SendPage> {
     final LocaleController loc = context.watch<LocaleController>();
     final GatewayStore store = context.watch<GatewayStore>();
     final bool viewOnly = store.walletInfo['view_only'] == true;
-    final String prefix = (store.walletInfo['address']?.toString().isNotEmpty == true)
-        ? store.walletInfo['address'].toString().substring(0, 1)
-        : 'L';
-    final Map<String, dynamic> txStatus = store.raw['tx_status'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final String prefix =
+        (store.walletInfo['address']?.toString().isNotEmpty == true)
+            ? store.walletInfo['address'].toString().substring(0, 1)
+            : 'L';
+    final Map<String, dynamic> txStatus =
+        store.raw['tx_status'] as Map<String, dynamic>? ?? <String, dynamic>{};
     final bool sending = txStatus['sending'] == true;
 
     if (viewOnly) {
@@ -247,11 +269,15 @@ class _SendPageState extends State<SendPage> {
                         Expanded(
                           child: TextField(
                             controller: _amount,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(hintText: '0', border: InputBorder.none),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration: const InputDecoration(
+                                hintText: '0', border: InputBorder.none),
                           ),
                         ),
-                        TextButton(onPressed: _all, child: Text(loc.tr('pages.wallet.send.all'))),
+                        TextButton(
+                            onPressed: _all,
+                            child: Text(loc.tr('pages.wallet.send.all'))),
                       ],
                     ),
                   ),
@@ -264,10 +290,15 @@ class _SendPageState extends State<SendPage> {
                         Expanded(
                           child: TextField(
                             controller: _address,
-                            decoration: InputDecoration(hintText: '$prefix..', border: InputBorder.none),
+                            decoration: InputDecoration(
+                                hintText: '$prefix..',
+                                border: InputBorder.none),
                           ),
                         ),
-                        TextButton(onPressed: () => context.push('/wallet/addressbook'), child: Text(loc.tr('pages.wallet.send.contacts'))),
+                        TextButton(
+                            onPressed: () =>
+                                context.push('/wallet/addressbook'),
+                            child: Text(loc.tr('pages.wallet.send.contacts'))),
                       ],
                     ),
                   ),
@@ -285,11 +316,16 @@ class _SendPageState extends State<SendPage> {
                           Expanded(
                             child: TextField(
                               controller: _amount,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(hintText: '0', border: InputBorder.none),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              decoration: const InputDecoration(
+                                  hintText: '0', border: InputBorder.none),
                             ),
                           ),
-                          TextButton(onPressed: _all, child: Text(loc.tr('pages.wallet.send.all'))),
+                          TextButton(
+                              onPressed: _all,
+                              child: Text(loc.tr('pages.wallet.send.all'))),
                         ],
                       ),
                     ),
@@ -304,10 +340,16 @@ class _SendPageState extends State<SendPage> {
                           Expanded(
                             child: TextField(
                               controller: _address,
-                              decoration: InputDecoration(hintText: '$prefix..', border: InputBorder.none),
+                              decoration: InputDecoration(
+                                  hintText: '$prefix..',
+                                  border: InputBorder.none),
                             ),
                           ),
-                          TextButton(onPressed: () => context.push('/wallet/addressbook'), child: Text(loc.tr('pages.wallet.send.contacts'))),
+                          TextButton(
+                              onPressed: () =>
+                                  context.push('/wallet/addressbook'),
+                              child:
+                                  Text(loc.tr('pages.wallet.send.contacts'))),
                         ],
                       ),
                     ),
@@ -322,7 +364,9 @@ class _SendPageState extends State<SendPage> {
               child: TextField(
                 controller: _note,
                 maxLines: 4,
-                decoration: InputDecoration(hintText: loc.tr('pages.wallet.send.notes_placeholder'), border: InputBorder.none),
+                decoration: InputDecoration(
+                    hintText: loc.tr('pages.wallet.send.notes_placeholder'),
+                    border: InputBorder.none),
               ),
             ),
             ArqmaField(
@@ -343,7 +387,9 @@ class _SendPageState extends State<SendPage> {
                 optional: true,
                 child: TextField(
                   controller: _abName,
-                  decoration: InputDecoration(hintText: loc.tr('pages.wallet.send.name_placeholder'), border: InputBorder.none),
+                  decoration: InputDecoration(
+                      hintText: loc.tr('pages.wallet.send.name_placeholder'),
+                      border: InputBorder.none),
                 ),
               ),
               ArqmaField(
@@ -352,7 +398,10 @@ class _SendPageState extends State<SendPage> {
                 child: TextField(
                   controller: _abDesc,
                   maxLines: 2,
-                  decoration: InputDecoration(hintText: loc.tr('pages.wallet.send.additional_notes_placeholder'), border: InputBorder.none),
+                  decoration: InputDecoration(
+                      hintText: loc
+                          .tr('pages.wallet.send.additional_notes_placeholder'),
+                      border: InputBorder.none),
                 ),
               ),
             ],
@@ -361,7 +410,8 @@ class _SendPageState extends State<SendPage> {
               children: [
                 Checkbox(
                   value: _saveToBook,
-                  onChanged: (bool? v) => setState(() => _saveToBook = v ?? false),
+                  onChanged: (bool? v) =>
+                      setState(() => _saveToBook = v ?? false),
                 ),
                 Text(loc.tr('pages.wallet.send.save_to_addressbook')),
                 const SizedBox(width: 16),

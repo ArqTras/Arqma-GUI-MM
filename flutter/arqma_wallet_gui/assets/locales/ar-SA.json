@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "إلغاء",
                 "copy_address_message": "تم نسخ العنوان إلى الحافظة",
                 "copy_address": "نسخ العنوان",
-                "open_account": "فتح حساب"
+                "open_account": "فتح حساب",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "محفظة كاملة",

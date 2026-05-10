@@ -21,14 +21,14 @@ There is **no** maintained “`arqma-wallet-rpc` as a Rust crate” in that repo
 
 This branch introduces crate **`arqma-wallet-rpc`** as the **integration boundary**: a Rust API (`WalletJsonRpc`) plus **`upstream_paths`** — resolution of the **executables Arqma’s CMake build produces** (`build/release/bin/arqma-wallet-rpc`, `arqmad`, …). Those binaries are already the linked product of Arqma’s internal wallet/daemon libraries; the GUI runs them and uses HTTP JSON-RPC for the wallet RPC process.
 
-Upstream CMake also offers **`BUILD_GUI_DEPS`** (install **`libwallet_merged`** into `lib/`) for **native GUI / JNI** style linking — not used by this Tauri app yet; a future FFI backend (Phase D) would target that.
+Upstream CMake also offers **`BUILD_GUI_DEPS`** (install **`libwallet_merged`** into `lib/`) for **native GUI / JNI** style linking — required for **Tauri `Wallet2` mode** and for the **`arqma-wallet-flutter-ffi`** cdylib used by the Flutter desktop shell (see `rust/docs/NATIVE_WALLET2.md`).
 
 ## Phases (recommended)
 
 - **Phase A (done here):** workspace crate + `WalletJsonRpc` + **`resolve_wallet_rpc_path` / `resolve_daemon_path`** (env + upstream `build/…/bin` + `PATH` + bundle); Tauri uses these for **`arqma-wallet-rpc`** and **`arqmad`**.
 - **Phase B (script):** `scripts/checkout-arqma.ps1` / `scripts/checkout-arqma.sh` — shallow clone to `vendor/arqma/` (ignored by git). CI can keep using release archives; developers match upstream CMake output via `ARQMA_BUILD_DIR`.
 - **Phase C (done):** feature **`http-digest`** on crate `arqma-wallet-rpc`: `WalletRpcClient` + digest + `WalletJsonRpc` impl live in the workspace crate; Tauri enables the feature and re-exports the client from `json_rpc_client.rs`. `WalletBackendState.wallet` is **`Option<Arc<WalletRpcClient>>`** with `wallet_json_rpc()` returning `Option<&dyn WalletJsonRpc>` for call-only sites.
-- **Phase D:** FFI backend calling into compiled Arqma libraries; remove subprocess for supported platforms.
+- **Phase D:** FFI / linked **wallet2** backend (no `arqma-wallet-rpc` subprocess). **Tauri:** native `Wallet2ApiClient` by default (`wallet_process.rs`). **Flutter:** crate **`arqma-wallet-flutter-ffi`** (`rust/arqma-wallet-flutter-ffi`) + Dart `DynamicLibrary` — `ArqmaWalletRpcSession` loads the cdylib when present (`ARQMA_FLUTTER_WALLET_FFI` or next to the app bundle), otherwise falls back to the `arqma-wallet-rpc` child. Build: `rust/tool/build_wallet_flutter_ffi.sh`.
 - **Phase E (optional):** embed HTTP server in-process (still C++ inside) vs true Rust wallet logic.
 
 ## Environment variables (upstream build / install vs bundle)

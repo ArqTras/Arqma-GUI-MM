@@ -8,6 +8,7 @@ import '../store/gateway_store.dart';
 import 'format_arqma.dart';
 import 'tx_details_dialog.dart';
 import 'tx_type_icon.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Parity with `components/tx_list.vue` (list, type labels, context actions).
 class TxListWidget extends StatelessWidget {
@@ -58,7 +59,8 @@ class TxListWidget extends StatelessWidget {
     }
   }
 
-  static bool _txMatchesAddressFilter(Map<String, dynamic> tx, String address, int? minorExpected) {
+  static bool _txMatchesAddressFilter(
+      Map<String, dynamic> tx, String address, int? minorExpected) {
     final Object? si = tx['subaddr_index'];
     if (minorExpected != null && si is Map) {
       final int? m = (si['minor'] as num?)?.toInt();
@@ -83,12 +85,16 @@ class TxListWidget extends StatelessWidget {
     required int? filterAddressMinor,
     required int limit,
   }) {
-    final List<dynamic> raw =
-        ((store.wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
+    final List<dynamic> raw = ((store.wallet['transactions']
+            as Map?)?['tx_list'] as List<dynamic>?) ??
+        const <dynamic>[];
     Iterable<dynamic> txs = raw;
     if (filterAddress != null && filterAddress.isNotEmpty) {
       txs = txs.where(
-        (dynamic x) => _txMatchesAddressFilter(Map<String, dynamic>.from(x as Map), filterAddress, filterAddressMinor),
+        (dynamic x) => _txMatchesAddressFilter(
+            Map<String, dynamic>.from(x as Map),
+            filterAddress,
+            filterAddressMinor),
       );
     } else {
       txs = store.filteredTransactions;
@@ -99,7 +105,37 @@ class TxListWidget extends StatelessWidget {
     return txs.toList();
   }
 
-  static String _formatHeight(LocaleController loc, Map<String, dynamic> tx, int walletHeight) {
+  /// Notes / payment id — same fields Vue `tx_details` / `tx_list` uses for context.
+  static String? _txContextCaption(Map<String, dynamic> tx) {
+    final String note = '${tx['note'] ?? tx['description'] ?? ''}'.trim();
+    if (note.isNotEmpty) {
+      return note.length > 96 ? '${note.substring(0, 93)}…' : note;
+    }
+    final String pid = '${tx['payment_id'] ?? ''}'.trim();
+    if (pid.isNotEmpty && !RegExp(r'^[0\s]+$').hasMatch(pid)) {
+      final String short = pid.length > 16 ? pid.substring(0, 16) : pid;
+      return pid.length > 16 ? '$short…' : short;
+    }
+    return null;
+  }
+
+  /// Note / payment id, or for non-plain `type` (snode, stake, …) the translated type line.
+  static String? _txSubtitleExtra(
+      LocaleController loc, Map<String, dynamic> tx) {
+    final String? cap = _txContextCaption(tx);
+    if (cap != null) {
+      return cap;
+    }
+    final String type = '${tx['type'] ?? ''}'.trim();
+    const Set<String> plain = <String>{'in', 'out', 'pending', 'failed', ''};
+    if (plain.contains(type)) {
+      return null;
+    }
+    return typeLabelForTx(loc, type.isEmpty ? null : type);
+  }
+
+  static String _formatHeight(
+      LocaleController loc, Map<String, dynamic> tx, int walletHeight) {
     final int height = int.tryParse('${tx['height'] ?? 0}') ?? 0;
     final int unlockTime = int.tryParse('${tx['unlock_time'] ?? 0}') ?? 0;
     final int confirms = (walletHeight - height).clamp(0, 1 << 30);
@@ -134,13 +170,17 @@ class TxListWidget extends StatelessWidget {
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const ClampingScrollPhysics() : null,
       itemCount: txs.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, color: Colors.white12),
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, color: ArqmaColors.outlineSubtle),
       itemBuilder: (BuildContext context, int i) {
-        final Map<String, dynamic> tx = Map<String, dynamic>.from(txs[i] as Map);
+        final Map<String, dynamic> tx =
+            Map<String, dynamic>.from(txs[i] as Map);
         final String type = '${tx['type'] ?? ''}';
         final int wh = int.tryParse('${store.walletInfo['height'] ?? 0}') ?? 0;
         final int ts = int.tryParse('${tx['timestamp'] ?? 0}') ?? 0;
-        final DateTime dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true).toLocal();
+        final DateTime dt =
+            DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true)
+                .toLocal();
         final String timeAgo = timeago.format(dt);
         return ListTile(
           leading: SizedBox(
@@ -161,14 +201,43 @@ class TxListWidget extends StatelessWidget {
               ],
             ),
           ),
-          title: FormatArqma(amount: num.tryParse('${tx['amount'] ?? 0}') ?? 0, digits: 5),
-          subtitle: Text('${tx['txid']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 10)),
+          title: FormatArqma(
+              amount: num.tryParse('${tx['amount'] ?? 0}') ?? 0, digits: 5),
+          subtitle: Builder(
+            builder: (BuildContext _) {
+              final String? extra = _txSubtitleExtra(loc, tx);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('${tx['txid']}',
+                      style: const TextStyle(
+                          fontFamily: 'monospace', fontSize: 10)),
+                  if (extra != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        extra,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            color: ArqmaColors.textMuted,
+                            height: 1.2),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
           trailing: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(timeAgo, style: const TextStyle(fontSize: 11)),
-              Text(_formatHeight(loc, tx, wh), style: const TextStyle(fontSize: 10, color: Colors.white54)),
+              Text(_formatHeight(loc, tx, wh),
+                  style: const TextStyle(
+                      fontSize: 10, color: ArqmaColors.textMuted)),
             ],
           ),
           onTap: () => showTxDetailsDialog(context, tx),
@@ -188,7 +257,8 @@ class TxListWidget extends StatelessWidget {
                       },
                     ),
                     ListTile(
-                      title: Text(loc.tr('components.tx_list.copy_transaction_id')),
+                      title: Text(
+                          loc.tr('components.tx_list.copy_transaction_id')),
                       onTap: () async {
                         await context.read<AppApi>().writeText('${tx['txid']}');
                         if (c.mounted) {
@@ -196,15 +266,20 @@ class TxListWidget extends StatelessWidget {
                         }
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(loc.tr('components.tx_list.copied_transaction_id_to_clipboard'))),
+                            SnackBar(
+                                content: Text(loc.tr(
+                                    'components.tx_list.copied_transaction_id_to_clipboard'))),
                           );
                         }
                       },
                     ),
                     ListTile(
-                      title: Text(loc.tr('components.tx_list.view_on_explorer')),
+                      title:
+                          Text(loc.tr('components.tx_list.view_on_explorer')),
                       onTap: () async {
-                        await context.read<AppApi>().send('core', 'open_explorer', <String, dynamic>{
+                        await context
+                            .read<AppApi>()
+                            .send('core', 'open_explorer', <String, dynamic>{
                           'type': 'tx',
                           'id': '${tx['txid']}',
                         });

@@ -19,7 +19,7 @@ Future<int?> timestampToHeight(String host, int port, int rawTs) async {
       host,
       port,
       'get_block_header_by_height',
-      <String, dynamic>{'height': estimatedHeight},
+      params: <String, dynamic>{'height': estimatedHeight},
     );
     if (r == null) {
       return null;
@@ -28,7 +28,7 @@ Future<int?> timestampToHeight(String host, int port, int rawTs) async {
       final int? code = (r['error'] as Map?)?['code'] as int?;
       if (code == -2) {
         final Map<String, dynamic>? last =
-            await DaemonJsonRpc.post(host, port, 'get_last_block_header', <String, dynamic>{});
+            await DaemonJsonRpc.post(host, port, 'get_last_block_header');
         if (last == null || last['error'] != null) {
           return null;
         }
@@ -50,7 +50,8 @@ Future<int?> timestampToHeight(String host, int port, int rawTs) async {
       return null;
     }
     final Map<String, dynamic>? bh =
-        (r['result'] as Map?)?['block_header'] as Map<String, dynamic>? ?? r['result'] as Map<String, dynamic>?;
+        (r['result'] as Map?)?['block_header'] as Map<String, dynamic>? ??
+            r['result'] as Map<String, dynamic>?;
     if (bh == null) {
       return null;
     }

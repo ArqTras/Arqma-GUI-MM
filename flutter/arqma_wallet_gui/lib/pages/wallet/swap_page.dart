@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_api.dart';
+import '../../core/theme/arqma_colors.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../widgets/app_loading.dart';
@@ -21,7 +22,8 @@ class SwapPage extends StatefulWidget {
   State<SwapPage> createState() => _SwapPageState();
 }
 
-class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _SwapPageState extends State<SwapPage>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabs;
   int _netIndex = 0;
   bool _subscribed = false;
@@ -54,7 +56,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
     if (_subscribed) {
       try {
         unawaited(
-          context.read<AppApi>().send('wallet', 'unsubscribe_for_signature_data', <String, dynamic>{}),
+          context.read<AppApi>().send(
+              'wallet', 'unsubscribe_for_signature_data', <String, dynamic>{}),
         );
       } catch (_) {
         // Context / Provider may be unavailable during teardown.
@@ -97,7 +100,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
     final AppApi api = context.read<AppApi>();
     final LocaleController loc = context.read<LocaleController>();
     if (_subscribed) {
-      await api.send('wallet', 'unsubscribe_for_signature_data', <String, dynamic>{});
+      await api.send(
+          'wallet', 'unsubscribe_for_signature_data', <String, dynamic>{});
       if (mounted) {
         setState(() => _subscribed = false);
       }
@@ -160,21 +164,27 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
       );
       return;
     }
-    final num u = num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
+    final num u =
+        num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
     if (amt > u / 1e9) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet.swap.not_enough_unlocked_balance'))),
+        SnackBar(
+            content:
+                Text(loc.tr('pages.wallet.swap.not_enough_unlocked_balance'))),
       );
       return;
     }
     final String sym = '${selected['symbol'] ?? 'eXEQ'}';
-    final String title = loc.tr('pages.wallet.swap.show_password_confirmation_title').replaceAll('eXEQ', sym);
+    final String title = loc
+        .tr('pages.wallet.swap.show_password_confirmation_title')
+        .replaceAll('eXEQ', sym);
     final String? pw = await PasswordDialogs.showPasswordConfirmation(
       context: context,
       api: api,
       locale: loc,
       title: title,
-      noPasswordMessage: loc.tr('pages.wallet.swap.show_password_confirmation_message'),
+      noPasswordMessage:
+          loc.tr('pages.wallet.swap.show_password_confirmation_message'),
       okLabel: loc.tr('pages.wallet.swap.show_password_confirmation_ok_label'),
     );
     if (pw == null || !context.mounted) {
@@ -189,36 +199,48 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
       'payment_id': '',
       'priority': 0,
       'note': '',
-      'address_book': <String, dynamic>{'save': false, 'name': '', 'description': ''},
+      'address_book': <String, dynamic>{
+        'save': false,
+        'name': '',
+        'description': ''
+      },
       'password': pw,
     };
     store.setTxStatus(<String, dynamic>{
       'code': 1,
-      'message': loc.tr('pages.wallet.swap.show_password_confirmation_ok_message'),
+      'message':
+          loc.tr('pages.wallet.swap.show_password_confirmation_ok_message'),
       'sending': true,
     });
     AppLoading.show();
     await api.send('wallet', 'transfer', copy);
     AppLoading.hide();
-    store.setTxStatus(<String, dynamic>{'code': 0, 'message': '', 'sending': false});
+    store.setTxStatus(
+        <String, dynamic>{'code': 0, 'message': '', 'sending': false});
   }
 
   Future<void> _wrappedSend(BuildContext context) async {
     final loc = context.read<LocaleController>();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.tr('pages.wallet.swap.web3_signing_not_available'))),
+      SnackBar(
+          content:
+              Text(loc.tr('pages.wallet.swap.web3_signing_not_available'))),
     );
   }
 
-  Future<void> _onSwapListAction(BuildContext context, Map<String, dynamic> _) async {
+  Future<void> _onSwapListAction(
+      BuildContext context, Map<String, dynamic> _) async {
     final loc = context.read<LocaleController>();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.tr('pages.wallet.swap.web3_signing_not_available'))),
+      SnackBar(
+          content:
+              Text(loc.tr('pages.wallet.swap.web3_signing_not_available'))),
     );
   }
 
   void _nativeAll(GatewayStore store) {
-    final num u = num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
+    final num u =
+        num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
     setState(() => _nativeAmount.text = '${u / 1e9}');
   }
 
@@ -227,8 +249,10 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
     final LocaleController loc = context.watch<LocaleController>();
     final GatewayStore store = context.watch<GatewayStore>();
     final bool viewOnly = store.walletInfo['view_only'] == true;
-    final Map<String, dynamic> eth = Map<String, dynamic>.from(store.raw['ethereum'] as Map? ?? <String, dynamic>{});
-    final List<dynamic> nets = eth['networks'] as List<dynamic>? ?? const <dynamic>[];
+    final Map<String, dynamic> eth = Map<String, dynamic>.from(
+        store.raw['ethereum'] as Map? ?? <String, dynamic>{});
+    final List<dynamic> nets =
+        eth['networks'] as List<dynamic>? ?? const <dynamic>[];
     if (nets.isNotEmpty && _netIndex >= nets.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -238,9 +262,12 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
     }
     final Map<String, dynamic> selected = nets.isEmpty
         ? <String, dynamic>{'name': '—', 'symbol': '—'}
-        : Map<String, dynamic>.from(nets[_netIndex.clamp(0, nets.isEmpty ? 0 : nets.length - 1)] as Map);
+        : Map<String, dynamic>.from(
+            nets[_netIndex.clamp(0, nets.isEmpty ? 0 : nets.length - 1)]
+                as Map);
 
-    if (_wrappedArqAddress.text.isEmpty && '${store.walletInfo['address'] ?? ''}'.isNotEmpty) {
+    if (_wrappedArqAddress.text.isEmpty &&
+        '${store.walletInfo['address'] ?? ''}'.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _wrappedArqAddress.text.isEmpty) {
           _wrappedArqAddress.text = store.walletInfo['address'].toString();
@@ -248,8 +275,9 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
       });
     }
 
-    final String connectLabel =
-        _subscribed ? loc.tr('pages.wallet.swap.connected_wallet') : loc.tr('pages.wallet.swap.connect_wallet');
+    final String connectLabel = _subscribed
+        ? loc.tr('pages.wallet.swap.connected_wallet')
+        : loc.tr('pages.wallet.swap.connect_wallet');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -261,7 +289,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
             children: [
               Text('• ${loc.tr('pages.wallet.swap.disclaimer1')}'),
               Text('• ${loc.tr('pages.wallet.swap.disclaimer2')}'),
-              Text('• ${loc.tr('pages.wallet.swap.disclaimer3')} ${loc.tr('pages.wallet.swap.disclaimer4')}'),
+              Text(
+                  '• ${loc.tr('pages.wallet.swap.disclaimer3')} ${loc.tr('pages.wallet.swap.disclaimer4')}'),
               Text('• ${loc.tr('pages.wallet.swap.disclaimer5')}'),
             ],
           ),
@@ -282,7 +311,7 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                     child: TextField(
                       controller: _ethAddress,
                       enabled: !_subscribed,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: ArqmaColors.textPrimary),
                       decoration: const InputDecoration(
                         hintText: '0x…',
                         border: InputBorder.none,
@@ -306,9 +335,14 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
-                        onPressed: !_subscribed ? null : () => _addAsset(context),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                        child: Text(loc.tr('pages.wallet.swap.add_asset_to_wallet')),
+                        onPressed:
+                            !_subscribed ? null : () => _addAsset(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.black87,
+                        ),
+                        child: Text(
+                            loc.tr('pages.wallet.swap.add_asset_to_wallet')),
                       ),
                     ],
                   ),
@@ -323,8 +357,10 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                         const Spacer(),
                         if (nets.isNotEmpty)
                           PopupMenuButton<int>(
-                            onSelected: (int i) => setState(() => _netIndex = i),
-                            itemBuilder: (BuildContext c) => List<PopupMenuEntry<int>>.generate(
+                            onSelected: (int i) =>
+                                setState(() => _netIndex = i),
+                            itemBuilder: (BuildContext c) =>
+                                List<PopupMenuEntry<int>>.generate(
                               nets.length,
                               (int i) => PopupMenuItem<int>(
                                 value: i,
@@ -341,18 +377,23 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('eXEQ balance: ', style: TextStyle(fontSize: 12)),
+                      const Text('eXEQ balance: ',
+                          style: TextStyle(fontSize: 12)),
                       FormatArqma(amount: 0, digits: 4),
-                      Text(' ${selected['symbol'] ?? ''}', style: const TextStyle(fontSize: 12)),
+                      Text(' ${selected['symbol'] ?? ''}',
+                          style: const TextStyle(fontSize: 12)),
                     ],
                   ),
                 ),
                 TabBar(
                   controller: _tabs,
-                  labelColor: Colors.white,
                   tabs: [
-                    Tab(text: loc.tr('pages.wallet.swap.tab_native_to_wrapped')),
-                    Tab(text: loc.tr('pages.wallet.swap.tab_wrapped_to_native')),
+                    Tab(
+                        text:
+                            loc.tr('pages.wallet.swap.tab_native_to_wrapped')),
+                    Tab(
+                        text:
+                            loc.tr('pages.wallet.swap.tab_wrapped_to_native')),
                   ],
                 ),
                 Expanded(
@@ -377,7 +418,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
     GatewayStore store,
     Map<String, dynamic> selected,
   ) {
-    final Map<String, dynamic> txStatus = store.raw['tx_status'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> txStatus =
+        store.raw['tx_status'] as Map<String, dynamic>? ?? <String, dynamic>{};
     final bool sending = txStatus['sending'] == true;
     // Native tab: `.scroller` in `swap.vue` wraps the swap list — `max-height: viewport - 600px`.
     return Padding(
@@ -390,22 +432,30 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: bc.maxWidth >= 560 ? bc.maxWidth : 560),
+                  constraints: BoxConstraints(
+                      minWidth: bc.maxWidth >= 560 ? bc.maxWidth : 560),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Expanded(
                         flex: 2,
                         child: ArqmaField(
-                          label: '${loc.tr('pages.wallet.swap.amount_of_xeq_to_swap')} ${selected['symbol']}',
+                          label:
+                              '${loc.tr('pages.wallet.swap.amount_of_xeq_to_swap')} ${selected['symbol']}',
                           child: Row(
                             children: <Widget>[
                               Expanded(
                                 child: TextField(
                                   controller: _nativeAmount,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  style: const TextStyle(color: Colors.white),
-                                  decoration: const InputDecoration(hintText: '0', border: InputBorder.none, isDense: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  style: const TextStyle(
+                                      color: ArqmaColors.textPrimary),
+                                  decoration: const InputDecoration(
+                                      hintText: '0',
+                                      border: InputBorder.none,
+                                      isDense: true),
                                 ),
                               ),
                               TextButton(
@@ -420,11 +470,16 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                       Expanded(
                         flex: 3,
                         child: ArqmaField(
-                          label: '${selected['name']} ${loc.tr('pages.wallet.swap.address')}',
+                          label:
+                              '${selected['name']} ${loc.tr('pages.wallet.swap.address')}',
                           child: TextField(
                             controller: _nativeMemo,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(hintText: '0x…', border: InputBorder.none, isDense: true),
+                            style:
+                                const TextStyle(color: ArqmaColors.textPrimary),
+                            decoration: const InputDecoration(
+                                hintText: '0x…',
+                                border: InputBorder.none,
+                                isDense: true),
                           ),
                         ),
                       ),
@@ -435,7 +490,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                           onPressed: store.isAbleToSend && !sending
                               ? () => _nativeSend(context, loc, store, selected)
                               : null,
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green),
                           child: Text(loc.tr('pages.wallet.swap.send')),
                         ),
                       ),
@@ -455,7 +511,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                 return ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: maxListH),
                   child: SwapSignatureList(
-                    onActionTap: (Map<String, dynamic> m) => _onSwapListAction(context, m),
+                    onActionTap: (Map<String, dynamic> m) =>
+                        _onSwapListAction(context, m),
                   ),
                 );
               },
@@ -480,7 +537,8 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: bc.maxWidth >= 720 ? bc.maxWidth : 720),
+                constraints: BoxConstraints(
+                    minWidth: bc.maxWidth >= 720 ? bc.maxWidth : 720),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -490,9 +548,14 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                         label: '${loc.tr('pages.wallet.swap.amount_of')} eXEQ',
                         child: TextField(
                           controller: _wrappedTokenAmount,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(hintText: '0', border: InputBorder.none, isDense: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style:
+                              const TextStyle(color: ArqmaColors.textPrimary),
+                          decoration: const InputDecoration(
+                              hintText: '0',
+                              border: InputBorder.none,
+                              isDense: true),
                         ),
                       ),
                     ),
@@ -500,12 +563,17 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                     Expanded(
                       flex: 2,
                       child: ArqmaField(
-                        label: '${selected['name']} ${loc.tr('pages.wallet.swap.address')}',
+                        label:
+                            '${selected['name']} ${loc.tr('pages.wallet.swap.address')}',
                         child: TextField(
                           controller: _wrappedTokenAddress,
                           enabled: !_subscribed,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(hintText: '0x…', border: InputBorder.none, isDense: true),
+                          style:
+                              const TextStyle(color: ArqmaColors.textPrimary),
+                          decoration: const InputDecoration(
+                              hintText: '0x…',
+                              border: InputBorder.none,
+                              isDense: true),
                         ),
                       ),
                     ),
@@ -516,8 +584,12 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                         label: 'ARQ ${loc.tr('pages.wallet.swap.address')}',
                         child: TextField(
                           controller: _wrappedArqAddress,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(hintText: 'Tw…', border: InputBorder.none, isDense: true),
+                          style:
+                              const TextStyle(color: ArqmaColors.textPrimary),
+                          decoration: const InputDecoration(
+                              hintText: 'Tw…',
+                              border: InputBorder.none,
+                              isDense: true),
                         ),
                       ),
                     ),
@@ -525,8 +597,10 @@ class _SwapPageState extends State<SwapPage> with SingleTickerProviderStateMixin
                     Padding(
                       padding: const EdgeInsets.only(top: 28),
                       child: ElevatedButton(
-                        onPressed: _subscribed ? () => _wrappedSend(context) : null,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                        onPressed:
+                            _subscribed ? () => _wrappedSend(context) : null,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green),
                         child: Text(loc.tr('pages.wallet.swap.send')),
                       ),
                     ),

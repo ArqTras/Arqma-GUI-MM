@@ -8,7 +8,7 @@ This directory contains the **Rust workspace** used by the Tauri desktop shell a
 |------|------|
 | `core/` | Shared wallet logic (`arqma-wallet-core`) |
 | `daemon/` | Daemon-related crate (if present in workspace) |
-| `tauri-app/` | Vue + Quasar UI and `src-tauri/` Tauri backend |
+| `tauri-app/` | Vue + Quasar UI and `src-tauri/` Tauri backend (includes extra binary **`arqma_flutter_solo_pool`** for the Flutter desktop Stratum sidecar) |
 
 The workspace manifest is `rust/Cargo.toml`.
 

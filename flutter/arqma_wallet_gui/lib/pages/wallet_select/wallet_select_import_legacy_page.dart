@@ -14,10 +14,12 @@ class WalletSelectImportLegacyPage extends StatefulWidget {
   const WalletSelectImportLegacyPage({super.key});
 
   @override
-  State<WalletSelectImportLegacyPage> createState() => _WalletSelectImportLegacyPageState();
+  State<WalletSelectImportLegacyPage> createState() =>
+      _WalletSelectImportLegacyPageState();
 }
 
-class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyPage> with WalletFlowListenerMixin {
+class _WalletSelectImportLegacyPageState
+    extends State<WalletSelectImportLegacyPage> with WalletFlowListenerMixin {
   final TextEditingController _name = TextEditingController();
   final TextEditingController _path = TextEditingController();
   final TextEditingController _password = TextEditingController();
@@ -29,7 +31,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => attachWalletFlowListener());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => attachWalletFlowListener());
   }
 
   @override
@@ -59,32 +62,42 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
         _pathTouched = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_legacy.import_file_path_message'))),
+        SnackBar(
+            content: Text(loc.tr(
+                'pages.wallet_select.import_legacy.import_file_path_message'))),
       );
       return;
     }
     if (name.isEmpty) {
       setState(() => _nameTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_legacy.enter_account_name'))),
+        SnackBar(
+            content: Text(loc
+                .tr('pages.wallet_select.import_legacy.enter_account_name'))),
       );
       return;
     }
     if (path.isEmpty) {
       setState(() => _pathTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_legacy.enter_path_file'))),
+        SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.import_legacy.enter_path_file'))),
       );
       return;
     }
     if (_password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('pages.wallet_select.import_legacy.passwords_dont_match'))),
+        SnackBar(
+            content: Text(loc
+                .tr('pages.wallet_select.import_legacy.passwords_dont_match'))),
       );
       return;
     }
     AppLoading.show();
-    await context.read<AppApi>().send('wallet', 'import_wallet', <String, dynamic>{
+    await context
+        .read<AppApi>()
+        .send('wallet', 'import_wallet', <String, dynamic>{
       'name': name,
       'path': path,
       'password': _password.text,
@@ -97,7 +110,9 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
     final GatewayStore store = context.watch<GatewayStore>();
-    final List<dynamic> legacy = (store.raw['wallets'] as Map?)?['legacy'] as List<dynamic>? ?? const <dynamic>[];
+    final List<dynamic> legacy =
+        (store.raw['wallets'] as Map?)?['legacy'] as List<dynamic>? ??
+            const <dynamic>[];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -106,13 +121,15 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
         children: [
           if (legacy.length == 2) ...[
             RadioListTile<String>(
-              title: Text(loc.tr('pages.wallet_select.import_legacy.full_wallet')),
+              title:
+                  Text(loc.tr('pages.wallet_select.import_legacy.full_wallet')),
               value: '0',
               groupValue: _legacyType,
               onChanged: (String? v) => setState(() => _legacyType = v ?? '0'),
             ),
             RadioListTile<String>(
-              title: Text(loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
+              title:
+                  Text(loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
               value: '1',
               groupValue: _legacyType,
               onChanged: (String? v) => setState(() => _legacyType = v ?? '1'),
@@ -125,7 +142,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
             child: TextField(
               controller: _name,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_legacy.new_account_name_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_legacy.new_account_name_placeholder'),
                 border: InputBorder.none,
               ),
               onChanged: (_) => setState(() {}),
@@ -143,7 +161,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
                   controller: _path,
                   readOnly: true,
                   decoration: InputDecoration(
-                    hintText: loc.tr('pages.wallet_select.import_legacy.account_file_placeholder'),
+                    hintText: loc.tr(
+                        'pages.wallet_select.import_legacy.account_file_placeholder'),
                     border: InputBorder.none,
                   ),
                 ),
@@ -154,7 +173,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
                     backgroundColor: const Color(0xFF4caf50),
                     foregroundColor: Colors.black87,
                   ),
-                  child: Text(loc.tr('pages.wallet_select.import_legacy.select_account_file')),
+                  child: Text(loc.tr(
+                      'pages.wallet_select.import_legacy.select_account_file')),
                 ),
               ],
             ),
@@ -166,7 +186,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
               controller: _password,
               obscureText: true,
               decoration: InputDecoration(
-                hintText: loc.tr('pages.wallet_select.import_legacy.password_placeholder'),
+                hintText: loc.tr(
+                    'pages.wallet_select.import_legacy.password_placeholder'),
                 border: InputBorder.none,
               ),
             ),
@@ -188,7 +209,8 @@ class _WalletSelectImportLegacyPageState extends State<WalletSelectImportLegacyP
               foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: Text(loc.tr('pages.wallet_select.import_legacy.import_account')),
+            child: Text(
+                loc.tr('pages.wallet_select.import_legacy.import_account')),
           ),
         ],
       ),

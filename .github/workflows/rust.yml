@@ -71,11 +71,13 @@ jobs:
           cargo check --workspace --all-targets \
             --exclude arqma-wallet \
             --exclude arqma-wallet-rpc \
-            --exclude arqma-wallet2-api
+            --exclude arqma-wallet2-api \
+            --exclude arqma-wallet-flutter-ffi
 
       - name: cargo clippy
         run: |
           cargo clippy --workspace --all-targets \
             --exclude arqma-wallet \
             --exclude arqma-wallet-rpc \
-            --exclude arqma-wallet2-api
+            --exclude arqma-wallet2-api \
+            --exclude arqma-wallet-flutter-ffi

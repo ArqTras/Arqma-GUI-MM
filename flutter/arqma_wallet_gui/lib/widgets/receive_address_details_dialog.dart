@@ -6,6 +6,7 @@ import 'address_identicon.dart';
 import 'format_arqma.dart';
 import 'receive_common.dart';
 import 'tx_list_widget.dart';
+import '../core/theme/arqma_colors.dart';
 
 int? _minorFromReceiveRow(Map<String, dynamic> row) {
   final Object? ai = row['address_index'];
@@ -19,7 +20,8 @@ int? _minorFromReceiveRow(Map<String, dynamic> row) {
 }
 
 /// Parity with `components/address_details.vue` (opened from `receive_item` → `details()`).
-Future<void> showReceiveAddressDetailsDialog(BuildContext context, Map<String, dynamic> row) async {
+Future<void> showReceiveAddressDetailsDialog(
+    BuildContext context, Map<String, dynamic> row) async {
   final String addr = '${row['address'] ?? ''}'.trim();
   if (addr.isEmpty) {
     return;
@@ -27,7 +29,8 @@ Future<void> showReceiveAddressDetailsDialog(BuildContext context, Map<String, d
   await Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
-      builder: (BuildContext c) => _ReceiveAddressDetailsScaffold(row: row, address: addr),
+      builder: (BuildContext c) =>
+          _ReceiveAddressDetailsScaffold(row: row, address: addr),
     ),
   );
 }
@@ -48,16 +51,21 @@ class _ReceiveAddressDetailsScaffold extends StatelessWidget {
     final bool isPrimary = minor == null || minor == 0;
     // Vue `address.used`: unused subaddresses show zeroed stats; missing `used` is treated as having data.
     final bool isUnused = row['used'] == false;
-    final num bal = isUnused ? 0 : (num.tryParse('${row['balance'] ?? 0}') ?? 0);
-    final num unlocked = isUnused ? 0 : (num.tryParse('${row['unlocked_balance'] ?? 0}') ?? 0);
-    final int outputs = isUnused ? 0 : (int.tryParse('${row['num_unspent_outputs'] ?? 0}') ?? 0);
+    final num bal =
+        isUnused ? 0 : (num.tryParse('${row['balance'] ?? 0}') ?? 0);
+    final num unlocked =
+        isUnused ? 0 : (num.tryParse('${row['unlocked_balance'] ?? 0}') ?? 0);
+    final int outputs = isUnused
+        ? 0
+        : (int.tryParse('${row['num_unspent_outputs'] ?? 0}') ?? 0);
 
     final String titleLine = isPrimary
         ? loc.tr('components.address_book_detail.address_header_primary_title')
         : '${loc.tr('components.address_book_detail.address_header_subaddress_title')}$minor )';
 
-    final String usedLabel =
-        !isUnused ? loc.tr('components.address_book_detail.used') : loc.tr('components.address_book_detail.not_used');
+    final String usedLabel = !isUnused
+        ? loc.tr('components.address_book_detail.used')
+        : loc.tr('components.address_book_detail.not_used');
     final String extraLine =
         '${loc.tr('components.address_book_detail.address_header_primary_title')} ($usedLabel) ${loc.tr('components.address_book_detail.this_address')}';
 
@@ -94,11 +102,17 @@ class _ReceiveAddressDetailsScaffold extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(titleLine, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      Text(titleLine,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
-                      Text(extraLine, style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                      Text(extraLine,
+                          style: const TextStyle(
+                              fontSize: 12, color: ArqmaColors.textMuted)),
                       const SizedBox(height: 8),
-                      SelectableText(address, style: const TextStyle(fontFamily: 'monospace', fontSize: 13)),
+                      SelectableText(address,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 13)),
                     ],
                   ),
                 ),
@@ -116,15 +130,18 @@ class _ReceiveAddressDetailsScaffold extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _InfoBox(
-                    label: loc.tr('components.address_book_detail.unlocked_balance'),
+                    label: loc
+                        .tr('components.address_book_detail.unlocked_balance'),
                     child: FormatArqma(amount: unlocked, digits: 4),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _InfoBox(
-                    label: loc.tr('components.address_book_detail.number_of_unspent_outputs'),
-                    child: Text('$outputs', style: const TextStyle(fontSize: 14)),
+                    label: loc.tr(
+                        'components.address_book_detail.number_of_unspent_outputs'),
+                    child:
+                        Text('$outputs', style: const TextStyle(fontSize: 14)),
                   ),
                 ),
               ],
@@ -136,7 +153,8 @@ class _ReceiveAddressDetailsScaffold extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    loc.tr('components.address_book_detail.recent_incoming_tx_to_this_address'),
+                    loc.tr(
+                        'components.address_book_detail.recent_incoming_tx_to_this_address'),
                     style: const TextStyle(fontSize: 14),
                   ),
                 ),
@@ -169,14 +187,16 @@ class _InfoBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a1a),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: ArqmaColors.outlineSubtle),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Colors.white54)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: ArqmaColors.textMuted)),
             const SizedBox(height: 4),
             DefaultTextStyle.merge(
               style: const TextStyle(fontSize: 13),

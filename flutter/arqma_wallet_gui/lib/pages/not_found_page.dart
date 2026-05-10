@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../i18n/locale_controller.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Parity with `pages/404.vue` (unknown route) + localized copy.
 class NotFoundPage extends StatelessWidget {
@@ -18,12 +19,13 @@ class NotFoundPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(loc.tr('pages.not_found.title'), style: Theme.of(context).textTheme.headlineSmall),
+              Text(loc.tr('pages.not_found.title'),
+                  style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 12),
               Text(
                 loc.tr('pages.not_found.hint'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: ArqmaColors.textSecondary),
               ),
               const SizedBox(height: 24),
               FilledButton(

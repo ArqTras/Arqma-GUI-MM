@@ -1,5 +1,5 @@
 use crate::backend_state::WalletBackendState;
-use crate::gateway_emit::emit_receive;
+use crate::gateway_emit::BackendReceiveSink;
 use crate::sync_debug::is_sync_debug;
 use crate::wallet_list_fs::list_wallet_files;
 use reqwest::Client;
@@ -81,9 +81,9 @@ pub async fn handle_wallet (
     "list_wallets" => {
       if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
         let w = list_wallet_files(&dir)?;
-        emit_receive(app, "wallet_list", w)?;
+        BackendReceiveSink::emit_receive(app, "wallet_list", w)?;
       } else {
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "wallet_list",
           json!({ "list": [], "directories": [] }),
@@ -93,7 +93,7 @@ pub async fn handle_wallet (
     "has_password" => {
       // Same as `hasPassword` in `wallet-rpc.js` (event: `set_has_password`, bool).
       if st.wallet_password_hash_hex.is_none() {
-        emit_receive(app, "set_has_password", json!(false))?;
+        BackendReceiveSink::emit_receive(app, "set_has_password", json!(false))?;
         return Ok(Value::Null);
       }
       let prompt = st
@@ -103,11 +103,11 @@ pub async fn handle_wallet (
         .and_then(|v| v.as_bool())
         == Some(true);
       if !prompt {
-        emit_receive(app, "set_has_password", json!(true))?;
+        BackendReceiveSink::emit_receive(app, "set_has_password", json!(true))?;
         return Ok(Value::Null);
       }
       if st.wallet_salt.is_empty() {
-        emit_receive(app, "set_has_password", json!(false))?;
+        BackendReceiveSink::emit_receive(app, "set_has_password", json!(false))?;
         return Ok(Value::Null);
       }
       let stored = st
@@ -117,16 +117,16 @@ pub async fn handle_wallet (
       let empty_h = match crate::wallet_password::pbkdf2_password_hex("", &st.wallet_salt) {
         Ok(s) => s,
         Err(_) => {
-          emit_receive(app, "set_has_password", json!(false))?;
+          BackendReceiveSink::emit_receive(app, "set_has_password", json!(false))?;
           return Ok(Value::Null);
         }
       };
       let same_as_empty = stored == empty_h.as_str();
-      emit_receive(app, "set_has_password", json!(same_as_empty))?;
+      BackendReceiveSink::emit_receive(app, "set_has_password", json!(same_as_empty))?;
       return Ok(Value::Null);
     }
     "copy_old_gui_wallets" => {
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "set_old_gui_import_status",
         json!({ "code": 1, "failed_wallets": [] }),
@@ -137,14 +137,14 @@ pub async fn handle_wallet (
         .map(|a| a.as_slice())
         .unwrap_or(&[]);
       let failed = crate::wallet_copy_old_gui::run_copy_old_gui_wallets(&st.config_data, list)?;
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "set_old_gui_import_status",
         json!({ "code": 0, "failed_wallets": failed }),
       )?;
       if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
         let w = list_wallet_files(&dir)?;
-        emit_receive(app, "wallet_list", w)?;
+        BackendReceiveSink::emit_receive(app, "wallet_list", w)?;
       }
     }
     "get_coin_price" => {
@@ -155,7 +155,7 @@ pub async fn handle_wallet (
       crate::wallet_relay_ops::cancel_transaction(st, p);
     }
     "unsubscribe_for_signature_data" => {
-      emit_receive(app, "set_signature_data", json!([]))?;
+      BackendReceiveSink::emit_receive(app, "set_signature_data", json!([]))?;
     }
     "subscribe_for_signature_data" => {
       eprintln!("[wallet] subscribe_for_signature_data: no ZMQ (commented out in Node — no-op in Tauri)");
@@ -293,7 +293,7 @@ pub async fn handle_wallet (
           "close_wallet idempotent (no RPC)",
           json!({}),
         );
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "set_wallet_info",
           json!({
@@ -305,7 +305,7 @@ pub async fn handle_wallet (
           }),
         );
         // So the next `open_wallet` can transition 1 → 0 (wallet-select `statusWatcher` ignores duplicate 0).
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "reset_wallet_status",
           json!({ "code": 1, "message": null }),
@@ -315,7 +315,7 @@ pub async fn handle_wallet (
       let (rpc, params) = map_wallet_rpc(method, p)?;
       if method == "create_wallet" {
         // Electron `createWallet`: clear error state before `create_wallet` RPC.
-        emit_receive(app, "reset_wallet_error", json!({}))?;
+        BackendReceiveSink::emit_receive(app, "reset_wallet_error", json!({}))?;
       }
       let r = {
         let w = st
@@ -339,7 +339,7 @@ pub async fn handle_wallet (
             match tokio::time::timeout(Duration::from_secs(open_timeout), w.call(&rpc, &params)).await {
               Ok(Ok(v)) => v,
               Ok(Err(e)) => {
-                let _ = emit_receive(
+                let _ = BackendReceiveSink::emit_receive(
                   app,
                   "reset_wallet_status",
                   json!({
@@ -350,7 +350,7 @@ pub async fn handle_wallet (
                 return Err(format!("open_wallet RPC failed: {e}"));
               }
               Err(_) => {
-                let _ = emit_receive(
+                let _ = BackendReceiveSink::emit_receive(
                   app,
                   "reset_wallet_status",
                   json!({
@@ -379,7 +379,7 @@ pub async fn handle_wallet (
               Ok(v) => v,
               Err(_) => {
                 let addr = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
-                emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
+                BackendReceiveSink::emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
                 return Ok(Value::Null);
               }
             }
@@ -390,7 +390,7 @@ pub async fn handle_wallet (
       };
       if method == "validate_address" && r.get("error").is_some() {
         let addr = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
-        emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
+        BackendReceiveSink::emit_receive(app, "set_valid_address", json!({ "address": addr, "valid": false }))?;
         return Ok(Value::Null);
       }
       if method != "close_wallet" && r.get("error").is_some() {
@@ -403,7 +403,7 @@ pub async fn handle_wallet (
           );
         }
         let err = r.get("error").cloned().unwrap_or(Value::Null);
-        emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
+        BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
         let rpc_msg_capitalized = || {
           err
             .get("message")
@@ -419,7 +419,7 @@ pub async fn handle_wallet (
         };
         let rpc_msg = rpc_msg_capitalized();
         if method == "open_wallet" {
-          let _ = emit_receive(
+          let _ = BackendReceiveSink::emit_receive(
             app,
             "reset_wallet_status",
             json!({ "code": -1, "message": rpc_msg.clone() }),
@@ -427,7 +427,7 @@ pub async fn handle_wallet (
         }
         if method == "transfer" {
           let msg = rpc_msg.clone();
-          emit_receive(
+          BackendReceiveSink::emit_receive(
             app,
             "set_tx_status",
             json!({ "code": -200, "message": msg, "sending": false }),
@@ -456,7 +456,7 @@ pub async fn handle_wallet (
               format!("Fee {fee_ui:.9}")
             })
             .unwrap_or_else(|| "Fee".to_string());
-          emit_receive(
+          BackendReceiveSink::emit_receive(
             app,
             "set_tx_status",
             json!({ "code": 200, "message": fee_msg, "sending": false }),
@@ -485,7 +485,7 @@ pub async fn handle_wallet (
             }
           }
         } else {
-          emit_receive(
+          BackendReceiveSink::emit_receive(
             app,
             "set_tx_status",
             json!({
@@ -510,7 +510,7 @@ pub async fn handle_wallet (
           .or_else(|| p.get("filename"))
           .and_then(|n| n.as_str())
           .unwrap_or("");
-        emit_receive(app, "reset_wallet_error", json!({}))?;
+        BackendReceiveSink::emit_receive(app, "reset_wallet_error", json!({}))?;
 
         // Let the UI leave `$q.loading` **before** `getheight` / `getbalance`: those RPCs can queue behind a
         // long-running scan and would otherwise block this handler for minutes (heartbeat also contends on
@@ -522,7 +522,7 @@ pub async fn handle_wallet (
         st.wh_catchup_last_heavy = None;
         st.wh_fetch_tx_pending = true;
 
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "set_wallet_info",
           json!({
@@ -533,7 +533,7 @@ pub async fn handle_wallet (
             "scan_poll_ts": Utc::now().timestamp_millis()
           }),
         )?;
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "reset_wallet_status",
           json!({ "code": 0, "message": "OK" }),
@@ -580,7 +580,7 @@ pub async fn handle_wallet (
         st.wh_stored_height = opened_height;
         st.wh_stored_balance = bal;
         st.wh_stored_unlocked = unl;
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "set_wallet_info",
           json!({
@@ -592,7 +592,7 @@ pub async fn handle_wallet (
           }),
         )?;
 
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "set_wallet_transactions",
           json!({ "tx_list": [] }),
@@ -621,7 +621,7 @@ pub async fn handle_wallet (
           Ok(Ok(q)) if crate::json_util::json_rpc_no_error(&q) => {
             if let Some(key) = q.pointer("/result/key").and_then(|x| x.as_str()) {
               if key.chars().all(|c| c == '0') {
-                let _ = emit_receive(app, "set_wallet_info", json!({ "view_only": true }));
+                let _ = BackendReceiveSink::emit_receive(app, "set_wallet_info", json!({ "view_only": true }));
               }
             }
           }
@@ -667,7 +667,7 @@ pub async fn handle_wallet (
         st.wh_stored_height = 0;
         st.wh_stored_balance = 0;
         st.wh_stored_unlocked = 0;
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "set_wallet_info",
           json!({
@@ -678,7 +678,7 @@ pub async fn handle_wallet (
             "scan_poll_ts": Utc::now().timestamp_millis()
           }),
         );
-        let _ = emit_receive(
+        let _ = BackendReceiveSink::emit_receive(
           app,
           "reset_wallet_status",
           json!({ "code": 1, "message": null }),
@@ -780,8 +780,8 @@ async fn wallet_add_address_book (
   let r = w.call("add_address_book", &params).await?;
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
-    emit_receive(
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({
@@ -794,8 +794,8 @@ async fn wallet_add_address_book (
   }
   let _ = w.call("store", &json!({})).await;
   let bk = crate::wallet_heartbeat::fetch_address_book_map(w).await?;
-  emit_receive(app, "set_wallet_address_book", bk)?;
-  emit_receive(
+  BackendReceiveSink::emit_receive(app, "set_wallet_address_book", bk)?;
+  BackendReceiveSink::emit_receive(
     app,
     "show_notification",
     json!({
@@ -827,12 +827,12 @@ async fn wallet_delete_address_book (
     .await?;
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
     return Ok(());
   }
   let _ = w.call("store", &json!({})).await;
   let bk = crate::wallet_heartbeat::fetch_address_book_map(w).await?;
-  emit_receive(app, "set_wallet_address_book", bk)?;
+  BackendReceiveSink::emit_receive(app, "set_wallet_address_book", bk)?;
   Ok(())
 }
 
@@ -908,7 +908,7 @@ fn rpc_error_message_capitalized (err: &Value) -> String {
 async fn emit_wallet_list (app: &AppHandle, st: &WalletBackendState) -> Result<(), String> {
   if let Some(dir) = crate::arqma_paths_config::wallet_files_dir(&st.config_data) {
     let w = list_wallet_files(&dir)?;
-    emit_receive(app, "wallet_list", w)?;
+    BackendReceiveSink::emit_receive(app, "wallet_list", w)?;
   }
   Ok(())
 }
@@ -972,7 +972,7 @@ async fn finalize_new_wallet_like_electron (
   if let Ok(ref m) = qm {
     if crate::json_util::json_rpc_no_error(m) {
       if let Some(key) = m.pointer("/result/key").and_then(|x| x.as_str()) {
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "set_wallet_secret",
           json!({ "mnemonic": key, "spend_key": "", "view_key": "" }),
@@ -999,7 +999,7 @@ async fn finalize_new_wallet_like_electron (
     }
     emit_wallet_list(app, st).await?;
   }
-  emit_receive(app, "set_wallet_info", info.clone())?;
+  BackendReceiveSink::emit_receive(app, "set_wallet_info", info.clone())?;
   st.wh_stored_height = info
     .get("height")
     .and_then(crate::json_util::value_as_u64)
@@ -1024,11 +1024,11 @@ async fn wallet_restore_wallet (
   p: &Value,
 ) -> Result<(), String> {
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
-  emit_receive(app, "reset_wallet_error", json!({}))?;
+  BackendReceiveSink::emit_receive(app, "reset_wallet_error", json!({}))?;
   let rh = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
     Ok(h) => h,
     Err(e) => {
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "set_wallet_error",
         json!({ "status": { "code": -1, "message": e } }),
@@ -1052,7 +1052,7 @@ async fn wallet_restore_wallet (
   };
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
     return Ok(());
   }
   refresh_wallet_password_hash_from_params(st, p);
@@ -1074,11 +1074,11 @@ async fn wallet_restore_view_wallet (
   p: &Value,
 ) -> Result<(), String> {
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
-  emit_receive(app, "reset_wallet_error", json!({}))?;
+  BackendReceiveSink::emit_receive(app, "reset_wallet_error", json!({}))?;
   let mut refresh_h = match crate::wallet_rpc_electron::resolve_restore_refresh_height(st, http, p).await {
     Ok(h) => h,
     Err(e) => {
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "set_wallet_error",
         json!({ "status": { "code": -1, "message": e } }),
@@ -1114,7 +1114,7 @@ async fn wallet_restore_view_wallet (
   };
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err }))?;
     return Ok(());
   }
   refresh_wallet_password_hash_from_params(st, p);
@@ -1136,7 +1136,7 @@ async fn wallet_import_wallet (
   p: &Value,
 ) -> Result<(), String> {
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
-  emit_receive(app, "reset_wallet_error", json!({}))?;
+  BackendReceiveSink::emit_receive(app, "reset_wallet_error", json!({}))?;
   let filename = wallet_filename_from_params(p).ok_or_else(|| "import_wallet: name".to_string())?;
   let import_path_raw = p
     .get("path")
@@ -1145,7 +1145,7 @@ async fn wallet_import_wallet (
   let import_base = trim_wallet_import_path(import_path_raw);
   let import_src = PathBuf::from(&import_base);
   if !import_src.exists() {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_wallet_error",
       json!({ "status": { "code": -1, "message": "Invalid wallet path" } }),
@@ -1157,7 +1157,7 @@ async fn wallet_import_wallet (
   };
   let destination = wdir.join(filename);
   if destination.exists() || wdir.join(format!("{filename}.keys")).exists() {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_wallet_error",
       json!({ "status": { "code": -1, "message": "Wallet with name already exists" } }),
@@ -1168,7 +1168,7 @@ async fn wallet_import_wallet (
   let dest_keys = wdir.join(format!("{filename}.keys"));
   if let Err(e) = std::fs::copy(&import_src, &destination) {
     eprintln!("[wallet] import copy: {e}");
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_wallet_error",
       json!({ "status": { "code": -1, "message": "Failed to copy wallet" } }),
@@ -1179,7 +1179,7 @@ async fn wallet_import_wallet (
     if let Err(e) = std::fs::copy(&keys_src, &dest_keys) {
       eprintln!("[wallet] import copy keys: {e}");
       let _ = std::fs::remove_file(&destination);
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "set_wallet_error",
         json!({ "status": { "code": -1, "message": "Failed to copy wallet" } }),
@@ -1206,7 +1206,7 @@ async fn wallet_import_wallet (
   if open_r.get("error").is_some() {
     let _ = std::fs::remove_file(&destination);
     let _ = std::fs::remove_file(&dest_keys);
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_wallet_error",
       json!({ "status": open_r.get("error").cloned().unwrap_or(Value::Null) }),
@@ -1232,7 +1232,7 @@ async fn wallet_stake (
 ) -> Result<(), String> {
   let origin = p.get("origin").cloned().unwrap_or(Value::Null);
   let reply_note = |msg: &str| {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({
@@ -1260,7 +1260,7 @@ async fn wallet_stake (
       .get("error")
       .map(|e| rpc_error_message_capitalized(e))
       .unwrap_or_else(|| "Unknown error".to_string());
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({ "code": -300, "message": msg, "sending": false }),
@@ -1277,7 +1277,7 @@ async fn wallet_stake (
         format!("Fee {fee_ui:.9}")
       })
       .unwrap_or_else(|| "Fee".to_string());
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -1299,7 +1299,7 @@ async fn wallet_register_service_node (
 ) -> Result<(), String> {
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status",
       json!({ "registration": { "code": -1, "sending": false } }),
@@ -1318,14 +1318,14 @@ async fn wallet_register_service_node (
       .get("error")
       .map(|e| rpc_error_message_capitalized(e))
       .unwrap_or_else(|| "Unknown error".to_string());
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status",
       json!({ "registration": { "code": -1, "message": msg, "sending": false } }),
     )?;
     return Ok(());
   }
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "set_snode_status",
     json!({ "registration": { "code": 0, "sending": false } }),
@@ -1354,7 +1354,7 @@ async fn wallet_save_tx_notes (
     .call("get_transfer_by_txid", &json!({ "txid": txid }))
     .await?;
   if let Some(xfer) = tr.pointer("/result/transfer") {
-    emit_receive(app, "set_wallet_transaction", xfer.clone())?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_transaction", xfer.clone())?;
   }
   Ok(())
 }
@@ -1369,7 +1369,7 @@ async fn wallet_get_private_keys (
   let mut secret = json!({ "mnemonic": "", "spend_key": "", "view_key": "" });
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_wallet_secret",
       json!({ "mnemonic": "Invalid password", "spend_key": -1, "view_key": -1 }),
@@ -1399,7 +1399,7 @@ async fn wallet_get_private_keys (
       }
     }
   }
-  emit_receive(app, "set_wallet_secret", secret)?;
+  BackendReceiveSink::emit_receive(app, "set_wallet_secret", secret)?;
   Ok(())
 }
 
@@ -1421,7 +1421,7 @@ async fn wallet_export_key_images (
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
@@ -1450,7 +1450,7 @@ async fn wallet_export_key_images (
   let params = crate::wallet_rpc_electron::map_export_key_images(p)?;
   let data = w.call("export_key_images", &params).await?;
   if data.get("error").is_some() || data.get("result").is_none() {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Error exporting key images", "timeout": 3000 }),
@@ -1461,14 +1461,14 @@ async fn wallet_export_key_images (
     let body = serde_json::to_string(ski).unwrap_or_else(|_| "{}".into());
     if let Err(e) = std::fs::write(&out_path, body) {
       eprintln!("[wallet] export key images write: {e}");
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "show_notification",
         json!({ "type": "negative", "message": "Error exporting key images", "timeout": 3000 }),
       )?;
       return Ok(());
     }
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({
@@ -1477,7 +1477,7 @@ async fn wallet_export_key_images (
       }),
     )?;
   } else {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({
@@ -1500,7 +1500,7 @@ async fn wallet_import_key_images (
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
@@ -1524,7 +1524,7 @@ async fn wallet_import_key_images (
   let text = match std::fs::read_to_string(&file_path) {
     Ok(t) => t,
     Err(_) => {
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "show_notification",
         json!({ "type": "negative", "message": "Error parsing key images as JSON", "timeout": 3000 }),
@@ -1535,7 +1535,7 @@ async fn wallet_import_key_images (
   let signed: Value = match serde_json::from_str(&text) {
     Ok(v) => v,
     Err(_) => {
-      emit_receive(
+      BackendReceiveSink::emit_receive(
         app,
         "show_notification",
         json!({ "type": "negative", "message": "Error parsing key images as JSON", "timeout": 3000 }),
@@ -1547,7 +1547,7 @@ async fn wallet_import_key_images (
     .call("import_key_images", &json!({ "signed_key_images": signed }))
     .await?;
   if data.get("error").is_some() || data.get("result").is_none() {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({
@@ -1558,7 +1558,7 @@ async fn wallet_import_key_images (
     )?;
     return Ok(());
   }
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "show_notification",
     json!({ "message": "Key images imported", "timeout": 3000 }),
@@ -1574,7 +1574,7 @@ async fn wallet_change_wallet_password (
 ) -> Result<(), String> {
   let old_password = p.get("old_password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, old_password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Invalid old password", "timeout": 3000 }),
@@ -1589,7 +1589,7 @@ async fn wallet_change_wallet_password (
   let params = crate::wallet_rpc_electron::map_change_wallet_password(p)?;
   let data = w.call("change_wallet_password", &params).await?;
   if data.get("error").is_some() || data.get("result").is_none() {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Error changing password", "timeout": 3000 }),
@@ -1599,7 +1599,7 @@ async fn wallet_change_wallet_password (
   if let Some(np) = p.get("new_password").and_then(|x| x.as_str()) {
     refresh_wallet_password_hash_from_password(st, np);
   }
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "show_notification",
     json!({ "message": "Password updated", "timeout": 3000 }),
@@ -1615,7 +1615,7 @@ async fn wallet_delete_wallet (
 ) -> Result<(), String> {
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "show_notification",
       json!({ "type": "negative", "message": "Invalid password", "timeout": 3000 }),
@@ -1626,7 +1626,7 @@ async fn wallet_delete_wallet (
   if wallet_name.is_empty() {
     return Ok(());
   }
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "show_loading",
     json!({ "message": "Deleting wallet" }),
@@ -1646,8 +1646,8 @@ async fn wallet_delete_wallet (
     let _ = std::fs::remove_file(wdir.join(format!("{wallet_name}.address.txt")));
   }
   emit_wallet_list(app, st).await?;
-  emit_receive(app, "hide_loading", json!({}))?;
-  emit_receive(app, "return_to_wallet_select", json!({}))?;
+  BackendReceiveSink::emit_receive(app, "hide_loading", json!({}))?;
+  BackendReceiveSink::emit_receive(app, "return_to_wallet_select", json!({}))?;
   Ok(())
 }
 
@@ -1680,7 +1680,7 @@ async fn wallet_export_transactions (
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !wallet_password_ok_for_tx(st, password) {
     reply["message"] = json!("backend.Invalid_password");
-    emit_receive(app, "set_tx_status", reply)?;
+    BackendReceiveSink::emit_receive(app, "set_tx_status", reply)?;
     return Ok(());
   }
   let _ = crate::wallet_process::try_start_wallet_rpc(app, st, http).await;
@@ -1784,7 +1784,7 @@ async fn wallet_export_transactions (
   }
   reply["code"] = json!(100);
   reply["message"] = json!("backend.transaction_export_complete");
-  emit_receive(app, "set_tx_status", reply)?;
+  BackendReceiveSink::emit_receive(app, "set_tx_status", reply)?;
   Ok(())
 }
 
@@ -1831,7 +1831,7 @@ async fn wallet_sweep_all (
   let password = p.get("password").and_then(|x| x.as_str()).unwrap_or("");
   if !st.wallet_salt.is_empty() && !wallet_password_matches(st, password) {
     let origin = p.get("origin").cloned().unwrap_or(Value::Null);
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -1848,7 +1848,7 @@ async fn wallet_sweep_all (
     .await?;
   if addr_r.get("error").is_some() {
     let err = addr_r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
     let msg = err
       .get("message")
       .and_then(|m| m.as_str())
@@ -1861,7 +1861,7 @@ async fn wallet_sweep_all (
       })
       .unwrap_or_else(|| "Unknown error".to_string());
     let origin = p.get("origin").cloned().unwrap_or(Value::Null);
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -1884,7 +1884,7 @@ async fn wallet_sweep_all (
     .unwrap_or(false);
   let origin = p.get("origin").cloned().unwrap_or(Value::Null);
   let output_count = count_spendable_outputs_for_sweep(w).await;
-  let _ = emit_receive(
+  let _ = BackendReceiveSink::emit_receive(
     app,
     "sweep_all_progress",
     json!({
@@ -1893,7 +1893,7 @@ async fn wallet_sweep_all (
       "total": output_count
     }),
   );
-  let _ = emit_receive(
+  let _ = BackendReceiveSink::emit_receive(
     app,
     "sweep_all_progress",
     json!({
@@ -1927,7 +1927,7 @@ async fn wallet_sweep_all (
         }
         _ = interval.tick() => {
           wait_round = wait_round.saturating_add(1);
-          let _ = emit_receive(
+          let _ = BackendReceiveSink::emit_receive(
             app,
             "sweep_all_progress",
             json!({
@@ -1944,7 +1944,7 @@ async fn wallet_sweep_all (
   let r = r?;
   if r.get("error").is_some() {
     let err = r.get("error").cloned().unwrap_or(Value::Null);
-    emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
+    BackendReceiveSink::emit_receive(app, "set_wallet_error", json!({ "status": err.clone() }))?;
     let msg = err
       .get("message")
       .and_then(|m| m.as_str())
@@ -1956,8 +1956,8 @@ async fn wallet_sweep_all (
         }
       })
       .unwrap_or_else(|| "Unknown error".to_string());
-    let _ = emit_receive(app, "sweep_all_progress", Value::Null);
-    emit_receive(
+    let _ = BackendReceiveSink::emit_receive(app, "sweep_all_progress", Value::Null);
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -1991,7 +1991,7 @@ async fn wallet_sweep_all (
     } else {
       (100i64, "sweep_all_rpc_success_message".to_string())
     };
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -2002,7 +2002,7 @@ async fn wallet_sweep_all (
       }),
     )?;
   } else {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_tx_status",
       json!({
@@ -2013,7 +2013,7 @@ async fn wallet_sweep_all (
       }),
     )?;
   }
-  let _ = emit_receive(app, "sweep_all_progress", Value::Null);
+  let _ = BackendReceiveSink::emit_receive(app, "sweep_all_progress", Value::Null);
   Ok(())
 }
 
@@ -2024,7 +2024,7 @@ async fn unlock_stake (
   w: &crate::json_rpc_client::WalletRpcClient,
   p: &Value,
 ) -> Result<(), String> {
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "set_snode_status_unlock",
     json!({ "code": 0, "message": "", "sending": false }),
@@ -2038,7 +2038,7 @@ async fn unlock_stake (
     return Ok(());
   }
   if !wallet_password_matches(st, password) {
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status_unlock",
       json!({ "code": -400, "message": "invalidPassword", "sending": false }),
@@ -2060,7 +2060,7 @@ async fn unlock_stake (
       .get("message")
       .and_then(|m| m.as_str())
       .unwrap_or("Unknown error");
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status_unlock",
       json!({ "code": -400, "message": msg, "sending": false }),
@@ -2080,7 +2080,7 @@ async fn unlock_stake (
         } else {
           -400
         };
-        emit_receive(
+        BackendReceiveSink::emit_receive(
           app,
           "set_snode_status_unlock",
           json!({ "code": code, "message": msg, "sending": false }),
@@ -2088,7 +2088,7 @@ async fn unlock_stake (
         return Ok(());
       }
     }
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status_unlock",
       json!({ "code": -400, "message": "Unknown error", "sending": false }),
@@ -2110,7 +2110,7 @@ async fn unlock_stake (
       })
       .unwrap_or((false, String::new()));
     let code = if can { 400i64 } else { -400 };
-    emit_receive(
+    BackendReceiveSink::emit_receive(
       app,
       "set_snode_status_unlock",
       json!({ "code": code, "message": msg, "sending": false }),
@@ -2141,7 +2141,7 @@ fn emit_validate_address_from_rpc_result (
 ) -> Result<(), String> {
   let address = p.get("address").and_then(|a| a.as_str()).unwrap_or("");
   let Some(res) = r.get("result") else {
-    emit_receive(app, "set_valid_address", json!({ "address": address, "valid": false }))?;
+    BackendReceiveSink::emit_receive(app, "set_valid_address", json!({ "address": address, "valid": false }))?;
     return Ok(());
   };
   let valid = res.get("valid").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -2158,7 +2158,7 @@ fn emit_validate_address_from_rpc_result (
     .unwrap_or("mainnet");
   let net_matches = app_net == nettype;
   let is_valid = valid && net_matches;
-  emit_receive(
+  BackendReceiveSink::emit_receive(
     app,
     "set_valid_address",
     json!({

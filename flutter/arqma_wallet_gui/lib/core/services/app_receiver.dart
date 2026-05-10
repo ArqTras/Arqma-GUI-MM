@@ -29,7 +29,8 @@ class AppReceiver {
 
   Future<void> start() async {
     await bridge.start();
-    _sub = bridge.backendReceive.listen(_onMessage, onError: (Object e, StackTrace st) {
+    _sub = bridge.backendReceive.listen(_onMessage,
+        onError: (Object e, StackTrace st) {
       debugPrint('[AppReceiver] stream error $e\n$st');
     });
     unawaited(Future<void>.delayed(const Duration(milliseconds: 1200), () {
@@ -58,11 +59,13 @@ class AppReceiver {
   }
 
   void _showNotification(dynamic data) {
-    final ScaffoldMessengerState? messenger = appScaffoldMessengerKey.currentState;
+    final ScaffoldMessengerState? messenger =
+        appScaffoldMessengerKey.currentState;
     if (messenger == null) {
       return;
     }
-    final Map<String, dynamic> m = data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+    final Map<String, dynamic> m =
+        data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
     final String type = '${m['type'] ?? 'positive'}';
     final String msg = '${m['message'] ?? ''}';
     final int timeout = (m['timeout'] as num?)?.toInt() ?? 3000;
@@ -148,7 +151,8 @@ class AppReceiver {
                 onPressed: () {
                   Navigator.pop(c);
                   router.go('/quit');
-                  unawaited(bridge.invoke('confirm_close', <String, dynamic>{'restart': true}));
+                  unawaited(bridge.invoke(
+                      'confirm_close', <String, dynamic>{'restart': true}));
                 },
                 child: Text(locale.tr('receiver.restart')),
               ),

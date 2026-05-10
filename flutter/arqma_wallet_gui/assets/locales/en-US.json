@@ -37,7 +37,9 @@
                 "open_wallet_cancel_label": "CANCEL",
                 "copy_address_message": "Address copied to clipboard",
                 "copy_address": "Copy Address",
-                "open_account": "Open Account"
+                "open_account": "Open Account",
+                "setup_required_banner": "Startup did not finish (data paths, remote/local daemon, or permissions). Your account files may still be listed from the configured wallet folder. Use Initial setup to open the welcome wizard and fix storage paths plus the node.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "Full wallet",

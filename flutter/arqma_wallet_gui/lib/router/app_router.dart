@@ -35,17 +35,18 @@ GoRouter createAppRouter(GatewayStore store) {
     redirect: (BuildContext context, GoRouterState state) {
       final path = state.uri.path;
       if (path == '/' || path.isEmpty) {
-        switch (store.appStatusCode) {
-          case -1:
-            return '/welcome';
-          case 0:
-            return '/wallet-select';
+        final int c = store.appStatusCode;
+        // Ready for wallet list, or recoverable setup error — same landing as Tauri (wallets from config paths first).
+        if (c == 0 || c == -1) {
+          return '/wallet-select';
         }
       }
       // Wallet layout expects an open account (`wallet.status.code == 0` after `open_wallet`).
-      final bool wantsWalletChrome = path == '/wallet' || path.startsWith('/wallet/');
+      final bool wantsWalletChrome =
+          path == '/wallet' || path.startsWith('/wallet/');
       if (wantsWalletChrome) {
-        final int walletCode = (store.wallet['status'] as Map?)?['code'] as int? ?? 1;
+        final int walletCode =
+            (store.wallet['status'] as Map?)?['code'] as int? ?? 1;
         if (walletCode != 0) {
           return '/wallet-select';
         }
@@ -61,7 +62,8 @@ GoRouter createAppRouter(GatewayStore store) {
       ),
       GoRoute(
         path: '/quit',
-        builder: (BuildContext context, GoRouterState state) => const InitQuitPage(),
+        builder: (BuildContext context, GoRouterState state) =>
+            const InitQuitPage(),
       ),
       GoRoute(
         path: '/welcome',
@@ -90,7 +92,8 @@ GoRouter createAppRouter(GatewayStore store) {
       GoRoute(
         path: '/wallet-select/import-view-only',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectImportViewOnlyPage());
+          return WalletSelectLayout(
+              child: const WalletSelectImportViewOnlyPage());
         },
       ),
       GoRoute(
@@ -102,7 +105,8 @@ GoRouter createAppRouter(GatewayStore store) {
       GoRoute(
         path: '/wallet-select/import-legacy',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectImportLegacyPage());
+          return WalletSelectLayout(
+              child: const WalletSelectImportLegacyPage());
         },
       ),
       GoRoute(
@@ -114,7 +118,8 @@ GoRouter createAppRouter(GatewayStore store) {
       GoRoute(
         path: '/wallet-select/import-old-gui',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectImportOldGuiPage());
+          return WalletSelectLayout(
+              child: const WalletSelectImportOldGuiPage());
         },
       ),
       GoRoute(
@@ -160,6 +165,7 @@ GoRouter createAppRouter(GatewayStore store) {
         },
       ),
     ],
-    errorBuilder: (BuildContext context, GoRouterState state) => const NotFoundPage(),
+    errorBuilder: (BuildContext context, GoRouterState state) =>
+        const NotFoundPage(),
   );
 }

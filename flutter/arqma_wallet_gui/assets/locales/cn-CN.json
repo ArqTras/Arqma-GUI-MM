@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "取消",
                 "copy_address_message": "地址已复制到剪贴板",
                 "copy_address": "复制地址",
-                "open_account": "打开账户"
+                "open_account": "打开账户",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "完整钱包",

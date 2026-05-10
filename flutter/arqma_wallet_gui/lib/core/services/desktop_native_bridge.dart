@@ -4,12 +4,15 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../desktop/arqma_daemon_launcher.dart';
 import '../desktop/arqma_desktop_defaults.dart';
+import '../desktop/arqma_executable_resolve.dart';
 import '../desktop/arqma_paths.dart';
 import '../desktop/daemon_heartbeat_extras.dart';
 import '../desktop/desktop_export_transactions.dart';
+import '../desktop/config_validate.dart';
 import '../desktop/desktop_startup_parity.dart';
 import '../desktop/arqma_wallet_rpc_session.dart';
 import '../desktop/daemon_json_rpc.dart';
@@ -22,6 +25,25 @@ import '../desktop/wallet_list_fs.dart';
 import '../desktop/wallet_password_pbkdf2.dart';
 import '../utils/deep_merge.dart';
 import 'native_bridge.dart';
+
+/// Tauri `write_config_file` + `validate_config_against_defaults` + `strip_trusted_daemon_from_config`
+/// (+ optional `strip_legacy_uniform_pool_option` on `save_config_init`).
+Map<String, dynamic> _finalizeConfigForDiskWrite(
+  ArqmaPaths paths,
+  Map<String, dynamic> cfg, {
+  required bool stripPoolLegacy,
+}) {
+  final Map<String, dynamic> m =
+      Map<String, dynamic>.from(jsonDecode(jsonEncode(cfg)) as Map);
+  if (stripPoolLegacy) {
+    stripLegacyUniformPoolOption(m);
+  }
+  final Map<String, dynamic> validated =
+      validateConfigAgainstDefaults(m, buildDefaultsOnly(paths));
+  final Map<String, dynamic> norm = normalizeConfigStoragePaths(validated);
+  stripTrustedDaemonFromConfig(norm);
+  return norm;
+}
 
 Map<String, dynamic> _coerceMap(Object? data) {
   if (data == null) {
@@ -36,12 +58,13 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
-/// Desktop (macOS/Linux/Windows): load `~/.arqma/gui/config.json`, scan wallet dir like Tauri,
+/// Desktop (macOS/Linux/Windows): load GUI `config.json` under [ArqmaPaths.configDir], scan wallet dir like Tauri,
 /// start local `arqmad` when daemon type is not `remote`, poll `get_info` for footer sync state.
 final class DesktopNativeBridge implements NativeBridge {
   DesktopNativeBridge();
 
-  final StreamController<Map<String, dynamic>> _controller = StreamController<Map<String, dynamic>>.broadcast();
+  final StreamController<Map<String, dynamic>> _controller =
+      StreamController<Map<String, dynamic>>.broadcast();
   Future<void>? _startupFuture;
   Map<String, dynamic>? _runtimeConfig;
   Process? _daemonProcess;
@@ -49,10 +72,23 @@ final class DesktopNativeBridge implements NativeBridge {
   Timer? _heartbeatSlow;
   ArqmaWalletRpcSession? _walletRpc;
   String _openedWalletDisplayName = '';
+
   /// PBKDF2-HMAC-SHA512 hash of the session password (Tauri `wallet_password_hash_hex`); null when no wallet is open.
   String? _walletPasswordHashHex;
   Timer? _stakePoolsTimer;
   final List<Map<String, dynamic>> _pendingTxRelay = <Map<String, dynamic>>[];
+  Process? _soloPoolProcess;
+  StreamSubscription<String>? _soloPoolOutSub;
+  StreamSubscription<String>? _soloPoolErrSub;
+
+  /// Parity with Tauri `wallet_heartbeat` / Electron `wallet-rpc.js` — `getheight` + balance + `get_transfers`.
+  Timer? _walletHeartbeat;
+  int _daemonChainTipHeight = 0;
+  int _whStoredHeight = 0;
+  int _whStoredBalance = 0;
+  int _whStoredUnlocked = 0;
+  bool _whFetchTxPending = false;
+  bool _walletXferBusy = false;
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -63,8 +99,117 @@ final class DesktopNativeBridge implements NativeBridge {
   void _showNotification(String kind, String message, [int timeoutMs = 3000]) {
     _emit(<String, dynamic>{
       'event': 'show_notification',
-      'data': <String, dynamic>{'type': kind, 'message': message, 'timeout': timeoutMs},
+      'data': <String, dynamic>{
+        'type': kind,
+        'message': message,
+        'timeout': timeoutMs
+      },
     });
+  }
+
+  Future<void> _stopSoloPoolSidecar() async {
+    await _soloPoolOutSub?.cancel();
+    _soloPoolOutSub = null;
+    await _soloPoolErrSub?.cancel();
+    _soloPoolErrSub = null;
+    final Process? p = _soloPoolProcess;
+    _soloPoolProcess = null;
+    if (p != null) {
+      try {
+        p.kill(ProcessSignal.sigterm);
+      } catch (_) {}
+      try {
+        await p.exitCode.timeout(const Duration(seconds: 3));
+      } catch (_) {}
+    }
+  }
+
+  /// Clears sidecar handles when the child exits on its own (crash, SIGKILL, etc.).
+  void _onSoloPoolChildEnded(Process proc) {
+    if (_soloPoolProcess != proc) {
+      return;
+    }
+    _soloPoolProcess = null;
+    _soloPoolOutSub = null;
+    _soloPoolErrSub = null;
+  }
+
+  /// Runs the Rust `arqma_flutter_solo_pool` binary (Stratum solo pool); stdout JSON lines → [`_emit`].
+  Future<void> _syncSoloPoolSidecar(Map<String, dynamic> configData) async {
+    await _stopSoloPoolSidecar();
+    if (Platform.environment['ARQMA_FLUTTER_NO_SOLO_POOL'] == '1') {
+      return;
+    }
+    if (!poolServerEnabled(configData)) {
+      return;
+    }
+    final String? exe =
+        resolveArqmaExecutable(ArqmaExecutableKind.flutterSoloPool);
+    if (exe == null) {
+      debugPrint(
+        '[DesktopNative] arqma_flutter_solo_pool not found (cargo build in rust/tauri-app/src-tauri or set ARQMA_FLUTTER_SOLO_POOL)',
+      );
+      return;
+    }
+    final ArqmaPaths paths = ArqmaPaths.defaultForPlatform();
+    try {
+      final Process proc = await Process.start(
+        exe,
+        <String>[paths.configDir],
+        environment: <String, String>{
+          ...Platform.environment,
+          'ARQMA_CONFIG_DIR': paths.configDir,
+        },
+      );
+      _soloPoolProcess = proc;
+      _soloPoolOutSub = proc.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(
+        (String line) {
+          final String t = line.trim();
+          if (t.isEmpty) {
+            return;
+          }
+          try {
+            final Object? v = jsonDecode(t);
+            if (v is! Map) {
+              return;
+            }
+            final Map<String, dynamic> m = Map<String, dynamic>.from(v);
+            final Object? ev = m['event'];
+            if (ev is! String) {
+              return;
+            }
+            final Object? raw = m['data'];
+            final Map<String, dynamic> payload =
+                raw is Map<String, dynamic> ? raw : _coerceMap(raw);
+            _emit(<String, dynamic>{'event': ev, 'data': payload});
+          } catch (e) {
+            debugPrint('[DesktopNative] solo pool stdout JSON: $e');
+          }
+        },
+        onError: (Object e, StackTrace st) =>
+            debugPrint('[DesktopNative] solo pool stdout: $e $st'),
+        onDone: () => _onSoloPoolChildEnded(proc),
+      );
+      _soloPoolErrSub = proc.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(
+        (String line) {
+          final String s = line.trim();
+          if (s.isNotEmpty) {
+            debugPrint('[solo-pool] $s');
+          }
+        },
+        onError: (Object e, StackTrace st) =>
+            debugPrint('[DesktopNative] solo pool stderr: $e $st'),
+        onDone: () => _onSoloPoolChildEnded(proc),
+      );
+    } catch (e) {
+      debugPrint('[DesktopNative] solo pool Process.start failed: $e');
+    }
   }
 
   Future<void> _ensureStartupDone() async {
@@ -74,7 +219,55 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// Keep `app.data_dir` / `app.wallet_data_dir` absolute (expand `~`) like a shell/Tauri runtime.
   void _setRuntimeConfig(Map<String, dynamic> raw) {
-    _runtimeConfig = normalizeConfigStoragePaths(Map<String, dynamic>.from(raw));
+    _runtimeConfig =
+        normalizeConfigStoragePaths(Map<String, dynamic>.from(raw));
+    _emitWalletListForConfig(_runtimeConfig!);
+  }
+
+  /// Merge [merged] into a finalized snapshot, write `gui/config.json`, and `set_app_data` like `save_config`.
+  ///
+  /// Used for `change_ethereum` / `change_scan` / `set_daysOfTransactions` / `set_inactivityTimeout` so the
+  /// Flutter backend matches **persisted** Tauri/Electron behaviour (Vue `txhistory` relies on this for days).
+  Future<void> _persistConfigSnapshot(
+    ArqmaPaths paths,
+    Map<String, dynamic> merged, {
+    required bool stripPoolLegacy,
+    Map<String, dynamic>? extraSetAppData,
+  }) async {
+    try {
+      final Map<String, dynamic> out = _finalizeConfigForDiskWrite(
+          paths, merged,
+          stripPoolLegacy: stripPoolLegacy);
+      _setRuntimeConfig(out);
+      await File(paths.configPath).writeAsString(
+        const JsonEncoder.withIndent('  ').convert(_runtimeConfig),
+      );
+      final Map<String, dynamic> payload = <String, dynamic>{
+        'config': _runtimeConfig,
+        'pending_config': _runtimeConfig,
+      };
+      if (extraSetAppData != null) {
+        payload.addAll(extraSetAppData);
+      }
+      _emit(<String, dynamic>{'event': 'set_app_data', 'data': payload});
+    } catch (e, st) {
+      debugPrint('[DesktopNative] persistConfigSnapshot: $e\n$st');
+      _showNotification(
+          'negative', 'Could not write ${paths.configPath}', 5000);
+    }
+  }
+
+  /// Same directory rule as Tauri [`arqma_paths_config::wallet_files_dir`] + Rust [`list_wallet_files`].
+  void _emitWalletListForConfig(Map<String, dynamic> fullConfig) {
+    final String? wdir = walletFilesDir(fullConfig);
+    final Map<String, dynamic> wallets = wdir != null
+        ? listWalletFiles(wdir)
+        : <String, dynamic>{
+            'list': <dynamic>[],
+            'directories': <dynamic>[],
+            'legacy': <dynamic>[]
+          };
+    _emit(<String, dynamic>{'event': 'wallet_list', 'data': wallets});
   }
 
   @override
@@ -85,7 +278,10 @@ final class DesktopNativeBridge implements NativeBridge {
     unawaited(
       Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (!_controller.isClosed) {
-          _controller.add(<String, dynamic>{'event': 'initialize', 'data': <String, dynamic>{}});
+          _controller.add(<String, dynamic>{
+            'event': 'initialize',
+            'data': <String, dynamic>{}
+          });
         }
       }),
     );
@@ -95,6 +291,51 @@ final class DesktopNativeBridge implements NativeBridge {
   Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) async {
     if (cmd == 'app_log_info' || cmd == 'app_log_error') {
       debugPrint('[$cmd] ${args ?? {}}');
+      return null;
+    }
+    if (cmd == 'clip_write_text') {
+      final Map<String, dynamic> a = _coerceMap(args);
+      final String text = '${a['text'] ?? ''}';
+      await Clipboard.setData(ClipboardData(text: text));
+      return null;
+    }
+    if (cmd == 'app_save_log_level') {
+      final Map<String, dynamic> a = _coerceMap(args);
+      final String value = '${a['value'] ?? ''}'.trim();
+      if (value.isNotEmpty) {
+        try {
+          final String dir = ArqmaPaths.defaultForPlatform().configDir;
+          await Directory(dir).create(recursive: true);
+          final String path = '$dir${Platform.pathSeparator}.env';
+          final File f = File(path);
+          List<String> lines;
+          if (await f.exists()) {
+            final String s = await f.readAsString();
+            lines = s.split(RegExp(r'\r?\n'));
+            if (lines.isEmpty ||
+                (lines.length == 1 && lines[0].trim().isEmpty)) {
+              lines = <String>['LOG_LEVEL=$value'];
+            } else {
+              bool found = false;
+              for (int i = 0; i < lines.length; i++) {
+                if (lines[i].trim().startsWith('LOG_LEVEL')) {
+                  lines[i] = 'LOG_LEVEL=$value';
+                  found = true;
+                  break;
+                }
+              }
+              if (!found) {
+                lines.insert(0, 'LOG_LEVEL=$value');
+              }
+            }
+          } else {
+            lines = <String>['LOG_LEVEL=$value'];
+          }
+          await f.writeAsString(lines.join('\n'));
+        } catch (e) {
+          debugPrint('[DesktopNative] app_save_log_level: $e');
+        }
+      }
       return null;
     }
     if (cmd == 'app_version_str') {
@@ -109,14 +350,21 @@ final class DesktopNativeBridge implements NativeBridge {
       if (ep == null) {
         return 'unknown';
       }
-      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(ep.host, ep.port);
-      final Map<String, dynamic>? info = DaemonJsonRpc.result(r);
+      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(
+        ep.host,
+        ep.port,
+        connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+        requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+      );
+      final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
       return '${info?['version'] ?? 'unknown'}';
     }
     if (cmd == 'app_is_dev') {
       return kDebugMode;
     }
     if (cmd == 'confirm_close') {
+      await _stopSoloPoolSidecar();
+      _stopWalletHeartbeat();
       _stakePoolsTimer?.cancel();
       _stakePoolsTimer = null;
       _heartbeat?.cancel();
@@ -133,13 +381,45 @@ final class DesktopNativeBridge implements NativeBridge {
         _daemonProcess?.kill();
       } catch (_) {}
       _daemonProcess = null;
-      return null;
+      exit(0);
+    }
+    if (cmd == 'dialog_open_dir') {
+      final Map<String, dynamic> a = _coerceMap(args);
+      String initial = '${a['defaultPath'] ?? ''}'.trim();
+      if (initial.isNotEmpty) {
+        try {
+          final Directory d = Directory(initial);
+          if (!d.existsSync()) {
+            initial = '';
+          }
+        } catch (_) {
+          initial = '';
+        }
+      }
+      try {
+        String? path = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Select folder',
+          initialDirectory: initial.isEmpty ? null : initial,
+        );
+        // macOS sandbox / invalid `initialDirectory` can yield null — retry without a starting folder.
+        path ??= await FilePicker.platform
+            .getDirectoryPath(dialogTitle: 'Select folder');
+        if (path == null) {
+          debugPrint(
+              '[DesktopNative] dialog_open_dir: user cancelled or picker returned null');
+        }
+        return path;
+      } catch (e, st) {
+        debugPrint('[DesktopNative] dialog_open_dir failed: $e\n$st');
+        return null;
+      }
     }
     return null;
   }
 
   @override
-  Future<dynamic> backendSend(String module, String method, [Object? data]) async {
+  Future<dynamic> backendSend(String module, String method,
+      [Object? data]) async {
     if (module == 'core' && method == 'init') {
       _startupFuture ??= _runCoreStartup();
       await _startupFuture;
@@ -179,12 +459,16 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (module == 'wallet' && method == 'list_wallets') {
-      final Map<String, dynamic>? c = _runtimeConfig;
-      if (c != null) {
-        final String? wdir = walletFilesDir(c);
-        if (wdir != null) {
-          _emit(<String, dynamic>{'event': 'wallet_list', 'data': listWalletFiles(wdir)});
+      Map<String, dynamic>? cfg;
+      if (data != null) {
+        final Map<String, dynamic> m = _coerceMap(data);
+        if (m.isNotEmpty && (m['app'] is Map || m['daemons'] is Map)) {
+          cfg = normalizeConfigStoragePaths(Map<String, dynamic>.from(m));
         }
+      }
+      cfg ??= _runtimeConfig;
+      if (cfg != null) {
+        _emitWalletListForConfig(cfg);
       }
       return <String, dynamic>{};
     }
@@ -192,6 +476,8 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   Future<void> _restartAfterConfigInit() async {
+    await _stopSoloPoolSidecar();
+    _stopWalletHeartbeat();
     _stakePoolsTimer?.cancel();
     _stakePoolsTimer = null;
     _heartbeat?.cancel();
@@ -215,7 +501,8 @@ final class DesktopNativeBridge implements NativeBridge {
     await _startupFuture;
   }
 
-  Future<void> _maybePushMainnetRemote(ArqmaPaths paths, Map<String, dynamic> params) async {
+  Future<void> _maybePushMainnetRemote(
+      ArqmaPaths paths, Map<String, dynamic> params) async {
     final Object? daemons = params['daemons'];
     if (daemons is! Map) {
       return;
@@ -253,12 +540,15 @@ final class DesktopNativeBridge implements NativeBridge {
     arr.add(<String, dynamic>{'host': host, 'port': port});
     await f.parent.create(recursive: true);
     await f.writeAsString(const JsonEncoder.withIndent('  ').convert(arr));
-    _emit(<String, dynamic>{'event': 'set_app_data', 'data': <String, dynamic>{'remotes': arr}});
+    _emit(<String, dynamic>{
+      'event': 'set_app_data',
+      'data': <String, dynamic>{'remotes': arr}
+    });
   }
 
   Map<String, dynamic> _normalizePoolVarDiff(Map<String, dynamic> pool) {
-    final Map<String, dynamic> vd =
-        Map<String, dynamic>.from(pool['varDiff'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> vd = Map<String, dynamic>.from(
+        pool['varDiff'] as Map? ?? <String, dynamic>{});
     int clampU(Object? v, int def, int lo, int hi) {
       final int x = (v is num) ? v.toInt() : int.tryParse('$v') ?? def;
       return x.clamp(lo, hi);
@@ -314,7 +604,8 @@ final class DesktopNativeBridge implements NativeBridge {
     await backendSend('core', 'open_url', <String, dynamic>{'url': url});
   }
 
-  Future<void> _coreSaveImage(String method, Map<String, dynamic> params) async {
+  Future<void> _coreSaveImage(
+      String method, Map<String, dynamic> params) async {
     final ArqmaPaths paths = ArqmaPaths.defaultForPlatform();
     final String? wdir = walletFilesDir(_runtimeConfig ?? <String, dynamic>{});
     final String initial = wdir ?? paths.walletDir;
@@ -329,7 +620,8 @@ final class DesktopNativeBridge implements NativeBridge {
       final String? svg = params['svg'] as String?;
       if (path != null && svg != null && svg.isNotEmpty) {
         await File(path).writeAsString(svg);
-        _showNotification('positive', '${params['type'] ?? 'File'} saved to $path', 3000);
+        _showNotification(
+            'positive', '${params['type'] ?? 'File'} saved to $path', 3000);
       }
       return;
     }
@@ -337,7 +629,8 @@ final class DesktopNativeBridge implements NativeBridge {
     if (img == null || img.isEmpty) {
       return;
     }
-    final String b64 = img.replaceFirst(RegExp(r'^data:image/png;base64,?,?'), '').trim();
+    final String b64 =
+        img.replaceFirst(RegExp(r'^data:image/png;base64,?,?'), '').trim();
     final List<int> bytes = base64Decode(b64);
     final String? path = await FilePicker.platform.saveFile(
       dialogTitle: 'Save ${params['type'] ?? 'Identicon'}',
@@ -348,7 +641,8 @@ final class DesktopNativeBridge implements NativeBridge {
     );
     if (path != null) {
       await File(path).writeAsBytes(bytes);
-      _showNotification('positive', '${params['type'] ?? 'File'} saved to $path', 3000);
+      _showNotification(
+          'positive', '${params['type'] ?? 'File'} saved to $path', 3000);
     }
   }
 
@@ -362,7 +656,8 @@ final class DesktopNativeBridge implements NativeBridge {
       seconds = 3600;
     }
     final Map<String, dynamic>? cfg = _runtimeConfig;
-    final ({String host, int port})? ep = cfg == null ? null : daemonRpcHostPort(cfg);
+    final ({String host, int port})? ep =
+        cfg == null ? null : daemonRpcHostPort(cfg);
     if (ep == null) {
       _showNotification('negative', 'Error banning peer', 3000);
       return;
@@ -371,7 +666,7 @@ final class DesktopNativeBridge implements NativeBridge {
       ep.host,
       ep.port,
       'set_bans',
-      <String, dynamic>{
+      params: <String, dynamic>{
         'bans': <Map<String, dynamic>>[
           <String, dynamic>{'host': host, 'seconds': seconds, 'ban': true},
         ],
@@ -397,73 +692,144 @@ final class DesktopNativeBridge implements NativeBridge {
         final File f = File(paths.remotesPath);
         await f.parent.create(recursive: true);
         await f.writeAsString(jsonEncode(data is List ? data : <dynamic>[]));
-        _emit(<String, dynamic>{'event': 'set_app_data', 'data': <String, dynamic>{'remotes': data}});
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{'remotes': data}
+        });
         return true;
       case 'change_ethereum':
         final Map<String, dynamic> eth =
-            deepMergeMaps(cfg0['ethereum'] ?? <String, dynamic>{}, params) as Map<String, dynamic>;
-        _setRuntimeConfig(deepMergeMaps(cfg0, <String, dynamic>{'ethereum': eth}) as Map<String, dynamic>);
-        _emit(<String, dynamic>{'event': 'set_ethereum_data', 'data': eth});
+            deepMergeMaps(cfg0['ethereum'] ?? <String, dynamic>{}, params)
+                as Map<String, dynamic>;
+        final Map<String, dynamic> mergedEthCfg =
+            deepMergeMaps(cfg0, <String, dynamic>{'ethereum': eth})
+                as Map<String, dynamic>;
+        await _persistConfigSnapshot(paths, mergedEthCfg,
+            stripPoolLegacy: false);
+        final Object? ethOut = _runtimeConfig?['ethereum'];
+        if (ethOut is Map) {
+          _emit(<String, dynamic>{
+            'event': 'set_ethereum_data',
+            'data': Map<String, dynamic>.from(ethOut),
+          });
+        }
         return true;
       case 'change_scan':
-        _setRuntimeConfig(
-          deepMergeMaps(cfg0, <String, dynamic>{'app': <String, dynamic>{'scan': params}}) as Map<String, dynamic>,
+        final Map<String, dynamic> mergedScan =
+            deepMergeMaps(cfg0, <String, dynamic>{
+          'app': <String, dynamic>{'scan': params},
+        }) as Map<String, dynamic>;
+        await _persistConfigSnapshot(
+          paths,
+          mergedScan,
+          stripPoolLegacy: false,
+          extraSetAppData: <String, dynamic>{'scan': params},
         );
-        _emit(<String, dynamic>{'event': 'set_app_data', 'data': <String, dynamic>{'scan': params}});
         return true;
       case 'set_daysOfTransactions':
-        _setRuntimeConfig(
-          deepMergeMaps(
-            cfg0,
-            <String, dynamic>{'app': <String, dynamic>{'daysOfTransactions': params['daysOfTransactions'] ?? 1}},
-          ) as Map<String, dynamic>,
+        final int days = (params['daysOfTransactions'] is num)
+            ? (params['daysOfTransactions'] as num).toInt()
+            : int.tryParse('${params['daysOfTransactions'] ?? 1}') ?? 1;
+        final Map<String, dynamic> mergedDays = deepMergeMaps(
+          cfg0,
+          <String, dynamic>{
+            'app': <String, dynamic>{'daysOfTransactions': days},
+          },
+        ) as Map<String, dynamic>;
+        await _persistConfigSnapshot(
+          paths,
+          mergedDays,
+          stripPoolLegacy: false,
+          extraSetAppData: <String, dynamic>{'daysOfTransactions': days},
         );
         return true;
       case 'set_inactivityTimeout':
-        _setRuntimeConfig(
-          deepMergeMaps(
-            cfg0,
-            <String, dynamic>{'app': <String, dynamic>{'inactivityTimeout': params['inactivityTimeout'] ?? 5}},
-          ) as Map<String, dynamic>,
+        final int inact = (params['inactivityTimeout'] is num)
+            ? (params['inactivityTimeout'] as num).toInt()
+            : int.tryParse('${params['inactivityTimeout'] ?? 5}') ?? 5;
+        final Map<String, dynamic> mergedInact = deepMergeMaps(
+          cfg0,
+          <String, dynamic>{
+            'app': <String, dynamic>{'inactivityTimeout': inact},
+          },
+        ) as Map<String, dynamic>;
+        await _persistConfigSnapshot(
+          paths,
+          mergedInact,
+          stripPoolLegacy: false,
+          extraSetAppData: <String, dynamic>{'inactivityTimeout': inact},
         );
         return true;
       case 'quick_save_config':
-        final Map<String, dynamic> ethIn = Map<String, dynamic>.from(cfg0['ethereum'] as Map? ?? <String, dynamic>{});
-        final Map<String, dynamic> mergedEth = deepMergeMaps(ethIn, params) as Map<String, dynamic>;
-        _setRuntimeConfig(deepMergeMaps(cfg0, <String, dynamic>{'ethereum': mergedEth}) as Map<String, dynamic>);
-        await File(paths.configPath).writeAsString(const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
+        final Map<String, dynamic> ethIn = Map<String, dynamic>.from(
+            cfg0['ethereum'] as Map? ?? <String, dynamic>{});
+        final Map<String, dynamic> mergedEth =
+            deepMergeMaps(ethIn, params) as Map<String, dynamic>;
+        final Map<String, dynamic> mergedQuick =
+            deepMergeMaps(cfg0, <String, dynamic>{'ethereum': mergedEth})
+                as Map<String, dynamic>;
+        final Map<String, dynamic> outQuick = _finalizeConfigForDiskWrite(
+            paths, mergedQuick,
+            stripPoolLegacy: false);
+        _setRuntimeConfig(outQuick);
+        await File(paths.configPath).writeAsString(
+            const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'config': _runtimeConfig, 'pending_config': _runtimeConfig},
+          'data': <String, dynamic>{
+            'config': _runtimeConfig,
+            'pending_config': _runtimeConfig
+          },
         });
         return true;
       case 'save_config':
         await _maybePushMainnetRemote(paths, params);
         final String before = jsonEncode(cfg0);
-        _setRuntimeConfig(deepMergeMaps(cfg0, params) as Map<String, dynamic>);
-        await File(paths.configPath).writeAsString(const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
+        final Map<String, dynamic> mergedSave =
+            deepMergeMaps(cfg0, params) as Map<String, dynamic>;
+        final Map<String, dynamic> outSave = _finalizeConfigForDiskWrite(
+            paths, mergedSave,
+            stripPoolLegacy: false);
+        _setRuntimeConfig(outSave);
+        await File(paths.configPath).writeAsString(
+            const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'config': _runtimeConfig, 'pending_config': _runtimeConfig},
+          'data': <String, dynamic>{
+            'config': _runtimeConfig,
+            'pending_config': _runtimeConfig
+          },
         });
         if (jsonEncode(_runtimeConfig) != before) {
-          _emit(<String, dynamic>{'event': 'settings_changed_reboot', 'data': <String, dynamic>{}});
+          _emit(<String, dynamic>{
+            'event': 'settings_changed_reboot',
+            'data': <String, dynamic>{}
+          });
         }
         return true;
       case 'save_config_init':
         await _maybePushMainnetRemote(paths, params);
-        _setRuntimeConfig(deepMergeMaps(cfg0, params) as Map<String, dynamic>);
-        await File(paths.configPath).writeAsString(const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
+        final Map<String, dynamic> mergedInit =
+            deepMergeMaps(cfg0, params) as Map<String, dynamic>;
+        final Map<String, dynamic> outInit = _finalizeConfigForDiskWrite(
+            paths, mergedInit,
+            stripPoolLegacy: true);
+        _setRuntimeConfig(outInit);
+        await File(paths.configPath).writeAsString(
+            const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
         await _restartAfterConfigInit();
         return true;
       case 'save_pool_config':
-        final String net = (cfg0['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+        final String net =
+            (cfg0['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
         final String daemonType =
             '${((cfg0['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
-        final bool oldEnabled =
-            ((((cfg0['pool'] as Map?)?['server'] as Map?)?['enabled']) as bool?) ?? false;
+        final bool oldEnabled = ((((cfg0['pool'] as Map?)?['server']
+                as Map?)?['enabled']) as bool?) ??
+            false;
         Map<String, dynamic> mergedPool =
-            deepMergeMaps(cfg0['pool'] ?? <String, dynamic>{}, params) as Map<String, dynamic>;
+            deepMergeMaps(cfg0['pool'] ?? <String, dynamic>{}, params)
+                as Map<String, dynamic>;
         String bindIp = '${((mergedPool['server'] as Map?)?['bindIP']) ?? ''}';
         if (bindIp.isEmpty || bindIp == '0.0.0.0' || bindIp == '127.0.0.1') {
           mergedPool = deepMergeMaps(mergedPool, <String, dynamic>{
@@ -471,23 +837,39 @@ final class DesktopNativeBridge implements NativeBridge {
           }) as Map<String, dynamic>;
         }
         mergedPool = _normalizePoolVarDiff(mergedPool);
-        _setRuntimeConfig(deepMergeMaps(cfg0, <String, dynamic>{'pool': mergedPool}) as Map<String, dynamic>);
+        _setRuntimeConfig(
+            deepMergeMaps(cfg0, <String, dynamic>{'pool': mergedPool})
+                as Map<String, dynamic>);
         if (daemonType == 'remote') {
           _setRuntimeConfig(
             deepMergeMaps(
               _runtimeConfig!,
-              <String, dynamic>{'pool': <String, dynamic>{'server': <String, dynamic>{'enabled': false}}},
+              <String, dynamic>{
+                'pool': <String, dynamic>{
+                  'server': <String, dynamic>{'enabled': false}
+                }
+              },
             ) as Map<String, dynamic>,
           );
-          _showNotification('warning', 'Solo pool requires local daemon mode', 3500);
+          _showNotification(
+              'warning', 'Solo pool requires local daemon mode', 3500);
         }
-        await File(paths.configPath).writeAsString(const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
+        final Map<String, dynamic> outPool = _finalizeConfigForDiskWrite(
+            paths, _runtimeConfig!,
+            stripPoolLegacy: true);
+        _setRuntimeConfig(outPool);
+        await File(paths.configPath).writeAsString(
+            const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'config': _runtimeConfig, 'pending_config': _runtimeConfig},
+          'data': <String, dynamic>{
+            'config': _runtimeConfig,
+            'pending_config': _runtimeConfig
+          },
         });
-        final bool enabled =
-            (((_runtimeConfig!['pool'] as Map?)?['server'] as Map?)?['enabled'] as bool?) ?? false;
+        final bool enabled = (((_runtimeConfig!['pool'] as Map?)?['server']
+                as Map?)?['enabled'] as bool?) ??
+            false;
         int status = 0;
         if (enabled) {
           status = oldEnabled ? 2 : 1;
@@ -496,6 +878,7 @@ final class DesktopNativeBridge implements NativeBridge {
           'event': 'set_pool_data',
           'data': <String, dynamic>{'status': status},
         });
+        await _syncSoloPoolSidecar(_runtimeConfig!);
         return true;
       default:
         return false;
@@ -508,8 +891,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
     final dynamic remotes = _loadRemotes(paths);
     final Map<String, dynamic> defaults = buildDefaultsOnly(paths);
-    final Map<String, dynamic> ethDefault =
-        Map<String, dynamic>.from(buildInitialConfigData(paths)['ethereum'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> ethDefault = Map<String, dynamic>.from(
+        buildInitialConfigData(paths)['ethereum'] as Map? ??
+            <String, dynamic>{});
 
     _emit(<String, dynamic>{
       'event': 'set_app_data',
@@ -535,27 +919,32 @@ final class DesktopNativeBridge implements NativeBridge {
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{
-          'status': <String, dynamic>{'code': -1},
+          // Treat as ready for wallet UI: list comes from default paths in [initial] until user saves `config.json`.
+          'status': <String, dynamic>{'code': 0},
           'config': initial,
           'pending_config': initial,
         },
       });
+      _setRuntimeConfig(initial);
       return;
     }
 
     Map<String, dynamic> configData;
     try {
-      final Map<String, dynamic> disk =
-          Map<String, dynamic>.from(jsonDecode(await configFile.readAsString()) as Map);
+      final Map<String, dynamic> disk = Map<String, dynamic>.from(
+          jsonDecode(await configFile.readAsString()) as Map);
       // Same as Rust `fold_disk_into_config(build_initial_config_data, disk)`: disk overrides,
       // but missing `daemons[net_type]` / RPC fields are filled from defaults (Tauri startup parity).
-      configData = Map<String, dynamic>.from(deepMergeMaps(buildInitialConfigData(paths), disk) as Map);
+      configData = Map<String, dynamic>.from(
+          deepMergeMaps(buildInitialConfigData(paths), disk) as Map);
     } catch (e) {
       debugPrint('[DesktopNative] config.json parse error: $e');
       _showNotification('negative', 'Invalid config.json in ${paths.guiDir}');
       _emit(<String, dynamic>{
         'event': 'set_app_data',
-        'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+        'data': <String, dynamic>{
+          'status': <String, dynamic>{'code': -1}
+        },
       });
       return;
     }
@@ -571,8 +960,12 @@ final class DesktopNativeBridge implements NativeBridge {
       _showNotification('negative', 'Could not write ${paths.configPath}');
       _emit(<String, dynamic>{
         'event': 'set_app_data',
-        'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+        'data': <String, dynamic>{
+          'status': <String, dynamic>{'code': -1}
+        },
       });
+      _setRuntimeConfig(configData);
+      await _bestEffortWalletRpcAfterFailure(configData);
       return;
     }
 
@@ -606,33 +999,75 @@ final class DesktopNativeBridge implements NativeBridge {
       },
     });
 
-    if (!_requiredDirsExist(configData)) {
-      _showNotification('negative', 'Data Storage path or Wallet Data Storage path not found');
+    // Match practical UX (and fix deadlock vs Rust order): create dirs first, then verify.
+    // Otherwise first-time users with valid paths in config never get directories created and
+    // local `arqmad` never starts ("paths not found").
+    try {
+      _ensureDatadirLayout(configData);
+    } catch (e) {
+      debugPrint('[DesktopNative] ensure_datadir_layout failed: $e');
+      _showNotification(
+        'negative',
+        'Could not create data or wallet directories. Check paths and permissions '
+            '(on sandboxed macOS use folders you can write to, or set paths via Select Location).',
+      );
       _emit(<String, dynamic>{
         'event': 'set_app_data',
-        'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+        'data': <String, dynamic>{
+          'status': <String, dynamic>{'code': -1}
+        },
       });
+      await _bestEffortWalletRpcAfterFailure(configData);
       return;
     }
-    _ensureDatadirLayout(configData);
+    if (!_requiredDirsExist(configData)) {
+      _showNotification(
+        'negative',
+        'Data Storage path or Wallet Storage path is missing or not accessible after create attempt.',
+      );
+      _emit(<String, dynamic>{
+        'event': 'set_app_data',
+        'data': <String, dynamic>{
+          'status': <String, dynamic>{'code': -1}
+        },
+      });
+      await _bestEffortWalletRpcAfterFailure(configData);
+      return;
+    }
 
-    final String net = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    Map<String, dynamic> daemonEntry =
-        Map<String, dynamic>.from((configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ?? <String, dynamic>{});
+    final String net =
+        (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    Map<String, dynamic> daemonEntry = Map<String, dynamic>.from(
+        (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
+            <String, dynamic>{});
     String daemonType = '${daemonEntry['type'] ?? 'remote'}';
 
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'status': <String, dynamic>{'code': 3}},
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 3}
+      },
+    });
+    // Unblock `/` → `/wallet-select` while local `arqmad` may still be binding JSON-RPC (spawn wait
+    // can take up to 120s). `code: 3` alone keeps the splash screen until the final `code: 0`.
+    _emit(<String, dynamic>{
+      'event': 'set_app_data',
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 0},
+      },
     });
 
     final DaemonReachableResult reach = await checkDaemonReachable(configData);
     if (reach == DaemonReachableResult.netMismatch) {
-      _showNotification('negative', 'Error: Remote node is using a different nettype');
+      _showNotification(
+          'negative', 'Error: Remote node is using a different nettype');
       _emit(<String, dynamic>{
         'event': 'set_app_data',
-        'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+        'data': <String, dynamic>{
+          'status': <String, dynamic>{'code': -1}
+        },
       });
+      await _bestEffortWalletRpcAfterFailure(configData);
       return;
     }
     if (reach == DaemonReachableResult.inaccessible) {
@@ -643,7 +1078,8 @@ final class DesktopNativeBridge implements NativeBridge {
           'event': 'show_notification',
           'data': <String, dynamic>{
             'type': 'warning',
-            'message': 'Warning: Could not access remote node, switching to local only',
+            'message':
+                'Warning: Could not access remote node, switching to local only',
             'timeout': 3000,
           },
         });
@@ -656,15 +1092,20 @@ final class DesktopNativeBridge implements NativeBridge {
           },
         });
         daemonEntry = Map<String, dynamic>.from(
-          (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ?? <String, dynamic>{},
+          (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
+              <String, dynamic>{},
         );
         daemonType = '${daemonEntry['type'] ?? 'remote'}';
       } else {
-        _showNotification('negative', 'Error: Could not access remote node, please try another remote node');
+        _showNotification('negative',
+            'Error: Could not access remote node, please try another remote node');
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': -1}
+          },
         });
+        await _bestEffortWalletRpcAfterFailure(configData);
         return;
       }
     }
@@ -678,20 +1119,31 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       });
     } else {
-      await setCurrentNetDaemonTypeRemoteAndPersist(paths, configData);
-      _setRuntimeConfig(configData);
-      _emit(<String, dynamic>{
-        'event': 'set_app_data',
-        'data': <String, dynamic>{
-          'status': <String, dynamic>{'code': 5},
-          'config': configData,
-          'pending_config': configData,
-        },
-      });
+      // Tauri also falls back to remote when `arqmad --version` fails, but on sandboxed macOS
+      // `Process.run(..., --version)` often fails even when `arqmad` can be spawned — and flipping
+      // `local` / `local_remote` → `remote` produces a misleading "Remote daemon can not be reached".
+      if (daemonType == 'remote') {
+        await setCurrentNetDaemonTypeRemoteAndPersist(paths, configData);
+        _setRuntimeConfig(configData);
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': 5},
+            'config': configData,
+            'pending_config': configData,
+          },
+        });
+      } else {
+        debugPrint(
+          '[DesktopNative] arqmad --version returned unknown; keeping daemon type "$daemonType" '
+          '(skip remote fallback — try local spawn)',
+        );
+      }
     }
 
     final Map<String, dynamic> daemonEntryNow = Map<String, dynamic>.from(
-      (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ?? <String, dynamic>{},
+      (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
+          <String, dynamic>{},
     );
     final String daemonTypeNow = '${daemonEntryNow['type'] ?? 'remote'}';
 
@@ -699,32 +1151,51 @@ final class DesktopNativeBridge implements NativeBridge {
       final String? rh = daemonEntryNow['remote_host'] as String?;
       final int? rp = (daemonEntryNow['remote_port'] as num?)?.toInt();
       if (rh == null || rp == null) {
-        _showNotification('negative', 'Remote daemon: missing host/port in configuration');
+        _showNotification(
+            'negative', 'Remote daemon: missing host/port in configuration');
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': -1}
+          },
         });
+        await _bestEffortWalletRpcAfterFailure(configData);
         return;
       }
       final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(rh, rp);
-      if (DaemonJsonRpc.result(r) == null) {
+      if (DaemonJsonRpc.getInfoPayload(r) == null) {
         _showNotification('negative', 'Remote daemon can not be reached');
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': -1}
+          },
         });
+        await _bestEffortWalletRpcAfterFailure(configData);
         return;
       }
     } else {
       final ({Process? process, String? error}) spawned =
-          await spawnLocalArqmadAndWait(configData: configData, net: net);
+          await spawnLocalArqmadAndWait(
+        configData: configData,
+        net: net,
+        onDaemonProcessLaunched: (Process p) {
+          _daemonProcess = p;
+          _startHeartbeat(configData);
+        },
+      );
       if (spawned.error != null) {
         _showNotification('negative', spawned.error!);
         _emit(<String, dynamic>{
           'event': 'set_app_data',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': -1}
+          },
         });
         _daemonProcess = spawned.process;
+        // Still poll `get_info`: user may start `arqmad` manually or RPC may already be up.
+        _startHeartbeat(configData);
+        await _bestEffortWalletRpcAfterFailure(configData);
         return;
       }
       _daemonProcess = spawned.process;
@@ -732,8 +1203,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
     final ({String host, int port})? ep = daemonRpcHostPort(configData);
     if (ep != null) {
-      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(ep.host, ep.port);
-      final Map<String, dynamic>? info = DaemonJsonRpc.result(r);
+      final Map<String, dynamic>? r =
+          await DaemonJsonRpc.getInfo(ep.host, ep.port);
+      final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
       if (info != null) {
         _applyDaemonInfo(configData, info);
       }
@@ -741,25 +1213,25 @@ final class DesktopNativeBridge implements NativeBridge {
 
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'status': <String, dynamic>{'code': 6}},
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 6}
+      },
     });
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'status': <String, dynamic>{'code': 7}},
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 7}
+      },
     });
-
-    final String? wdir = walletFilesDir(configData);
-    final Map<String, dynamic> wallets =
-        wdir != null ? listWalletFiles(wdir) : <String, dynamic>{'list': <dynamic>[], 'directories': <dynamic>[], 'legacy': <dynamic>[]};
-    _emit(<String, dynamic>{'event': 'wallet_list', 'data': wallets});
 
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'status': <String, dynamic>{'code': 0}},
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 0}
+      },
     });
 
-    // Solo Stratum server is `solo_pool` in Tauri (large Rust module). Flutter desktop does not run it yet;
-    // `set_pool_data` still reflects `pool.server.enabled` from config for UI parity.
+    await _syncSoloPoolSidecar(configData);
     _startHeartbeat(configData);
 
     if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
@@ -767,21 +1239,74 @@ final class DesktopNativeBridge implements NativeBridge {
       if (_walletRpc == null) {
         _showNotification(
           'warning',
-          'arqma-wallet-rpc was not started (missing binary, daemon, or wallet dir). '
-              'Set ARQMA_WALLET_RPC or copy arqma-wallet-rpc into rust/tauri-app/src-tauri/bin/.',
-          14000,
+          'Native wallet FFI did not start (missing `libarqma_wallet_flutter_ffi` in the app bundle, '
+              'configure/daemon error, or bad paths). Build: `bash rust/tool/build_wallet_flutter_ffi.sh`, '
+              'then rebuild the macOS app. Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom dylib path. '
+              'Legacy subprocess: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and provide `arqma-wallet-rpc`.',
+          16000,
         );
       }
+      _emitWalletBackendState();
+    } else {
+      _emit(<String, dynamic>{
+        'event': 'set_app_data',
+        'data': <String, dynamic>{'wallet_backend': 'off'},
+      });
     }
+  }
+
+  void _emitWalletBackendState() {
+    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {
+      return;
+    }
+    final ArqmaWalletRpcSession? s = _walletRpc;
+    final String wb =
+        s == null ? 'none' : (s.usesNativeFfi ? 'ffi' : 'subprocess');
+    _emit(<String, dynamic>{
+      'event': 'set_app_data',
+      'data': <String, dynamic>{'wallet_backend': wb},
+    });
+  }
+
+  /// When daemon startup fails with `status -1`, still attempt wallet JSON-RPC (native FFI or
+  /// subprocess if opted in) so account list / open wallet can work when the node comes back, and
+  /// the footer shows `wallet_backend` instead of staying `pending`.
+  Future<void> _bestEffortWalletRpcAfterFailure(
+      Map<String, dynamic> configData) async {
+    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {
+      _emit(<String, dynamic>{
+        'event': 'set_app_data',
+        'data': <String, dynamic>{'wallet_backend': 'off'},
+      });
+      return;
+    }
+    try {
+      if (_walletRpc != null) {
+        await _walletRpc!.shutdown();
+      }
+    } catch (_) {}
+    _walletRpc = null;
+    try {
+      _walletRpc = await ArqmaWalletRpcSession.tryStart(configData);
+    } catch (e, st) {
+      debugPrint('[DesktopNative] best-effort tryStart threw: $e\n$st');
+      _walletRpc = null;
+    }
+    if (_walletRpc == null) {
+      debugPrint(
+          '[DesktopNative] best-effort wallet RPC did not start (check daemon address, paths, FFI dylib)');
+    }
+    _emitWalletBackendState();
   }
 
   void _startHeartbeat(Map<String, dynamic> configData) {
     _heartbeat?.cancel();
     _heartbeatSlow?.cancel();
     _heartbeatSlow = null;
-    final String net = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic>? dm =
-        ((configData['daemons'] as Map?) ?? <dynamic, dynamic>{})[net] as Map<String, dynamic>?;
+    final String net =
+        (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final Map<String, dynamic>? dm = ((configData['daemons'] as Map?) ??
+        <dynamic, dynamic>{})[net] as Map<String, dynamic>?;
     final String typ = '${dm?['type'] ?? 'remote'}';
     final bool isLocal = typ != 'remote';
     final Duration interval = Duration(seconds: isLocal ? 5 : 30);
@@ -799,10 +1324,13 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// `daemon_heartbeat::tick_slow` — explorer clock skew (pool) + connections/bans/backlog.
   Future<void> _heartbeatSlowTick(Map<String, dynamic> configData) async {
-    final Map<String, dynamic> cfg =
-        _runtimeConfig != null ? Map<String, dynamic>.from(_runtimeConfig!) : configData;
-    final String net = (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final String daemonTyp = '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
+    final Map<String, dynamic> cfg = _runtimeConfig != null
+        ? Map<String, dynamic>.from(_runtimeConfig!)
+        : configData;
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final String daemonTyp =
+        '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
     if (daemonTyp == 'remote') {
       return;
     }
@@ -833,15 +1361,19 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   Future<void> _heartbeatTick(Map<String, dynamic> configData) async {
-    final Map<String, dynamic> cfg =
-        _runtimeConfig != null ? Map<String, dynamic>.from(_runtimeConfig!) : configData;
-    final String net = (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final String daemonTyp = '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
+    final Map<String, dynamic> cfg = _runtimeConfig != null
+        ? Map<String, dynamic>.from(_runtimeConfig!)
+        : configData;
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final String daemonTyp =
+        '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
     final ({String host, int port})? ep = daemonRpcHostPort(cfg);
     if (ep == null) {
       return;
     }
-    final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(ep.host, ep.port);
+    final Map<String, dynamic>? r =
+        await DaemonJsonRpc.getInfo(ep.host, ep.port);
     // Tauri `daemon_heartbeat`: only auto-restart local child on **transport** failure, not JSON-RPC errors.
     if (r == null) {
       if (daemonTyp != 'remote') {
@@ -849,14 +1381,238 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       return;
     }
-    final Map<String, dynamic>? info = DaemonJsonRpc.result(r);
+    final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
     if (info != null) {
       _applyDaemonInfo(cfg, info);
     }
   }
 
+  void _stopWalletHeartbeat() {
+    _walletHeartbeat?.cancel();
+    _walletHeartbeat = null;
+  }
+
+  /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
+  void _startWalletHeartbeat() {
+    _stopWalletHeartbeat();
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg == null || _walletRpc == null || _openedWalletDisplayName.isEmpty) {
+      return;
+    }
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final String typ =
+        '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
+    final bool isLocal = typ != 'remote';
+    final Duration interval = Duration(seconds: isLocal ? 5 : 60);
+    _walletHeartbeat = Timer.periodic(interval, (_) {
+      unawaited(_walletHeartbeatTick());
+    });
+    unawaited(_walletHeartbeatTick());
+  }
+
+  /// Same bucket merge + sort as `wallet_heartbeat::merge_transfers_list`.
+  List<dynamic> _mergeWalletRpcTransfersList(Map<String, dynamic> result) {
+    const List<String> keys = <String>[
+      'in',
+      'out',
+      'pending',
+      'failed',
+      'pool',
+      'miner',
+      'snode',
+      'gov',
+      'stake',
+      'net',
+    ];
+    final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
+    for (final String k in keys) {
+      final Object? arr = result[k];
+      if (arr is List) {
+        for (final Object? x in arr) {
+          if (x is Map) {
+            final Map<String, dynamic> row = Map<String, dynamic>.from(x);
+            // `get_transfers` buckets imply type; Vue/Electron filters use `c.type === "snode"` etc.
+            if ('${row['type'] ?? ''}'.trim().isEmpty) {
+              row['type'] = k;
+            }
+            out.add(row);
+          }
+        }
+      }
+    }
+    out.sort((Map<String, dynamic> a, Map<String, dynamic> b) {
+      final int ta = int.tryParse('${a['timestamp'] ?? 0}') ?? 0;
+      final int tb = int.tryParse('${b['timestamp'] ?? 0}') ?? 0;
+      return tb.compareTo(ta);
+    });
+    return out;
+  }
+
+  Future<void> _walletXferHeavy(
+      String walletNameAtStart, int curH, int daysWindowBlocks) async {
+    if (_walletXferBusy) {
+      return;
+    }
+    _walletXferBusy = true;
+    try {
+      final ArqmaWalletRpcSession? w = _walletRpc;
+      if (w == null || _openedWalletDisplayName != walletNameAtStart) {
+        return;
+      }
+      final int minHeight =
+          curH > daysWindowBlocks ? curH - daysWindowBlocks : 0;
+      final Map<String, dynamic> p = <String, dynamic>{
+        'in': true,
+        'out': true,
+        'pending': true,
+        'failed': true,
+        'pool': false,
+        'filter_by_height': true,
+        'min_height': minHeight,
+      };
+      final Map<String, dynamic>? txf = await w
+          .call('get_transfers', p)
+          .timeout(const Duration(seconds: 300), onTimeout: () => null);
+      if (_openedWalletDisplayName != walletNameAtStart ||
+          txf == null ||
+          !walletJsonRpcNoError(txf)) {
+        return;
+      }
+      final Object? res = txf['result'];
+      if (res is! Map) {
+        return;
+      }
+      final List<dynamic> list =
+          _mergeWalletRpcTransfersList(Map<String, dynamic>.from(res));
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_transactions',
+        'data': <String, dynamic>{'tx_list': list},
+      });
+    } catch (e, st) {
+      debugPrint('[DesktopNative] wallet get_transfers: $e\n$st');
+    } finally {
+      _walletXferBusy = false;
+    }
+  }
+
+  Future<void> _walletHeartbeatTick() async {
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    final String name = _openedWalletDisplayName;
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (w == null || name.isEmpty || cfg == null) {
+      return;
+    }
+    final int h0 = _whStoredHeight;
+    final int b0 = _whStoredBalance;
+    final int u0 = _whStoredUnlocked;
+    final int dh = _daemonChainTipHeight;
+    final bool inScanRhythm = dh == 0 || h0 < dh;
+    final Duration ghCap = inScanRhythm
+        ? const Duration(seconds: 120)
+        : const Duration(seconds: 45);
+    final Duration abCap = inScanRhythm
+        ? const Duration(seconds: 30)
+        : const Duration(seconds: 12);
+
+    Map<String, dynamic>? gh;
+    try {
+      gh = await w.call('getheight', <String, dynamic>{}).timeout(ghCap);
+    } catch (e, st) {
+      debugPrint('[DesktopNative] wallet hb getheight: $e\n$st');
+      gh = null;
+    }
+    final bool ghOk = gh != null && walletJsonRpcNoError(gh);
+
+    Map<String, dynamic>? ga;
+    if (ghOk) {
+      try {
+        ga = await w.call('get_address',
+            <String, dynamic>{'account_index': 0}).timeout(abCap);
+      } catch (e, st) {
+        debugPrint('[DesktopNative] wallet hb get_address: $e\n$st');
+        ga = null;
+      }
+    }
+
+    Map<String, dynamic>? gb;
+    try {
+      gb = await w.call(
+          'getbalance', <String, dynamic>{'account_index': 0}).timeout(abCap);
+    } catch (e, st) {
+      debugPrint('[DesktopNative] wallet hb getbalance: $e\n$st');
+      gb = null;
+    }
+
+    int newH = h0;
+    int newB = b0;
+    int newU = u0;
+    bool hasBalanceChange = false;
+    if (ghOk) {
+      final int? parsed = walletHeightFromGetheight(gh);
+      if (parsed != null) {
+        newH = parsed;
+      }
+    }
+    final Map<String, dynamic> info = <String, dynamic>{
+      'name': name,
+      'height': newH,
+      'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+    };
+    if (ga != null && walletJsonRpcNoError(ga)) {
+      final Object? res = ga['result'];
+      if (res is Map) {
+        final String addr = '${res['address'] ?? ''}'.trim();
+        if (addr.isNotEmpty) {
+          info['address'] = addr;
+        }
+      }
+    }
+    if (gb != null && walletJsonRpcNoError(gb)) {
+      final Object? res = gb['result'];
+      if (res is Map) {
+        final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
+        final int bal = (rm['balance'] as num?)?.toInt() ?? 0;
+        final int unl = (rm['unlocked_balance'] as num?)?.toInt() ??
+            (rm['unlocked'] as num?)?.toInt() ??
+            0;
+        hasBalanceChange = !(b0 == bal && u0 == unl);
+        newB = bal;
+        newU = unl;
+        info['balance'] = bal;
+        info['unlocked_balance'] = unl;
+      }
+    }
+    _whStoredHeight = newH;
+    _whStoredBalance = newB;
+    _whStoredUnlocked = newU;
+    _emit(<String, dynamic>{
+      'event': 'set_wallet_info',
+      'data': info,
+    });
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_status',
+      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
+    });
+
+    final int daysWt =
+        (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ?? 1)
+            .clamp(1, 365);
+    final int daysWindowBlocks = daysWt * 720;
+    final bool xferTrigger =
+        _whFetchTxPending || hasBalanceChange || (!inScanRhythm && newH != h0);
+    if (xferTrigger &&
+        gb != null &&
+        walletJsonRpcNoError(gb) &&
+        !_walletXferBusy) {
+      _whFetchTxPending = false;
+      unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
+    }
+  }
+
   /// `daemon_process::restart_local_daemon_if_exited` — best-effort for desktop `dart:io` [Process].
-  Future<void> _restartLocalDaemonIfExited(Map<String, dynamic> cfg, String net) async {
+  Future<void> _restartLocalDaemonIfExited(
+      Map<String, dynamic> cfg, String net) async {
     final bool exitedOrMissing = await _localDaemonExitedOrMissing();
     if (!exitedOrMissing) {
       return;
@@ -870,9 +1626,16 @@ final class DesktopNativeBridge implements NativeBridge {
       await old?.exitCode.timeout(const Duration(seconds: 3));
     } catch (_) {}
     final ({Process? process, String? error}) spawned =
-        await spawnLocalArqmadAndWait(configData: cfg, net: net);
+        await spawnLocalArqmadAndWait(
+      configData: cfg,
+      net: net,
+      onDaemonProcessLaunched: (Process p) {
+        _daemonProcess = p;
+      },
+    );
     if (spawned.error != null) {
-      debugPrint('[DesktopNative] heartbeat: local arqmad restart failed: ${spawned.error}');
+      debugPrint(
+          '[DesktopNative] heartbeat: local arqmad restart failed: ${spawned.error}');
       _daemonProcess = spawned.process;
       return;
     }
@@ -894,9 +1657,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// `daemon_heartbeat::tick_fast` — `set_daemon_data` + pool network stats (`set_pool_data`) like Tauri.
   void _applyDaemonInfo(Map<String, dynamic> cfg, Map<String, dynamic> result) {
-    final int h = (result['height'] as num?)?.toInt() ?? 0;
-    final int targetH = (result['target_height'] as num?)?.toInt() ?? h;
-    final int hw = (result['height_without_bootstrap'] as num?)?.toInt() ?? h;
+    final int h = jsonRpcLooseInt(result['height']) ?? 0;
+    final int targetH = jsonRpcLooseInt(result['target_height']) ?? h;
+    final int hw = jsonRpcLooseInt(result['height_without_bootstrap']) ?? h;
     final bool isReadyRpc = result['is_ready'] == true;
     final int footerTarget = h > targetH ? h : targetH;
     final bool caughtUp = hw >= footerTarget;
@@ -908,14 +1671,16 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_daemon_data',
       'data': <String, dynamic>{'info': m},
     });
+    _daemonChainTipHeight = footerTarget;
     _emitPoolDataWithHeartbeat(cfg, m);
   }
 
-  void _emitPoolDataWithHeartbeat(Map<String, dynamic> cfg, Map<String, dynamic> result) {
+  void _emitPoolDataWithHeartbeat(
+      Map<String, dynamic> cfg, Map<String, dynamic> result) {
     final bool poolEnabled = poolServerEnabled(cfg);
-    final int h = (result['height'] as num?)?.toInt() ?? 0;
-    final int targetH = (result['target_height'] as num?)?.toInt() ?? h;
-    final int hw = (result['height_without_bootstrap'] as num?)?.toInt() ?? h;
+    final int h = jsonRpcLooseInt(result['height']) ?? 0;
+    final int targetH = jsonRpcLooseInt(result['target_height']) ?? h;
+    final int hw = jsonRpcLooseInt(result['height_without_bootstrap']) ?? h;
     final bool isReadyRpc = result['is_ready_daemon_rpc'] == true;
     final int footerTarget = h > targetH ? h : targetH;
     final bool daemonChainCaughtUp = hw >= footerTarget;
@@ -971,13 +1736,16 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     return List<dynamic>.generate(
       5,
-      (int i) => <String, dynamic>{'host': 'node${i + 1}.arqma.com', 'port': 19994},
+      (int i) =>
+          <String, dynamic>{'host': 'node${i + 1}.arqma.com', 'port': 19994},
     );
   }
 
   String _selectedNodeString(Map<String, dynamic> configData) {
-    final String a = (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic>? d = (configData['daemons'] as Map?)?[a] as Map<String, dynamic>?;
+    final String a =
+        (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final Map<String, dynamic>? d =
+        (configData['daemons'] as Map?)?[a] as Map<String, dynamic>?;
     if (d == null) {
       return '';
     }
@@ -990,7 +1758,8 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   bool _requiredDirsExist(Map<String, dynamic> configData) {
-    final Map<String, dynamic>? app = configData['app'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? app =
+        configData['app'] as Map<String, dynamic>?;
     if (app == null) {
       return false;
     }
@@ -1003,26 +1772,26 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   void _ensureDatadirLayout(Map<String, dynamic> configData) {
-    try {
-      final Map<String, dynamic> app = Map<String, dynamic>.from(configData['app'] as Map? ?? <String, dynamic>{});
-      final String? wdir = app['wallet_data_dir'] as String?;
-      final String? dataDir = app['data_dir'] as String?;
-      final String net = app['net_type'] as String? ?? 'mainnet';
-      if (wdir != null && wdir.isNotEmpty) {
-        Directory(wdir).createSync(recursive: true);
-      }
-      if (dataDir != null && dataDir.isNotEmpty) {
-        final Directory mainData = Directory(dataDir);
-        final Directory netDir = switch (net) {
-          'stagenet' => Directory(<String>[mainData.path, 'stagenet'].join(Platform.pathSeparator)),
-          'testnet' => Directory(<String>[mainData.path, 'testnet'].join(Platform.pathSeparator)),
-          _ => mainData,
-        };
-        netDir.createSync(recursive: true);
-        Directory(<String>[netDir.path, 'logs'].join(Platform.pathSeparator)).createSync(recursive: true);
-      }
-    } catch (e) {
-      debugPrint('[DesktopNative] ensure_datadir_layout: $e');
+    final Map<String, dynamic> app = Map<String, dynamic>.from(
+        configData['app'] as Map? ?? <String, dynamic>{});
+    final String? wdir = app['wallet_data_dir'] as String?;
+    final String? dataDir = app['data_dir'] as String?;
+    final String net = app['net_type'] as String? ?? 'mainnet';
+    if (wdir != null && wdir.isNotEmpty) {
+      Directory(wdir).createSync(recursive: true);
+    }
+    if (dataDir != null && dataDir.isNotEmpty) {
+      final Directory mainData = Directory(dataDir);
+      final Directory netDir = switch (net) {
+        'stagenet' => Directory(
+            <String>[mainData.path, 'stagenet'].join(Platform.pathSeparator)),
+        'testnet' => Directory(
+            <String>[mainData.path, 'testnet'].join(Platform.pathSeparator)),
+        _ => mainData,
+      };
+      netDir.createSync(recursive: true);
+      Directory(<String>[netDir.path, 'logs'].join(Platform.pathSeparator))
+          .createSync(recursive: true);
     }
   }
 
@@ -1031,12 +1800,17 @@ final class DesktopNativeBridge implements NativeBridge {
     if (w == null) {
       _showNotification(
         'negative',
-        'arqma-wallet-rpc is not running. Check startup logs and ARQMA_WALLET_RPC / src-tauri/bin.',
+        'Wallet backend is not running (native FFI; build/embed `libarqma_wallet_flutter_ffi` or set '
+            '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
+            'Check logs and `ARQMA_FLUTTER_WALLET_FFI` if you use a custom dylib path.',
         12000,
       );
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
-        'data': <String, dynamic>{'code': -1, 'message': 'Wallet RPC unavailable'},
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Wallet RPC unavailable'
+        },
       });
       return <String, dynamic>{};
     }
@@ -1050,7 +1824,10 @@ final class DesktopNativeBridge implements NativeBridge {
       });
       return <String, dynamic>{};
     }
-    _emit(<String, dynamic>{'event': 'reset_wallet_error', 'data': <String, dynamic>{}});
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_error',
+      'data': <String, dynamic>{}
+    });
     final Map<String, dynamic>? opened = await w.call(
       'open_wallet',
       <String, dynamic>{'filename': name, 'password': password},
@@ -1080,7 +1857,8 @@ final class DesktopNativeBridge implements NativeBridge {
       _walletPasswordHashHex = null;
       return;
     }
-    _walletPasswordHashHex = tryPbkdf2PasswordHex(password: password, saltHex: saltHex);
+    _walletPasswordHashHex =
+        tryPbkdf2PasswordHex(password: password, saltHex: saltHex);
   }
 
   bool _promptPasswordEnabled() =>
@@ -1131,11 +1909,13 @@ final class DesktopNativeBridge implements NativeBridge {
     });
 
     final Map<String, dynamic>? gh = await w
-        .call('getheight', <String, dynamic>{})
-        .timeout(const Duration(seconds: 30), onTimeout: () => null);
+        .call('getheight', <String, dynamic>{}).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => null);
     final Map<String, dynamic>? gb = await w
-        .call('getbalance', <String, dynamic>{'account_index': 0})
-        .timeout(const Duration(seconds: 30), onTimeout: () => null);
+        .call('getbalance', <String, dynamic>{'account_index': 0}).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => null);
 
     final int openedHeight = walletHeightFromGetheight(gh) ?? 0;
     int bal = 0;
@@ -1145,13 +1925,17 @@ final class DesktopNativeBridge implements NativeBridge {
       if (res is Map) {
         final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
         bal = (rm['balance'] as num?)?.toInt() ?? 0;
-        unl = (rm['unlocked_balance'] as num?)?.toInt() ?? (rm['unlocked'] as num?)?.toInt() ?? 0;
+        unl = (rm['unlocked_balance'] as num?)?.toInt() ??
+            (rm['unlocked'] as num?)?.toInt() ??
+            0;
       }
     }
 
     String? address;
-    final Map<String, dynamic>? ga =
-        await w.call('get_address', <String, dynamic>{'account_index': 0}).timeout(const Duration(seconds: 25), onTimeout: () => null);
+    final Map<String, dynamic>? ga = await w
+        .call('get_address', <String, dynamic>{'account_index': 0}).timeout(
+            const Duration(seconds: 25),
+            onTimeout: () => null);
     if (walletJsonRpcNoError(ga) && ga != null) {
       final Object? res = ga['result'];
       if (res is Map) {
@@ -1163,8 +1947,10 @@ final class DesktopNativeBridge implements NativeBridge {
     }
 
     bool viewOnly = false;
-    final Map<String, dynamic>? qk =
-        await w.call('query_key', <String, dynamic>{'key_type': 'spend_key'}).timeout(const Duration(seconds: 20), onTimeout: () => null);
+    final Map<String, dynamic>? qk = await w
+        .call('query_key', <String, dynamic>{'key_type': 'spend_key'}).timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => null);
     if (walletJsonRpcNoError(qk) && qk != null) {
       final Object? res = qk['result'];
       if (res is Map) {
@@ -1191,6 +1977,11 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_wallet_transactions',
       'data': <String, dynamic>{'tx_list': <dynamic>[]},
     });
+    _whStoredHeight = openedHeight;
+    _whStoredBalance = bal;
+    _whStoredUnlocked = unl;
+    _whFetchTxPending = true;
+    _startWalletHeartbeat();
   }
 
   static const double _arqCoinUnits = 1e9;
@@ -1237,8 +2028,10 @@ final class DesktopNativeBridge implements NativeBridge {
     };
   }
 
-  void _pushTransferMetadataFromResult(Map<String, dynamic> r, Map<String, dynamic> p) {
-    _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'transfer_split');
+  void _pushTransferMetadataFromResult(
+      Map<String, dynamic> r, Map<String, dynamic> p) {
+    _pendingTxRelay
+        .removeWhere((Map<String, dynamic> m) => m['kind'] == 'transfer_split');
     final Object? res = r['result'];
     if (res is! Map) {
       return;
@@ -1270,7 +2063,8 @@ final class DesktopNativeBridge implements NativeBridge {
     }
   }
 
-  void _pushSweepMetadataFromResult(Map<String, dynamic> r, Map<String, dynamic> p) {
+  void _pushSweepMetadataFromResult(
+      Map<String, dynamic> r, Map<String, dynamic> p) {
     if (p['do_not_relay'] != true) {
       return;
     }
@@ -1283,7 +2077,8 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     final List<dynamic>? txHashes = res['tx_hash_list'] as List<dynamic>?;
-    final String? txh0 = txHashes != null && txHashes.isNotEmpty ? '${txHashes[0]}' : null;
+    final String? txh0 =
+        txHashes != null && txHashes.isNotEmpty ? '${txHashes[0]}' : null;
     for (final Object? item in list) {
       String h = item is String ? item : '$item';
       if (h.isEmpty) {
@@ -1300,8 +2095,10 @@ final class DesktopNativeBridge implements NativeBridge {
     }
   }
 
-  void _pushStakeMetadataFromResult(Map<String, dynamic> r, Map<String, dynamic> p) {
-    _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
+  void _pushStakeMetadataFromResult(
+      Map<String, dynamic> r, Map<String, dynamic> p) {
+    _pendingTxRelay
+        .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
     final Object? res = r['result'];
     if (res is! Map) {
       return;
@@ -1338,7 +2135,8 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     final double amountFixed = double.parse(amountUi.toStringAsFixed(9));
     final int atoms = (amountFixed * _arqCoinUnits).round();
-    final String serviceNodeKey = '${p['key'] ?? p['service_node_key'] ?? ''}'.trim();
+    final String serviceNodeKey =
+        '${p['key'] ?? p['service_node_key'] ?? ''}'.trim();
     if (serviceNodeKey.isEmpty) {
       throw StateError('stake: key');
     }
@@ -1361,11 +2159,13 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     String err = '';
-    final List<Map<String, dynamic>> items =
-        _pendingTxRelay.where((Map<String, dynamic> m) => m['kind'] == 'transfer_split').toList();
+    final List<Map<String, dynamic>> items = _pendingTxRelay
+        .where((Map<String, dynamic> m) => m['kind'] == 'transfer_split')
+        .toList();
     for (final Map<String, dynamic> t in items) {
       final String hex = '${t['tx_metadata'] ?? ''}';
-      final Map<String, dynamic>? rr = await w.call('relay_tx', <String, dynamic>{'hex': hex});
+      final Map<String, dynamic>? rr =
+          await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
         err = _walletRpcErrCapitalized(rr?['error']);
         break;
@@ -1388,7 +2188,11 @@ final class DesktopNativeBridge implements NativeBridge {
     if (err.isNotEmpty) {
       _emit(<String, dynamic>{
         'event': 'set_tx_status',
-        'data': <String, dynamic>{'code': -200, 'message': err, 'sending': false},
+        'data': <String, dynamic>{
+          'code': -200,
+          'message': err,
+          'sending': false
+        },
       });
     } else {
       _emit(<String, dynamic>{
@@ -1400,7 +2204,8 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       });
     }
-    _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'transfer_split');
+    _pendingTxRelay
+        .removeWhere((Map<String, dynamic> m) => m['kind'] == 'transfer_split');
   }
 
   Future<void> _relayStakeSplit(Map<String, dynamic> origin) async {
@@ -1408,18 +2213,26 @@ final class DesktopNativeBridge implements NativeBridge {
     if (w == null) {
       return;
     }
-    final List<Map<String, dynamic>> items =
-        _pendingTxRelay.where((Map<String, dynamic> m) => m['kind'] == 'stake').toList();
+    final List<Map<String, dynamic>> items = _pendingTxRelay
+        .where((Map<String, dynamic> m) => m['kind'] == 'stake')
+        .toList();
     for (final Map<String, dynamic> t in items) {
       final String hex = '${t['tx_metadata'] ?? ''}';
-      final Map<String, dynamic>? rr = await w.call('relay_tx', <String, dynamic>{'hex': hex});
+      final Map<String, dynamic>? rr =
+          await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
         final String err = _walletRpcErrCapitalized(rr?['error']);
         _emit(<String, dynamic>{
           'event': 'set_tx_status',
-          'data': <String, dynamic>{'code': -300, 'message': err, 'sending': false, 'origin': origin},
+          'data': <String, dynamic>{
+            'code': -300,
+            'message': err,
+            'sending': false,
+            'origin': origin
+          },
         });
-        _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
+        _pendingTxRelay
+            .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
         return;
       }
       final int? amt = t['amount'] as int?;
@@ -1446,7 +2259,8 @@ final class DesktopNativeBridge implements NativeBridge {
         }
       }
     }
-    _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
+    _pendingTxRelay
+        .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
   }
 
   Future<void> _relaySweepAllSplit(Map<String, dynamic> origin) async {
@@ -1455,11 +2269,13 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     String err = '';
-    final List<Map<String, dynamic>> items =
-        _pendingTxRelay.where((Map<String, dynamic> m) => m['kind'] == 'sweepAll').toList();
+    final List<Map<String, dynamic>> items = _pendingTxRelay
+        .where((Map<String, dynamic> m) => m['kind'] == 'sweepAll')
+        .toList();
     for (final Map<String, dynamic> t in items) {
       final String hex = '${t['tx_metadata'] ?? ''}';
-      final Map<String, dynamic>? rr = await w.call('relay_tx', <String, dynamic>{'hex': hex});
+      final Map<String, dynamic>? rr =
+          await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
         err = _walletRpcErrCapitalized(rr?['error']);
         break;
@@ -1486,14 +2302,19 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       });
     }
-    _pendingTxRelay.removeWhere((Map<String, dynamic> m) => m['kind'] == 'sweepAll');
+    _pendingTxRelay
+        .removeWhere((Map<String, dynamic> m) => m['kind'] == 'sweepAll');
   }
 
   String _normalizeRestoreSeed(String seed) {
-    return seed.split(RegExp(r'\s+')).where((String s) => s.isNotEmpty).join(' ');
+    return seed
+        .split(RegExp(r'\s+'))
+        .where((String s) => s.isNotEmpty)
+        .join(' ');
   }
 
-  String _configuredNetType() => (_runtimeConfig?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  String _configuredNetType() =>
+      (_runtimeConfig?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
 
   /// `wallet_handler::emit_validate_address_from_rpc_result` — `nettype` vs app `net_type`.
   void _emitSetValidAddress({
@@ -1515,7 +2336,8 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   /// Wallet RPC parity for UI flows not yet wired to a native wallet process (same as [StubNativeBridge] subset).
-  Future<dynamic> _walletStubBackendSend(String module, String method, [Object? data]) async {
+  Future<dynamic> _walletStubBackendSend(String module, String method,
+      [Object? data]) async {
     if (module != 'wallet') {
       return <String, dynamic>{};
     }
@@ -1542,28 +2364,32 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       final bool sameAsEmpty = _walletPasswordHashHex == emptyH;
-      _emit(<String, dynamic>{'event': 'set_has_password', 'data': sameAsEmpty});
+      _emit(
+          <String, dynamic>{'event': 'set_has_password', 'data': sameAsEmpty});
       return <String, dynamic>{};
     }
     if (method == 'validate_address') {
       final String addr = '${_coerceMap(data)['address'] ?? ''}';
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null && addr.isNotEmpty) {
-        final Map<String, dynamic>? r = await w.call('validate_address', <String, dynamic>{'address': addr});
+        final Map<String, dynamic>? r = await w
+            .call('validate_address', <String, dynamic>{'address': addr});
         if (!walletJsonRpcNoError(r) || r == null) {
-          _emitSetValidAddress(address: addr, rpcFieldValid: false, rpcNettype: '');
+          _emitSetValidAddress(
+              address: addr, rpcFieldValid: false, rpcNettype: '');
           return <String, dynamic>{};
         }
         final Object? res = r['result'];
         if (res is! Map) {
-          _emitSetValidAddress(address: addr, rpcFieldValid: false, rpcNettype: '');
+          _emitSetValidAddress(
+              address: addr, rpcFieldValid: false, rpcNettype: '');
           return <String, dynamic>{};
         }
         final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
         final bool fieldValid = rm['valid'] == true || rm['integrated'] == true;
-        final String rpcNet =
-            '${rm['nettype'] ?? rm['net_type'] ?? ''}';
-        _emitSetValidAddress(address: addr, rpcFieldValid: fieldValid, rpcNettype: rpcNet);
+        final String rpcNet = '${rm['nettype'] ?? rm['net_type'] ?? ''}';
+        _emitSetValidAddress(
+            address: addr, rpcFieldValid: fieldValid, rpcNettype: rpcNet);
         return <String, dynamic>{};
       }
       _emitSetValidAddress(
@@ -1573,7 +2399,8 @@ final class DesktopNativeBridge implements NativeBridge {
       );
       return <String, dynamic>{};
     }
-    if (method == 'subscribe_for_signature_data' || method == 'unsubscribe_for_signature_data') {
+    if (method == 'subscribe_for_signature_data' ||
+        method == 'unsubscribe_for_signature_data') {
       return <String, dynamic>{};
     }
     if (method == 'remove_signature_data' || method == 'cancel_stake') {
@@ -1591,7 +2418,8 @@ final class DesktopNativeBridge implements NativeBridge {
           emit: _emit,
           configData: _runtimeConfig ?? <String, dynamic>{},
           walletCall: (String m, Map<String, dynamic> p) =>
-              _walletRpc?.call(m, p) ?? Future<Map<String, dynamic>?>.value(null),
+              _walletRpc?.call(m, p) ??
+              Future<Map<String, dynamic>?>.value(null),
         );
       }
 
@@ -1608,13 +2436,17 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     if (method == 'close_wallet') {
       _pendingTxRelay.clear();
+      _stopWalletHeartbeat();
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
         await w.call('close_wallet', <String, dynamic>{});
       }
-      _emit(<String, dynamic>{'event': 'reset_wallet_error', 'data': <String, dynamic>{}});
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_error',
+        'data': <String, dynamic>{}
+      });
       _emit(<String, dynamic>{
         'event': 'set_wallet_info',
         'data': <String, dynamic>{
@@ -1647,7 +2479,11 @@ final class DesktopNativeBridge implements NativeBridge {
       if (w == null) {
         _emit(<String, dynamic>{
           'event': 'set_tx_status',
-          'data': <String, dynamic>{'code': -200, 'message': 'Wallet RPC unavailable', 'sending': false},
+          'data': <String, dynamic>{
+            'code': -200,
+            'message': 'Wallet RPC unavailable',
+            'sending': false
+          },
         });
         return <String, dynamic>{};
       }
@@ -1678,15 +2514,23 @@ final class DesktopNativeBridge implements NativeBridge {
                 feeAtoms = v0.toInt();
               }
             }
-            final String feeMsg = feeAtoms > 0 ? 'Fee ${(feeAtoms / _arqCoinUnits).toStringAsFixed(9)}' : 'Fee';
+            final String feeMsg = feeAtoms > 0
+                ? 'Fee ${(feeAtoms / _arqCoinUnits).toStringAsFixed(9)}'
+                : 'Fee';
             _emit(<String, dynamic>{
               'event': 'set_tx_status',
-              'data': <String, dynamic>{'code': 200, 'message': feeMsg, 'sending': false},
+              'data': <String, dynamic>{
+                'code': 200,
+                'message': feeMsg,
+                'sending': false
+              },
             });
-            if (p['address_book'] is Map && (p['address_book'] as Map)['save'] == true) {
+            if (p['address_book'] is Map &&
+                (p['address_book'] as Map)['save'] == true) {
               final String addr = '${p['address'] ?? ''}'.trim();
               if (addr.isNotEmpty) {
-                final Map<String, dynamic> ab = Map<String, dynamic>.from(p['address_book'] as Map? ?? <String, dynamic>{});
+                final Map<String, dynamic> ab = Map<String, dynamic>.from(
+                    p['address_book'] as Map? ?? <String, dynamic>{});
                 await backendSend(
                   'wallet',
                   'add_address_book',
@@ -1704,14 +2548,22 @@ final class DesktopNativeBridge implements NativeBridge {
           } else {
             _emit(<String, dynamic>{
               'event': 'set_tx_status',
-              'data': <String, dynamic>{'code': -200, 'message': 'No result from transfer_split', 'sending': false},
+              'data': <String, dynamic>{
+                'code': -200,
+                'message': 'No result from transfer_split',
+                'sending': false
+              },
             });
           }
         }
       } catch (e) {
         _emit(<String, dynamic>{
           'event': 'set_tx_status',
-          'data': <String, dynamic>{'code': -200, 'message': '$e', 'sending': false},
+          'data': <String, dynamic>{
+            'code': -200,
+            'message': '$e',
+            'sending': false
+          },
         });
       }
       return <String, dynamic>{};
@@ -1737,7 +2589,8 @@ final class DesktopNativeBridge implements NativeBridge {
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
         final bool hard = _coerceMap(data)['hard'] == true;
-        await w.call('rescan_blockchain', <String, dynamic>{if (hard) 'hard': true});
+        await w.call(
+            'rescan_blockchain', <String, dynamic>{if (hard) 'hard': true});
       }
       return <String, dynamic>{};
     }
@@ -1754,7 +2607,8 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       final Map<String, dynamic> p = _coerceMap(data);
-      final Map<String, dynamic>? addrR = await w.call('get_address', <String, dynamic>{'account_index': 0});
+      final Map<String, dynamic>? addrR =
+          await w.call('get_address', <String, dynamic>{'account_index': 0});
       if (!walletJsonRpcNoError(addrR)) {
         _emit(<String, dynamic>{
           'event': 'set_tx_status',
@@ -1767,7 +2621,8 @@ final class DesktopNativeBridge implements NativeBridge {
         });
         return <String, dynamic>{};
       }
-      final String myAddress = '${(addrR!['result'] as Map?)?['address'] ?? ''}';
+      final String myAddress =
+          '${(addrR!['result'] as Map?)?['address'] ?? ''}';
       final bool doNot = p['do_not_relay'] == true;
       final Map<String, dynamic>? r = await w.call(
         'sweep_all',
@@ -1811,7 +2666,9 @@ final class DesktopNativeBridge implements NativeBridge {
             'sending': false,
             'origin': p['origin'],
             'code': doNot ? 99 : 100,
-            'message': doNot ? feeUi.toStringAsFixed(9) : 'sweep_all_rpc_success_message',
+            'message': doNot
+                ? feeUi.toStringAsFixed(9)
+                : 'sweep_all_rpc_success_message',
           };
           _emit(<String, dynamic>{'event': 'set_tx_status', 'data': status});
         }
@@ -1826,7 +2683,8 @@ final class DesktopNativeBridge implements NativeBridge {
       final Map<String, dynamic> p = _coerceMap(data);
       final Object? idx = p['index'];
       if (idx is num) {
-        await w.call('delete_address_book', <String, dynamic>{'index': idx.toInt()});
+        await w.call(
+            'delete_address_book', <String, dynamic>{'index': idx.toInt()});
       }
       final bool starred = p['starred'] == true;
       final String name = '${p['name'] ?? ''}';
@@ -1848,12 +2706,17 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       final Map<String, dynamic>? r = await w.call('add_address_book', rpc);
       if (!walletJsonRpcNoError(r)) {
-        _emit(<String, dynamic>{'event': 'set_wallet_error', 'data': <String, dynamic>{'status': r?['error']}});
-        _showNotification('negative', 'Wallet RPC Error, Address Rejected', 3000);
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{'status': r?['error']}
+        });
+        _showNotification(
+            'negative', 'Wallet RPC Error, Address Rejected', 3000);
         return <String, dynamic>{};
       }
       await w.call('store', <String, dynamic>{});
-      _showNotification('positive', 'Address Book updated with ${p['address'] ?? ''}', 3000);
+      _showNotification(
+          'positive', 'Address Book updated with ${p['address'] ?? ''}', 3000);
       return <String, dynamic>{};
     }
     if (method == 'delete_address_book') {
@@ -1865,7 +2728,8 @@ final class DesktopNativeBridge implements NativeBridge {
       if (idx is! num) {
         return <String, dynamic>{};
       }
-      final Map<String, dynamic>? r = await w.call('delete_address_book', <String, dynamic>{'index': idx.toInt()});
+      final Map<String, dynamic>? r = await w
+          .call('delete_address_book', <String, dynamic>{'index': idx.toInt()});
       if (walletJsonRpcNoError(r)) {
         await w.call('store', <String, dynamic>{});
       }
@@ -1902,17 +2766,27 @@ final class DesktopNativeBridge implements NativeBridge {
           if (res is Map && res['fee'] != null) {
             feeAtoms = (res['fee'] as num?)?.toInt() ?? 0;
           }
-          final String feeMsg = feeAtoms > 0 ? 'Fee ${(feeAtoms / _arqCoinUnits).toStringAsFixed(9)}' : 'Fee';
+          final String feeMsg = feeAtoms > 0
+              ? 'Fee ${(feeAtoms / _arqCoinUnits).toStringAsFixed(9)}'
+              : 'Fee';
           _emit(<String, dynamic>{
             'event': 'set_tx_status',
-            'data': <String, dynamic>{'code': 300, 'message': feeMsg, 'sending': false},
+            'data': <String, dynamic>{
+              'code': 300,
+              'message': feeMsg,
+              'sending': false
+            },
           });
           _pushStakeMetadataFromResult(r, p);
         }
       } catch (e) {
         _emit(<String, dynamic>{
           'event': 'set_tx_status',
-          'data': <String, dynamic>{'code': -300, 'message': '$e', 'sending': false},
+          'data': <String, dynamic>{
+            'code': -300,
+            'message': '$e',
+            'sending': false
+          },
         });
       }
       return <String, dynamic>{};
@@ -1935,7 +2809,11 @@ final class DesktopNativeBridge implements NativeBridge {
       if (!_walletPasswordMatches(pw)) {
         _emit(<String, dynamic>{
           'event': 'set_snode_status_unlock',
-          'data': <String, dynamic>{'code': -400, 'message': 'invalidPassword', 'sending': false},
+          'data': <String, dynamic>{
+            'code': -400,
+            'message': 'invalidPassword',
+            'sending': false
+          },
         });
         return <String, dynamic>{};
       }
@@ -1948,17 +2826,26 @@ final class DesktopNativeBridge implements NativeBridge {
         final String msg = _walletRpcErrCapitalized(r?['error']);
         _emit(<String, dynamic>{
           'event': 'set_snode_status_unlock',
-          'data': <String, dynamic>{'code': -400, 'message': msg, 'sending': false},
+          'data': <String, dynamic>{
+            'code': -400,
+            'message': msg,
+            'sending': false
+          },
         });
         return <String, dynamic>{};
       }
       if (confirmed && r?['result'] is Map) {
-        final Map<String, dynamic> res = Map<String, dynamic>.from(r!['result'] as Map);
+        final Map<String, dynamic> res =
+            Map<String, dynamic>.from(r!['result'] as Map);
         final String msg = '${res['msg'] ?? res['message'] ?? ''}';
         final bool unlocked = res['unlocked'] == true;
         _emit(<String, dynamic>{
           'event': 'set_snode_status_unlock',
-          'data': <String, dynamic>{'code': unlocked ? 400 : -400, 'message': msg, 'sending': false},
+          'data': <String, dynamic>{
+            'code': unlocked ? 400 : -400,
+            'message': msg,
+            'sending': false
+          },
         });
       }
       return <String, dynamic>{};
@@ -1995,9 +2882,14 @@ final class DesktopNativeBridge implements NativeBridge {
         });
         return <String, dynamic>{};
       }
-      final Map<String, dynamic> secret = <String, dynamic>{'mnemonic': '', 'spend_key': '', 'view_key': ''};
+      final Map<String, dynamic> secret = <String, dynamic>{
+        'mnemonic': '',
+        'spend_key': '',
+        'view_key': ''
+      };
       for (final String kt in <String>['mnemonic', 'spend_key', 'view_key']) {
-        final Map<String, dynamic>? q = await w.call('query_key', <String, dynamic>{'key_type': kt});
+        final Map<String, dynamic>? q =
+            await w.call('query_key', <String, dynamic>{'key_type': kt});
         if (walletJsonRpcNoError(q) && q?['result'] is Map) {
           secret[kt] = (q!['result'] as Map)['key'];
         }
@@ -2025,7 +2917,8 @@ final class DesktopNativeBridge implements NativeBridge {
           _refreshSessionPasswordDigest('${p['new_password'] ?? ''}');
           _showNotification('positive', 'Password updated', 3000);
         } else {
-          _showNotification('negative', _walletRpcErrCapitalized(r?['error']), 4000);
+          _showNotification(
+              'negative', _walletRpcErrCapitalized(r?['error']), 4000);
         }
       }
       return <String, dynamic>{};
@@ -2041,26 +2934,36 @@ final class DesktopNativeBridge implements NativeBridge {
         _emit(<String, dynamic>{
           'event': 'set_snode_status',
           'data': <String, dynamic>{
-            'registration': <String, dynamic>{'code': -1, 'message': '', 'sending': false},
+            'registration': <String, dynamic>{
+              'code': -1,
+              'message': '',
+              'sending': false
+            },
           },
         });
         return <String, dynamic>{};
       }
       final String s = '${p['string'] ?? p['register_service_node_str'] ?? ''}';
-      final Map<String, dynamic>? r =
-          await w.call('register_service_node', <String, dynamic>{'register_service_node_str': s});
+      final Map<String, dynamic>? r = await w.call('register_service_node',
+          <String, dynamic>{'register_service_node_str': s});
       if (!walletJsonRpcNoError(r)) {
         _emit(<String, dynamic>{
           'event': 'set_snode_status',
           'data': <String, dynamic>{
-            'registration': <String, dynamic>{'code': -1, 'message': _walletRpcErrCapitalized(r?['error']), 'sending': false},
+            'registration': <String, dynamic>{
+              'code': -1,
+              'message': _walletRpcErrCapitalized(r?['error']),
+              'sending': false
+            },
           },
         });
         return <String, dynamic>{};
       }
       _emit(<String, dynamic>{
         'event': 'set_snode_status',
-        'data': <String, dynamic>{'registration': <String, dynamic>{'code': 0, 'sending': false}},
+        'data': <String, dynamic>{
+          'registration': <String, dynamic>{'code': 0, 'sending': false}
+        },
       });
       return <String, dynamic>{};
     }
@@ -2134,8 +3037,9 @@ final class DesktopNativeBridge implements NativeBridge {
       if (cfg == null) {
         return <String, dynamic>{};
       }
-      final List<dynamic> list =
-          (_coerceMap(data)['wallets'] is List) ? List<dynamic>.from(_coerceMap(data)['wallets'] as List) : <dynamic>[];
+      final List<dynamic> list = (_coerceMap(data)['wallets'] is List)
+          ? List<dynamic>.from(_coerceMap(data)['wallets'] as List)
+          : <dynamic>[];
       final List<String> failed = runCopyOldGuiWallets(cfg, list);
       _emit(<String, dynamic>{
         'event': 'set_old_gui_import_status',
@@ -2143,7 +3047,10 @@ final class DesktopNativeBridge implements NativeBridge {
       });
       final String? wdir = walletFilesDir(cfg);
       if (wdir != null) {
-        _emit(<String, dynamic>{'event': 'wallet_list', 'data': listWalletFiles(wdir)});
+        _emit(<String, dynamic>{
+          'event': 'wallet_list',
+          'data': listWalletFiles(wdir)
+        });
       }
       return <String, dynamic>{};
     }
@@ -2169,7 +3076,8 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     final bool all = p['all'] == true;
-    final Map<String, dynamic>? data = await w.call('export_key_images', <String, dynamic>{'all': all});
+    final Map<String, dynamic>? data =
+        await w.call('export_key_images', <String, dynamic>{'all': all});
     if (!walletJsonRpcNoError(data) || data?['result'] == null) {
       _showNotification('negative', 'Error exporting key images', 3000);
       return;
@@ -2217,10 +3125,11 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     final Object? signed = jsonDecode(await file.readAsString());
-    final Map<String, dynamic>? data =
-        await w.call('import_key_images', <String, dynamic>{'signed_key_images': signed});
+    final Map<String, dynamic>? data = await w.call(
+        'import_key_images', <String, dynamic>{'signed_key_images': signed});
     if (!walletJsonRpcNoError(data) || data?['result'] == null) {
-      _showNotification('negative', 'Error importing key images. change to local daemon', 3000);
+      _showNotification('negative',
+          'Error importing key images. change to local daemon', 3000);
       return;
     }
     _showNotification('positive', 'Key images imported', 3000);
@@ -2241,7 +3150,11 @@ final class DesktopNativeBridge implements NativeBridge {
     if (walletName.isEmpty) {
       return;
     }
-    _emit(<String, dynamic>{'event': 'show_loading', 'data': <String, dynamic>{'message': 'Deleting wallet'}});
+    _emit(<String, dynamic>{
+      'event': 'show_loading',
+      'data': <String, dynamic>{'message': 'Deleting wallet'}
+    });
+    _stopWalletHeartbeat();
     await w.call('store', <String, dynamic>{});
     await w.call('close_wallet', <String, dynamic>{});
     _openedWalletDisplayName = '';
@@ -2258,22 +3171,39 @@ final class DesktopNativeBridge implements NativeBridge {
         File('$wdir${Platform.pathSeparator}$walletName.keys').deleteSync();
       } catch (_) {}
       try {
-        File('$wdir${Platform.pathSeparator}$walletName.address.txt').deleteSync();
+        File('$wdir${Platform.pathSeparator}$walletName.address.txt')
+            .deleteSync();
       } catch (_) {}
-      _emit(<String, dynamic>{'event': 'wallet_list', 'data': listWalletFiles(wdir)});
+      _emit(<String, dynamic>{
+        'event': 'wallet_list',
+        'data': listWalletFiles(wdir)
+      });
     }
-    _emit(<String, dynamic>{'event': 'hide_loading', 'data': <String, dynamic>{}});
-    _emit(<String, dynamic>{'event': 'return_to_wallet_select', 'data': <String, dynamic>{}});
+    _emit(<String, dynamic>{
+      'event': 'hide_loading',
+      'data': <String, dynamic>{}
+    });
+    _emit(<String, dynamic>{
+      'event': 'return_to_wallet_select',
+      'data': <String, dynamic>{}
+    });
     if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
       _walletRpc = await ArqmaWalletRpcSession.tryStart(cfg);
+      _emitWalletBackendState();
     }
   }
 
-  Future<dynamic> _walletCreateRestoreImport(String method, Object? data) async {
+  Future<dynamic> _walletCreateRestoreImport(
+      String method, Object? data) async {
     final ArqmaWalletRpcSession? w = _walletRpc;
     final Map<String, dynamic>? cfg = _runtimeConfig;
     if (w == null || cfg == null) {
-      _showNotification('negative', 'arqma-wallet-rpc is not running.', 8000);
+      _showNotification(
+        'negative',
+        'Wallet backend is not running (build and embed `libarqma_wallet_flutter_ffi`, or set '
+            '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).',
+        8000,
+      );
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
@@ -2283,12 +3213,19 @@ final class DesktopNativeBridge implements NativeBridge {
       final String language = '${p['language'] ?? 'English'}';
       final Map<String, dynamic>? r = await w.call(
         'create_wallet',
-        <String, dynamic>{'filename': name, 'password': password, 'language': language},
+        <String, dynamic>{
+          'filename': name,
+          'password': password,
+          'language': language
+        },
       );
       if (!walletJsonRpcNoError(r)) {
         _emit(<String, dynamic>{
           'event': 'reset_wallet_status',
-          'data': <String, dynamic>{'code': -1, 'message': '${r?['error'] ?? 'create_wallet failed'}'},
+          'data': <String, dynamic>{
+            'code': -1,
+            'message': '${r?['error'] ?? 'create_wallet failed'}'
+          },
         });
         return <String, dynamic>{};
       }
@@ -2297,23 +3234,38 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'restore_wallet') {
-      _emit(<String, dynamic>{'event': 'reset_wallet_error', 'data': <String, dynamic>{}});
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_error',
+        'data': <String, dynamic>{}
+      });
       final ({String host, int port})? ep = daemonRpcHostPort(cfg);
       if (ep == null) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'restore: daemon RPC missing'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'restore: daemon RPC missing'
+            }
+          },
         });
         return <String, dynamic>{};
       }
-      final int? rh = await resolveRestoreRefreshHeight(host: ep.host, port: ep.port, p: p);
+      final int? rh =
+          await resolveRestoreRefreshHeight(host: ep.host, port: ep.port, p: p);
       if (rh == null) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'restore: refresh_start_height'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'restore: refresh_start_height'
+            }
+          },
         });
         return <String, dynamic>{};
       }
+      _stopWalletHeartbeat();
       await w.call('close_wallet', <String, dynamic>{});
       final String seed = _normalizeRestoreSeed('${p['seed'] ?? ''}');
       final String name = '${p['name'] ?? ''}';
@@ -2328,7 +3280,10 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       );
       if (!walletJsonRpcNoError(r)) {
-        _emit(<String, dynamic>{'event': 'set_wallet_error', 'data': <String, dynamic>{'status': r?['error']}});
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{'status': r?['error']}
+        });
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);
@@ -2336,20 +3291,34 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'restore_view_wallet') {
-      _emit(<String, dynamic>{'event': 'reset_wallet_error', 'data': <String, dynamic>{}});
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_error',
+        'data': <String, dynamic>{}
+      });
       final ({String host, int port})? ep = daemonRpcHostPort(cfg);
       if (ep == null) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'restore: daemon RPC missing'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'restore: daemon RPC missing'
+            }
+          },
         });
         return <String, dynamic>{};
       }
-      int? refreshH = await resolveRestoreRefreshHeight(host: ep.host, port: ep.port, p: p);
+      int? refreshH =
+          await resolveRestoreRefreshHeight(host: ep.host, port: ep.port, p: p);
       if (refreshH == null) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'restore: refresh_start_height'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'restore: refresh_start_height'
+            }
+          },
         });
         return <String, dynamic>{};
       }
@@ -2360,6 +3329,7 @@ final class DesktopNativeBridge implements NativeBridge {
           refreshH = 0;
         }
       }
+      _stopWalletHeartbeat();
       await w.call('close_wallet', <String, dynamic>{});
       final String name = '${p['name'] ?? ''}';
       final String password = '${p['password'] ?? ''}';
@@ -2374,7 +3344,10 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       );
       if (!walletJsonRpcNoError(r)) {
-        _emit(<String, dynamic>{'event': 'set_wallet_error', 'data': <String, dynamic>{'status': r?['error']}});
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{'status': r?['error']}
+        });
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);
@@ -2382,28 +3355,43 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'import_wallet') {
-      _emit(<String, dynamic>{'event': 'reset_wallet_error', 'data': <String, dynamic>{}});
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_error',
+        'data': <String, dynamic>{}
+      });
       final String filename = '${p['name'] ?? p['filename'] ?? ''}'.trim();
       final String? importPathRaw = p['path'] as String?;
       final String password = '${p['password'] ?? ''}';
       if (filename.isEmpty || importPathRaw == null || importPathRaw.isEmpty) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'import_wallet: name/path'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'import_wallet: name/path'
+            }
+          },
         });
         return <String, dynamic>{};
       }
       String importBase = importPathRaw.trim();
       if (importBase.endsWith('.keys')) {
-        importBase = importBase.substring(0, importBase.length - '.keys'.length);
+        importBase =
+            importBase.substring(0, importBase.length - '.keys'.length);
       } else if (importBase.endsWith('.address.txt')) {
-        importBase = importBase.substring(0, importBase.length - '.address.txt'.length);
+        importBase =
+            importBase.substring(0, importBase.length - '.address.txt'.length);
       }
       final File importSrc = File(importBase);
       if (!importSrc.existsSync()) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'Invalid wallet path'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Invalid wallet path'
+            }
+          },
         });
         return <String, dynamic>{};
       }
@@ -2412,11 +3400,17 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       final File destination = File('$wdir${Platform.pathSeparator}$filename');
-      final File destKeys = File('$wdir${Platform.pathSeparator}$filename.keys');
+      final File destKeys =
+          File('$wdir${Platform.pathSeparator}$filename.keys');
       if (destination.existsSync() || destKeys.existsSync()) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'Wallet with name already exists'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Wallet with name already exists'
+            }
+          },
         });
         return <String, dynamic>{};
       }
@@ -2439,7 +3433,12 @@ final class DesktopNativeBridge implements NativeBridge {
         } catch (_) {}
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
-          'data': <String, dynamic>{'status': <String, dynamic>{'code': -1, 'message': 'Failed to copy wallet'}},
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Failed to copy wallet'
+            }
+          },
         });
         return <String, dynamic>{};
       }
@@ -2454,7 +3453,10 @@ final class DesktopNativeBridge implements NativeBridge {
         try {
           destKeys.deleteSync();
         } catch (_) {}
-        _emit(<String, dynamic>{'event': 'set_wallet_error', 'data': <String, dynamic>{'status': openR?['error']}});
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{'status': openR?['error']}
+        });
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);

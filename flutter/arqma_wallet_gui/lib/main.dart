@@ -141,7 +141,9 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> {
         ChangeNotifierProvider<LocaleController>.value(value: widget.locale),
         Provider<NativeBridge>.value(value: widget.bridge),
         ProxyProvider2<NativeBridge, GatewayStore, AppApi>(
-          update: (BuildContext _, NativeBridge b, GatewayStore s, AppApi? __) => AppApi(b, s),
+          update:
+              (BuildContext _, NativeBridge b, GatewayStore s, AppApi? __) =>
+                  AppApi(b, s),
         ),
       ],
       child: Consumer<LocaleController>(

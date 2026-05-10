@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/native_bridge.dart';
+import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 import 'daemon_settings_dialog.dart';
@@ -47,7 +48,9 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
         title: Text(loc.tr('components.mainmenu.exit_wallet')),
         content: Text(loc.tr('components.mainmenu.confirm_close')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('composables.cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(loc.tr('composables.cancel'))),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
             child: Text(loc.tr('components.mainmenu.exit_wallet')),
@@ -57,7 +60,9 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
     );
     if (ok == true && context.mounted) {
       context.go('/quit');
-      await context.read<NativeBridge>().invoke('confirm_close', {'restart': false});
+      await context
+          .read<NativeBridge>()
+          .invoke('confirm_close', {'restart': false});
     }
   }
 
@@ -65,7 +70,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.menu, size: 32, color: Colors.white),
+      icon: const Icon(Icons.menu, size: 32, color: ArqmaColors.textPrimary),
       color: const Color(0xFF1d1d1d),
       onSelected: (String value) async {
         switch (value) {
@@ -76,8 +81,14 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
                 title: Text(loc.tr('components.mainmenu.switch_account')),
                 content: Text(loc.tr('components.mainmenu.confirm_close')),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('components.mainmenu.switch_account_cancel_label'))),
-                  TextButton(onPressed: () => Navigator.pop(c, true), child: Text(loc.tr('components.mainmenu.switch_account_ok_label'))),
+                  TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: Text(loc.tr(
+                          'components.mainmenu.switch_account_cancel_label'))),
+                  TextButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: Text(loc
+                          .tr('components.mainmenu.switch_account_ok_label'))),
                 ],
               ),
             );
@@ -102,7 +113,8 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
               context: context,
               builder: (BuildContext c) => AlertDialog(
                 backgroundColor: const Color(0xFF1d1d1d),
-                title: Image.asset('assets/images/arq_logo_with_padding.png', height: 64),
+                title: Image.asset('assets/images/arq_logo_with_padding.png',
+                    height: 64),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -134,29 +146,37 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
                               await bridgeForAbout.backendSend(
                                 'core',
                                 'open_url',
-                                <String, dynamic>{'url': 'https://chat.arqma.com'},
+                                <String, dynamic>{
+                                  'url': 'https://chat.arqma.com'
+                                },
                               );
                             },
                             child: const Text('Discord'),
                           ),
-                          const Text('—', style: TextStyle(color: Colors.white54)),
+                          const Text('—',
+                              style: TextStyle(color: ArqmaColors.textMuted)),
                           TextButton(
                             onPressed: () async {
                               await bridgeForAbout.backendSend(
                                 'core',
                                 'open_url',
-                                <String, dynamic>{'url': 'https://telegram.arqma.com'},
+                                <String, dynamic>{
+                                  'url': 'https://telegram.arqma.com'
+                                },
                               );
                             },
                             child: const Text('Telegram'),
                           ),
-                          const Text('—', style: TextStyle(color: Colors.white54)),
+                          const Text('—',
+                              style: TextStyle(color: ArqmaColors.textMuted)),
                           TextButton(
                             onPressed: () async {
                               await bridgeForAbout.backendSend(
                                 'core',
                                 'open_url',
-                                <String, dynamic>{'url': 'https://github.com/Arqma/Arqma'},
+                                <String, dynamic>{
+                                  'url': 'https://github.com/Arqma/Arqma'
+                                },
                               );
                             },
                             child: const Text('GitHub'),

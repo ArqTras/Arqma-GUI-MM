@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/native_bridge.dart';
+import '../core/theme/arqma_colors.dart';
 import '../store/gateway_store.dart';
 import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
@@ -62,7 +63,7 @@ class WalletSelectLayout extends StatelessWidget {
                 child: WalletMainMenu(disableSwitchWallet: true),
               )
             : IconButton(
-                icon: const Icon(Icons.reply, color: Colors.white),
+                icon: const Icon(Icons.reply, color: ArqmaColors.textPrimary),
                 onPressed: () async {
                   final NativeBridge bridge = context.read<NativeBridge>();
                   await bridge.backendSend('wallet', 'close_wallet', {});
@@ -79,11 +80,12 @@ class WalletSelectLayout extends StatelessWidget {
               )
             : Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 16),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w300, fontSize: 16),
               ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Colors.white),
+          child: Divider(height: 1, color: ArqmaColors.outlineDefault),
         ),
       ),
       // Do not wrap [child] in [SingleChildScrollView]: several wallet-select pages use

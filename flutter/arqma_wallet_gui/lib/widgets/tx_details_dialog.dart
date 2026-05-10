@@ -10,13 +10,16 @@ import '../store/gateway_store.dart';
 import 'arqma_field.dart';
 import 'format_arqma.dart';
 import 'tx_type_icon.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Parity with `components/tx_details.vue` (summary, copy ids, explorer, notes).
-Future<void> showTxDetailsDialog(BuildContext context, Map<String, dynamic> tx) {
+Future<void> showTxDetailsDialog(
+    BuildContext context, Map<String, dynamic> tx) {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (BuildContext c) => _TxDetailsDialog(tx: Map<String, dynamic>.from(tx)),
+    builder: (BuildContext c) =>
+        _TxDetailsDialog(tx: Map<String, dynamic>.from(tx)),
   );
 }
 
@@ -97,8 +100,8 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
     if (minor == null) {
       return null;
     }
-    final Map<String, dynamic> al =
-        Map<String, dynamic>.from(store.wallet['address_list'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> al = Map<String, dynamic>.from(
+        store.wallet['address_list'] as Map? ?? <String, dynamic>{});
     for (final String key in <String>['primary', 'used']) {
       final List<dynamic> list = al[key] as List<dynamic>? ?? const <dynamic>[];
       for (final dynamic e in list) {
@@ -124,12 +127,14 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
       return <Map<String, dynamic>>[];
     }
     final List<Map<String, dynamic>> book = <Map<String, dynamic>>[];
-    final Map<String, dynamic> al =
-        Map<String, dynamic>.from(store.wallet['address_list'] as Map? ?? <String, dynamic>{});
-    for (final dynamic x in (al['address_book'] as List<dynamic>? ?? const <dynamic>[])) {
+    final Map<String, dynamic> al = Map<String, dynamic>.from(
+        store.wallet['address_list'] as Map? ?? <String, dynamic>{});
+    for (final dynamic x
+        in (al['address_book'] as List<dynamic>? ?? const <dynamic>[])) {
       book.add(Map<String, dynamic>.from(x as Map));
     }
-    for (final dynamic x in (al['address_book_starred'] as List<dynamic>? ?? const <dynamic>[])) {
+    for (final dynamic x in (al['address_book_starred'] as List<dynamic>? ??
+        const <dynamic>[])) {
       book.add(Map<String, dynamic>.from(x as Map));
     }
     final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
@@ -152,7 +157,8 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
   }
 
   bool _canOpenExplorer(GatewayStore store) {
-    final Map<String, dynamic> cfg = store.app['config'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final Map<String, dynamic> cfg =
+        store.app['config'] as Map<String, dynamic>? ?? <String, dynamic>{};
     final String net = '${(cfg['app'] as Map?)?['net_type'] ?? ''}';
     return net != 'stagenet';
   }
@@ -172,13 +178,17 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
 
   Future<void> _saveNotes(BuildContext context) async {
     final LocaleController loc = context.read<LocaleController>();
-    await context.read<AppApi>().send('wallet', 'save_tx_notes', <String, dynamic>{
+    await context
+        .read<AppApi>()
+        .send('wallet', 'save_tx_notes', <String, dynamic>{
       'txid': '${widget.tx['txid']}',
       'note': _notes.text.trim(),
     });
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('components.tx_details.save_transaction_notes_message'))),
+        SnackBar(
+            content: Text(loc
+                .tr('components.tx_details.save_transaction_notes_message'))),
       );
     }
   }
@@ -192,10 +202,16 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
         title: Text(loc.tr('components.tx_details.transaction_details_title')),
         content: SizedBox(
           width: double.maxFinite,
-          child: SingleChildScrollView(child: SelectableText(pretty, style: const TextStyle(fontFamily: 'monospace', fontSize: 11))),
+          child: SingleChildScrollView(
+              child: SelectableText(pretty,
+                  style:
+                      const TextStyle(fontFamily: 'monospace', fontSize: 11))),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(loc.tr('components.tx_details.transaction_details_ok_label'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: Text(loc
+                  .tr('components.tx_details.transaction_details_ok_label'))),
         ],
       ),
     );
@@ -208,12 +224,14 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
     final Map<String, dynamic> tx = widget.tx;
     final String type = '${tx['type'] ?? ''}';
     final int ts = int.tryParse('${tx['timestamp'] ?? 0}') ?? 0;
-    final DateTime dt = DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true).toLocal();
+    final DateTime dt =
+        DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true).toLocal();
     final String when = ts > 0 ? DateFormat.yMMMd().add_Hms().format(dt) : '—';
     final String pid = '${tx['payment_id'] ?? ''}'.trim();
     final bool showIncoming = type == 'in' || type == 'pool';
     final bool showOutgoing = type == 'out' || type == 'pending';
-    final List<Map<String, dynamic>> outDests = showOutgoing ? _outDestinations(store) : <Map<String, dynamic>>[];
+    final List<Map<String, dynamic>> outDests =
+        showOutgoing ? _outDestinations(store) : <Map<String, dynamic>>[];
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
@@ -221,7 +239,9 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
         constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
         child: Scaffold(
           appBar: AppBar(
-            leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context)),
             title: Text(loc.tr('components.tx_details.transaction_details')),
             actions: [
               TextButton(
@@ -231,7 +251,9 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
               if (_canOpenExplorer(store))
                 TextButton(
                   onPressed: () async {
-                    await context.read<AppApi>().send('core', 'open_explorer', <String, dynamic>{
+                    await context
+                        .read<AppApi>()
+                        .send('core', 'open_explorer', <String, dynamic>{
                       'type': 'tx',
                       'id': '${tx['txid']}',
                     });
@@ -249,7 +271,8 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                   TxTypeIcon(type: type, tooltip: false, mainSize: 40),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(_typeTitle(loc, type), style: Theme.of(context).textTheme.titleMedium),
+                    child: Text(_typeTitle(loc, type),
+                        style: Theme.of(context).textTheme.titleMedium),
                   ),
                 ],
               ),
@@ -258,64 +281,95 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _InfoCell(label: loc.tr('components.tx_details.amount'), child: FormatArqma(amount: num.tryParse('${tx['amount'] ?? 0}') ?? 0, digits: 12)),
                   _InfoCell(
-                    label: '${loc.tr('components.tx_details.fee')}${type == 'in' || type == 'pool' ? ' ${loc.tr('components.tx_details.paid_by_sender')}' : ''}',
-                    child: FormatArqma(amount: num.tryParse('${tx['fee'] ?? 0}') ?? 0, digits: 12),
+                      label: loc.tr('components.tx_details.amount'),
+                      child: FormatArqma(
+                          amount: num.tryParse('${tx['amount'] ?? 0}') ?? 0,
+                          digits: 12)),
+                  _InfoCell(
+                    label:
+                        '${loc.tr('components.tx_details.fee')}${type == 'in' || type == 'pool' ? ' ${loc.tr('components.tx_details.paid_by_sender')}' : ''}',
+                    child: FormatArqma(
+                        amount: num.tryParse('${tx['fee'] ?? 0}') ?? 0,
+                        digits: 12),
                   ),
-                  _InfoCell(label: loc.tr('components.tx_details.height'), child: Text('${tx['height'] ?? 0}')),
-                  _InfoCell(label: loc.tr('components.tx_details.timestamp'), child: Text(when)),
+                  _InfoCell(
+                      label: loc.tr('components.tx_details.height'),
+                      child: Text('${tx['height'] ?? 0}')),
+                  _InfoCell(
+                      label: loc.tr('components.tx_details.timestamp'),
+                      child: Text(when)),
                 ],
               ),
               const SizedBox(height: 16),
-              Text(loc.tr('components.tx_details.transaction_id'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(loc.tr('components.tx_details.transaction_id'),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               Row(
                 children: [
-                  Expanded(child: SelectableText('${tx['txid']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11))),
+                  Expanded(
+                      child: SelectableText('${tx['txid']}',
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 11))),
                   IconButton(
                     icon: const Icon(Icons.copy, color: Colors.greenAccent),
-                    onPressed: () => _copyWithFeedback('${tx['txid']}', 'components.tx_list.copied_transaction_id_to_clipboard'),
-                    tooltip: loc.tr('components.tx_details.copy_transaction_id'),
+                    onPressed: () => _copyWithFeedback('${tx['txid']}',
+                        'components.tx_list.copied_transaction_id_to_clipboard'),
+                    tooltip:
+                        loc.tr('components.tx_details.copy_transaction_id'),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Text(loc.tr('components.tx_details.payment_id'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(loc.tr('components.tx_details.payment_id'),
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               Row(
                 children: [
-                  Expanded(child: SelectableText(pid.isEmpty ? 'N/A' : pid, style: const TextStyle(fontFamily: 'monospace', fontSize: 11))),
+                  Expanded(
+                      child: SelectableText(pid.isEmpty ? 'N/A' : pid,
+                          style: const TextStyle(
+                              fontFamily: 'monospace', fontSize: 11))),
                   if (pid.isNotEmpty)
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.greenAccent),
-                      onPressed: () => _copyWithFeedback(pid, 'components.wallet_settings.write_text_ok_message'),
+                      onPressed: () => _copyWithFeedback(pid,
+                          'components.wallet_settings.write_text_ok_message'),
                       tooltip: loc.tr('components.tx_details.copy_payment_id'),
                     ),
                 ],
               ),
               if (showIncoming) ...[
                 const SizedBox(height: 12),
-                Text(loc.tr('components.tx_details.incoming_transaction_sent_to'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                    loc.tr(
+                        'components.tx_details.incoming_transaction_sent_to'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 if (_incomingCaption(loc).isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, bottom: 6),
-                    child: Text(_incomingCaption(loc), style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                    child: Text(_incomingCaption(loc),
+                        style: const TextStyle(
+                            fontSize: 12, color: ArqmaColors.textSecondary)),
                   ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: SelectableText(
-                        _incomingAddress(store) ?? loc.tr('components.tx_details.destination_unknown'),
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+                        _incomingAddress(store) ??
+                            loc.tr('components.tx_details.destination_unknown'),
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 11),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.greenAccent),
-                      tooltip: loc.tr('components.tx_details.copy_primary_address'),
+                      tooltip:
+                          loc.tr('components.tx_details.copy_primary_address'),
                       onPressed: () {
                         final String? a = _incomingAddress(store);
                         if (a != null && a.isNotEmpty) {
-                          _copyWithFeedback(a, 'components.tx_details.copy_address_message');
+                          _copyWithFeedback(
+                              a, 'components.tx_details.copy_address_message');
                         }
                       },
                     ),
@@ -324,28 +378,41 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
               ],
               if (showOutgoing) ...[
                 const SizedBox(height: 12),
-                Text(loc.tr('components.tx_details.outgoing_transaction_sent_to'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                    loc.tr(
+                        'components.tx_details.outgoing_transaction_sent_to'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 ...outDests.map(
                   (Map<String, dynamic> d) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${d['_display_name']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                        Text('${d['_display_name']}',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500)),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: SelectableText('${d['address']}', style: const TextStyle(fontFamily: 'monospace', fontSize: 11)),
+                              child: SelectableText('${d['address']}',
+                                  style: const TextStyle(
+                                      fontFamily: 'monospace', fontSize: 11)),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.copy, color: Colors.greenAccent),
-                              tooltip: loc.tr('components.tx_details.copy_address'),
-                              onPressed: () => _copyWithFeedback('${d['address']}', 'components.tx_details.copy_address_message'),
+                              icon: const Icon(Icons.copy,
+                                  color: Colors.greenAccent),
+                              tooltip:
+                                  loc.tr('components.tx_details.copy_address'),
+                              onPressed: () => _copyWithFeedback(
+                                  '${d['address']}',
+                                  'components.tx_details.copy_address_message'),
                             ),
                           ],
                         ),
-                        FormatArqma(amount: num.tryParse('${d['amount'] ?? 0}') ?? 0, digits: 8),
+                        FormatArqma(
+                            amount: num.tryParse('${d['amount'] ?? 0}') ?? 0,
+                            digits: 8),
                       ],
                     ),
                   ),
@@ -393,7 +460,9 @@ class _InfoCell extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12, color: ArqmaColors.textSecondary)),
           child,
         ],
       ),

@@ -8,6 +8,7 @@ import '../core/app_api.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 import 'password_dialogs.dart';
+import '../core/theme/arqma_colors.dart';
 
 /// Parity with `components/wallet_settings.vue` (menu + core wallet operations).
 class WalletSettingsButton extends StatefulWidget {
@@ -47,7 +48,9 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         final Map<String, dynamic> s = Map<String, dynamic>.from(d);
         if ('${s['view_key']}' == '-1') {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${s['mnemonic'] ?? context.read<LocaleController>().tr('backend.Invalid_password')}')),
+            SnackBar(
+                content: Text(
+                    '${s['mnemonic'] ?? context.read<LocaleController>().tr('backend.Invalid_password')}')),
           );
           return;
         }
@@ -58,7 +61,8 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (ev != 'set_tx_status') {
       return;
     }
-    final Map<String, dynamic> st = Map<String, dynamic>.from(msg['data'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> st =
+        Map<String, dynamic>.from(msg['data'] as Map? ?? <String, dynamic>{});
     if ('${st['origin']}' != 'wallet_settings') {
       return;
     }
@@ -71,12 +75,15 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         break;
       case 100:
       case 200:
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_walletSettingsMessage(loc, message))));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_walletSettingsMessage(loc, message))));
         break;
       case -99:
       case -100:
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: Colors.red.shade900, content: Text(_walletSettingsMessage(loc, message))),
+          SnackBar(
+              backgroundColor: Colors.red.shade900,
+              content: Text(_walletSettingsMessage(loc, message))),
         );
         break;
       default:
@@ -103,24 +110,29 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       context: context,
       builder: (BuildContext c) => AlertDialog(
         title: Text(loc.tr('components.wallet_settings.sweep_all_proceed')),
-        content: Text('${loc.tr('components.wallet_settings.sweep_all_fee')} $feeMessage'),
+        content: Text(
+            '${loc.tr('components.wallet_settings.sweep_all_fee')} $feeMessage'),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(c, false);
-              api.send('wallet', 'cancelTransaction', <String, dynamic>{'type': 'sweepAll'});
+              api.send('wallet', 'cancelTransaction',
+                  <String, dynamic>{'type': 'sweepAll'});
             },
-            child: Text(loc.tr('components.wallet_settings.sweep_all_cancel_label')),
+            child: Text(
+                loc.tr('components.wallet_settings.sweep_all_cancel_label')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(loc.tr('components.wallet_settings.sweep_all_ok_label')),
+            child:
+                Text(loc.tr('components.wallet_settings.sweep_all_ok_label')),
           ),
         ],
       ),
     );
     if (go == true && mounted) {
-      await api.send('wallet', 'relay_sweepAll', <String, dynamic>{'origin': 'wallet_settings'});
+      await api.send('wallet', 'relay_sweepAll',
+          <String, dynamic>{'origin': 'wallet_settings'});
     }
   }
 
@@ -136,24 +148,30 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if ('${secret['mnemonic'] ?? ''}'.isNotEmpty) ...[
-                Text(loc.tr('components.wallet_settings.seed_words'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(loc.tr('components.wallet_settings.seed_words'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 SelectableText('${secret['mnemonic']}'),
                 const SizedBox(height: 12),
               ],
               if ('${secret['view_key']}' != '${secret['spend_key']}') ...[
-                Text(loc.tr('components.wallet_settings.view_key'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(loc.tr('components.wallet_settings.view_key'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 SelectableText('${secret['view_key']}'),
                 const SizedBox(height: 12),
               ],
-              if (!RegExp(r'^0*$').hasMatch('${secret['spend_key'] ?? ''}')) ...[
-                Text(loc.tr('components.wallet_settings.spend_key'), style: const TextStyle(fontWeight: FontWeight.bold)),
+              if (!RegExp(r'^0*$')
+                  .hasMatch('${secret['spend_key'] ?? ''}')) ...[
+                Text(loc.tr('components.wallet_settings.spend_key'),
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 SelectableText('${secret['spend_key']}'),
               ],
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(loc.tr('components.wallet_settings.close'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: Text(loc.tr('components.wallet_settings.close'))),
         ],
       ),
     );
@@ -167,14 +185,17 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       api: api,
       locale: loc,
       title: loc.tr('components.wallet_settings.show_private_keys'),
-      noPasswordMessage: loc.tr('components.wallet_settings.show_password_confirmation_message'),
-      okLabel: loc.tr('components.wallet_settings.show_password_confirmation_ok_label'),
+      noPasswordMessage: loc
+          .tr('components.wallet_settings.show_password_confirmation_message'),
+      okLabel: loc
+          .tr('components.wallet_settings.show_password_confirmation_ok_label'),
     );
     if (password == null || !mounted) {
       return;
     }
     _awaitingPrivateKeys = true;
-    await api.send('wallet', 'get_private_keys', <String, dynamic>{'password': password});
+    await api.send(
+        'wallet', 'get_private_keys', <String, dynamic>{'password': password});
   }
 
   Future<void> _changePassword() async {
@@ -194,34 +215,47 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
               TextField(
                 controller: oldPw,
                 obscureText: true,
-                decoration: InputDecoration(labelText: loc.tr('components.wallet_settings.old_password')),
+                decoration: InputDecoration(
+                    labelText:
+                        loc.tr('components.wallet_settings.old_password')),
               ),
               TextField(
                 controller: newPw,
                 obscureText: true,
-                decoration: InputDecoration(labelText: loc.tr('components.wallet_settings.new_password')),
+                decoration: InputDecoration(
+                    labelText:
+                        loc.tr('components.wallet_settings.new_password')),
               ),
               TextField(
                 controller: newPw2,
                 obscureText: true,
-                decoration: InputDecoration(labelText: loc.tr('components.wallet_settings.confirm_new_password')),
+                decoration: InputDecoration(
+                    labelText: loc
+                        .tr('components.wallet_settings.confirm_new_password')),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: Text(loc.tr('composables.cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: Text(loc.tr('composables.cancel'))),
           TextButton(
             onPressed: () {
               if (newPw.text != newPw2.text) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('components.wallet_settings.invalid_change_password_not_match_message'))));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(loc.tr(
+                        'components.wallet_settings.invalid_change_password_not_match_message'))));
                 return;
               }
               if (newPw.text == oldPw.text) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('components.wallet_settings.invalid_change_password_message'))));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(loc.tr(
+                        'components.wallet_settings.invalid_change_password_message'))));
                 return;
               }
-              Navigator.pop(c, <String, String>{'old': oldPw.text, 'new': newPw.text});
+              Navigator.pop(
+                  c, <String, String>{'old': oldPw.text, 'new': newPw.text});
             },
             child: Text(loc.tr('components.wallet_settings.change')),
           ),
@@ -254,13 +288,15 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: Text(loc.tr('components.wallet_settings.rescan_full_blockchain')),
+                  title: Text(loc
+                      .tr('components.wallet_settings.rescan_full_blockchain')),
                   value: 'full',
                   groupValue: mode,
                   onChanged: (String? v) => setLocal(() => mode = v ?? 'spent'),
                 ),
                 RadioListTile<String>(
-                  title: Text(loc.tr('components.wallet_settings.rescan_spent_outputs')),
+                  title: Text(loc
+                      .tr('components.wallet_settings.rescan_spent_outputs')),
                   value: 'spent',
                   groupValue: mode,
                   onChanged: (String? v) => setLocal(() => mode = v ?? 'spent'),
@@ -268,8 +304,12 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('composables.cancel'))),
-              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(loc.tr('components.wallet_settings.rescan'))),
+              TextButton(
+                  onPressed: () => Navigator.pop(c, false),
+                  child: Text(loc.tr('composables.cancel'))),
+              TextButton(
+                  onPressed: () => Navigator.pop(c, true),
+                  child: Text(loc.tr('components.wallet_settings.rescan'))),
             ],
           );
         },
@@ -283,15 +323,23 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         context: context,
         builder: (BuildContext c) => AlertDialog(
           title: Text(loc.tr('components.wallet_settings.rescan_wallet_title')),
-          content: Text(loc.tr('components.wallet_settings.rescan_wallet_message')),
+          content:
+              Text(loc.tr('components.wallet_settings.rescan_wallet_message')),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('components.wallet_settings.rescan_wallet_cancel_label'))),
-            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(loc.tr('components.wallet_settings.rescan_wallet_ok_label'))),
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text(loc.tr(
+                    'components.wallet_settings.rescan_wallet_cancel_label'))),
+            TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text(loc
+                    .tr('components.wallet_settings.rescan_wallet_ok_label'))),
           ],
         ),
       );
       if (hard == true) {
-        await api.send('wallet', 'rescan_blockchain', <String, dynamic>{'hard': true});
+        await api.send(
+            'wallet', 'rescan_blockchain', <String, dynamic>{'hard': true});
       }
     } else {
       await api.send('wallet', 'rescan_spent', <String, dynamic>{});
@@ -320,7 +368,9 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
   }
 
   Future<void> _saveWallet() async {
-    await context.read<AppApi>().send('wallet', 'save_wallet', <String, dynamic>{});
+    await context
+        .read<AppApi>()
+        .send('wallet', 'save_wallet', <String, dynamic>{});
   }
 
   Future<void> _exportTransactions() async {
@@ -335,13 +385,15 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       api: api,
       locale: loc,
       title: loc.tr('components.wallet_settings.export_transactions'),
-      noPasswordMessage: loc.tr('components.wallet_settings.show_password_confirmation_export_transactions_message_one'),
+      noPasswordMessage: loc.tr(
+          'components.wallet_settings.show_password_confirmation_export_transactions_message_one'),
       okLabel: loc.tr('components.wallet_settings.export_transactions'),
     );
     if (password == null || !mounted) {
       return;
     }
-    await api.send('wallet', 'export_transactions', <String, dynamic>{'password': password, 'path': path});
+    await api.send('wallet', 'export_transactions',
+        <String, dynamic>{'password': password, 'path': path});
   }
 
   Future<void> _deleteWallet() async {
@@ -351,10 +403,17 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       context: context,
       builder: (BuildContext c) => AlertDialog(
         title: Text(loc.tr('components.wallet_settings.delete_account')),
-        content: Text(loc.tr('components.wallet_settings.delete_account_message')),
+        content:
+            Text(loc.tr('components.wallet_settings.delete_account_message')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('components.wallet_settings.delete_account_cancel_label'))),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(loc.tr('components.wallet_settings.delete_account_ok_label'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(loc.tr(
+                  'components.wallet_settings.delete_account_cancel_label'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(loc
+                  .tr('components.wallet_settings.delete_account_ok_label'))),
         ],
       ),
     );
@@ -366,13 +425,16 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       api: api,
       locale: loc,
       title: loc.tr('components.wallet_settings.delete_account'),
-      noPasswordMessage: loc.tr('components.wallet_settings.show_delete_account_password_confirmation_message'),
-      okLabel: loc.tr('components.wallet_settings.show_delete_account_password_confirmation_ok_label'),
+      noPasswordMessage: loc.tr(
+          'components.wallet_settings.show_delete_account_password_confirmation_message'),
+      okLabel: loc.tr(
+          'components.wallet_settings.show_delete_account_password_confirmation_ok_label'),
     );
     if (password == null || !mounted) {
       return;
     }
-    await api.send('wallet', 'delete_wallet', <String, dynamic>{'password': password});
+    await api.send(
+        'wallet', 'delete_wallet', <String, dynamic>{'password': password});
   }
 
   Future<void> _registerServiceNode() async {
@@ -383,9 +445,12 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       context: context,
       api: api,
       locale: loc,
-      title: loc.tr('components.wallet_settings.show_register_service_node_password_confirmation_title'),
-      noPasswordMessage: loc.tr('components.wallet_settings.show_register_service_node_password_confirmation_message'),
-      okLabel: loc.tr('components.wallet_settings.show_register_service_node_password_confirmation_ok_label'),
+      title: loc.tr(
+          'components.wallet_settings.show_register_service_node_password_confirmation_title'),
+      noPasswordMessage: loc.tr(
+          'components.wallet_settings.show_register_service_node_password_confirmation_message'),
+      okLabel: loc.tr(
+          'components.wallet_settings.show_register_service_node_password_confirmation_ok_label'),
     );
     if (password == null || !mounted) {
       return;
@@ -397,13 +462,18 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         content: TextField(
           controller: cmd,
           decoration: InputDecoration(
-            labelText: loc.tr('components.wallet_settings.service_node_command'),
-            hintText: loc.tr('components.wallet_settings.service_node_command_placeholder'),
+            labelText:
+                loc.tr('components.wallet_settings.service_node_command'),
+            hintText: loc.tr(
+                'components.wallet_settings.service_node_command_placeholder'),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(loc.tr('composables.cancel'))),
-          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('OK')),
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(loc.tr('composables.cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true), child: const Text('OK')),
         ],
       ),
     );
@@ -414,10 +484,13 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     final String s = cmd.text.trim();
     cmd.dispose();
     if (s.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.tr('components.wallet_settings.invalid_service_node_command'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(loc
+              .tr('components.wallet_settings.invalid_service_node_command'))));
       return;
     }
-    await api.send('wallet', 'register_service_node', <String, dynamic>{'password': password, 'string': s});
+    await api.send('wallet', 'register_service_node',
+        <String, dynamic>{'password': password, 'string': s});
   }
 
   Future<void> _keyImages() async {
@@ -468,13 +541,16 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       title: loc.tr('components.wallet_settings.manage_key_images'),
       noPasswordMessage:
           '${loc.tr('components.wallet_settings.show_key_images_password_confirmation_message_one')} ${loc.tr(choice == 'import' ? 'components.wallet_settings.import' : 'components.wallet_settings.export')} ${loc.tr('components.wallet_settings.show_key_images_password_confirmation_message_two')}',
-      okLabel: choice == 'import' ? loc.tr('components.wallet_settings.import') : loc.tr('components.wallet_settings.export'),
+      okLabel: choice == 'import'
+          ? loc.tr('components.wallet_settings.import')
+          : loc.tr('components.wallet_settings.export'),
     );
     if (password == null || !mounted) {
       return;
     }
     if (choice == 'import') {
-      await api.send('wallet', 'import_key_images', <String, dynamic>{'password': password, 'path': path});
+      await api.send('wallet', 'import_key_images',
+          <String, dynamic>{'password': password, 'path': path});
     } else {
       await api.send('wallet', 'export_key_images', <String, dynamic>{
         'password': password,
@@ -490,7 +566,9 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     final GatewayStore store = context.watch<GatewayStore>();
     final bool ready = store.isReady;
     final Map<String, dynamic> info = store.walletInfo;
-    final String label = '${info['name'] ?? ''}'.isEmpty ? loc.tr('components.wallet_settings.settings') : '${info['name']}';
+    final String label = '${info['name'] ?? ''}'.isEmpty
+        ? loc.tr('components.wallet_settings.settings')
+        : '${info['name']}';
 
     return PopupMenuButton<String>(
       child: Padding(
@@ -498,8 +576,9 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white70)),
-            const Icon(Icons.arrow_drop_down, color: Colors.white70),
+            Text(label,
+                style: const TextStyle(color: ArqmaColors.textSecondary)),
+            const Icon(Icons.arrow_drop_down, color: ArqmaColors.textSecondary),
           ],
         ),
       ),
@@ -553,15 +632,46 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         }
       },
       itemBuilder: (BuildContext c) => <PopupMenuEntry<String>>[
-        PopupMenuItem(value: 'keys', enabled: ready, child: Text(loc.tr('components.wallet_settings.show_private_keys'))),
-        PopupMenuItem(value: 'pw', enabled: ready, child: Text(loc.tr('components.wallet_settings.change_password'))),
-        PopupMenuItem(value: 'save', enabled: ready, child: Text(loc.tr('components.wallet_settings.save_wallet'))),
-        PopupMenuItem(value: 'rescan', enabled: ready, child: Text(loc.tr('components.wallet_settings.rescan_account'))),
-        PopupMenuItem(value: 'sweep', enabled: ready, child: Text(loc.tr('components.wallet_settings.sweep_all'))),
-        PopupMenuItem(value: 'keysimg', enabled: ready, child: Text(loc.tr('components.wallet_settings.manage_key_images'))),
-        PopupMenuItem(value: 'export', enabled: ready, child: Text(loc.tr('components.wallet_settings.export_transactions'))),
-        PopupMenuItem(value: 'reg', enabled: ready, child: Text(loc.tr('components.wallet_settings.register_service_node'))),
-        PopupMenuItem(value: 'delete', enabled: ready, child: Text(loc.tr('components.wallet_settings.delete_account'))),
+        PopupMenuItem(
+            value: 'keys',
+            enabled: ready,
+            child:
+                Text(loc.tr('components.wallet_settings.show_private_keys'))),
+        PopupMenuItem(
+            value: 'pw',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.change_password'))),
+        PopupMenuItem(
+            value: 'save',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.save_wallet'))),
+        PopupMenuItem(
+            value: 'rescan',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.rescan_account'))),
+        PopupMenuItem(
+            value: 'sweep',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.sweep_all'))),
+        PopupMenuItem(
+            value: 'keysimg',
+            enabled: ready,
+            child:
+                Text(loc.tr('components.wallet_settings.manage_key_images'))),
+        PopupMenuItem(
+            value: 'export',
+            enabled: ready,
+            child:
+                Text(loc.tr('components.wallet_settings.export_transactions'))),
+        PopupMenuItem(
+            value: 'reg',
+            enabled: ready,
+            child: Text(
+                loc.tr('components.wallet_settings.register_service_node'))),
+        PopupMenuItem(
+            value: 'delete',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.delete_account'))),
       ],
     );
   }

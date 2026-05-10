@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/arqma_colors.dart';
 
 /// Parity with `pages/init/quit.vue`.
 class InitQuitPage extends StatelessWidget {
@@ -8,7 +9,8 @@ class InitQuitPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: Center(
-        child: Text('Shutting down…', style: TextStyle(color: Colors.white70)),
+        child: Text('Shutting down…',
+            style: TextStyle(color: ArqmaColors.textSecondary)),
       ),
     );
   }

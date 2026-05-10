@@ -32,7 +32,9 @@
                 "open_wallet_cancel_label": "CANCELAR",
                 "copy_address_message": "Dirección copiada al portapapeles",
                 "copy_address": "Copiar Dirección",
-                "open_account": "Abrir Cuenta"
+                "open_account": "Abrir Cuenta",
+                "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
+                "setup_wizard_button": "Initial setup"
             },
             "import_legacy": {
                 "full_wallet": "Billetera completa",

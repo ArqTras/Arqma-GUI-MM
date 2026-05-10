@@ -37,7 +37,9 @@
                 "open_wallet_cancel_label": "ANULUJ",
                 "copy_address_message": "Adres skopiowany do schowka",
                 "copy_address": "Skopiuj adres",
-                "open_account": "Otwórz konto"
+                "open_account": "Otwórz konto",
+                "setup_required_banner": "Start aplikacji nie powiódł się (ścieżki zapisu, demon lokalny/zdalny lub uprawnienia). Lista kont może nadal pochodzić z folderu portfela z konfiguracji. „Kreator ustawień” otwiera ekran powitalny, żeby poprawić dysk, katalog portfela i węzeł.",
+                "setup_wizard_button": "Kreator ustawień"
             },
             "import_legacy": {
                 "full_wallet": "Pełny portfel",

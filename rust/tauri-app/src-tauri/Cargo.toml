@@ -20,6 +20,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "arqma-wallet"
 path = "src/main.rs"
 
+[[bin]]
+name = "arqma_flutter_solo_pool"
+path = "src/bin/arqma_flutter_solo_pool.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.5.6", features = [] }
 
@@ -31,7 +35,7 @@ tauri = { version = "2.11.0", default-features = true, features = [
 ] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
-tokio = { version = "1.40.0", features = ["time", "rt", "rt-multi-thread", "macros"] }
+tokio = { version = "1.40.0", features = ["time", "rt", "rt-multi-thread", "macros", "signal"] }
 async-trait = "0.1"
 arqma-wallet-rpc = { path = "../../arqma-wallet-rpc", features = ["http-digest"] }
 arqma-wallet-core = { path = "../../core" }
