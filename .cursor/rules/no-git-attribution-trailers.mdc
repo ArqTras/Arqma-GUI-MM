@@ -5,6 +5,6 @@ alwaysApply: true
 
 # Git: no Cursor / co-author trailers
 
-- **Never append** `Co-authored-by:` (or any variant) to commit messages or PR bodies — not for Cursor, not for “AI”, not for tooling defaults. Single author: **ArqTras** only (see `use-arqtras-account-only.mdc`).
+- **Never append** `Co-authored-by:` (or any variant) to commit messages or PR bodies — not for Cursor, not for “AI”, not for tooling defaults, not for **AdminXeq** or any account other than **ArqTras**. Single author: **ArqTras** only (see `use-arqtras-account-only.mdc`).
 - **Do not append** other attribution lines such as `Made with Cursor`, `Made-with: Cursor`, Cursor / Anysphere marketing footers, or similar tool footers.
 - When the user asks for a commit message or PR description, provide **only** the substantive text that matches project conventions — **no** trailer block at the end.

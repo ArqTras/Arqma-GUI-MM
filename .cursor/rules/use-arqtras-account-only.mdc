@@ -8,4 +8,5 @@ alwaysApply: true
 - **Always default** to the **ArqTras** identity for this workspace: every suggested `git commit`, `git push`, `gh pr create`, release, and CI interaction assumes **ArqTras** unless the user explicitly asks for a different account (rare one-off).
 - **GitHub (`gh`), PRs, releases, Actions, and pushes:** use only the **ArqTras** org/user (e.g. `github.com/ArqTras/…`, `origin` pointing at that account). Do not switch to other accounts or suggest commits with a different author identity.
 - **Commits in this workspace:** `user.name` = **ArqTras**, email matching the GitHub account (e.g. `…+ArqTras@users.noreply.github.com`). Do not change author identity to another account.
+- **Never** use the **AdminXeq** GitHub identity for this repository: not as commit author, not in `Co-authored-by`, not for `gh`, pushes, PRs, or releases — **ArqTras only**, always.
 - **Upstream Arqma** (`arqtras/arqma`) is a separate source repo — `arqtras` in that URL is fine. For **this repo** (`Arqma-GUI-MM`) and **GitHub operations as you**, always **ArqTras**.
