@@ -64,7 +64,9 @@ String _walletFfiMissedStartHint() {
       'Legacy: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and use `arqma-wallet-rpc`.';
   if (Platform.isWindows) {
     return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe`. '
-        'Typical build (MinGW, same as CI): from `rust/`, '
+        'If the file is already there, copy **MinGW runtime** from MSYS2 `mingw64\\bin` into the same folder: '
+        '`libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` (GNU FFI cannot load without them). '
+        'Build (CI-style): from `rust/`, '
         '`cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu`, then '
         '`flutter build windows --release` (see `rust/tool/build_native_wallet_flutter_ffi_windows.ps1`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL. $rpc';

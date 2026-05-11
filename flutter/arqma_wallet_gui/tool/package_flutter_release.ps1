@@ -63,6 +63,20 @@ if (-not (Test-Path $releaseDir)) {
     Write-Error "Missing $releaseDir after build"
 }
 
+# MinGW-built arqma_wallet_flutter_ffi.dll needs these next to Arqma-Wallet.exe or LoadLibrary fails.
+$mingwBin = Join-Path $MsysRoot "mingw64\bin"
+if (Test-Path $mingwBin) {
+    foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
+        $s = Join-Path $mingwBin $n
+        if (Test-Path $s) {
+            Copy-Item -Force $s $releaseDir
+            Write-Host "Copied MinGW runtime: $n -> $releaseDir"
+        }
+    }
+} else {
+    Write-Warning "MinGW bin not found at $mingwBin — if wallet FFI fails to load, copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from MSYS2 next to the exe."
+}
+
 $zipName = "Arqma-Wallet-Flutter-$versionSafe-windows-x64.zip"
 $zipPath = Join-Path $dist $zipName
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }

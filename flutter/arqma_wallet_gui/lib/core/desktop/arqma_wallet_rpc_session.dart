@@ -124,10 +124,12 @@ final class ArqmaWalletRpcSession {
       if (ffi != null) {
         final int cfg = ffi.configure(wdir, daemonAddr, netCode);
         if (cfg == 0) {
-          for (int i = 0; i < 60; i++) {
+          Map<String, dynamic>? lastLang;
+          for (int i = 0; i < 120; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 50));
             final Map<String, dynamic>? r =
                 await ffi.callJsonRpc('get_languages', <String, dynamic>{});
+            lastLang = r;
             if (walletJsonRpcNoError(r)) {
               debugPrint(
                   '[WalletRpc] native wallet2 FFI ready (get_languages OK)');
@@ -135,7 +137,9 @@ final class ArqmaWalletRpcSession {
             }
           }
           debugPrint(
-              '[WalletRpc] native FFI: get_languages failed after retries; not starting subprocess (set '
+              '[WalletRpc] native FFI: get_languages not OK after retries; last=$lastLang '
+              '(Windows GNU: also copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from '
+              'MSYS2 mingw64/bin next to Arqma-Wallet.exe). Not starting subprocess (set '
               '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
           ffi.reset();
         } else {
@@ -146,7 +150,8 @@ final class ArqmaWalletRpcSession {
         }
       } else {
         debugPrint(
-            '[WalletRpc] native dylib not loaded; not starting subprocess (set '
+            '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
+            'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '
             '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
       }
       return null;

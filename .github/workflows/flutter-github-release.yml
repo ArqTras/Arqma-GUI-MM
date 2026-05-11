@@ -338,18 +338,31 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      - name: Ensure wallet FFI DLL in Windows Release layout
+      - name: Ensure wallet FFI DLL and MinGW runtime next to Windows bundle
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          $mingwBin = Join-Path $root "mingw64\bin"
           $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
+          if (-not (Test-Path $rel)) { throw "missing $rel" }
           $dll = Join-Path $rel "arqma_wallet_flutter_ffi.dll"
-          if (Test-Path $dll) { Write-Host "FFI DLL already present: $dll"; exit 0 }
-          $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
-          if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
-          Copy-Item -Force $src $dll
-          Write-Host "Copied FFI DLL -> $dll"
+          if (-not (Test-Path $dll)) {
+            $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
+            if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
+            Copy-Item -Force $src $dll
+            Write-Host "Copied FFI DLL -> $dll"
+          } else {
+            Write-Host "FFI DLL already present: $dll"
+          }
+          foreach ($n in @('libgcc_s_seh-1.dll','libstdc++-6.dll','libwinpthread-1.dll')) {
+            $src = Join-Path $mingwBin $n
+            if (-not (Test-Path $src)) { Write-Host "::warning::missing MinGW runtime: $src"; continue }
+            Copy-Item -Force $src $rel
+            Write-Host "Copied $n -> $rel"
+          }
 
       - name: Zip Release layout
         shell: pwsh

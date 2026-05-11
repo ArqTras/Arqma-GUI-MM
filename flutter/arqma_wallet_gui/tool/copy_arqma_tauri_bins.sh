@@ -86,6 +86,7 @@ fi
 
 if [[ -n "${FFI_DEST}" ]] && [[ -n "${FFI_LIB}" ]]; then
   mkdir -p "${FFI_DEST}"
+  FFI_SRC_USED=""
   for rel in \
     "${ROOT}/../../rust/target/release/${FFI_LIB}" \
     "${ROOT}/../../rust/target/x86_64-pc-windows-gnu/release/${FFI_LIB}" \
@@ -97,11 +98,31 @@ if [[ -n "${FFI_DEST}" ]] && [[ -n "${FFI_LIB}" ]]; then
     "${ROOT}/../../rust/tauri-app/src-tauri/target/x86_64-pc-windows-gnu/debug/${FFI_LIB}"; do
     if [[ -f "${rel}" ]]; then
       cp -f "${rel}" "${FFI_DEST}/"
+      FFI_SRC_USED="${rel}"
       echo "copied ${FFI_LIB} -> ${FFI_DEST}/ (from ${rel})"
       break
     fi
   done
   if [[ ! -f "${FFI_DEST}/${FFI_LIB}" ]]; then
     echo "warning: ${FFI_LIB} not found; run: bash rust/tool/build_wallet_flutter_ffi.sh" >&2
+  fi
+  # MinGW-built FFI on Windows: loader needs these next to the exe (same folder as the DLL).
+  if [[ -f "${FFI_DEST}/${FFI_LIB}" ]] && [[ "${FFI_SRC_USED}" == *x86_64-pc-windows-gnu* ]]; then
+    MINGW_BIN=""
+    if [[ -n "${MINGW_PREFIX:-}" ]] && [[ -d "${MINGW_PREFIX}/bin" ]]; then
+      MINGW_BIN="${MINGW_PREFIX}/bin"
+    elif [[ -d "/mingw64/bin" ]]; then
+      MINGW_BIN="/mingw64/bin"
+    fi
+    if [[ -d "${MINGW_BIN}" ]]; then
+      for rt in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+        if [[ -f "${MINGW_BIN}/${rt}" ]]; then
+          cp -f "${MINGW_BIN}/${rt}" "${FFI_DEST}/"
+          echo "copied ${rt} -> ${FFI_DEST}/ (MinGW runtime for GNU FFI)"
+        fi
+      done
+    else
+      echo "warning: MinGW bin not found (${MINGW_BIN}); copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from MSYS2 mingw64/bin next to the exe if the wallet FFI fails to load" >&2
+    fi
   fi
 fi

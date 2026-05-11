@@ -140,6 +140,9 @@ final class WalletNativeFfi {
       out.add('$dir/libarqma_wallet_flutter_ffi.so');
     } else if (Platform.isWindows) {
       out.add('$dir\\arqma_wallet_flutter_ffi.dll');
+      out.add('$dir/arqma_wallet_flutter_ffi.dll');
+      // Let the loader search the executable directory (same as full path, tolerates odd resolvedExecutable).
+      out.add('arqma_wallet_flutter_ffi.dll');
     }
     return out;
   }
