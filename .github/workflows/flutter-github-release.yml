@@ -279,14 +279,29 @@ jobs:
           export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
           bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
 
-      - name: Build Arqma daemon + wallet-rpc (MinGW) and copy to Tauri bin
-        shell: msys2 {0}
+      - name: Fetch Arqma arqmad (+ wallet-rpc if in archive) for Flutter bundle
+        shell: pwsh
         working-directory: ${{ github.workspace }}
         env:
-          ARQMA_MINGW: "1"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pwsh -File build/ci/flutter-windows-fetch-arqma-binaries.ps1
+
+      - name: Build arqma-wallet-rpc.exe (MinGW) if not from prebuilt archive
+        shell: msys2 {0}
+        working-directory: ${{ github.workspace }}
         run: |
+          set -eu
           export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
-          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-daemon-wallet-rpc-copy.sh"
+          DST="$(cygpath -u "$GITHUB_WORKSPACE")/rust/tauri-app/src-tauri/bin"
+          B="${ARQMA_WALLET2_UPSTREAM_DIR}/build-mingw"
+          test -d "$B"
+          if [ ! -f "$DST/arqma-wallet-rpc.exe" ]; then
+            cmake --build "$B" --target wallet_rpc_server -j"$(nproc 2>/dev/null || echo 4)"
+            cp -f "$B/bin/arqma-wallet-rpc.exe" "$DST/"
+          fi
+          test -f "$DST/arqmad.exe"
+          test -f "$DST/arqma-wallet-rpc.exe"
+          ls -la "$DST"
 
       - name: cargo build — arqma-wallet-flutter-ffi (Windows GNU)
         working-directory: rust
