@@ -433,7 +433,9 @@ jobs:
               Write-Host "Synced $e -> $rel/bin/"
             }
           }
-          pwsh -File "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1" -ReleaseDir $rel -FailIfNoArqmad
+          $verify = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1"
+          if (-not (Test-Path $verify)) { throw "missing verify script: $verify (commit flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1)" }
+          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad
 
       - name: Zip Release layout
         shell: pwsh
