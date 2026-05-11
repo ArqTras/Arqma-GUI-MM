@@ -3,10 +3,10 @@
 ## 5.0.5 — 2026-05-11
 
 - Bump app / workspace version to 5.0.5.
-- CI: build upstream `daemon` + `wallet_rpc_server` and copy `arqmad` / `arqma-wallet-rpc` into `rust/tauri-app/src-tauri/bin/` before Flutter desktop builds so release zips include bundled daemons (Windows / Linux / macOS).
-- CI: Flutter Windows — `arqmad.exe` from `arqma/arqma` release zip (`download-binaries.js`); `arqma-wallet-rpc.exe` from the same zip when present, otherwise build **only** `wallet_rpc_server` from the existing MinGW tree (avoids broken `daemon` link on MSYS2 + GCC 16).
+- CI: build upstream `daemon` and copy **`arqmad` only** into `rust/tauri-app/src-tauri/bin/` before Flutter desktop builds (no `arqma-wallet-rpc` in that directory).
+- CI: Flutter Windows — `arqmad.exe` from `arqma/arqma` release zip (`download-binaries.js`) into `src-tauri/bin/` only (no `arqma-wallet-rpc` in that folder).
 - CI: Windows Tauri bundle — `cargo-runner-gnu-flat-sync.mjs` also syncs `arqma_flutter_solo_pool.exe` into flat `target/release/` for NSIS.
-- Flutter GitHub Release: attach **DMG** (macOS), **AppImage** (Linux), **Inno Setup** `Arqma-Wallet-windows-x64-Setup.exe` plus existing zip/tar.gz; `workflow_dispatch` to rebuild a tag; Tauri workflow tag-only + dispatch (no PR matrix).
+- Flutter GitHub Release: release assets use the **`Arqma-Wallet-Flutter-`** prefix (zip / tar.gz / DMG / AppImage / Inno **`Arqma-Wallet-Flutter-windows-x64-Setup.exe`**) so Flutter installers are distinct from Tauri bundles; `workflow_dispatch` to rebuild a tag; Tauri workflow tag-only + dispatch (no PR matrix).
 
 ## 5.0.4 — 2026-05-11
 

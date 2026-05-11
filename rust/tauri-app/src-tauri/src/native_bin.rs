@@ -5,16 +5,23 @@ use tauri::Manager;
 
 /// Bundle + dev-tree search paths (Tauri `resource_dir/bin`, `./bin`, next to the running exe).
 ///
-/// **`CARGO_MANIFEST_DIR`/bin** — canonical location from `src-tauri/bin/README.txt`; `cwd`-relative `bin/`
-/// alone often points at `rust/tauri-app/bin`, so exes copied only under `src-tauri/bin/` were skipped.
-pub fn bundled_exe_candidates (app: &AppHandle, win: &str, unix: &str) -> Vec<PathBuf> {
+/// When `include_src_tauri_bin_dev` is **true**, adds **`CARGO_MANIFEST_DIR`/bin** (canonical for **arqmad**
+/// per `src-tauri/bin/README.txt`). **`arqma-wallet-rpc`** must not live there — pass **false** for wallet RPC
+/// resolution so dev builds do not pick a stale copy from `src-tauri/bin/`.
+pub fn bundled_exe_candidates (
+  app: &AppHandle,
+  win: &str,
+  unix: &str,
+  include_src_tauri_bin_dev: bool,
+) -> Vec<PathBuf> {
   let name = if cfg!(windows) { win } else { unix };
   let mut v = Vec::new();
   if let Ok(res) = app.path().resource_dir() {
     v.push(res.join("bin").join(name));
   }
-  // Same crate as Cargo.toml (`rust/tauri-app/src-tauri`) — documented bundle dir independent of cwd.
-  v.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bin").join(name));
+  if include_src_tauri_bin_dev {
+    v.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("bin").join(name));
+  }
   v.push(PathBuf::from("bin").join(name));
   v.push(PathBuf::from("binaries").join(name));
   if let Ok(exe) = std::env::current_exe() {
@@ -35,10 +42,16 @@ pub fn resolve_wallet_rpc_exe (app: &AppHandle) -> Option<PathBuf> {
     app,
     "arqma-wallet-rpc.exe",
     "arqma-wallet-rpc",
+    false,
   ))
 }
 
 /// Local daemon: same resolution as wallet RPC (see `ARQMA_DAEMON`, `ARQMA_BUILD_DIR`).
 pub fn resolve_arqmad_exe (app: &AppHandle) -> Option<PathBuf> {
-  arqma_wallet_rpc::resolve_daemon_path(bundled_exe_candidates(app, "arqmad.exe", "arqmad"))
+  arqma_wallet_rpc::resolve_daemon_path(bundled_exe_candidates(
+    app,
+    "arqmad.exe",
+    "arqmad",
+    true,
+  ))
 }

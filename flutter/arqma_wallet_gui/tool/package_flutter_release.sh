@@ -55,12 +55,12 @@ package_macos() {
     echo "error: missing ${app} after build" >&2
     exit 1
   fi
-  local base="Arqma-Wallet-${VERSION_SAFE}-macos"
+  local base="Arqma-Wallet-Flutter-${VERSION_SAFE}-macos"
   local zip_out="${DIST}/${base}.zip"
   local dmg_out="${DIST}/${base}.dmg"
   rm -f "${zip_out}" "${dmg_out}"
   (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
-  hdiutil create -quiet -volname "Arqma-Wallet" -srcfolder "${app}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
+  hdiutil create -quiet -volname "Arqma Wallet (Flutter)" -srcfolder "${app}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
   echo "Packaged: ${zip_out}"
   echo "Packaged: ${dmg_out}"
 }
@@ -78,7 +78,7 @@ package_linux() {
     echo "error: missing ${bundle} after build" >&2
     exit 1
   fi
-  local base="Arqma-Wallet-${VERSION_SAFE}-linux-${arch}"
+  local base="Arqma-Wallet-Flutter-${VERSION_SAFE}-linux-${arch}"
   local tgz="${DIST}/${base}.tar.gz"
   rm -f "${tgz}"
   tar -C "${bundle}" -czf "${tgz}" .

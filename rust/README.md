@@ -38,7 +38,7 @@ The Tauri shell **always** links **`wallet2_api`** via `arqma-wallet2-api`. You 
 The UI lives under `rust/tauri-app`. The Tauri project is `rust/tauri-app/src-tauri/`.
 
 1. Install **Node.js** (see root `README.md` for version).
-2. Optional but recommended for a **bundled** app: put official Arqma `arqmad` / `arqma-wallet-rpc` in `./bin` at repo root, then from repo root run `node build/copy-to-tauri-bins.js`, or `scripts/prepare-release-bins.ps1` / `scripts/prepare-release-bins.sh`. Without bundled binaries, set `ARQMA_BUILD_DIR` (upstream `build/release`) or `ARQMA_WALLET_RPC` / `ARQMA_DAEMON` — see `docs/WALLET_RUST_PORT.md` and `rust/tauri-app/src-tauri/bin/README.txt`.
+2. Optional but recommended for a **bundled** app: put official Arqma **`arqmad`** in `./bin` at repo root, then from repo root run `node build/copy-to-tauri-bins.js` (copies **arqmad only** into `src-tauri/bin/`), or `scripts/prepare-release-bins.ps1` / `scripts/prepare-release-bins.sh`. Without bundled daemon, set `ARQMA_BUILD_DIR` (upstream `build/release`) or `ARQMA_DAEMON` / `ARQMA_WALLET_RPC` — see `docs/WALLET_RUST_PORT.md` and `rust/tauri-app/src-tauri/bin/README.txt`.
 
 3. Build frontend, then the app (Tauri **`custom-protocol`** embeds `dist/`). All **`npm run tauri:*`** / **`ci:tauri*`** targets expect a built upstream wallet stack per `docs/NATIVE_WALLET2.md`.
 

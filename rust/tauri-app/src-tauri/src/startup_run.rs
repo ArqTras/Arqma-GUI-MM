@@ -249,7 +249,7 @@ pub async fn run_core_startup (
     let (kind, msg, timeout_ms): (&str, String, u64) = match &wr {
       WalletRpcStartResult::ExeNotFound => (
         "warning",
-        "arqma-wallet-rpc not found — wallet sync is disabled. Before building: copy arqma-wallet-rpc.exe (and arqmad.exe) into rust/tauri-app/src-tauri/bin, or run from repo root: node build/copy-to-tauri-bins.js if ./bin already has upstream builds. At runtime you can set ARQMA_WALLET_RPC or ARQMA_BUILD_DIR. See src-tauri/bin/README.txt.".into(),
+        "arqma-wallet-rpc not found — wallet sync is disabled. Put **arqmad** in rust/tauri-app/src-tauri/bin (see README.txt); for wallet-rpc set ARQMA_WALLET_RPC or PATH, or run node build/copy-to-tauri-bins.js from ./bin (arqmad only). ARQMA_BUILD_DIR also applies. See src-tauri/bin/README.txt.".into(),
         18_000,
       ),
       WalletRpcStartResult::MissingDaemonInConfig => (

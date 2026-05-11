@@ -8,7 +8,7 @@
   #define MyAppVersion "0.0.0"
 #endif
 
-#define MyAppName "Arqma Wallet"
+#define MyAppName "Arqma Wallet (Flutter)"
 #define MyAppPublisher "Arqma"
 ; Output next to repo root (this .iss lives under build/ci/).
 #define RepoRoot "..\\..\\"
@@ -20,7 +20,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 OutputDir={#RepoRoot}
-OutputBaseFilename=Arqma-Wallet-windows-x64-Setup
+OutputBaseFilename=Arqma-Wallet-Flutter-windows-x64-Setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/ultra64

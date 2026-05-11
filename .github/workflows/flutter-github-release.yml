@@ -64,9 +64,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-macos.sh
 
-      - name: Build Arqma daemon + wallet-rpc and copy to Tauri bin
+      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-wallet-rpc-copy.sh
+        run: bash build/ci/build-arqma-daemon-copy.sh
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
@@ -85,7 +85,7 @@ jobs:
       - name: Zip app bundle
         run: |
           cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-macos.zip"
 
       - name: DMG (macOS)
         working-directory: ${{ github.workspace }}
@@ -93,15 +93,15 @@ jobs:
           set -eu
           APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
           test -d "$APP"
-          hdiutil create -volname "Arqma Wallet" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.dmg"
-          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.dmg"
+          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-macos.dmg"
+          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-macos.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Arqma-Wallet-macos
+          name: Arqma-Wallet-Flutter-macos
           path: |
-            Arqma-Wallet-macos.zip
-            Arqma-Wallet-macos.dmg
+            Arqma-Wallet-Flutter-macos.zip
+            Arqma-Wallet-Flutter-macos.dmg
           retention-days: 30
 
   linux:
@@ -165,9 +165,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-linux.sh
 
-      - name: Build Arqma daemon + wallet-rpc and copy to Tauri bin
+      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-wallet-rpc-copy.sh
+        run: bash build/ci/build-arqma-daemon-copy.sh
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
@@ -189,7 +189,7 @@ jobs:
           set -eu
           b="flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
           test -d "$b"
-          tar -C "$b" -czf Arqma-Wallet-linux-x64.tar.gz .
+          tar -C "$b" -czf Arqma-Wallet-Flutter-linux-x64.tar.gz .
 
       - name: AppImage (Linux)
         working-directory: ${{ github.workspace }}
@@ -198,14 +198,14 @@ jobs:
           chmod +x build/ci/flutter-linux-bundle-to-appimage.sh
           bash build/ci/flutter-linux-bundle-to-appimage.sh \
             "flutter/arqma_wallet_gui/build/linux/x64/release/bundle" \
-            "${GITHUB_WORKSPACE}/Arqma-Wallet-x86_64.AppImage"
+            "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-x86_64.AppImage"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Arqma-Wallet-linux-x64
+          name: Arqma-Wallet-Flutter-linux-x64
           path: |
-            Arqma-Wallet-linux-x64.tar.gz
-            Arqma-Wallet-x86_64.AppImage
+            Arqma-Wallet-Flutter-linux-x64.tar.gz
+            Arqma-Wallet-Flutter-x86_64.AppImage
           retention-days: 30
 
   windows:
@@ -279,29 +279,12 @@ jobs:
           export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
           bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
 
-      - name: Fetch Arqma arqmad (+ wallet-rpc if in archive) for Flutter bundle
+      - name: Fetch Arqma arqmad.exe for Flutter bundle (bin — arqmad only)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -File build/ci/flutter-windows-fetch-arqma-binaries.ps1
-
-      - name: Build arqma-wallet-rpc.exe (MinGW) if not from prebuilt archive
-        shell: msys2 {0}
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -eu
-          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
-          DST="$(cygpath -u "$GITHUB_WORKSPACE")/rust/tauri-app/src-tauri/bin"
-          B="${ARQMA_WALLET2_UPSTREAM_DIR}/build-mingw"
-          test -d "$B"
-          if [ ! -f "$DST/arqma-wallet-rpc.exe" ]; then
-            cmake --build "$B" --target wallet_rpc_server -j"$(nproc 2>/dev/null || echo 4)"
-            cp -f "$B/bin/arqma-wallet-rpc.exe" "$DST/"
-          fi
-          test -f "$DST/arqmad.exe"
-          test -f "$DST/arqma-wallet-rpc.exe"
-          ls -la "$DST"
 
       - name: cargo build — arqma-wallet-flutter-ffi (Windows GNU)
         working-directory: rust
@@ -335,7 +318,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
           if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $zip = Join-Path $env:GITHUB_WORKSPACE "Arqma-Wallet-windows-x64.zip"
+          $zip = Join-Path $env:GITHUB_WORKSPACE "Arqma-Wallet-Flutter-windows-x64.zip"
           if (Test-Path $zip) { Remove-Item -Force $zip }
           Compress-Archive -Path (Join-Path $rel "*") -DestinationPath $zip -Force
           Write-Host "Packaged: $zip"
@@ -353,16 +336,16 @@ jobs:
           $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
           & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$ver" "/DSrcRelease=$rel"
-          $setup = Join-Path $pwd "Arqma-Wallet-windows-x64-Setup.exe"
+          $setup = Join-Path $pwd "Arqma-Wallet-Flutter-windows-x64-Setup.exe"
           if (-not (Test-Path $setup)) { throw "missing $setup" }
           Get-Item $setup | Format-List *
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Arqma-Wallet-windows-x64
+          name: Arqma-Wallet-Flutter-windows-x64
           path: |
-            Arqma-Wallet-windows-x64.zip
-            Arqma-Wallet-windows-x64-Setup.exe
+            Arqma-Wallet-Flutter-windows-x64.zip
+            Arqma-Wallet-Flutter-windows-x64-Setup.exe
           retention-days: 30
 
   publish-flutter-assets:
@@ -376,7 +359,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: flutter-bundles
-          pattern: Arqma-Wallet-*
+          pattern: Arqma-Wallet-Flutter-*
           merge-multiple: true
 
       - name: Collect files for upload
@@ -385,7 +368,7 @@ jobs:
           mkdir -p upload
           find flutter-bundles -type f \( \
             -name '*.zip' -o -name '*.tar.gz' -o -name '*.dmg' \
-            -o -name '*.AppImage' -o -name 'Arqma-Wallet-windows-x64-Setup.exe' \
+            -o -name '*.AppImage' -o -name 'Arqma-Wallet-Flutter-windows-x64-Setup.exe' \
             \) -exec cp -f {} upload/ \;
           ls -la upload/
           n=$(find upload -type f | wc -l | tr -d ' ')

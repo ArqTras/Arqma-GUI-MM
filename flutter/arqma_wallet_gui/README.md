@@ -25,13 +25,13 @@ Tauri packs `rust/tauri-app/src-tauri/bin/` via `tauri.conf.json` → `bundle.re
 |----------|-----------|-----------------------------------------------------------------------------------|
 | **macOS** | Xcode **Run Script** phase *Copy Arqma Tauri bins* (after Flutter embed) | `Arqma-Wallet.app/Contents/Resources/bin/` |
 
-**macOS App Sandbox:** disabled (`Runner/*entitlements`) so the GUI can spawn bundled `arqmad` / `arqma-wallet-rpc` like the Tauri shell. Enabling sandbox would require a separate signed helper/XPC design. Mac App Store builds would need a different packaging story.
+**macOS App Sandbox:** disabled (`Runner/*entitlements`) so the GUI can spawn bundled **`arqmad`** from the app bundle (`arqma-wallet-rpc` is not shipped in `src-tauri/bin/`; use native FFI or `ARQMA_WALLET_RPC`). Enabling sandbox would require a separate signed helper/XPC design. Mac App Store builds would need a different packaging story.
 | **Linux** | `linux/CMakeLists.txt` `install(PROGRAMS …)` | `<bundle>/bin/` next to the app executable |
 | **Linux** | same file — optional `install(FILES …)` | `<bundle>/lib/libarqma_wallet_flutter_ffi.so` when built under `rust/target/…` (native wallet2 FFI) |
 | **Windows** | `windows/CMakeLists.txt` `install(FILES …)` | `<install prefix>/bin/` next to `Arqma-Wallet.exe` |
 | **Windows** | same file — optional `install(FILES …)` | `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe` when present under `rust/target/…` |
 
-**Before building Flutter:** place **`arqmad`** and **`arqma-wallet-rpc`** in `rust/tauri-app/src-tauri/bin/` (same as Tauri `README.txt`), e.g. run from repo root `node build/copy-to-tauri-bins.js` when `./bin` already has upstream builds.
+**Before building Flutter:** place **`arqmad`** (only) in `rust/tauri-app/src-tauri/bin/` — see `rust/tauri-app/src-tauri/bin/README.txt`. From repo root: `node build/copy-to-tauri-bins.js` when `./bin` already has upstream **arqmad** (script copies arqmad only).
 
 **Optional:** `arqma_flutter_solo_pool` is copied from `src-tauri/bin/` if present, otherwise the macOS script tries `src-tauri/target/{release,debug}/arqma_flutter_solo_pool`.
 
@@ -43,9 +43,9 @@ From `flutter/arqma_wallet_gui`, after `flutter pub get` and with **`rust/tauri-
 
 | Host | Command | Output under `dist/` |
 |------|---------|------------------------|
-| **macOS** | `./tool/package_flutter_release.sh` or `./tool/package_flutter_release.sh macos` | `Arqma-Wallet-<version>-macos.zip`, `.dmg` (UDZO) |
-| **Linux** | `./tool/package_flutter_release.sh linux` | `Arqma-Wallet-<version>-linux-x64.tar.gz` or `…-linux-arm64.tar.gz` (flattened `bundle/` tree) |
-| **Windows** | `.\tool\package_flutter_release.ps1` | `Arqma-Wallet-<version>-windows-x64.zip` (`build/windows/x64/runner/Release`) |
+| **macOS** | `./tool/package_flutter_release.sh` or `./tool/package_flutter_release.sh macos` | `Arqma-Wallet-Flutter-<version>-macos.zip`, `.dmg` (UDZO; disk volume **Arqma Wallet (Flutter)**) |
+| **Linux** | `./tool/package_flutter_release.sh linux` | `Arqma-Wallet-Flutter-<version>-linux-x64.tar.gz` or `…-linux-arm64.tar.gz` (flattened `bundle/` tree) |
+| **Windows** | `.\tool\package_flutter_release.ps1` | `Arqma-Wallet-Flutter-<version>-windows-x64.zip` (`build/windows/x64/runner/Release`) |
 
 `dist/` is gitignored. These archives are drag-and-drop / extract installs (no root installer). Codesigning / notarization for macOS distribution is outside this script.
 

@@ -63,7 +63,7 @@ if (-not (Test-Path $releaseDir)) {
     Write-Error "Missing $releaseDir after build"
 }
 
-$zipName = "Arqma-Wallet-$versionSafe-windows-x64.zip"
+$zipName = "Arqma-Wallet-Flutter-$versionSafe-windows-x64.zip"
 $zipPath = Join-Path $dist $zipName
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 Compress-Archive -Path (Join-Path $releaseDir "*") -DestinationPath $zipPath -Force

@@ -110,7 +110,7 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 
 # Arqma Windows binaries — same `src-tauri/bin` as Tauri; installed next to the app under `bin/`.
 set(_arqma_tauri_bin "${CMAKE_CURRENT_SOURCE_DIR}/../../../rust/tauri-app/src-tauri/bin")
-foreach(_n IN ITEMS arqmad.exe arqma-wallet-rpc.exe arqma_flutter_solo_pool.exe)
+foreach(_n IN ITEMS arqmad.exe arqma_flutter_solo_pool.exe)
   if(EXISTS "${_arqma_tauri_bin}/${_n}")
     install(FILES "${_arqma_tauri_bin}/${_n}" DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" COMPONENT Runtime)
   endif()

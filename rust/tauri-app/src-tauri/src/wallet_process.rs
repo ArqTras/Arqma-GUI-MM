@@ -370,13 +370,18 @@ pub async fn try_start_wallet_rpc (
   st.wallet = None;
   st.wallet_salt = String::new();
   let Some(exe) = resolve_wallet_rpc_exe(app) else {
-    let cand: Vec<String> = bundled_exe_candidates(app, "arqma-wallet-rpc.exe", "arqma-wallet-rpc")
+    let cand: Vec<String> = bundled_exe_candidates(
+      app,
+      "arqma-wallet-rpc.exe",
+      "arqma-wallet-rpc",
+      false,
+    )
       .into_iter()
       .take(20)
       .map(|p| p.display().to_string())
       .collect();
     eprintln!(
-      "[wallet] arqma-wallet-rpc not found: set ARQMA_WALLET_RPC, ARQMA_BUILD_DIR, PATH, or place exe in src-tauri/bin before tauri build (see src-tauri/bin/README.txt)"
+      "[wallet] arqma-wallet-rpc not found: set ARQMA_WALLET_RPC, ARQMA_BUILD_DIR, or PATH (src-tauri/bin is for **arqmad** only; see README.txt)"
     );
     eprintln!("[wallet] tried (first): {}", cand.join(" | "));
     crate::agent_debug::log(

@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-daemon-helpers"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "arqma-wallet-core",
  "serde_json",
@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-wallet"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "arboard",
  "arqma-wallet-core",
@@ -123,7 +123,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-wallet-core"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-wallet-flutter-ffi"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "arqma-wallet-rpc",
  "serde_json",
@@ -141,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-wallet-rpc"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "arqma-wallet2-api",
  "async-trait",
@@ -156,7 +156,7 @@ dependencies = [
 
 [[package]]
 name = "arqma-wallet2-api"
-version = "5.0.3"
+version = "5.0.5"
 dependencies = [
  "cxx",
  "cxx-build",

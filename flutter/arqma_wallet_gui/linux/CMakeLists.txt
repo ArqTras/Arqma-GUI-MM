@@ -127,9 +127,9 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
     COMPONENT Runtime)
 endif()
 
-# Arqma `arqmad` / `arqma-wallet-rpc` / solo pool — same `src-tauri/bin` layout as Tauri (`tauri.conf.json` resources).
+# Arqma `arqmad` + solo pool — same `src-tauri/bin` layout as Tauri (`tauri.conf.json` resources); no arqma-wallet-rpc in bin.
 set(_arqma_tauri_bin "${CMAKE_CURRENT_SOURCE_DIR}/../../../rust/tauri-app/src-tauri/bin")
-foreach(_n IN ITEMS arqmad arqma-wallet-rpc arqma_flutter_solo_pool)
+foreach(_n IN ITEMS arqmad arqma_flutter_solo_pool)
   if(EXISTS "${_arqma_tauri_bin}/${_n}")
     install(PROGRAMS "${_arqma_tauri_bin}/${_n}" DESTINATION "${CMAKE_INSTALL_PREFIX}/bin" COMPONENT Runtime)
   endif()

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# After `wallet_merged`: build `daemon` (arqmad) + `wallet_rpc_server` (arqma-wallet-rpc) and copy into
-# `rust/tauri-app/src-tauri/bin/` so Flutter/Tauri CMake bundles match Tauri `bundle.resources`.
+# After `wallet_merged`: build `daemon` (arqmad) and copy into `rust/tauri-app/src-tauri/bin/`
+# so Flutter/Tauri CMake bundles match Tauri `bundle.resources` (arqmad only — no arqma-wallet-rpc).
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"
@@ -20,29 +20,23 @@ if [ ! -d "$BUILD_DIR" ]; then
   exit 1
 fi
 
-# MSYS2: libunwind + libgcc_eh duplicate unwind symbols for arqmad.exe only — pass LDFLAGS for that link
-# only (wallet_rpc_server must link without stripping/changing its dependency closure).
+# MSYS2: libunwind + libgcc_eh duplicate unwind symbols when linking arqmad.exe.
 if [ -n "${ARQMA_MINGW:-}" ]; then
   export LDFLAGS="-Wl,--allow-multiple-definition"
   cmake --build "$BUILD_DIR" --target daemon -j"$J"
   unset LDFLAGS
-  cmake --build "$BUILD_DIR" --target wallet_rpc_server -j"$J"
 else
-  cmake --build "$BUILD_DIR" --target daemon wallet_rpc_server -j"$J"
+  cmake --build "$BUILD_DIR" --target daemon -j"$J"
 fi
 
 BIN="$BUILD_DIR/bin"
 if [ -n "${ARQMA_MINGW:-}" ]; then
   test -f "$BIN/arqmad.exe"
-  test -f "$BIN/arqma-wallet-rpc.exe"
   cp -f "$BIN/arqmad.exe" "$DST/"
-  cp -f "$BIN/arqma-wallet-rpc.exe" "$DST/"
 else
   test -f "$BIN/arqmad"
-  test -f "$BIN/arqma-wallet-rpc"
   cp -f "$BIN/arqmad" "$DST/"
-  cp -f "$BIN/arqma-wallet-rpc" "$DST/"
 fi
 
-echo "[build-arqma-daemon-wallet-rpc-copy] OK -> $DST"
+echo "[build-arqma-daemon-copy] OK -> $DST (arqmad only)"
 ls -la "$DST" | head -20

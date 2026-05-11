@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- No App Sandbox: same as Release — local `arqmad` / `arqma-wallet-rpc` must be spawnable from the bundle. -->
+	<!-- No App Sandbox: same as Release — local `arqmad` must be spawnable from the bundle. -->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
 	<key>com.apple.security.network.server</key>

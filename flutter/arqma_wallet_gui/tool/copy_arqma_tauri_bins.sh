@@ -54,7 +54,7 @@ resolve_src () {
 }
 
 shopt -s nullglob
-for base in arqmad arqma-wallet-rpc arqma_flutter_solo_pool; do
+for base in arqmad arqma_flutter_solo_pool; do
   f="$(resolve_src "${base}")"
   [[ -n "${f}" ]] || continue
   cp -f "${f}" "${DEST}/"
