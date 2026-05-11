@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.0.4 — 2026-05-11
+
+- Bump app / workspace version to 5.0.4.
+- GitHub Actions: Flutter desktop bundles (macOS zip, Linux tar.gz, Windows zip) attach to `v*` releases via *Flutter GitHub Release* workflow.
+
 ## 5.0.3 — 2026-05-07
 
 ### Highlights
