@@ -4,6 +4,9 @@
 # After a tag build (`v*`), job `repo-private-after-build` sets the repository to **private** if
 # secret `ARQMA_REPO_VISIBILITY_PAT` is set (PAT with Administration: Read and write on this repo).
 # `GITHUB_TOKEN` cannot change visibility — add the PAT under Settings → Secrets and variables → Actions.
+#
+# **workflow_dispatch:** job `dispatch-flutter-desktop` starts **Flutter GitHub Release** in parallel
+# (same `ref` input for source checkout) so Tauri + Flutter desktop bundles build together.
 name: Tauri app
 
 # Tag push (v*): run unconditionally so release jobs always receive CI bundles.
@@ -29,6 +32,28 @@ env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
 
 jobs:
+  # Same manual run as Tauri: build Flutter desktop (macOS / Linux / Windows) + attach release assets.
+  dispatch-flutter-desktop:
+    name: Trigger Flutter GitHub Release (parallel)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Start Flutter desktop workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          INPUT_REF='${{ github.event.inputs.ref }}'
+          WF_REF='${{ github.ref_name }}'
+          gh workflow run "Flutter GitHub Release" \
+            --repo '${{ github.repository }}' \
+            --ref "$WF_REF" \
+            -f "ref=$INPUT_REF"
+          echo "Dispatched Flutter GitHub Release (workflow ref=$WF_REF, checkout ref=$INPUT_REF)"
+
   tauri:
     strategy:
       fail-fast: false

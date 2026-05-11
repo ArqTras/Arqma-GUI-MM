@@ -11,6 +11,9 @@
 #   2) git commit … && git push … && git tag vX.Y.Z && git push origin vX.Y.Z && gh release create …
 #   3) ./build/ci/github-repo-visibility-for-release.sh watch-tauri --tag vX.Y.Z
 #
+# On **workflow_dispatch** of *Tauri app*, Actions also starts *Flutter GitHub Release* in parallel;
+# `watch-tauri` only waits for Tauri — wait for the Flutter run separately if you need both before `private`.
+#
 # Environment: GH_TOKEN or gh auth (same as `gh`). Optional: GITHUB_REPOSITORY=owner/name
 set -eu
 
