@@ -8,6 +8,7 @@ on:
       - flutter
     paths:
       - "flutter/**"
+      - ".cursor/rules/**"
       - ".github/workflows/flutter.yml"
       - "build/ci/**"
       - "rust/arqma-wallet-flutter-ffi/**"
@@ -21,6 +22,7 @@ on:
       - flutter
     paths:
       - "flutter/**"
+      - ".cursor/rules/**"
       - ".github/workflows/flutter.yml"
       - "build/ci/**"
       - "rust/arqma-wallet-flutter-ffi/**"
