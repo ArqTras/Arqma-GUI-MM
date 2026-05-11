@@ -1,11 +1,15 @@
 ; Inno Setup — packs Flutter `windows/runner/Release` into a single Setup.exe (similar role to Tauri NSIS).
 ; Build from repo root, e.g.:
-;   ISCC.exe build\ci\flutter-windows-installer.iss /DMyAppVersion=5.0.5 /DSrcRelease=C:\full\path\to\Release
+;   ISCC.exe build\ci\flutter-windows-installer.iss /DMyAppVersion=5.1.0 /DVersionSafe=5.1.0-1 /DSrcRelease=C:\full\path\to\Release
 #ifndef SrcRelease
   #error Pass /DSrcRelease=... (absolute path to Flutter Release folder, no trailing backslash)
 #endif
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
+#endif
+; Filesystem-safe slug from pubspec (e.g. 5.1.0-1); pass /DVersionSafe=... from CI or ISCC.
+#ifndef VersionSafe
+  #define VersionSafe "0.0.0"
 #endif
 
 #define MyAppName "Arqma Wallet (Flutter)"
@@ -20,7 +24,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 OutputDir={#RepoRoot}
-OutputBaseFilename=Arqma-Wallet-Flutter-windows-x64-Setup
+OutputBaseFilename=Arqma-Wallet-Flutter-{#VersionSafe}-windows-x64-Setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/ultra64
