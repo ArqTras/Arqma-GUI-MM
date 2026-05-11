@@ -82,6 +82,20 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
 
+      - name: Ensure wallet FFI dylib in macOS app bundle
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
+          FW="${APP}/Contents/Frameworks"
+          DY="${FW}/libarqma_wallet_flutter_ffi.dylib"
+          if test -f "$DY"; then echo "FFI dylib already present: $DY"; exit 0; fi
+          mkdir -p "$FW"
+          SRC="${GITHUB_WORKSPACE}/rust/target/release/libarqma_wallet_flutter_ffi.dylib"
+          test -f "$SRC" || { echo "::error::missing $SRC (cargo build arqma-wallet-flutter-ffi)"; exit 1; }
+          cp -f "$SRC" "$DY"
+          echo "Copied FFI dylib -> $DY"
+
       - name: Zip app bundle
         run: |
           cd build/macos/Build/Products/Release
@@ -182,6 +196,19 @@ jobs:
 
       - name: Build Linux
         run: flutter build linux --release
+
+      - name: Ensure wallet FFI .so in Linux bundle
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          b="flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
+          lib="${b}/lib/libarqma_wallet_flutter_ffi.so"
+          if test -f "$lib"; then echo "FFI .so already present: $lib"; exit 0; fi
+          mkdir -p "${b}/lib"
+          SRC="${GITHUB_WORKSPACE}/rust/target/release/libarqma_wallet_flutter_ffi.so"
+          test -f "$SRC" || { echo "::error::missing $SRC"; exit 1; }
+          cp -f "$SRC" "$lib"
+          echo "Copied FFI .so -> $lib"
 
       - name: Tar bundle
         working-directory: ${{ github.workspace }}
@@ -310,6 +337,19 @@ jobs:
 
       - name: Build Windows
         run: flutter build windows --release
+
+      - name: Ensure wallet FFI DLL in Windows Release layout
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
+          $dll = Join-Path $rel "arqma_wallet_flutter_ffi.dll"
+          if (Test-Path $dll) { Write-Host "FFI DLL already present: $dll"; exit 0 }
+          $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
+          if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
+          Copy-Item -Force $src $dll
+          Write-Host "Copied FFI DLL -> $dll"
 
       - name: Zip Release layout
         shell: pwsh

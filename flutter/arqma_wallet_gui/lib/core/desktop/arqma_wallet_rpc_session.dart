@@ -70,7 +70,7 @@ int walletRpcLogLevel(Map<String, dynamic> configData) {
 String? resolveWalletRpcExecutable() =>
     resolveArqmaExecutable(ArqmaExecutableKind.walletRpc);
 
-/// Wallet JSON-RPC: **native** `Wallet2ApiClient` via `libarqma_wallet_flutter_ffi` (default on desktop).
+/// Wallet JSON-RPC: **native** `Wallet2ApiClient` via `arqma_wallet_flutter_ffi` (`.dll` / `.so` / `.dylib`; default on desktop).
 ///
 /// There is **no** `arqma-wallet-rpc` subprocess unless you opt in with **`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`**
 /// (debug / migration only).
