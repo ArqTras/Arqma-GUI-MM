@@ -76,7 +76,11 @@ class SwapSignatureList extends StatelessWidget {
         : loc.tr('pages.wallet.swap.claim_air_drop');
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-          backgroundColor: type == 'Exchange' ? Colors.green : Colors.blue),
+        backgroundColor: type == 'Exchange'
+            ? ArqmaColors.arqmaGreenSolid
+            : ArqmaColors.arqmaGreenDarkSolid,
+        foregroundColor: const Color(0xFF14110A),
+      ),
       onPressed: () => onActionTap(m),
       child: Text(label),
     );

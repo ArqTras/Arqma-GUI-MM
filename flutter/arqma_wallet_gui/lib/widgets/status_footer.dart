@@ -117,7 +117,7 @@ class _StatusFooterState extends State<StatusFooter> {
     final String scan = loc.tr('components.footer.scanning');
     final String sync = loc.tr('components.footer.syncing');
     if (s == scan || s == sync) {
-      return Colors.amber.shade600;
+      return ArqmaColors.warning;
     }
     return ArqmaColors.textSecondary;
   }
@@ -233,8 +233,8 @@ class _StatusFooterState extends State<StatusFooter> {
             child: DefaultTextStyle.merge(
               style: const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: ArqmaColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                color: ArqmaColors.arqmaGreenSolid,
               ),
               child: Wrap(
                 spacing: 8,
@@ -257,6 +257,8 @@ class _StatusFooterState extends State<StatusFooter> {
                       Text('${loc.tr('components.footer.language')}: '),
                       PopupMenuButton<String>(
                         padding: EdgeInsets.zero,
+                        useRootNavigator: true,
+                        color: ArqmaColors.darkPanel,
                         onSelected: (String v) =>
                             context.read<LocaleController>().setLocale(v),
                         itemBuilder: (BuildContext c) => _localeOptions

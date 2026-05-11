@@ -71,7 +71,7 @@ List<Offset> _soloPoolAggregatePoints(List<Map<String, dynamic>> workersAll,
     if (g is! Map) {
       continue;
     }
-    (g as Map<dynamic, dynamic>).forEach((dynamic k, dynamic v) {
+    g.forEach((dynamic k, dynamic v) {
       final num key = num.tryParse('$k') ?? 0;
       buckets[key] = (buckets[key] ?? 0) + (num.tryParse('$v') ?? 0).toDouble();
     });
@@ -136,8 +136,7 @@ List<_WorkerChartLine> _soloPoolWorkerLines(
     if (g is! Map) {
       continue;
     }
-    final List<MapEntry<num, double>> entries = (g as Map<dynamic, dynamic>)
-        .entries
+    final List<MapEntry<num, double>> entries = g.entries
         .map(
           (MapEntry<dynamic, dynamic> e) => MapEntry<num, double>(
             num.tryParse('${e.key}') ?? 0,
@@ -462,7 +461,7 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
       Map<String, dynamic>? activeWallet;
       for (final dynamic w in wallets) {
         if (w is Map && '${w['address']}' == curAddr) {
-          activeWallet = Map<String, dynamic>.from(w as Map);
+          activeWallet = Map<String, dynamic>.from(w);
           break;
         }
       }
@@ -471,9 +470,9 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
           : curAddr;
       return <({String label, String value})>[(label: label, value: curAddr)];
     }
-    if (wallets.isNotEmpty && wallets.first is Map) {
-      final Map<String, dynamic> w =
-          Map<String, dynamic>.from(wallets.first as Map);
+    final Object? firstWallet = wallets.isNotEmpty ? wallets.first : null;
+    if (firstWallet is Map) {
+      final Map<String, dynamic> w = Map<String, dynamic>.from(firstWallet);
       return <({String label, String value})>[
         (label: '${w['name']} - ${w['address']}', value: '${w['address']}')
       ];
@@ -520,13 +519,13 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
   static Color _statusChipColor(int status) {
     switch (status) {
       case 2:
-        return Colors.green.shade700;
+        return ArqmaColors.arqmaGreenSolid;
       case 1:
-        return Colors.orange.shade800;
+        return ArqmaColors.arqmaGreenDarkSolid;
       case -1:
-        return Colors.red.shade700;
+        return ArqmaColors.negative;
       default:
-        return Colors.grey.shade700;
+        return ArqmaColors.textMuted;
     }
   }
 
@@ -609,14 +608,16 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
     }
     final Map<String, dynamic> poolPayload =
         jsonDecode(jsonEncode(_settings)) as Map<String, dynamic>;
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     await api.send('core', 'save_pool_config', poolPayload);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.tr('components.solo_pool.saved'))),
-      );
-      if (prevPool != null && _varDiffParamsChanged(prevVd, vd)) {
-        _showVarDiffRestartDialog();
-      }
+    if (!mounted) {
+      return;
+    }
+    messenger.showSnackBar(
+      SnackBar(content: Text(loc.tr('components.solo_pool.saved'))),
+    );
+    if (prevPool != null && _varDiffParamsChanged(prevVd, vd)) {
+      _showVarDiffRestartDialog();
     }
   }
 
@@ -722,7 +723,10 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
               Chip(
                 label: Text(
                   statusLabel(),
-                  style: const TextStyle(color: ArqmaColors.qrLightSurface),
+                  style: const TextStyle(
+                    color: Color(0xFF14110A),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 backgroundColor: _statusChipColor(status),
               ),
@@ -730,8 +734,11 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
           ),
           if (daemonType == 'remote')
             MaterialBanner(
-              content: Text(loc.tr('components.solo_pool.remote_warning')),
-              backgroundColor: Colors.orange.shade200,
+              content: Text(
+                loc.tr('components.solo_pool.remote_warning'),
+                style: const TextStyle(color: ArqmaColors.arqmaGreenSolid),
+              ),
+              backgroundColor: const Color(0xFF2A2418),
               actions: <Widget>[
                 TextButton(
                   onPressed: () =>
@@ -742,8 +749,11 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
             ),
           if (server['enabled'] == true && poolState['desynced'] == true)
             MaterialBanner(
-              content: Text(loc.tr('components.solo_pool.pool_desync_hint')),
-              backgroundColor: Colors.amber.shade200,
+              content: Text(
+                loc.tr('components.solo_pool.pool_desync_hint'),
+                style: const TextStyle(color: ArqmaColors.arqmaGreenSolid),
+              ),
+              backgroundColor: const Color(0xFF2A2418),
               actions: <Widget>[
                 TextButton(
                   onPressed: () =>
@@ -843,46 +853,33 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
           const SizedBox(height: 12),
           Text(loc.tr('components.solo_pool.net_hashrate'),
               style: Theme.of(context).textTheme.titleSmall),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _miniStatCard(loc.tr('components.solo_pool.net_hashrate'),
-                  _shortHashrate(netHr)),
-              _miniStatCard(
-                  loc.tr('components.solo_pool.net_difficulty'), _commas(diff)),
-              _miniStatCard(
-                  loc.tr('components.solo_pool.height'), _commas(height)),
-              _miniStatCard(
-                  loc.tr('components.solo_pool.workers'), '$activeWorkers'),
-            ],
-          ),
+          _soloEvenStatRow(<MapEntry<String, String>>[
+            MapEntry(loc.tr('components.solo_pool.net_hashrate'),
+                _shortHashrate(netHr)),
+            MapEntry(loc.tr('components.solo_pool.net_difficulty'),
+                _commas(diff)),
+            MapEntry(loc.tr('components.solo_pool.height'), _commas(height)),
+            MapEntry(
+                loc.tr('components.solo_pool.workers'), '$activeWorkers'),
+          ]),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: effortCards
-                .map((Map<String, dynamic> ec) =>
-                    _miniStatCard('${ec['label']}', '${ec['value']}'))
-                .toList(),
-          ),
+          _soloEvenStatRow(effortCards
+              .map((Map<String, dynamic> ec) =>
+                  MapEntry<String, String>('${ec['label']}', '${ec['value']}'))
+              .toList()),
           const SizedBox(height: 12),
           Text(loc.tr('components.solo_pool.pool_hashrate'),
               style: Theme.of(context).textTheme.titleSmall),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _miniStatCard(loc.tr('components.solo_pool.hashrate_5m'),
-                  _shortHashrate(hr5)),
-              _miniStatCard(loc.tr('components.solo_pool.hashrate_1h'),
-                  _shortHashrate(hr1)),
-              _miniStatCard(loc.tr('components.solo_pool.hashrate_6h'),
-                  _shortHashrate(hr6)),
-              _miniStatCard(loc.tr('components.solo_pool.hashrate_24h'),
-                  _shortHashrate(hr24)),
-            ],
-          ),
+          _soloEvenStatRow(<MapEntry<String, String>>[
+            MapEntry(loc.tr('components.solo_pool.hashrate_5m'),
+                _shortHashrate(hr5)),
+            MapEntry(loc.tr('components.solo_pool.hashrate_1h'),
+                _shortHashrate(hr1)),
+            MapEntry(loc.tr('components.solo_pool.hashrate_6h'),
+                _shortHashrate(hr6)),
+            MapEntry(loc.tr('components.solo_pool.hashrate_24h'),
+                _shortHashrate(hr24)),
+          ]),
           const SizedBox(height: 12),
           Builder(
             builder: (BuildContext chartCtx) {
@@ -1251,22 +1248,42 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
     );
   }
 
-  Widget _miniStatCard(String title, String value) {
-    return SizedBox(
-      width: 140,
-      child: Card(
-        color: const Color(0xFF1a1a1a),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 11, color: ArqmaColors.textSecondary)),
-              Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-            ],
-          ),
+  /// Fills row width evenly (replaces fixed-width [Wrap] tiles).
+  Widget _soloEvenStatRow(List<MapEntry<String, String>> entries) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        for (int i = 0; i < entries.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(child: _soloStatTile(entries[i].key, entries[i].value)),
+        ],
+      ],
+    );
+  }
+
+  Widget _soloStatTile(String title, String value) {
+    return Card(
+      color: const Color(0xFF1a1a1a),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                  fontSize: 11, color: ArqmaColors.textSecondary),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

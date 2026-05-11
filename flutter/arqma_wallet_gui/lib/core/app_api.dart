@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-
 import '../store/gateway_store.dart';
 import 'services/native_bridge.dart';
 
@@ -52,7 +50,7 @@ class AppApi {
       return r.isEmpty ? null : r;
     }
     if (r is Map) {
-      final Map<String, dynamic> m = Map<String, dynamic>.from(r as Map);
+      final Map<String, dynamic> m = Map<String, dynamic>.from(r);
       if (m['canceled'] == true || m['cancelled'] == true) {
         return null;
       }
@@ -94,7 +92,7 @@ class AppApi {
       if (msg['event'] == 'set_valid_address') {
         final Object? d = msg['data'];
         if (d is Map) {
-          final Map<String, dynamic> m = Map<String, dynamic>.from(d as Map);
+          final Map<String, dynamic> m = Map<String, dynamic>.from(d);
           if ('${m['address']}' == address && !c.isCompleted) {
             c.complete(m);
             sub.cancel();

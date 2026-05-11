@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-import 'daemon_json_rpc.dart';
+import 'daemon_json_rpc.dart' show DaemonJsonRpc, readHttpResponseBodyUtf8;
 
 /// `daemon_heartbeat::explorer_clock_skew` — returns `true` if local clock skew vs explorer is large.
 Future<bool?> explorerClockSkewArqma({required bool testnet}) async {
@@ -18,7 +18,7 @@ Future<bool?> explorerClockSkewArqma({required bool testnet}) async {
     req.headers.set(HttpHeaders.acceptHeader, 'application/json');
     final HttpClientResponse resp =
         await req.close().timeout(const Duration(seconds: 12));
-    final String text = await utf8.decoder.bind(resp).join();
+    final String text = await readHttpResponseBodyUtf8(resp);
     if (resp.statusCode != 200) {
       return null;
     }

@@ -6,6 +6,13 @@ C ABI (`cdylib`) around [`Wallet2ApiClient`](https://github.com/ArqTras/Arqma-GU
 
 Requires an Arqma core checkout and `libwallet_merged` (or equivalent) per [`rust/docs/NATIVE_WALLET2.md`](../docs/NATIVE_WALLET2.md).
 
+This crate ships a `build.rs` so the **`cdylib`** link pulls the same MinGW system libraries as the Tauri app (OpenSSL, Boost, ICU, `shell32`, `advapi32`, …). Without it, `cargo build -p arqma-wallet-flutter-ffi` on `x86_64-pc-windows-gnu` fails at link time.
+
+**One-shot helpers**
+
+- **Windows (PowerShell):** `rust/tool/build_native_wallet_flutter_ffi_windows.ps1` — runs `npm run build:arqma:mingw` then `cargo build …--target x86_64-pc-windows-gnu` and optionally `flutter build windows --release`.
+- **Linux / macOS:** `bash rust/tool/build_native_wallet_flutter_ffi_unix.sh` (from repo root or `rust/`, after upstream clone).
+
 From the repository `rust/` directory:
 
 ```bash

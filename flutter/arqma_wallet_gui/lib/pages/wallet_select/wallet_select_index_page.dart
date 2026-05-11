@@ -23,6 +23,9 @@ class WalletSelectIndexPage extends StatefulWidget {
 class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
   StreamSubscription<Map<String, dynamic>>? _sub;
 
+  /// Held for [dispose] — do not call [context.read] there (element already deactivated).
+  GatewayStore? _gatewayListenTarget;
+
   @override
   void initState() {
     super.initState();
@@ -40,8 +43,8 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
             ),
       );
     });
-    final GatewayStore store = context.read<GatewayStore>();
-    store.addListener(_onWalletStatus);
+    _gatewayListenTarget = context.read<GatewayStore>();
+    _gatewayListenTarget!.addListener(_onWalletStatus);
     _sub = context
         .read<AppApi>()
         .bridge
@@ -49,7 +52,12 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         .listen((Map<String, dynamic> msg) {
       if (msg['event'] == 'reset_wallet_status' ||
           msg['event'] == 'set_wallet_error') {
-        _onWalletStatus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) {
+            return;
+          }
+          _onWalletStatus();
+        });
       }
     });
   }
@@ -57,28 +65,34 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
   @override
   void dispose() {
     _sub?.cancel();
-    context.read<GatewayStore>().removeListener(_onWalletStatus);
+    _gatewayListenTarget?.removeListener(_onWalletStatus);
+    _gatewayListenTarget = null;
     super.dispose();
   }
 
   void _onWalletStatus() {
-    if (!mounted) {
+    final GatewayStore? g = _gatewayListenTarget;
+    if (g == null) {
       return;
     }
     final Map<String, dynamic> st =
-        context.read<GatewayStore>().wallet['status'] as Map<String, dynamic>;
+        g.wallet['status'] as Map<String, dynamic>;
     final int code = st['code'] as int? ?? 1;
     if (code == 0) {
       AppLoading.hide();
-      context.go('/wallet');
-    } else if (code == -1 || code == -22) {
+      if (context.mounted) {
+        context.go('/wallet');
+      }
+    } else if (code < 0) {
       AppLoading.hide();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${st['message'] ?? ''}')),
-      );
-      context
-          .read<GatewayStore>()
-          .resetWalletStatus({'code': 1, 'message': null});
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${st['message'] ?? ''}')),
+        );
+        context
+            .read<GatewayStore>()
+            .resetWalletStatus({'code': 1, 'message': null});
+      }
     }
   }
 
@@ -89,19 +103,34 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final bool pwdProt = wallet['password_protected'] != false;
     String? password = '';
     if (pwdProt) {
-      password = await showDialog<String>(
-        context: context,
-        builder: (BuildContext c) {
-          final TextEditingController pw = TextEditingController();
-          return AlertDialog(
+      // Controller must live outside `builder` — rebuilding the dialog would
+      // recreate an empty controller and wipe typed characters.
+      final TextEditingController pw = TextEditingController();
+      try {
+        password = await showDialog<String>(
+          context: context,
+          builder: (BuildContext c) => AlertDialog(
+            backgroundColor: const Color(0xFF1d1d1d),
             title: Text(
                 loc.tr('pages.wallet_select.index.open_wallet_password_title')),
-            content: TextField(
-              controller: pw,
-              obscureText: true,
-              decoration: InputDecoration(
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 300),
+              child: TextField(
+                controller: pw,
+                autofocus: true,
+                obscureText: true,
+                style: const TextStyle(
+                  color: ArqmaColors.textPrimary,
+                  fontSize: 15,
+                ),
+                cursorColor: ArqmaColors.arqmaGreenSolid,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => Navigator.pop(c, pw.text),
+                decoration: InputDecoration(
                   labelText: loc.tr(
-                      'pages.wallet_select.index.open_wallet_password_message')),
+                      'pages.wallet_select.index.open_wallet_password_message'),
+                ),
+              ),
             ),
             actions: [
               TextButton(
@@ -115,16 +144,33 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
                     loc.tr('pages.wallet_select.index.open_wallet_ok_label')),
               ),
             ],
-          );
-        },
-      );
+          ),
+        );
+      } finally {
+        // `showDialog` future completes before the route finishes disposing its
+        // subtree — disposing the controller immediately triggers
+        // "TextEditingController was used after being disposed".
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          pw.dispose();
+        });
+      }
       if (password == null) {
         return;
       }
     }
-    AppLoading.show();
+    await AppLoading.show();
     await api.send('wallet', 'open_wallet',
         <String, dynamic>{'name': name, 'password': password});
+    if (!mounted) {
+      return;
+    }
+    final Map<String, dynamic> st =
+        context.read<GatewayStore>().wallet['status'] as Map<String, dynamic>;
+    final int code = st['code'] as int? ?? 1;
+    if (code == 0) {
+      AppLoading.hide();
+      context.go('/wallet');
+    }
   }
 
   Future<void> _copyAddress(String address) async {
@@ -267,7 +313,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
             child: Row(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(left: 56),
+                  padding: const EdgeInsets.only(left: 4),
                   child: Text(
                     loc.tr('pages.wallet_select.index.accounts'),
                     style: const TextStyle(

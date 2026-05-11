@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:ui' show AppExitResponse;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import 'app_nav.dart';
+import 'core/app_exit_watchdog.dart';
 import 'core/app_api.dart';
 import 'core/services/app_receiver.dart';
 import 'core/services/native_bridge.dart';
@@ -126,11 +131,106 @@ class ArqmaWalletApp extends StatefulWidget {
   State<ArqmaWalletApp> createState() => _ArqmaWalletAppState();
 }
 
-class _ArqmaWalletAppState extends State<ArqmaWalletApp> {
+class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addObserver(this);
+    }
+  }
+
   @override
   void dispose() {
+    if (!kIsWeb) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
     widget.receiver.dispose();
     super.dispose();
+  }
+
+  /// OS window close (desktop) — confirm, flush wallet, then native shutdown (`confirm_close`).
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    if (kIsWeb) {
+      return AppExitResponse.exit;
+    }
+    final BuildContext? navCtx = appNavigatorKey.currentContext;
+    if (navCtx == null || !navCtx.mounted) {
+      return AppExitResponse.exit;
+    }
+    final LocaleController loc = Provider.of<LocaleController>(navCtx, listen: false);
+    final NativeBridge bridge = Provider.of<NativeBridge>(navCtx, listen: false);
+    final Completer<AppExitResponse> done = Completer<AppExitResponse>();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        final BuildContext? c = appNavigatorKey.currentContext;
+        if (c == null || !c.mounted) {
+          done.complete(AppExitResponse.exit);
+          return;
+        }
+        final bool? ok = await showDialog<bool>(
+          context: c,
+          useRootNavigator: true,
+          barrierDismissible: false,
+          builder: (BuildContext d) => AlertDialog(
+            title: Text(loc.tr('components.mainmenu.exit_wallet')),
+            content: Text(loc.tr('components.mainmenu.confirm_close')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(d, false),
+                child: Text(loc.tr('composables.cancel')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(d, true),
+                child: Text(loc.tr('components.mainmenu.exit_wallet')),
+              ),
+            ],
+          ),
+        );
+        if (ok != true) {
+          done.complete(AppExitResponse.cancel);
+          return;
+        }
+        // Yield so the dialog can dismiss before blocking FFI/RPC; timeouts avoid
+        // indefinite Windows "not responding" if the wallet is busy scanning.
+        await Future<void>.delayed(Duration.zero);
+        // Short window: while UI is blocked in native FFI, Windows shows "not responding";
+        // this isolate still runs and SIGKILLs our PID (see app_exit_watchdog.dart).
+        final AppExitWatchdog exitWatchdog =
+            await startAppExitWatchdog(maxSeconds: 14);
+        try {
+          try {
+            await bridge
+                .backendSend('wallet', 'save_wallet', <String, dynamic>{})
+                .timeout(const Duration(seconds: 4));
+          } catch (e, st) {
+            debugPrint('[ArqmaWalletApp] exit save_wallet: $e\n$st');
+          }
+          try {
+            await bridge
+                .backendSend('wallet', 'close_wallet', <String, dynamic>{})
+                .timeout(const Duration(seconds: 8));
+          } catch (e, st) {
+            debugPrint('[ArqmaWalletApp] exit close_wallet: $e\n$st');
+          }
+          try {
+            await bridge
+                .invoke('confirm_close', <String, dynamic>{'restart': false})
+                .timeout(const Duration(seconds: 4));
+          } catch (e, st) {
+            debugPrint('[ArqmaWalletApp] exit confirm_close: $e\n$st');
+          }
+          done.complete(AppExitResponse.exit);
+        } finally {
+          exitWatchdog.cancel();
+        }
+      } catch (e, st) {
+        debugPrint('[ArqmaWalletApp] didRequestAppExit: $e\n$st');
+        done.complete(AppExitResponse.exit);
+      }
+    });
+    return done.future;
   }
 
   @override

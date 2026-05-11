@@ -280,26 +280,29 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     String mode = 'spent';
     final bool? pick = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (BuildContext c) => StatefulBuilder(
         builder: (BuildContext c, void Function(void Function()) setLocal) {
           return AlertDialog(
             title: Text(loc.tr('components.wallet_settings.rescan_account')),
             content: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 RadioListTile<String>(
-                  title: Text(loc
-                      .tr('components.wallet_settings.rescan_full_blockchain')),
+                  title: Text(loc.tr(
+                      'components.wallet_settings.rescan_full_blockchain')),
                   value: 'full',
                   groupValue: mode,
-                  onChanged: (String? v) => setLocal(() => mode = v ?? 'spent'),
+                  onChanged: (String? v) =>
+                      setLocal(() => mode = v ?? 'spent'),
                 ),
                 RadioListTile<String>(
-                  title: Text(loc
-                      .tr('components.wallet_settings.rescan_spent_outputs')),
+                  title: Text(loc.tr(
+                      'components.wallet_settings.rescan_spent_outputs')),
                   value: 'spent',
                   groupValue: mode,
-                  onChanged: (String? v) => setLocal(() => mode = v ?? 'spent'),
+                  onChanged: (String? v) =>
+                      setLocal(() => mode = v ?? 'spent'),
                 ),
               ],
             ),
@@ -321,6 +324,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (mode == 'full') {
       final bool? hard = await showDialog<bool>(
         context: context,
+        useRootNavigator: true,
         builder: (BuildContext c) => AlertDialog(
           title: Text(loc.tr('components.wallet_settings.rescan_wallet_title')),
           content:
@@ -565,12 +569,14 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     final LocaleController loc = context.watch<LocaleController>();
     final GatewayStore store = context.watch<GatewayStore>();
     final bool ready = store.isReady;
+    final bool canRescan = store.hasOpenWallet;
     final Map<String, dynamic> info = store.walletInfo;
     final String label = '${info['name'] ?? ''}'.isEmpty
         ? loc.tr('components.wallet_settings.settings')
         : '${info['name']}';
 
     return PopupMenuButton<String>(
+      useRootNavigator: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
@@ -600,7 +606,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             }
             break;
           case 'rescan':
-            if (ready) {
+            if (canRescan) {
               await _rescan();
             }
             break;
@@ -647,7 +653,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             child: Text(loc.tr('components.wallet_settings.save_wallet'))),
         PopupMenuItem(
             value: 'rescan',
-            enabled: ready,
+            enabled: canRescan,
             child: Text(loc.tr('components.wallet_settings.rescan_account'))),
         PopupMenuItem(
             value: 'sweep',

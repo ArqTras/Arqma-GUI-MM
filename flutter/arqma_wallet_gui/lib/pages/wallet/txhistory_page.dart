@@ -21,6 +21,9 @@ class TxHistoryPage extends StatefulWidget {
 
 class _TxHistoryPageState extends State<TxHistoryPage>
     with WidgetsBindingObserver {
+  /// Same height for the three filter cells (label + input row).
+  static const double _kFilterRowHeight = 124;
+
   final TextEditingController _txid = TextEditingController();
   int _typeIndex = 0;
   Timer? _txidDebounce;
@@ -192,43 +195,63 @@ class _TxHistoryPageState extends State<TxHistoryPage>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                flex: 4,
-                child: ArqmaField(
-                  label:
-                      loc.tr('pages.wallet.txhistory.filter_by_transactionid'),
-                  disableMenu: false,
-                  child: TextField(
+          child: SizedBox(
+            height: _kFilterRowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ArqmaField(
+                    stretchContent: true,
+                    goldChrome: true,
+                    label: loc
+                        .tr('pages.wallet.txhistory.filter_by_transactionid'),
+                    disableMenu: false,
+                    child: TextField(
                     controller: _txid,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: ArqmaColors.textPrimary,
+                    ),
                     decoration: InputDecoration(
                       hintText: loc.tr(
                           'pages.wallet.txhistory.filter_by_transactionid_placeholder'),
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: ArqmaColors.textMuted.withValues(alpha: 0.9),
+                      ),
                       border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                     onChanged: (_) => _scheduleTxidFilter(),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: ArqmaField(
-                  label: loc.tr(
-                      'components.general_settings.transactions_to_display'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 2,
-                          thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 6),
-                        ),
-                        child: Slider(
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ArqmaField(
+                    stretchContent: true,
+                    goldChrome: true,
+                    label: loc.tr(
+                        'components.general_settings.transactions_to_display'),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 3,
+                            activeTrackColor: ArqmaColors.arqmaGreenSolid,
+                            inactiveTrackColor:
+                                ArqmaColors.outlineDefault.withValues(alpha: 0.5),
+                            thumbColor: ArqmaColors.arqmaGreenSolid,
+                            overlayColor: ArqmaColors.selection,
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 7),
+                          ),
+                          child: Slider(
                           min: 1,
                           max: 30,
                           divisions: 29,
@@ -241,31 +264,48 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                           },
                         ),
                       ),
-                      Text(
-                        '$_daysOfTransactions${loc.tr('components.general_settings.days')}',
-                        style: const TextStyle(
-                            fontSize: 11, color: ArqmaColors.textMuted),
-                        textAlign: TextAlign.right,
-                      ),
-                    ],
+                        Text(
+                          '$_daysOfTransactions${loc.tr('components.general_settings.days')}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: ArqmaColors.arqmaGreenSolid,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: ArqmaField(
-                  label: loc
-                      .tr('pages.wallet.txhistory.filter_by_transaction_type'),
-                  child: DropdownButtonFormField<int>(
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ArqmaField(
+                    stretchContent: true,
+                    goldChrome: true,
+                    label: loc
+                        .tr('pages.wallet.txhistory.filter_by_transaction_type'),
+                    child: DropdownButtonFormField<int>(
                     value: _typeIndex,
+                    isDense: true,
+                    isExpanded: true,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: ArqmaColors.textPrimary,
+                    ),
+                    iconEnabledColor: ArqmaColors.arqmaGreenSolid,
                     dropdownColor: const Color(0xFF1d1d1d),
                     decoration: const InputDecoration(border: InputBorder.none),
                     items: _typeOptions
                         .map(
                           (Map<String, dynamic> o) => DropdownMenuItem<int>(
                             value: o['index'] as int,
-                            child: Text(loc.tr(o['label'] as String)),
+                            child: Text(
+                              loc.tr(o['label'] as String),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: ArqmaColors.textPrimary,
+                              ),
+                            ),
                           ),
                         )
                         .toList(),
@@ -277,13 +317,21 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                     },
                   ),
                 ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(loc.tr('pages.wallet.txhistory.transactions')),
+          child: Text(
+            loc.tr('pages.wallet.txhistory.transactions'),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: ArqmaColors.arqmaGreenSolid,
+            ),
+          ),
         ),
         // `.scroller` in `txhistory.vue`: `max-height: viewport - 400px`.
         Expanded(

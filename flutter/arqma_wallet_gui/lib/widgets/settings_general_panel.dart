@@ -379,19 +379,25 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
           ArqmaField(
             label: loc.tr('components.general_settings.debug_log_levels'),
             child: Row(
-              children: [
+              children: <Widget>[
                 Radio<String>(
                   value: 'error',
                   groupValue: '${_app()['loggingLevel'] ?? 'info'}',
-                  onChanged: (String? v) =>
-                      setState(() => _app()['loggingLevel'] = v),
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      setState(() => _app()['loggingLevel'] = v);
+                    }
+                  },
                 ),
                 const Text('error'),
                 Radio<String>(
                   value: 'info',
                   groupValue: '${_app()['loggingLevel'] ?? 'info'}',
-                  onChanged: (String? v) =>
-                      setState(() => _app()['loggingLevel'] = v),
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      setState(() => _app()['loggingLevel'] = v);
+                    }
+                  },
                 ),
                 const Text('Info'),
               ],
@@ -444,26 +450,43 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 setState(() => _expandedAdvanced = e),
             title: Text(loc.tr('components.general_settings.advanced_options')),
             children: [
-              RadioListTile<String>(
-                title: Text(
-                    loc.tr('components.general_settings.remote_daemon_only')),
-                value: 'remote',
-                groupValue: t,
-                onChanged: (String? v) => setState(() => d['type'] = v),
-              ),
-              RadioListTile<String>(
-                title: Text(loc
-                    .tr('components.general_settings.local_and_remote_daemon')),
-                value: 'local_remote',
-                groupValue: t,
-                onChanged: (String? v) => setState(() => d['type'] = v),
-              ),
-              RadioListTile<String>(
-                title: Text(
-                    loc.tr('components.general_settings.local_daemon_only')),
-                value: 'local',
-                groupValue: t,
-                onChanged: (String? v) => setState(() => d['type'] = v),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  RadioListTile<String>(
+                    title: Text(loc.tr(
+                        'components.general_settings.remote_daemon_only')),
+                    value: 'remote',
+                    groupValue: t,
+                    onChanged: (String? v) {
+                      if (v != null) {
+                        setState(() => d['type'] = v);
+                      }
+                    },
+                  ),
+                  RadioListTile<String>(
+                    title: Text(loc.tr(
+                        'components.general_settings.local_and_remote_daemon')),
+                    value: 'local_remote',
+                    groupValue: t,
+                    onChanged: (String? v) {
+                      if (v != null) {
+                        setState(() => d['type'] = v);
+                      }
+                    },
+                  ),
+                  RadioListTile<String>(
+                    title: Text(loc.tr(
+                        'components.general_settings.local_daemon_only')),
+                    value: 'local',
+                    groupValue: t,
+                    onChanged: (String? v) {
+                      if (v != null) {
+                        setState(() => d['type'] = v);
+                      }
+                    },
+                  ),
+                ],
               ),
               if (t == 'local_remote')
                 Text(loc.tr('components.general_settings.local_remote_message'),
@@ -619,26 +642,40 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                             'components.general_settings.choose_a_network_helper'),
                         style: const TextStyle(
                             color: ArqmaColors.textMuted, fontSize: 11)),
-                    RadioListTile<String>(
-                      title: const Text('Main Net'),
-                      value: 'mainnet',
-                      groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) =>
-                          setState(() => _app()['net_type'] = v),
-                    ),
-                    RadioListTile<String>(
-                      title: const Text('Stage Net'),
-                      value: 'stagenet',
-                      groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) =>
-                          setState(() => _app()['net_type'] = v),
-                    ),
-                    RadioListTile<String>(
-                      title: const Text('Test Net'),
-                      value: 'testnet',
-                      groupValue: '${_app()['net_type'] ?? 'mainnet'}',
-                      onChanged: (String? v) =>
-                          setState(() => _app()['net_type'] = v),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        RadioListTile<String>(
+                          title: const Text('Main Net'),
+                          value: 'mainnet',
+                          groupValue: '${_app()['net_type'] ?? 'mainnet'}',
+                          onChanged: (String? v) {
+                            if (v != null) {
+                              setState(() => _app()['net_type'] = v);
+                            }
+                          },
+                        ),
+                        RadioListTile<String>(
+                          title: const Text('Stage Net'),
+                          value: 'stagenet',
+                          groupValue: '${_app()['net_type'] ?? 'mainnet'}',
+                          onChanged: (String? v) {
+                            if (v != null) {
+                              setState(() => _app()['net_type'] = v);
+                            }
+                          },
+                        ),
+                        RadioListTile<String>(
+                          title: const Text('Test Net'),
+                          value: 'testnet',
+                          groupValue: '${_app()['net_type'] ?? 'mainnet'}',
+                          onChanged: (String? v) {
+                            if (v != null) {
+                              setState(() => _app()['net_type'] = v);
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -94,7 +94,7 @@ class _WalletSelectImportLegacyPageState
       );
       return;
     }
-    AppLoading.show();
+    await AppLoading.show();
     await context
         .read<AppApi>()
         .send('wallet', 'import_wallet', <String, dynamic>{
@@ -120,19 +120,32 @@ class _WalletSelectImportLegacyPageState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (legacy.length == 2) ...[
-            RadioListTile<String>(
-              title:
-                  Text(loc.tr('pages.wallet_select.import_legacy.full_wallet')),
-              value: '0',
-              groupValue: _legacyType,
-              onChanged: (String? v) => setState(() => _legacyType = v ?? '0'),
-            ),
-            RadioListTile<String>(
-              title:
-                  Text(loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
-              value: '1',
-              groupValue: _legacyType,
-              onChanged: (String? v) => setState(() => _legacyType = v ?? '1'),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                RadioListTile<String>(
+                  title: Text(
+                      loc.tr('pages.wallet_select.import_legacy.full_wallet')),
+                  value: '0',
+                  groupValue: _legacyType,
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      setState(() => _legacyType = v);
+                    }
+                  },
+                ),
+                RadioListTile<String>(
+                  title: Text(
+                      loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
+                  value: '1',
+                  groupValue: _legacyType,
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      setState(() => _legacyType = v);
+                    }
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 8),
           ],
@@ -169,10 +182,6 @@ class _WalletSelectImportLegacyPageState
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: _pickFile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4caf50),
-                    foregroundColor: Colors.black87,
-                  ),
                   child: Text(loc.tr(
                       'pages.wallet_select.import_legacy.select_account_file')),
                 ),
@@ -205,8 +214,6 @@ class _WalletSelectImportLegacyPageState
           ElevatedButton(
             onPressed: _import,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(

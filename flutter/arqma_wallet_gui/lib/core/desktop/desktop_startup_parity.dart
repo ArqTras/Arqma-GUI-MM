@@ -26,11 +26,11 @@ void stripLegacyUniformPoolOption(Map<String, dynamic> config) {
   if (pool is! Map) {
     return;
   }
-  final Object? mining = (pool as Map)['mining'];
+  final Object? mining = pool['mining'];
   if (mining is! Map) {
     return;
   }
-  (mining as Map).remove('uniform');
+  mining.remove('uniform');
 }
 
 /// `startup_run`: fix empty / loopback pool bind IP.
@@ -60,7 +60,7 @@ void mergeWalletRpcBindPort19999(Map<String, dynamic> config) {
   if (merged is Map) {
     config
       ..clear()
-      ..addAll(Map<String, dynamic>.from(merged as Map));
+      ..addAll(Map<String, dynamic>.from(merged));
   }
 }
 
@@ -89,7 +89,7 @@ Future<void> applyScanAndFastestRemote(
       if (n is! Map) {
         continue;
       }
-      final Map<String, dynamic> m = Map<String, dynamic>.from(n as Map);
+      final Map<String, dynamic> m = Map<String, dynamic>.from(n);
       final String? h = m['host'] as String?;
       final int? p = (m['port'] as num?)?.toInt();
       if (h != null && h.isNotEmpty && p != null) {
@@ -109,10 +109,10 @@ Future<void> applyScanAndFastestRemote(
   if (mainnet is! Map) {
     return;
   }
-  final Map<String, dynamic> dm = Map<String, dynamic>.from(mainnet as Map);
+  final Map<String, dynamic> dm = Map<String, dynamic>.from(mainnet);
   dm['remote_host'] = best.host;
   dm['remote_port'] = best.port;
-  (daemons as Map)['mainnet'] = dm;
+  daemons['mainnet'] = dm;
 }
 
 /// Same timing idea as `remote_scan::pick_fastest_remote` (fastest successful `get_info`).
@@ -236,13 +236,13 @@ Future<void> setCurrentNetDaemonTypeRemoteAndPersist(
   if (daemons is! Map) {
     return;
   }
-  final Object? dm = (daemons as Map)[net];
+  final Object? dm = daemons[net];
   if (dm is! Map) {
     return;
   }
-  final Map<String, dynamic> entry = Map<String, dynamic>.from(dm as Map);
+  final Map<String, dynamic> entry = Map<String, dynamic>.from(dm);
   entry['type'] = 'remote';
-  (daemons as Map)[net] = entry;
+  daemons[net] = entry;
   await writeGuiConfigFile(paths, configData);
 }
 
@@ -252,7 +252,7 @@ Map<String, dynamic>? _daemonEntryForNet(
   if (dm is! Map) {
     return null;
   }
-  return Map<String, dynamic>.from(dm as Map);
+  return Map<String, dynamic>.from(dm);
 }
 
 Future<void> writeGuiConfigFile(
@@ -269,13 +269,13 @@ Future<void> flipLocalRemoteToLocalAndPersist(
   if (daemons is! Map) {
     return;
   }
-  final Object? dm = (daemons as Map)[net];
+  final Object? dm = daemons[net];
   if (dm is! Map) {
     return;
   }
-  final Map<String, dynamic> m = Map<String, dynamic>.from(dm as Map);
+  final Map<String, dynamic> m = Map<String, dynamic>.from(dm);
   m['type'] = 'local';
-  (daemons as Map)[net] = m;
+  daemons[net] = m;
   await writeGuiConfigFile(paths, configData);
 }
 

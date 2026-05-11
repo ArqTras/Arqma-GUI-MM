@@ -112,7 +112,15 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     if let Some(rx) = mingw_librandomx_a_path() {
         emit(&mingw_path_for_ld(&rx));
     }
-    for lib in ["ws2_32", "iphlpapi", "crypt32", "userenv", "kernel32"] {
+    for lib in [
+        "ws2_32",
+        "iphlpapi",
+        "crypt32",
+        "advapi32",
+        "shell32",
+        "userenv",
+        "kernel32",
+    ] {
         emit(&format!("-l{}", lib));
     }
     emit("-lm");

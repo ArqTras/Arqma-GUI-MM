@@ -249,7 +249,10 @@
                 "operator_description": "Pule, w których ten portfel jest operatorem.",
                 "contributor_description": "Pule, w których ten portfel jest współtwórcą (nie operatorem).",
                 "arq_spot_price": "ARQ (USD):",
-                "fiat_approx": "(≈ {amount} USD)"
+                "fiat_approx": "(≈ {amount} USD)",
+                "col_status": "Status",
+                "col_stakers": "Licz.",
+                "col_fee": "Opł."
             },
             "swap": {
                 "error_occured_check_logs": "Wystąpił błąd, sprawdź dzienniki",

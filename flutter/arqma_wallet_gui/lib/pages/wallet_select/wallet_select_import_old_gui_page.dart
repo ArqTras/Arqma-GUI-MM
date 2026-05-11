@@ -105,7 +105,7 @@ class _WalletSelectImportOldGuiPageState
       return;
     }
     _awaiting = true;
-    AppLoading.show();
+    await AppLoading.show();
     await context.read<AppApi>().send('wallet', 'copy_old_gui_wallets',
         <String, dynamic>{'wallets': selected});
   }
@@ -158,10 +158,6 @@ class _WalletSelectImportOldGuiPageState
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: _rows.any((_DirRow r) => r.selected) ? _import : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
-            ),
             child: Text(
                 loc.tr('pages.wallet_select.import_old_gui.import_accounts')),
           ),

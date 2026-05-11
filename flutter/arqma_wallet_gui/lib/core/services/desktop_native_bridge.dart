@@ -1462,12 +1462,19 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       final int minHeight =
           curH > daysWindowBlocks ? curH - daysWindowBlocks : 0;
+      // Include all buckets merged in [_mergeWalletRpcTransfersList]; otherwise
+      // UI filters (e.g. service node / stake) see an empty list even when txs exist.
       final Map<String, dynamic> p = <String, dynamic>{
         'in': true,
         'out': true,
         'pending': true,
         'failed': true,
         'pool': false,
+        'miner': true,
+        'snode': true,
+        'gov': true,
+        'stake': true,
+        'net': true,
         'filter_by_height': true,
         'min_height': minHeight,
       };
@@ -1828,6 +1835,8 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'reset_wallet_error',
       'data': <String, dynamic>{}
     });
+    // Let the UI paint [AppLoading] before the synchronous FFI `open_wallet` blocks the isolate.
+    await Future<void>.delayed(Duration.zero);
     final Map<String, dynamic>? opened = await w.call(
       'open_wallet',
       <String, dynamic>{'filename': name, 'password': password},

@@ -22,50 +22,71 @@ Future<void> receiveCopyAddressWithSnackBar(
 }
 
 Future<void> showReceiveQrDialog(BuildContext context, String address) async {
+  if (address.trim().isEmpty) {
+    return;
+  }
   final LocaleController loc = context.read<LocaleController>();
   final AppApi api = context.read<AppApi>();
+  // Avoid `AlertDialog` + `QrImageView` (LayoutBuilder vs IntrinsicWidth layout failure).
   await showDialog<void>(
     context: context,
-    builder: (BuildContext c) => AlertDialog(
+    builder: (BuildContext c) => Dialog(
       backgroundColor: const Color(0xFF1d1d1d),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            color: ArqmaColors.qrLightSurface,
-            padding: const EdgeInsets.all(12),
-            child: QrImageView(data: address, size: 200),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Center(
+                child: Container(
+                  color: ArqmaColors.qrLightSurface,
+                  padding: const EdgeInsets.all(12),
+                  child: QrImageView(data: address, size: 200),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                runSpacing: 4,
+                children: <Widget>[
+                  TextButton(
+                    onPressed: () async {
+                      final String svg = buildQrCodeSvg(address);
+                      await api.writeText(svg);
+                      if (c.mounted) {
+                        ScaffoldMessenger.of(c).showSnackBar(
+                          SnackBar(
+                            content: Text(loc.tr(
+                                'pages.wallet.receive.copied_qr_code_to_clipboard')),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(loc.tr('pages.wallet.receive.copy_qr_code')),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final String svg = buildQrCodeSvg(address);
+                      await api.send('core', 'save_svg',
+                          <String, dynamic>{'svg': svg, 'type': 'QR Code'});
+                    },
+                    child: Text(loc.tr('pages.wallet.receive.save_qr_code')),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(c),
+                    child: Text(loc.tr('pages.wallet.receive.close')),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            final String svg = buildQrCodeSvg(address);
-            await api.writeText(svg);
-            if (c.mounted) {
-              ScaffoldMessenger.of(c).showSnackBar(
-                SnackBar(
-                    content: Text(loc.tr(
-                        'pages.wallet.receive.copied_qr_code_to_clipboard'))),
-              );
-            }
-          },
-          child: Text(loc.tr('pages.wallet.receive.copy_qr_code')),
-        ),
-        TextButton(
-          onPressed: () async {
-            final String svg = buildQrCodeSvg(address);
-            await api.send('core', 'save_svg',
-                <String, dynamic>{'svg': svg, 'type': 'QR Code'});
-          },
-          child: Text(loc.tr('pages.wallet.receive.save_qr_code')),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(c),
-          child: Text(loc.tr('pages.wallet.receive.close')),
-        ),
-      ],
     ),
   );
 }

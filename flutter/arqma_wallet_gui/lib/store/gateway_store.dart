@@ -386,6 +386,13 @@ class GatewayStore extends ChangeNotifier {
     return h > th ? h.toInt() : th.toInt();
   }
 
+  /// Wallet session has a display name (parity: RPC is for an opened wallet),
+  /// independent of [isReady]. Used for **rescan** while still scanning chain.
+  bool get hasOpenWallet {
+    final String n = '${walletInfo['name'] ?? ''}'.trim();
+    return n.isNotEmpty;
+  }
+
   bool get isReady {
     final targetHeight = _daemonChainTip();
     if (targetHeight == 0) {

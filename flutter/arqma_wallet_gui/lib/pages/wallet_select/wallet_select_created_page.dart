@@ -190,8 +190,6 @@ class WalletSelectCreatedPage extends StatelessWidget {
           ElevatedButton(
             onPressed: () => _openWallet(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(loc.tr('pages.wallet_select.created.open_account')),

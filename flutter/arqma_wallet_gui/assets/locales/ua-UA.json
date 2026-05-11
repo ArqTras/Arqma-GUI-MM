@@ -244,7 +244,10 @@
                 "operator_description": "Pools where your wallet is the operator.",
                 "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
                 "arq_spot_price": "ARQ (USD):",
-                "fiat_approx": "(≈ {amount} USD)"
+                "fiat_approx": "(≈ {amount} USD)",
+                "col_status": "Status",
+                "col_stakers": "#",
+                "col_fee": "Fee"
             },
             "swap": {
                 "error_occured_check_logs": "Сталася помилка перевірки журналів",

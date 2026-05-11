@@ -15,6 +15,10 @@ class ArqmaField extends StatefulWidget {
     this.disable = false,
     this.disableHover = false,
     this.disableMenu = true,
+    /// When true, the input [child] area expands to fill vertical space (use with a bounded parent height).
+    this.stretchContent = false,
+    /// Warmer gold label + border (e.g. wallet tx filters).
+    this.goldChrome = false,
   });
 
   final String label;
@@ -25,6 +29,8 @@ class ArqmaField extends StatefulWidget {
   final bool disable;
   final bool disableHover;
   final bool disableMenu;
+  final bool stretchContent;
+  final bool goldChrome;
 
   @override
   State<ArqmaField> createState() => _ArqmaFieldState();
@@ -34,12 +40,15 @@ class _ArqmaFieldState extends State<ArqmaField> {
   final GlobalKey _contentKey = GlobalKey();
 
   Future<void> _pasteIntoFocused() async {
-    final BuildContext? ctx = _contentKey.currentContext;
-    if (ctx == null) {
-      return;
-    }
     final String text =
         (await Clipboard.getData(Clipboard.kTextPlain))?.text ?? '';
+    if (!mounted) {
+      return;
+    }
+    final BuildContext? ctx = _contentKey.currentContext;
+    if (ctx == null || !ctx.mounted) {
+      return;
+    }
     final EditableTextState? et =
         ctx.findAncestorStateOfType<EditableTextState>();
     if (et != null) {
@@ -77,12 +86,58 @@ class _ArqmaFieldState extends State<ArqmaField> {
     }
   }
 
+  Color _borderColor() {
+    if (widget.error) {
+      return ArqmaColors.negative;
+    }
+    if (widget.goldChrome) {
+      return ArqmaColors.outlineBright;
+    }
+    return ArqmaColors.outlineDefault.withValues(alpha: 0.65);
+  }
+
+  double _borderWidth() {
+    if (widget.error) {
+      return 1.4;
+    }
+    if (widget.goldChrome) {
+      return 1.15;
+    }
+    return 1;
+  }
+
+  Widget _inputBox({required bool stretch}) {
+    final Widget inner = GestureDetector(
+      onSecondaryTapDown: widget.disableMenu ? null : (_) => _showMenu(),
+      child: Container(
+        key: _contentKey,
+        alignment: stretch ? Alignment.centerLeft : null,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14110E),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: _borderColor(),
+            width: _borderWidth(),
+          ),
+        ),
+        child: widget.child,
+      ),
+    );
+    if (stretch) {
+      return Expanded(child: inner);
+    }
+    return inner;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Opacity(
       opacity: widget.disable ? 0.55 : 1,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: widget.stretchContent
+            ? CrossAxisAlignment.stretch
+            : CrossAxisAlignment.start,
         children: [
           if (widget.label.isNotEmpty)
             Padding(
@@ -92,8 +147,12 @@ class _ArqmaFieldState extends State<ArqmaField> {
                   Text(
                     widget.label,
                     style: TextStyle(
-                      color: ArqmaColors.textPrimary.withValues(alpha: 0.92),
+                      color: widget.goldChrome
+                          ? ArqmaColors.arqmaGreenSolid
+                          : ArqmaColors.textPrimary.withValues(alpha: 0.92),
                       fontSize: 13,
+                      fontWeight:
+                          widget.goldChrome ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                   if (widget.optional)
@@ -107,24 +166,7 @@ class _ArqmaFieldState extends State<ArqmaField> {
                 ],
               ),
             ),
-          GestureDetector(
-            onSecondaryTapDown: widget.disableMenu ? null : (_) => _showMenu(),
-            child: Container(
-              key: _contentKey,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF14110E),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: widget.error
-                      ? ArqmaColors.negative
-                      : ArqmaColors.outlineDefault.withValues(alpha: 0.65),
-                  width: widget.error ? 1.4 : 1,
-                ),
-              ),
-              child: widget.child,
-            ),
-          ),
+          _inputBox(stretch: widget.stretchContent),
           if (widget.error && widget.errorLabel.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 4),

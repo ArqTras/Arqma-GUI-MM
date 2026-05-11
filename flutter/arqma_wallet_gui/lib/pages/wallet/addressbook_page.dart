@@ -210,7 +210,6 @@ class AddressBookPage extends StatelessWidget {
             onPressed: store.isReady
                 ? () => showAddressBookDetailsDialog(context, startAsNew: true)
                 : null,
-            backgroundColor: const Color(0xFF4caf50),
             child: const Icon(Icons.add),
           ),
         ),

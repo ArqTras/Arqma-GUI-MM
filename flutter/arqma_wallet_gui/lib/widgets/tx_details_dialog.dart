@@ -311,7 +311,7 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                           style: const TextStyle(
                               fontFamily: 'monospace', fontSize: 11))),
                   IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.greenAccent),
+                    icon: const Icon(Icons.copy, color: ArqmaColors.arqmaGreenSolid),
                     onPressed: () => _copyWithFeedback('${tx['txid']}',
                         'components.tx_list.copied_transaction_id_to_clipboard'),
                     tooltip:
@@ -330,7 +330,7 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                               fontFamily: 'monospace', fontSize: 11))),
                   if (pid.isNotEmpty)
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.greenAccent),
+                      icon: const Icon(Icons.copy, color: ArqmaColors.arqmaGreenSolid),
                       onPressed: () => _copyWithFeedback(pid,
                           'components.wallet_settings.write_text_ok_message'),
                       tooltip: loc.tr('components.tx_details.copy_payment_id'),
@@ -362,7 +362,7 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.greenAccent),
+                      icon: const Icon(Icons.copy, color: ArqmaColors.arqmaGreenSolid),
                       tooltip:
                           loc.tr('components.tx_details.copy_primary_address'),
                       onPressed: () {
@@ -401,7 +401,7 @@ class _TxDetailsDialogState extends State<_TxDetailsDialog> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.copy,
-                                  color: Colors.greenAccent),
+                                  color: ArqmaColors.arqmaGreenSolid),
                               tooltip:
                                   loc.tr('components.tx_details.copy_address'),
                               onPressed: () => _copyWithFeedback(

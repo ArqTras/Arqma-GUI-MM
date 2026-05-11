@@ -1,9 +1,56 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
 import 'wallet_json_rpc.dart';
+
+/// Reads full HTTP body then decodes UTF-8, with gzip fallback when the daemon
+/// (or a proxy) returns compressed bytes without reliable auto-decompression.
+Future<String> readHttpResponseBodyUtf8(HttpClientResponse resp) async {
+  final BytesBuilder bb = BytesBuilder(copy: false);
+  await for (final List<int> chunk in resp) {
+    bb.add(chunk);
+  }
+  Uint8List bytes = bb.takeBytes();
+
+  final String? enc =
+      resp.headers.value(HttpHeaders.contentEncodingHeader)?.toLowerCase();
+  final bool headerGzip = enc != null && enc.contains('gzip');
+  final bool magicGzip =
+      bytes.length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b;
+
+  Uint8List payload = bytes;
+  if (headerGzip || magicGzip) {
+    try {
+      payload = Uint8List.fromList(GZipCodec().decode(bytes));
+    } catch (e) {
+      debugPrint('[DaemonJsonRpc] gzip decode skipped/failed: $e');
+    }
+  }
+
+  // Daemons / proxies may return non‑UTF‑8 fragments; strict decode would abort the heartbeat.
+  try {
+    return utf8.decode(payload);
+  } on FormatException catch (e) {
+    if (identical(payload, bytes) &&
+        bytes.length >= 2 &&
+        bytes[0] == 0x1f &&
+        bytes[1] == 0x8b) {
+      try {
+        final Uint8List gunz = Uint8List.fromList(GZipCodec().decode(bytes));
+        return utf8.decode(gunz, allowMalformed: true);
+      } on Object catch (e2) {
+        debugPrint('[DaemonJsonRpc] gzip retry after UTF-8 fail: $e2');
+      }
+    }
+    debugPrint(
+      '[DaemonJsonRpc] UTF-8 decode len=${bytes.length} (lenient): $e',
+    );
+    return utf8.decode(payload, allowMalformed: true);
+  }
+}
 
 /// Minimal JSON-RPC client for `arqmad` (`get_info`), same wire format as Tauri `daemon_post`.
 ///
@@ -81,12 +128,20 @@ class DaemonJsonRpc {
         req.headers.contentLength = bytes.length;
         req.add(bytes);
         final HttpClientResponse resp = await req.close();
-        final String text = await utf8.decoder.bind(resp).join();
+        final String text = await readHttpResponseBodyUtf8(resp);
         if (resp.statusCode != 200) {
           debugPrint('[DaemonJsonRpc] HTTP ${resp.statusCode} $text');
           return null;
         }
-        final Object? decoded = jsonDecode(text);
+        final Object? decoded;
+        try {
+          decoded = jsonDecode(text);
+        } on FormatException catch (e) {
+          debugPrint(
+            '[DaemonJsonRpc] $method invalid JSON (${text.length} chars): ${e.message}',
+          );
+          return null;
+        }
         if (decoded is Map<String, dynamic>) {
           return decoded;
         }

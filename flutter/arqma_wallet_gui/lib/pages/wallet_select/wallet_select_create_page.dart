@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../mixins/wallet_flow_listener_mixin.dart';
-import '../../store/gateway_store.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/arqma_field.dart';
 
@@ -103,7 +102,7 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
       return;
     }
     Future<void> send() async {
-      AppLoading.show();
+      await AppLoading.show();
       await context
           .read<AppApi>()
           .send('wallet', 'create_wallet', <String, dynamic>{
@@ -190,8 +189,6 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
           ElevatedButton(
             onPressed: _create,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(loc.tr('pages.wallet_select.create.create_account')),

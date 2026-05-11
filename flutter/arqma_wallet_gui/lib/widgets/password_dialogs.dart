@@ -46,7 +46,10 @@ class PasswordDialogs {
         title: Text(title),
         content: TextField(
           controller: pw,
+          autofocus: true,
           obscureText: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.pop(c, pw.text),
           decoration: InputDecoration(
             labelText:
                 locale.tr('composables.enter_wallet_password_to_continue'),

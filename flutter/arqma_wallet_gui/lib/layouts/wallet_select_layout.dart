@@ -56,12 +56,9 @@ class WalletSelectLayout extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leadingWidth: showMenu ? 56 : 48,
+        leadingWidth: showMenu ? 0 : 48,
         leading: showMenu
-            ? const Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: WalletMainMenu(disableSwitchWallet: true),
-              )
+            ? const SizedBox.shrink()
             : IconButton(
                 icon: const Icon(Icons.reply, color: ArqmaColors.textPrimary),
                 onPressed: () async {
@@ -83,6 +80,13 @@ class WalletSelectLayout extends StatelessWidget {
                 style:
                     const TextStyle(fontWeight: FontWeight.w300, fontSize: 16),
               ),
+        actions: <Widget>[
+          if (showMenu)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: WalletMainMenu(disableSwitchWallet: true),
+            ),
+        ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
           child: Divider(height: 1, color: ArqmaColors.outlineDefault),

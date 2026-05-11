@@ -115,7 +115,7 @@ class _SwapPageState extends State<SwapPage>
       }
       return;
     }
-    AppLoading.show();
+    await AppLoading.show();
     await api.send('wallet', 'subscribe_for_signature_data', <String, dynamic>{
       'ethereumAddress': _ethAddress.text.trim().toLowerCase(),
     });
@@ -212,7 +212,7 @@ class _SwapPageState extends State<SwapPage>
           loc.tr('pages.wallet.swap.show_password_confirmation_ok_message'),
       'sending': true,
     });
-    AppLoading.show();
+    await AppLoading.show();
     await api.send('wallet', 'transfer', copy);
     AppLoading.hide();
     store.setTxStatus(
@@ -327,20 +327,12 @@ class _SwapPageState extends State<SwapPage>
                     children: [
                       ElevatedButton(
                         onPressed: () => _connectOrDisconnect(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4caf50),
-                          foregroundColor: Colors.black87,
-                        ),
                         child: Text(connectLabel),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed:
                             !_subscribed ? null : () => _addAsset(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.black87,
-                        ),
                         child: Text(
                             loc.tr('pages.wallet.swap.add_asset_to_wallet')),
                       ),
@@ -379,7 +371,7 @@ class _SwapPageState extends State<SwapPage>
                     children: [
                       const Text('eXEQ balance: ',
                           style: TextStyle(fontSize: 12)),
-                      FormatArqma(amount: 0, digits: 4),
+                      const FormatArqma(amount: 0, digits: 4),
                       Text(' ${selected['symbol'] ?? ''}',
                           style: const TextStyle(fontSize: 12)),
                     ],
@@ -490,8 +482,6 @@ class _SwapPageState extends State<SwapPage>
                           onPressed: store.isAbleToSend && !sending
                               ? () => _nativeSend(context, loc, store, selected)
                               : null,
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green),
                           child: Text(loc.tr('pages.wallet.swap.send')),
                         ),
                       ),
@@ -599,8 +589,6 @@ class _SwapPageState extends State<SwapPage>
                       child: ElevatedButton(
                         onPressed:
                             _subscribed ? () => _wrappedSend(context) : null,
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green),
                         child: Text(loc.tr('pages.wallet.swap.send')),
                       ),
                     ),

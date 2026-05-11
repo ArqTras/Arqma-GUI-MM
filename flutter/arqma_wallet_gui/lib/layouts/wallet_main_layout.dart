@@ -115,7 +115,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     _inactivity = Timer(Duration(milliseconds: ms), _onInactivityFired);
   }
 
-  void _onInactivityFired() {
+  Future<void> _onInactivityFired() async {
     if (!mounted) {
       return;
     }
@@ -131,6 +131,24 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     final LocaleController loc = context.read<LocaleController>();
     try {
       final String msg = loc.tr('layouts.wallet.main.wallet_inactivityMessage');
+      await Future<void>.delayed(Duration.zero);
+      try {
+        await bridge
+            .backendSend('wallet', 'save_wallet', <String, dynamic>{})
+            .timeout(const Duration(seconds: 12));
+      } catch (e, st) {
+        debugPrint('wallet_main_layout inactivity save_wallet: $e\n$st');
+      }
+      try {
+        await bridge
+            .backendSend('wallet', 'close_wallet', <String, dynamic>{})
+            .timeout(const Duration(seconds: 22));
+      } catch (e, st) {
+        debugPrint('wallet_main_layout inactivity close_wallet: $e\n$st');
+      }
+      if (!mounted) {
+        return;
+      }
       context.go('/wallet-select');
       appScaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
@@ -138,12 +156,6 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
       unawaited(
         Future<void>.delayed(const Duration(milliseconds: 250), () {
           store.resetWalletDataDispatch();
-        }),
-      );
-      unawaited(
-        bridge.backendSend('wallet', 'close_wallet', {}).catchError(
-            (Object e, StackTrace st) {
-          debugPrint('wallet_main_layout inactivity close_wallet: $e');
         }),
       );
     } catch (e) {
@@ -175,25 +187,27 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
 
     Widget navBtn(String route, String label, IconData icon) {
       final bool active = path == route;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => context.go(route),
-            child: Ink(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: active
-                    ? ArqmaColors.arqmaGreenSolid
-                    : const Color(0xFF161410),
-                border: Border.all(
+      return SizedBox(
+        width: 118,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => context.go(route),
+              child: Ink(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
                   color: active
-                      ? ArqmaColors.outlineBright
-                      : ArqmaColors.outlineDefault,
-                  width: active ? 1.4 : 1,
-                ),
+                      ? ArqmaColors.arqmaGreenSolid
+                      : const Color(0xFF161410),
+                  border: Border.all(
+                    color: active
+                        ? ArqmaColors.outlineBright
+                        : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.42),
+                    width: active ? 1.4 : 1,
+                  ),
                 boxShadow: active
                     ? <BoxShadow>[
                         BoxShadow(
@@ -207,39 +221,40 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
               ),
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: ConstrainedBox(
-                  constraints:
-                      const BoxConstraints(minWidth: 96, minHeight: 44),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: active
-                              ? const Color(0xFF14110A)
-                              : ArqmaColors.textSecondary,
-                          fontWeight:
-                              active ? FontWeight.w600 : FontWeight.w500,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        icon,
-                        size: 18,
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 18,
+                      color: active
+                          ? const Color(0xFF14110A)
+                          : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.88),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
                         color: active
                             ? const Color(0xFF14110A)
-                            : ArqmaColors.textMuted,
+                            : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.92),
+                        fontWeight:
+                            active ? FontWeight.w600 : FontWeight.w500,
+                        fontSize: 11.5,
+                        height: 1.15,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
         ),
       );
     }
@@ -273,14 +288,14 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
                             style: TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w300,
-                              color: ArqmaColors.textPrimary,
+                              color: ArqmaColors.arqmaGreenSolid,
                             ),
                           ),
                           FormatArqma(amount: balance * price, digits: 2),
                           IconButton(
                             icon: const Icon(Icons.refresh),
                             onPressed: refreshPrice,
-                            color: ArqmaColors.textSecondary,
+                            color: ArqmaColors.arqmaGreenSolid,
                           ),
                         ],
                       )
@@ -294,7 +309,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w300,
-                              color: ArqmaColors.textPrimary,
+                              color: ArqmaColors.arqmaGreenSolid,
                             ),
                           ),
                         ],
@@ -337,12 +352,14 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
                   ],
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.only(right: 4),
-                child: WalletMainMenu(),
-              ),
             ],
           ),
+          actions: const <Widget>[
+            Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: WalletMainMenu(),
+            ),
+          ],
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(1),
             child: Divider(

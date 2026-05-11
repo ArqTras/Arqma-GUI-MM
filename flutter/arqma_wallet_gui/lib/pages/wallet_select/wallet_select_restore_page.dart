@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../mixins/wallet_flow_listener_mixin.dart';
-import '../../store/gateway_store.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/arqma_field.dart';
 
@@ -183,7 +182,7 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage>
       return;
     }
     Future<void> send() async {
-      AppLoading.show();
+      await AppLoading.show();
       await context
           .read<AppApi>()
           .send('wallet', 'restore_wallet', <String, dynamic>{
@@ -277,10 +276,6 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage>
               if (_refreshType == 'date')
                 ElevatedButton(
                   onPressed: () => setState(() => _refreshType = 'height'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4caf50),
-                    foregroundColor: Colors.black87,
-                  ),
                   child: Text(
                       loc.tr(
                           'pages.wallet_select.restore.switch_to_height_select'),
@@ -289,10 +284,6 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage>
               else
                 ElevatedButton(
                   onPressed: () => setState(() => _refreshType = 'date'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4caf50),
-                    foregroundColor: Colors.black87,
-                  ),
                   child: Text(
                       loc.tr(
                           'pages.wallet_select.restore.switch_to_date_select'),
@@ -327,8 +318,6 @@ class _WalletSelectRestorePageState extends State<WalletSelectRestorePage>
           ElevatedButton(
             onPressed: _restore,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(loc.tr('pages.wallet_select.restore.restore_account')),

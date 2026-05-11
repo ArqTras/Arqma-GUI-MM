@@ -19,7 +19,8 @@ abstract final class ArqmaColors {
 
   static const Color selection = Color.fromRGBO(168, 144, 96, 0.45);
   static const Color scrollbar = Color(0xFF646464);
-  static const Color txIn = Color(0xFF43BD43);
+  /// Incoming tx accent (gold; avoid green so it matches Arqma GUI chrome).
+  static const Color txIn = Color(0xFFC9A85A);
   static const Color identiconBg = Color(0xFFCB8FE1);
 
   static const Color footerBorder = Color.fromRGBO(167, 144, 96, 0.35);

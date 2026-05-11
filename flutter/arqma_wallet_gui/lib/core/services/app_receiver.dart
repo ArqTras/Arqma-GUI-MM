@@ -47,6 +47,7 @@ class AppReceiver {
       return;
     }
     _initRequested = true;
+    await WidgetsBinding.instance.endOfFrame;
     store.setAppData({
       'status': {'code': 2},
     });
@@ -176,8 +177,10 @@ class AppReceiver {
         unawaited(_runInitialize('event'));
         break;
       case 'return_to_wallet_select':
-        store.resetWalletDataDispatch();
-        router.go('/wallet-select');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          store.resetWalletDataDispatch();
+          router.go('/wallet-select');
+        });
         break;
       case 'show_notification':
         _showNotification(data);
@@ -192,7 +195,13 @@ class AppReceiver {
         _promptRestartAfterSettingsChange();
         break;
       default:
-        store.applyBackendEvent(event, data);
+        // Defer high-frequency daemon/wallet merges to after the frame so we do not call
+        // `notifyListeners` while a route is mid-dispose (avoids "deactivated ancestor" races).
+        final String ev = event;
+        final dynamic payload = data;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          store.applyBackendEvent(ev, payload);
+        });
         break;
     }
   }

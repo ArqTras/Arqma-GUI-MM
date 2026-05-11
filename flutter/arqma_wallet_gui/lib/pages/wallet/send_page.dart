@@ -219,7 +219,7 @@ class _SendPageState extends State<SendPage> {
     };
     store.setTxStatus(
         <String, dynamic>{'code': 0, 'message': '', 'sending': true});
-    AppLoading.show();
+    await AppLoading.show();
     await api.send('wallet', 'transfer', copy);
     AppLoading.hide();
     store.setTxStatus(

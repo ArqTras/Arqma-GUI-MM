@@ -94,7 +94,7 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
       );
       return;
     }
-    AppLoading.show();
+    await AppLoading.show();
     await context
         .read<AppApi>()
         .send('wallet', 'import_wallet', <String, dynamic>{
@@ -145,10 +145,6 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: _pickFile,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4caf50),
-                    foregroundColor: Colors.black87,
-                  ),
                   child: Text(
                       loc.tr('pages.wallet_select.import.select_account_file')),
                 ),
@@ -183,8 +179,6 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
           ElevatedButton(
             onPressed: _import,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4caf50),
-              foregroundColor: Colors.black87,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             child: Text(loc.tr('pages.wallet_select.import.import_account')),

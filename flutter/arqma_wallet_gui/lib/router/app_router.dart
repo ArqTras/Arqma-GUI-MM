@@ -57,7 +57,7 @@ GoRouter createAppRouter(GatewayStore store) {
       GoRoute(
         path: '/',
         builder: (BuildContext context, GoRouterState state) {
-          return InitLoadingLayout(child: const InitIndexPage());
+          return const InitLoadingLayout(child: InitIndexPage());
         },
       ),
       GoRoute(
@@ -68,100 +68,100 @@ GoRouter createAppRouter(GatewayStore store) {
       GoRoute(
         path: '/welcome',
         builder: (BuildContext context, GoRouterState state) {
-          return InitWelcomeLayout(child: const InitWelcomePage());
+          return const InitWelcomeLayout(child: InitWelcomePage());
         },
       ),
       GoRoute(
         path: '/wallet-select',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectIndexPage());
+          return const WalletSelectLayout(child: WalletSelectIndexPage());
         },
       ),
       GoRoute(
         path: '/wallet-select/create',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectCreatePage());
+          return const WalletSelectLayout(child: WalletSelectCreatePage());
         },
       ),
       GoRoute(
         path: '/wallet-select/restore',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectRestorePage());
+          return const WalletSelectLayout(child: WalletSelectRestorePage());
         },
       ),
       GoRoute(
         path: '/wallet-select/import-view-only',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(
-              child: const WalletSelectImportViewOnlyPage());
+          return const WalletSelectLayout(
+              child: WalletSelectImportViewOnlyPage());
         },
       ),
       GoRoute(
         path: '/wallet-select/import',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectImportPage());
+          return const WalletSelectLayout(child: WalletSelectImportPage());
         },
       ),
       GoRoute(
         path: '/wallet-select/import-legacy',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(
-              child: const WalletSelectImportLegacyPage());
+          return const WalletSelectLayout(
+              child: WalletSelectImportLegacyPage());
         },
       ),
       GoRoute(
         path: '/wallet-select/created',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(child: const WalletSelectCreatedPage());
+          return const WalletSelectLayout(child: WalletSelectCreatedPage());
         },
       ),
       GoRoute(
         path: '/wallet-select/import-old-gui',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletSelectLayout(
-              child: const WalletSelectImportOldGuiPage());
+          return const WalletSelectLayout(
+              child: WalletSelectImportOldGuiPage());
         },
       ),
       GoRoute(
         path: '/wallet',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const TxHistoryPage());
+          return const WalletMainLayout(child: TxHistoryPage());
         },
       ),
       GoRoute(
         path: '/wallet/receive',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const ReceivePage());
+          return const WalletMainLayout(child: ReceivePage());
         },
       ),
       GoRoute(
         path: '/wallet/send',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const SendPage());
+          return const WalletMainLayout(child: SendPage());
         },
       ),
       GoRoute(
         path: '/wallet/swap',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const SwapPage());
+          return const WalletMainLayout(child: SwapPage());
         },
       ),
       GoRoute(
         path: '/wallet/staking-pools',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const StakingPoolsPage());
+          return const WalletMainLayout(child: StakingPoolsPage());
         },
       ),
       GoRoute(
         path: '/wallet/addressbook',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const AddressBookPage());
+          return const WalletMainLayout(child: AddressBookPage());
         },
       ),
       GoRoute(
         path: '/wallet/solo-pool',
         builder: (BuildContext context, GoRouterState state) {
-          return WalletMainLayout(child: const SoloPoolPage());
+          return const WalletMainLayout(child: SoloPoolPage());
         },
       ),
     ],

@@ -31,6 +31,12 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
   static const double _coinUnits = 1e9;
   static const int _minStakeArq = 100;
 
+  /// Min width for the tabular pool list (parity with Quasar `pool_list_tabular.vue` columns).
+  static const double _kPoolTableMinWidth = 1188;
+
+  /// Horizontal padding inside the pool [SingleChildScrollView] (must match [Padding] below).
+  static const double _kPoolTableScrollHPadding = 12 + 18;
+
   static const List<Map<String, dynamic>> _nodeFilterOptions =
       <Map<String, dynamic>>[
     <String, dynamic>{
@@ -65,6 +71,10 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
   Timer? _debounceNode;
   Timer? _debounceOp;
   Timer? _uptimeTick;
+
+  /// Tied to [Scrollbar] + nested [SingleChildScrollView]s (desktop needs explicit controllers).
+  final ScrollController _poolHorizontalScroll = ScrollController();
+  final ScrollController _poolVerticalScroll = ScrollController();
 
   static double _round2(num v) => double.parse((v + 1e-12).toStringAsFixed(2));
 
@@ -162,7 +172,14 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     _bridgeSub?.cancel();
     _nodeId.dispose();
     _operatorId.dispose();
-    _store?.resetPoolsData();
+    _poolHorizontalScroll.dispose();
+    _poolVerticalScroll.dispose();
+    final GatewayStore? store = _store;
+    if (store != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        store.resetPoolsData();
+      });
+    }
     if (_api != null) {
       unawaited(
           _api!.send('wallet', 'end_Stake_Acquisition', <String, dynamic>{}));
@@ -458,6 +475,12 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     final TextEditingController amount = TextEditingController(
         text: '${_minStakeArq > cap ? cap.toStringAsFixed(0) : _minStakeArq}');
 
+    void disposeAmountAfterDialogFrame() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        amount.dispose();
+      });
+    }
+
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) {
@@ -526,13 +549,14 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         );
       },
     );
+    final String amountEntered =
+        amount.text.trim().replaceAll(',', '');
     if (ok != true || !mounted) {
-      amount.dispose();
+      disposeAmountAfterDialogFrame();
       return;
     }
-    final double? parsed =
-        double.tryParse(amount.text.trim().replaceAll(',', ''));
-    amount.dispose();
+    final double? parsed = double.tryParse(amountEntered);
+    disposeAmountAfterDialogFrame();
     if (parsed == null || parsed < _minStakeArq || parsed > cap) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
@@ -567,27 +591,148 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     });
   }
 
-  Widget _lockupHeader(LocaleController loc, Map<String, dynamic> lockup) {
-    final String amount = '${lockup['amount'] ?? ''}';
-    if (amount.isEmpty) {
-      return Text(loc.tr('components.pool_list_tabular.lock_up'));
-    }
-    return Text(loc.tr('components.pool_list_tabular.expiring'));
+  TextStyle _poolMetaStyle(BuildContext context) =>
+      Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: ArqmaColors.textMuted,
+            fontSize: 11,
+            height: 1.15,
+          ) ??
+      const TextStyle(
+        fontSize: 11,
+        color: ArqmaColors.textMuted,
+        height: 1.15,
+      );
+
+  static const TextStyle _poolValueStyle = TextStyle(
+    fontSize: 12,
+    height: 1.2,
+    color: ArqmaColors.textSecondary,
+  );
+
+  Widget _poolMain1Block({
+    required BuildContext context,
+    required LocaleController loc,
+    required double width,
+    required String labelKey,
+    required Widget value,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              loc.tr(labelKey),
+              textAlign: TextAlign.center,
+              style: _poolMetaStyle(context),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            DefaultTextStyle.merge(
+              textAlign: TextAlign.center,
+              style: _poolValueStyle,
+              child: value,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  String _lockupSub(LocaleController loc, Map<String, dynamic> lockup) {
-    final String amount = '${lockup['amount'] ?? ''}';
-    final String i18nKey = '${lockup['i18n'] ?? ''}';
-    if (amount.isEmpty) {
-      return '';
+  Widget _poolStakedAvailValue(
+    LocaleController loc,
+    num price,
+    Object? arqAmount,
+  ) {
+    final String base = '${arqAmount ?? '-'} ARQ';
+    final String? fiat = _fiatUsdApprox(loc, price, arqAmount);
+    if (fiat == null) {
+      return Text(
+        base,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      );
     }
-    if (i18nKey.isNotEmpty) {
-      return '$amount ${loc.tr(i18nKey)}';
-    }
-    return amount;
+    return Text.rich(
+      TextSpan(
+        style: _poolValueStyle,
+        children: <InlineSpan>[
+          TextSpan(text: base),
+          TextSpan(
+            text: ' $fiat',
+            style: const TextStyle(
+              fontSize: 10,
+              color: ArqmaColors.textMuted,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+    );
   }
 
-  Widget _poolCard({
+  /// [PopupMenuButton] inside nested scroll + clipped cards can paint the menu
+  /// with a tiny max width on Windows; [showMenu] on the root overlay avoids that.
+  Future<void> _showPoolRowOverflowMenu({
+    required BuildContext anchor,
+    required List<PopupMenuEntry<String>> items,
+    required Future<void> Function(String value) onChosen,
+  }) async {
+    final RenderObject? ro = anchor.findRenderObject();
+    if (ro is! RenderBox) {
+      return;
+    }
+    final RenderBox button = ro;
+    final OverlayState? overlayState =
+        Overlay.maybeOf(anchor, rootOverlay: true);
+    if (overlayState == null) {
+      return;
+    }
+    final RenderBox overlayBox =
+        overlayState.context.findRenderObject()! as RenderBox;
+    final Offset topLeft =
+        button.localToGlobal(Offset.zero, ancestor: overlayBox);
+    final Rect rect = Rect.fromLTWH(
+      topLeft.dx,
+      topLeft.dy,
+      button.size.width,
+      button.size.height,
+    );
+    final RelativeRect position = RelativeRect.fromRect(
+      rect,
+      Offset.zero & overlayBox.size,
+    );
+    final String? picked = await showMenu<String>(
+      context: anchor,
+      position: position,
+      items: items,
+      useRootNavigator: true,
+      constraints: const BoxConstraints(minWidth: 260),
+      color: ArqmaColors.darkPanel,
+      surfaceTintColor: Colors.transparent,
+      elevation: 6,
+      shadowColor: Colors.black54,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: ArqmaColors.outlineSubtle.withValues(alpha: 0.55),
+        ),
+      ),
+    );
+    if (picked != null && anchor.mounted) {
+      await onChosen(picked);
+    }
+  }
+
+  Widget _poolRow({
     required LocaleController loc,
     required GatewayStore store,
     required Map<String, dynamic> item,
@@ -607,143 +752,280 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         !operatorSection && item['is_contributor'] == true && reqUnlock == 0;
     final double maxStake = _maxStakeArq(item);
     final bool canTapStake = !operatorSection && maxStake > 0;
-    final String? fiatStaked = _fiatUsdApprox(loc, price, item['staked']);
-    final String? fiatAvail = _fiatUsdApprox(loc, price, item['available']);
+    final String stakers =
+        NumberFormat.decimalPattern().format(
+            num.tryParse('${item['contributors'] ?? 0}') ?? 0);
+    final String fee = '${item['operator_fee'] ?? '-'}';
+    final String lockAmount = '${lockup['amount'] ?? ''}';
+    final bool lockEmpty = lockAmount.isEmpty;
+    final String lockI18nKey = '${lockup['i18n'] ?? ''}';
+    final String lastReward = '${item['last_reward_block_height'] ?? '-'}';
+    final Object? eq = item['equity'];
+    final bool hasEquity = eq != null && '$eq'.trim().isNotEmpty;
+    final String lockMetaLabel = lockEmpty
+        ? loc.tr('components.pool_list_tabular.lock_up')
+        : loc.tr('components.pool_list_tabular.expiring');
 
-    return Card(
-      color: const Color(0xFF1a1a1a),
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: canTapStake ? () => _openStakeDialog(item) : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_poolTypeLabel(loc, item),
-                        style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: 4),
-                    Text(loc.tr('components.pool_list_tabular.oracle_node_id'),
-                        style: Theme.of(context).textTheme.labelSmall),
-                    SelectableText(pubkey,
-                        style: const TextStyle(fontSize: 11)),
-                    const SizedBox(height: 6),
-                    _kv(
-                        loc.tr('components.pool_list_tabular.stakers'),
-                        NumberFormat.decimalPattern().format(
-                            num.tryParse('${item['contributors'] ?? 0}') ?? 0)),
-                    _kv(loc.tr('components.pool_list_tabular.operator_fee'),
-                        '${item['operator_fee'] ?? '-'}'),
-                    _kv(
-                        loc.tr(
-                            'components.pool_list_tabular.last_reward_height'),
-                        '${item['last_reward_block_height'] ?? '-'}'),
-                    _kvRow(
-                      _lockupHeader(loc, lockup),
-                      Text(_lockupSub(loc, lockup)),
-                    ),
-                    _kv(
-                        loc.tr(
-                            'components.pool_list_tabular.last_uptime_proof'),
-                        _relativeUptime(loc, lastProof)),
-                    _kv(
-                      loc.tr('components.pool_list_tabular.staked'),
-                      '${item['staked'] ?? '-'} ARQ${fiatStaked != null ? ' $fiatStaked' : ''}',
-                    ),
-                    _kv(
-                      loc.tr('components.pool_list_tabular.available'),
-                      '${item['available'] ?? '-'} ARQ${fiatAvail != null ? ' $fiatAvail' : ''}',
-                    ),
-                    if (item['equity'] != null &&
-                        '${item['equity']}'.isNotEmpty)
-                      _kv(loc.tr('components.pool_list_tabular.equity'),
-                          '${item['equity']} %'),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 20),
-                onSelected: (String v) async {
-                  switch (v) {
-                    case 'copy':
-                      await _copyNodeId(pubkey);
-                      break;
-                    case 'explorer':
-                      await _openExplorer(pubkey);
-                      break;
-                    case 'book':
-                      await _addOperatorToBook(item);
-                      break;
-                    case 'deregister':
-                      await _deregisterNode(pubkey);
-                      break;
-                  }
-                },
-                itemBuilder: (BuildContext ctx) {
-                  return <PopupMenuEntry<String>>[
-                    PopupMenuItem<String>(
-                        value: 'copy',
-                        child: Text(loc.tr(
-                            'components.pool_list_tabular.copy_oracle_node_id'))),
-                    if (!operatorSection)
-                      PopupMenuItem<String>(
-                          value: 'book',
-                          child: Text(loc.tr(
-                              'components.pool_list_tabular.add_operator_to_addressbook'))),
-                    if (canDeregisterOperator || canDeregisterContributor)
-                      PopupMenuItem<String>(
-                        value: 'deregister',
-                        child: Text(loc.tr(
-                            'components.pool_list_tabular.deregister_oracle_node')),
-                      ),
-                    PopupMenuItem<String>(
-                        value: 'explorer',
-                        child: Text(loc.tr(
-                            'components.pool_list_tabular.view_on_explorer'))),
-                  ];
-                },
-              ),
-            ],
+    /// Operator vs contributor — obie role w tonacji złota (jasniejsza / ciemniejsza).
+    final Color typeColor = operatorSection
+        ? ArqmaColors.arqmaGreenSolid
+        : ArqmaColors.arqmaGreenDarkSolid;
+
+    PopupMenuItem<String> menuEntry(String value, String label) {
+      return PopupMenuItem<String>(
+        value: value,
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        child: Text(
+          label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            color: ArqmaColors.arqmaGreenSolid,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _kv(String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 130,
-              child: Text(k, style: Theme.of(context).textTheme.labelSmall)),
-          Expanded(child: Text(v, style: const TextStyle(fontSize: 12))),
-        ],
-      ),
-    );
-  }
+    final List<PopupMenuEntry<String>> poolOverflowItems =
+        <PopupMenuEntry<String>>[];
+    if (!operatorSection) {
+      poolOverflowItems.add(menuEntry(
+          'book',
+          loc.tr(
+              'components.pool_list_tabular.add_operator_to_addressbook')));
+    }
+    poolOverflowItems.add(menuEntry(
+        'copy',
+        loc.tr('components.pool_list_tabular.copy_oracle_node_id')));
+    if (canDeregisterOperator || canDeregisterContributor) {
+      poolOverflowItems.add(menuEntry(
+          'deregister',
+          loc.tr('components.pool_list_tabular.deregister_oracle_node')));
+    }
+    poolOverflowItems.add(menuEntry(
+        'explorer',
+        loc.tr('components.pool_list_tabular.view_on_explorer')));
 
-  Widget _kvRow(Widget label, Widget value) {
+    // Parity with `app.scss` `.pool-list-tabular .arqma-list-item.transaction` + `pool_list_tabular.vue`.
     return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 130,
-              child: DefaultTextStyle.merge(
-                  style: Theme.of(context).textTheme.labelSmall!,
-                  child: label)),
-          Expanded(
-              child: DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 12), child: value)),
-        ],
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
+      child: Material(
+        color: ArqmaColors.black90,
+        borderRadius: BorderRadius.circular(3),
+        clipBehavior: Clip.none,
+        child: InkWell(
+          hoverColor: ArqmaColors.selection,
+          splashColor: ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.18),
+          onTap: canTapStake ? () => _openStakeDialog(item) : null,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 100,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        _poolTypeLabel(loc, item),
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.2,
+                          color: typeColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: ArqmaColors.outlineSubtle),
+                      ),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          loc.tr('components.pool_list_tabular.oracle_node_id'),
+                          style: _poolMetaStyle(context),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          pubkey,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            height: 1.25,
+                            color: ArqmaColors.textSecondary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 76,
+                  labelKey: 'components.pool_list_tabular.stakers',
+                  value: Text(
+                    stakers,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 72,
+                  labelKey: 'components.pool_list_tabular.operator_fee',
+                  value: Text(
+                    fee,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 92,
+                  labelKey: 'components.pool_list_tabular.last_reward_height',
+                  value: Text(
+                    lastReward,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                SizedBox(
+                  width: 128,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          lockMetaLabel,
+                          textAlign: TextAlign.center,
+                          style: _poolMetaStyle(context),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          !lockEmpty && lockI18nKey.isNotEmpty
+                              ? '$lockAmount ${loc.tr(lockI18nKey)}'
+                              : lockAmount,
+                          textAlign: TextAlign.center,
+                          style: _poolValueStyle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 118,
+                  labelKey: 'components.pool_list_tabular.last_uptime_proof',
+                  value: Text(
+                    _relativeUptime(loc, lastProof),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 138,
+                  labelKey: 'components.pool_list_tabular.staked',
+                  value: _poolStakedAvailValue(loc, price, item['staked']),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 138,
+                  labelKey: 'components.pool_list_tabular.available',
+                  value: _poolStakedAvailValue(loc, price, item['available']),
+                ),
+                _poolMain1Block(
+                  context: context,
+                  loc: loc,
+                  width: 72,
+                  labelKey: 'components.pool_list_tabular.equity',
+                  value: hasEquity
+                      ? Text(
+                          '$eq %',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : const Text(''),
+                ),
+                SizedBox(
+                  width: 48,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Builder(
+                      builder: (BuildContext btnCtx) {
+                        return IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 36,
+                          ),
+                          tooltip: '',
+                          onPressed: () async {
+                            await _showPoolRowOverflowMenu(
+                              anchor: btnCtx,
+                              items: poolOverflowItems,
+                              onChosen: (String v) async {
+                                switch (v) {
+                                  case 'copy':
+                                    await _copyNodeId(pubkey);
+                                    break;
+                                  case 'explorer':
+                                    await _openExplorer(pubkey);
+                                    break;
+                                  case 'book':
+                                    await _addOperatorToBook(item);
+                                    break;
+                                  case 'deregister':
+                                    await _deregisterNode(pubkey);
+                                    break;
+                                }
+                              },
+                            );
+                          },
+                          icon: Icon(
+                            Icons.more_vert,
+                            size: 20,
+                            color: ArqmaColors.textPrimary
+                                .withValues(alpha: 0.85),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -808,265 +1090,290 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         store.filteredPools('nonoperator_pools');
     final List<Map<String, dynamic>> book = _addressBookEntries(store);
 
-    final List<Widget> poolListChildren = <Widget>[
-      if (operatorPools.isEmpty && nonOpPools.isEmpty)
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-              loc.tr('components.pool_list_tabular.no_staked_pools_found')),
-        )
-      else ...<Widget>[
-        ...operatorPools.map(
-          (Map<String, dynamic> item) => _poolCard(
-              loc: loc, store: store, item: item, operatorSection: true),
-        ),
-        ...nonOpPools.map(
-          (Map<String, dynamic> item) => _poolCard(
-              loc: loc, store: store, item: item, operatorSection: false),
-        ),
-      ],
+    final bool poolsEmpty = operatorPools.isEmpty && nonOpPools.isEmpty;
+    final List<Widget> poolRows = <Widget>[
+      ...operatorPools.map(
+        (Map<String, dynamic> item) => _poolRow(
+            loc: loc, store: store, item: item, operatorSection: true),
+      ),
+      if (operatorPools.isNotEmpty && nonOpPools.isNotEmpty)
+        const SizedBox(height: 8),
+      ...nonOpPools.map(
+        (Map<String, dynamic> item) => _poolRow(
+            loc: loc, store: store, item: item, operatorSection: false),
+      ),
     ];
 
-    // Pool list: same idea as `.scroller` in `staking-pools.vue` — `max-height: viewport - 425px`, overflow auto.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SingleChildScrollView(
+    /// Parity with `staking-pools.vue`: stats + filters scroll; `.scroller` holds the tabular list.
+    return CustomScrollView(
+      slivers: <Widget>[
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 18, 0),
+          sliver: SliverToBoxAdapter(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 6,
-                  children: [
-                    Text(loc.tr('pages.wallet.staking_pools.network_stats')),
-                    Text(
-                        '${loc.tr('pages.wallet.staking_pools.total_nodes')} ${NumberFormat.decimalPattern().format(store.poolCount)}'),
-                    Text(
-                        '${loc.tr('pages.wallet.staking_pools.monthly_yield')} $monthlyYield%'),
-                    Text(
-                        '${loc.tr('pages.wallet.staking_pools.node_reward')} ($nodeDuration days): $nodeReward ARQ'),
-                    Text(
-                        '${loc.tr('pages.wallet.staking_pools.tvl')} \$${NumberFormat.decimalPattern().format(tvl)}'),
-                    if (price > 0)
-                      Text(
-                          '${loc.tr('pages.wallet.staking_pools.arq_spot_price')} \$${_formatSpotUsd(price)}'),
-                  ],
-                ),
-                if (totalStaked > 0) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 6,
-                    children: [
-                      Text(loc.tr('pages.wallet.staking_pools.operator_stats')),
-                      Text(
-                        '${loc.tr('pages.wallet.staking_pools.total_staked')} ${NumberFormat.decimalPattern().format(totalStaked)} ARQ'
-                        '${operatorStakedUsd != null ? ' (${loc.tr('pages.wallet.staking_pools.fiat_approx', named: {
-                                'amount': NumberFormat.decimalPattern()
-                                    .format(operatorStakedUsd)
-                              })})' : ''}',
-                      ),
-                      Text(
-                          '${loc.tr('pages.wallet.staking_pools.percentage_of_pool')} $percentageOfPool%'),
-                      Text(
-                          '${loc.tr('pages.wallet.staking_pools.nodes_operating')} ${NumberFormat.decimalPattern().format(numOperating)}'),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 12),
-                ArqmaField(
-                  label: loc
-                      .tr('pages.wallet.staking_pools.filter_by_oracle_nodeid'),
-                  disableMenu: false,
-                  child: TextField(
-                    controller: _nodeId,
-                    decoration: InputDecoration(
-                      hintText: loc.tr(
-                          'pages.wallet.staking_pools.filter_by_oracle_nodeid_placeholder'),
-                      border: InputBorder.none,
-                      suffixIcon: _nodeId.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: () {
-                                _nodeId.clear();
-                                _pushNodeFilter();
-                                setState(() {});
-                              },
-                            ),
+        Wrap(
+          spacing: 12,
+          runSpacing: 6,
+          children: [
+            Text(loc.tr('pages.wallet.staking_pools.network_stats')),
+            Text(
+                '${loc.tr('pages.wallet.staking_pools.total_nodes')} ${NumberFormat.decimalPattern().format(store.poolCount)}'),
+            Text(
+                '${loc.tr('pages.wallet.staking_pools.monthly_yield')} $monthlyYield%'),
+            Text(
+                '${loc.tr('pages.wallet.staking_pools.node_reward')} ($nodeDuration days): $nodeReward ARQ'),
+            Text(
+                '${loc.tr('pages.wallet.staking_pools.tvl')} \$${NumberFormat.decimalPattern().format(tvl)}'),
+            if (price > 0)
+              Text(
+                  '${loc.tr('pages.wallet.staking_pools.arq_spot_price')} \$${_formatSpotUsd(price)}'),
+          ],
+        ),
+        if (totalStaked > 0) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              Text(loc.tr('pages.wallet.staking_pools.operator_stats')),
+              Text(
+                '${loc.tr('pages.wallet.staking_pools.total_staked')} ${NumberFormat.decimalPattern().format(totalStaked)} ARQ'
+                '${operatorStakedUsd != null ? ' (${loc.tr('pages.wallet.staking_pools.fiat_approx', named: {
+                        'amount': NumberFormat.decimalPattern()
+                            .format(operatorStakedUsd)
+                      })})' : ''}',
+              ),
+              Text(
+                  '${loc.tr('pages.wallet.staking_pools.percentage_of_pool')} $percentageOfPool%'),
+              Text(
+                  '${loc.tr('pages.wallet.staking_pools.nodes_operating')} ${NumberFormat.decimalPattern().format(numOperating)}'),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
+        ArqmaField(
+          label: loc.tr('pages.wallet.staking_pools.filter_by_oracle_nodeid'),
+          disableMenu: false,
+          child: TextField(
+            controller: _nodeId,
+            decoration: InputDecoration(
+              hintText: loc.tr(
+                  'pages.wallet.staking_pools.filter_by_oracle_nodeid_placeholder'),
+              border: InputBorder.none,
+              suffixIcon: _nodeId.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 20),
+                      onPressed: () {
+                        _nodeId.clear();
+                        _pushNodeFilter();
+                        setState(() {});
+                      },
                     ),
-                    onChanged: (_) {
-                      setState(() {});
-                      _pushNodeFilter();
-                    },
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ArqmaField(
-                  label: loc.tr(
-                      'pages.wallet.staking_pools.filter_by_operator_address'),
-                  disableMenu: false,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _operatorId,
-                          decoration: InputDecoration(
-                            hintText: loc.tr(
-                                'pages.wallet.staking_pools.filter_by_operator_address_placeholder'),
-                            border: InputBorder.none,
-                            suffixIcon: _operatorId.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    icon: const Icon(Icons.clear, size: 20),
-                                    onPressed: () {
-                                      _operatorId.clear();
-                                      _pushOperatorFilter();
-                                      setState(() {});
-                                    },
-                                  ),
+            ),
+            onChanged: (_) {
+              setState(() {});
+              _pushNodeFilter();
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        ArqmaField(
+          label:
+              loc.tr('pages.wallet.staking_pools.filter_by_operator_address'),
+          disableMenu: false,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _operatorId,
+                  decoration: InputDecoration(
+                    hintText: loc.tr(
+                        'pages.wallet.staking_pools.filter_by_operator_address_placeholder'),
+                    border: InputBorder.none,
+                    suffixIcon: _operatorId.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 20),
+                            onPressed: () {
+                              _operatorId.clear();
+                              _pushOperatorFilter();
+                              setState(() {});
+                            },
                           ),
-                          onChanged: (_) {
-                            setState(() {});
-                            _pushOperatorFilter();
-                          },
-                        ),
-                      ),
-                      if (book.isNotEmpty)
-                        PopupMenuButton<Map<String, dynamic>>(
-                          icon: const Icon(Icons.bookmark_outline, size: 22),
-                          tooltip: loc.tr('layouts.wallet.main.address_book'),
-                          itemBuilder: (BuildContext ctx) {
-                            return book
-                                .map(
-                                  (Map<String, dynamic> e) =>
-                                      PopupMenuItem<Map<String, dynamic>>(
-                                    value: e,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text('${e['name'] ?? ''}',
-                                            style: Theme.of(ctx)
-                                                .textTheme
-                                                .labelSmall),
-                                        Text('${e['address'] ?? ''}',
-                                            style:
-                                                const TextStyle(fontSize: 11)),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                                .toList();
-                          },
-                          onSelected: (Map<String, dynamic> e) {
-                            _operatorId.text = '${e['address'] ?? ''}';
-                            _pushOperatorFilter();
-                            setState(() {});
-                          },
-                        ),
-                    ],
                   ),
+                  onChanged: (_) {
+                    setState(() {});
+                    _pushOperatorFilter();
+                  },
                 ),
-                const SizedBox(height: 8),
-                ArqmaField(
-                  label: loc.tr(
-                      'pages.wallet.staking_pools.filter_by_oracle_node_status'),
-                  child: DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: filterIndex.clamp(0, 4),
-                    itemHeight: 88,
-                    selectedItemBuilder: (BuildContext ctx) {
-                      return _nodeFilterOptions.map((Map<String, dynamic> o) {
-                        return Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            loc.tr(o['label'] as String),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        );
-                      }).toList();
-                    },
-                    dropdownColor: const Color(0xFF1d1d1d),
-                    decoration: const InputDecoration(border: InputBorder.none),
-                    items: _nodeFilterOptions
+              ),
+              if (book.isNotEmpty)
+                PopupMenuButton<Map<String, dynamic>>(
+                  icon: const Icon(Icons.bookmark_outline, size: 22),
+                  tooltip: loc.tr('layouts.wallet.main.address_book'),
+                  itemBuilder: (BuildContext ctx) {
+                    return book
                         .map(
-                          (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                            value: o['index'] as int,
+                          (Map<String, dynamic> e) =>
+                              PopupMenuItem<Map<String, dynamic>>(
+                            value: e,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(loc.tr(o['label'] as String),
-                                    overflow: TextOverflow.ellipsis),
-                                Text(
-                                  loc.tr(o['description'] as String? ?? ''),
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      color: ArqmaColors.textMuted,
-                                      height: 1.2),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                Text('${e['name'] ?? ''}',
+                                    style:
+                                        Theme.of(ctx).textTheme.labelSmall),
+                                Text('${e['address'] ?? ''}',
+                                    style: const TextStyle(fontSize: 11)),
                               ],
                             ),
                           ),
                         )
-                        .toList(),
-                    onChanged: (int? v) {
-                      if (v == null) {
-                        return;
-                      }
-                      final Map<String, dynamic> opt =
-                          Map<String, dynamic>.from(
-                        _nodeFilterOptions.firstWhere(
-                            (Map<String, dynamic> e) => e['index'] == v),
-                      );
-                      store.setPoolsFilterState(opt);
-                    },
-                  ),
+                        .toList();
+                  },
+                  onSelected: (Map<String, dynamic> e) {
+                    _operatorId.text = '${e['address'] ?? ''}';
+                    _pushOperatorFilter();
+                    setState(() {});
+                  },
                 ),
-                if (poolFilterDesc.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, top: 4, right: 4),
-                    child: Text(
-                      poolFilterDesc,
-                      style: const TextStyle(
-                          fontSize: 11,
-                          color: ArqmaColors.textMuted,
-                          height: 1.3),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ArqmaField(
+          label: loc
+              .tr('pages.wallet.staking_pools.filter_by_oracle_node_status'),
+          child: DropdownButtonFormField<int>(
+            isExpanded: true,
+            value: filterIndex.clamp(0, 4),
+            itemHeight: 88,
+            selectedItemBuilder: (BuildContext ctx) {
+              return _nodeFilterOptions.map((Map<String, dynamic> o) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    loc.tr(o['label'] as String),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                );
+              }).toList();
+            },
+            dropdownColor: ArqmaColors.darkPanel,
+            decoration: const InputDecoration(border: InputBorder.none),
+            items: _nodeFilterOptions
+                .map(
+                  (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                    value: o['index'] as int,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(loc.tr(o['label'] as String),
+                            overflow: TextOverflow.ellipsis),
+                        Text(
+                          loc.tr(o['description'] as String? ?? ''),
+                          style: const TextStyle(
+                              fontSize: 10,
+                              color: ArqmaColors.textMuted,
+                              height: 1.2),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 16),
+                )
+                .toList(),
+            onChanged: (int? v) {
+              if (v == null) {
+                return;
+              }
+              final Map<String, dynamic> opt = Map<String, dynamic>.from(
+                _nodeFilterOptions.firstWhere(
+                    (Map<String, dynamic> e) => e['index'] == v),
+              );
+              store.setPoolsFilterState(opt);
+            },
+          ),
+        ),
+        if (poolFilterDesc.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, top: 4, right: 4),
+            child: Text(
+              poolFilterDesc,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: ArqmaColors.textMuted,
+                  height: 1.3),
+            ),
+          ),
+        const SizedBox(height: 8),
               ],
             ),
           ),
         ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+        if (poolsEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  loc.tr('components.pool_list_tabular.no_staked_pools_found'),
+                ),
+              ),
+            ),
+          )
+        else
+          SliverFillRemaining(
+            hasScrollBody: true,
             child: LayoutBuilder(
-              builder: (BuildContext listContext, BoxConstraints inner) {
-                final double viewportH = MediaQuery.sizeOf(listContext).height;
-                final double capByVue = (viewportH - 425).clamp(200.0, 9000.0);
-                final double maxListH = math.min(inner.maxHeight, capByVue);
-                return ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxListH),
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    children: poolListChildren,
+              builder: (BuildContext ctx, BoxConstraints c) {
+                final double availW = c.maxWidth.isFinite && c.maxWidth > 0
+                    ? c.maxWidth
+                    : _kPoolTableMinWidth;
+                final double tableW = math.max(
+                  _kPoolTableMinWidth,
+                  math.max(0.0, availW - _kPoolTableScrollHPadding),
+                );
+                return Scrollbar(
+                  controller: _poolHorizontalScroll,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _poolHorizontalScroll,
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    child: Scrollbar(
+                      controller: _poolVerticalScroll,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _poolVerticalScroll,
+                        clipBehavior: Clip.none,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
+                          child: SizedBox(
+                            width: tableW,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: poolRows,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 );
               },
             ),
           ),
-        ),
       ],
     );
   }
