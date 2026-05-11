@@ -2,7 +2,7 @@
 name = "arqma-wallet-core"
 version.workspace = true
 edition.workspace = true
-description = "Czysta logika portfela (RPC, konfiguracja, typy) — wspólna dla Tauri, daemona i ewentualnego web."
+description = "Shared wallet logic (RPC, config, types) for Tauri, the daemon helper, and possible future web use."
 license.workspace = true
 
 [dependencies]

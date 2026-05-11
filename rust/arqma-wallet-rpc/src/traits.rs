@@ -8,5 +8,5 @@ use crate::WalletRpcError;
 /// Implementations: `WalletRpcClient` (feature `http-digest`), future FFI backend.
 #[async_trait]
 pub trait WalletJsonRpc: Send + Sync {
-  async fn call (&self, method: &str, params: &Value) -> Result<Value, WalletRpcError>;
+    async fn call(&self, method: &str, params: &Value) -> Result<Value, WalletRpcError>;
 }

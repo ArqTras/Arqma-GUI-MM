@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 import '../desktop/arqma_daemon_launcher.dart';
 import '../desktop/arqma_desktop_defaults.dart';
@@ -25,6 +27,24 @@ import '../desktop/wallet_list_fs.dart';
 import '../desktop/wallet_password_pbkdf2.dart';
 import '../utils/deep_merge.dart';
 import 'native_bridge.dart';
+
+/// Timeline logs for “open wallet” / post-open RPCs. Enable in **release** with:
+/// `ARQMA_FLUTTER_DEBUG_WALLET=1` (PowerShell: `$env:ARQMA_FLUTTER_DEBUG_WALLET='1'`).
+/// Always on in **debug** (`flutter run`). Capture: console or `flutter run -d windows -v`.
+bool _walletOpenTraceEnabled() =>
+    kDebugMode ||
+    (!kIsWeb && Platform.environment['ARQMA_FLUTTER_DEBUG_WALLET'] == '1');
+
+void _traceWalletOpen(String phase, {Stopwatch? sw}) {
+  if (!_walletOpenTraceEnabled()) {
+    return;
+  }
+  final String elapsed =
+      sw != null ? ' (+${sw.elapsedMilliseconds}ms)' : '';
+  final String msg = '[Arqma WalletOpen]$elapsed $phase';
+  debugPrint(msg);
+  developer.log(msg, name: 'ArqmaWallet');
+}
 
 /// Tauri `write_config_file` + `validate_config_against_defaults` + `strip_trusted_daemon_from_config`
 /// (+ optional `strip_legacy_uniform_pool_option` on `save_config_init`).
@@ -63,7 +83,7 @@ String _walletFfiMissedStartHint() {
   const String rpc =
       'Legacy: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and use `arqma-wallet-rpc`.';
   if (Platform.isWindows) {
-    return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe`. '
+    return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` under `lib\\` or next to `Arqma-Wallet.exe`. '
         'If the `.dll` is present but still error **126**, missing **dependencies** (Boost, OpenSSL, libsodium, '
         'unbound, ICU, …) from MSYS2 `mingw64\\bin` — rebuild with `ARQMA_WALLET2_MSYS_ROOT` set or run '
         '`tool\\package_flutter_release.ps1` which copies those DLLs. Minimum runtime: `libgcc_s_seh-1.dll`, '
@@ -88,7 +108,7 @@ String _walletFfiMissedStartHint() {
 
 String _walletFfiBackendOfflineHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (embed `arqma_wallet_flutter_ffi.dll` next to the exe, or '
+    return 'Wallet backend is not running (embed `lib\\arqma_wallet_flutter_ffi.dll` or next to the exe, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
@@ -107,7 +127,7 @@ String _walletFfiBackendOfflineHint() {
 
 String _walletFfiCreateRestoreHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into the Windows `runner/Release` tree, or '
+    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/lib/`, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
   }
   if (Platform.isMacOS) {
@@ -152,6 +172,9 @@ final class DesktopNativeBridge implements NativeBridge {
   int _whStoredUnlocked = 0;
   bool _whFetchTxPending = false;
   bool _walletXferBusy = false;
+
+  /// Limits `get_transfers` rate while [inScanRhythm] — height advances every tick during sync.
+  DateTime? _walletXferScanThrottleUntil;
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -402,7 +425,7 @@ final class DesktopNativeBridge implements NativeBridge {
       return null;
     }
     if (cmd == 'app_version_str') {
-      return '5.0.3+flutter-desktop';
+      return '5.1.0';
     }
     if (cmd == 'daemon_version_probe') {
       final Map<String, dynamic>? c = _runtimeConfig;
@@ -1450,6 +1473,7 @@ final class DesktopNativeBridge implements NativeBridge {
   void _stopWalletHeartbeat() {
     _walletHeartbeat?.cancel();
     _walletHeartbeat = null;
+    _walletXferScanThrottleUntil = null;
   }
 
   /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
@@ -1515,6 +1539,7 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     _walletXferBusy = true;
+    bool emittedOk = false;
     try {
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null || _openedWalletDisplayName != walletNameAtStart) {
@@ -1556,14 +1581,26 @@ final class DesktopNativeBridge implements NativeBridge {
         'event': 'set_wallet_transactions',
         'data': <String, dynamic>{'tx_list': list},
       });
+      emittedOk = true;
+      _whFetchTxPending = false;
     } catch (e, st) {
       debugPrint('[DesktopNative] wallet get_transfers: $e\n$st');
     } finally {
       _walletXferBusy = false;
+      if (!emittedOk && walletNameAtStart == _openedWalletDisplayName) {
+        _whFetchTxPending = true;
+      }
     }
   }
 
+  /// Parity with Tauri `wallet_heartbeat`: never drop ticks — a slow `getheight` must not
+  /// suppress later polls (that froze footer sync %). Heavy `get_transfers` runs via
+  /// [unawaited] + [_walletXferBusy]; native FFI serializes concurrent calls.
   Future<void> _walletHeartbeatTick() async {
+    await _walletHeartbeatTickBody();
+  }
+
+  Future<void> _walletHeartbeatTickBody() async {
     final ArqmaWalletRpcSession? w = _walletRpc;
     final String name = _openedWalletDisplayName;
     final Map<String, dynamic>? cfg = _runtimeConfig;
@@ -1666,15 +1703,134 @@ final class DesktopNativeBridge implements NativeBridge {
         (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ?? 1)
             .clamp(1, 365);
     final int daysWindowBlocks = daysWt * 720;
-    final bool xferTrigger =
-        _whFetchTxPending || hasBalanceChange || (!inScanRhythm && newH != h0);
-    if (xferTrigger &&
-        gb != null &&
-        walletJsonRpcNoError(gb) &&
-        !_walletXferBusy) {
-      _whFetchTxPending = false;
+    // Match Tauri `wallet_heartbeat`: xfer on pending open, balance change, or (once caught up)
+    // each height tick — see `wallet_heartbeat.rs`. Additionally refresh txs periodically **during**
+    // chain scan (Electron only refreshed on balance_change; that misses rows until balance moves).
+    final DateTime now = DateTime.now();
+    bool xferDuringScan = false;
+    if (inScanRhythm && newH != h0) {
+      if (_walletXferScanThrottleUntil == null ||
+          !now.isBefore(_walletXferScanThrottleUntil!)) {
+        xferDuringScan = true;
+      }
+    }
+    final bool xferTrigger = _whFetchTxPending ||
+        hasBalanceChange ||
+        (!inScanRhythm && newH != h0) ||
+        xferDuringScan;
+    // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
+    // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
+    final bool gbOk = gb != null && walletJsonRpcNoError(gb);
+    final bool canXfer = xferTrigger &&
+        !_walletXferBusy &&
+        (gbOk ||
+            (_whFetchTxPending && ghOk) ||
+            (xferDuringScan && ghOk));
+    if (canXfer) {
+      if (xferDuringScan) {
+        _walletXferScanThrottleUntil =
+            now.add(const Duration(seconds: 45));
+      }
       unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
     }
+  }
+
+  /// Before `rescan_blockchain`: force footer/list into “scanning from scratch” so the UI paints before the RPC returns.
+  void _emitRescanStartingUi({required bool clearTransactions}) {
+    final String name = _openedWalletDisplayName;
+    if (name.isEmpty) {
+      return;
+    }
+    _whStoredHeight = 0;
+    _whFetchTxPending = true;
+    _emit(<String, dynamic>{
+      'event': 'set_wallet_info',
+      'data': <String, dynamic>{
+        'name': name,
+        'height': 0,
+        'balance': _whStoredBalance,
+        'unlocked_balance': _whStoredUnlocked,
+        'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        'allow_lower_height': true,
+      },
+    });
+    if (clearTransactions) {
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_transactions',
+        'data': <String, dynamic>{'tx_list': <dynamic>[]},
+      });
+    }
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_status',
+      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
+    });
+  }
+
+  /// Poll wallet RPC once after `rescan_*` so the footer shows scan height immediately (from genesis)
+  /// instead of waiting for the next heartbeat; [GatewayStore.setWalletInfo] normally blocks height
+  /// decreases — we pass `allow_lower_height` for this snapshot.
+  Future<void> _refreshWalletUiAfterRescan({required bool clearTransactions}) async {
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    final String name = _openedWalletDisplayName;
+    if (w == null || name.isEmpty) {
+      return;
+    }
+    Map<String, dynamic>? gh;
+    Map<String, dynamic>? gb;
+    try {
+      gh = await w
+          .call('getheight', <String, dynamic>{})
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+    } catch (_) {}
+    try {
+      gb = await w
+          .call('getbalance', <String, dynamic>{'account_index': 0})
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+    } catch (_) {}
+
+    int newH = _whStoredHeight;
+    if (gh != null && walletJsonRpcNoError(gh)) {
+      final int? parsed = walletHeightFromGetheight(gh);
+      if (parsed != null) {
+        newH = parsed;
+      }
+    }
+    _whStoredHeight = newH;
+
+    if (gb != null && walletJsonRpcNoError(gb)) {
+      final Object? res = gb['result'];
+      if (res is Map) {
+        final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
+        _whStoredBalance =
+            (rm['balance'] as num?)?.toInt() ?? _whStoredBalance;
+        _whStoredUnlocked = (rm['unlocked_balance'] as num?)?.toInt() ??
+            (rm['unlocked'] as num?)?.toInt() ??
+            _whStoredUnlocked;
+      }
+    }
+
+    _whFetchTxPending = true;
+    _emit(<String, dynamic>{
+      'event': 'set_wallet_info',
+      'data': <String, dynamic>{
+        'name': name,
+        'height': newH,
+        'balance': _whStoredBalance,
+        'unlocked_balance': _whStoredUnlocked,
+        'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        'allow_lower_height': true,
+      },
+    });
+    if (clearTransactions) {
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_transactions',
+        'data': <String, dynamic>{'tx_list': <dynamic>[]},
+      });
+    }
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_status',
+      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
+    });
   }
 
   /// `daemon_process::restart_local_daemon_if_exited` — best-effort for desktop `dart:io` [Process].
@@ -1863,8 +2019,11 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   Future<dynamic> _openWalletDesktop(Object? data) async {
+    final Stopwatch sw = Stopwatch()..start();
+    _traceWalletOpen('begin open_wallet flow', sw: sw);
     final ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
+      _traceWalletOpen('abort: wallet RPC null', sw: sw);
       _showNotification(
         'negative',
         _walletFfiBackendOfflineHint(),
@@ -1882,6 +2041,8 @@ final class DesktopNativeBridge implements NativeBridge {
     final Map<String, dynamic> p = _coerceMap(data);
     final String name = '${p['name'] ?? p['filename'] ?? ''}'.trim();
     final String password = '${p['password'] ?? ''}';
+    _traceWalletOpen('wallet name="${name.isEmpty ? '<empty>' : name}" ffi=${w.usesNativeFfi}',
+        sw: sw);
     if (name.isEmpty) {
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
@@ -1895,12 +2056,15 @@ final class DesktopNativeBridge implements NativeBridge {
     });
     // Let the UI paint [AppLoading] before the synchronous FFI `open_wallet` blocks the isolate.
     await Future<void>.delayed(Duration.zero);
+    _traceWalletOpen('calling RPC open_wallet (may block isolate / UI)', sw: sw);
     final Map<String, dynamic>? opened = await w.call(
       'open_wallet',
       <String, dynamic>{'filename': name, 'password': password},
     );
+    _traceWalletOpen('RPC open_wallet returned ok=${walletJsonRpcNoError(opened)}', sw: sw);
     if (!walletJsonRpcNoError(opened)) {
       final String msg = '${opened?['error'] ?? 'open_wallet failed'}';
+      _traceWalletOpen('open_wallet error: $msg', sw: sw);
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
         'data': <String, dynamic>{'code': -1, 'message': msg},
@@ -1908,7 +2072,9 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     _refreshSessionPasswordDigest(password);
+    _traceWalletOpen('starting _emitWalletOpenedUi', sw: sw);
     await _emitWalletOpenedUi(name);
+    _traceWalletOpen('done open_wallet flow', sw: sw);
     return <String, dynamic>{};
   }
 
@@ -1954,8 +2120,11 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   Future<void> _emitWalletOpenedUi(String name) async {
+    final Stopwatch sw = Stopwatch()..start();
+    _traceWalletOpen('_emitWalletOpenedUi begin name=$name', sw: sw);
     final ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
+      _traceWalletOpen('_emitWalletOpenedUi abort: no session', sw: sw);
       return;
     }
     _openedWalletDisplayName = name;
@@ -1979,10 +2148,14 @@ final class DesktopNativeBridge implements NativeBridge {
         .call('getheight', <String, dynamic>{}).timeout(
             const Duration(seconds: 30),
             onTimeout: () => null);
+    _traceWalletOpen(
+        'post-open getheight ok=${walletJsonRpcNoError(gh)} height=${walletHeightFromGetheight(gh)}',
+        sw: sw);
     final Map<String, dynamic>? gb = await w
         .call('getbalance', <String, dynamic>{'account_index': 0}).timeout(
             const Duration(seconds: 30),
             onTimeout: () => null);
+    _traceWalletOpen('post-open getbalance ok=${walletJsonRpcNoError(gb)}', sw: sw);
 
     final int openedHeight = walletHeightFromGetheight(gh) ?? 0;
     int bal = 0;
@@ -2003,6 +2176,7 @@ final class DesktopNativeBridge implements NativeBridge {
         .call('get_address', <String, dynamic>{'account_index': 0}).timeout(
             const Duration(seconds: 25),
             onTimeout: () => null);
+    _traceWalletOpen('post-open get_address ok=${walletJsonRpcNoError(ga)}', sw: sw);
     if (walletJsonRpcNoError(ga) && ga != null) {
       final Object? res = ga['result'];
       if (res is Map) {
@@ -2018,6 +2192,7 @@ final class DesktopNativeBridge implements NativeBridge {
         .call('query_key', <String, dynamic>{'key_type': 'spend_key'}).timeout(
             const Duration(seconds: 20),
             onTimeout: () => null);
+    _traceWalletOpen('post-open query_key(spend) ok=${walletJsonRpcNoError(qk)}', sw: sw);
     if (walletJsonRpcNoError(qk) && qk != null) {
       final Object? res = qk['result'];
       if (res is Map) {
@@ -2048,7 +2223,9 @@ final class DesktopNativeBridge implements NativeBridge {
     _whStoredBalance = bal;
     _whStoredUnlocked = unl;
     _whFetchTxPending = true;
+    _traceWalletOpen('_emitWalletOpenedUi starting wallet heartbeat', sw: sw);
     _startWalletHeartbeat();
+    _traceWalletOpen('_emitWalletOpenedUi complete', sw: sw);
   }
 
   static const double _arqCoinUnits = 1e9;
@@ -2656,15 +2833,29 @@ final class DesktopNativeBridge implements NativeBridge {
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
         final bool hard = _coerceMap(data)['hard'] == true;
-        await w.call(
-            'rescan_blockchain', <String, dynamic>{if (hard) 'hard': true});
+        _emitRescanStartingUi(clearTransactions: hard);
+        await Future<void>.delayed(const Duration(milliseconds: 48));
+        await WidgetsBinding.instance.endOfFrame;
+        try {
+          await w.call(
+            'rescan_blockchain',
+            <String, dynamic>{if (hard) 'hard': true},
+          );
+        } catch (e, st) {
+          debugPrint('[DesktopNative] rescan_blockchain: $e\n$st');
+        }
+        // Native rescan runs on a background thread; footer/transfers refresh via heartbeat / xfer.
       }
       return <String, dynamic>{};
     }
     if (method == 'rescan_spent') {
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
-        await w.call('rescan_spent', <String, dynamic>{});
+        try {
+          await w.call('rescan_spent', <String, dynamic>{});
+        } catch (e, st) {
+          debugPrint('[DesktopNative] rescan_spent: $e\n$st');
+        }
       }
       return <String, dynamic>{};
     }

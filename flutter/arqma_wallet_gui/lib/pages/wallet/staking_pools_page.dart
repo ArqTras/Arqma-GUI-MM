@@ -766,7 +766,7 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         ? loc.tr('components.pool_list_tabular.lock_up')
         : loc.tr('components.pool_list_tabular.expiring');
 
-    /// Operator vs contributor — obie role w tonacji złota (jasniejsza / ciemniejsza).
+    /// Operator vs contributor — both roles use gold-toned greens (lighter / darker).
     final Color typeColor = operatorSection
         ? ArqmaColors.arqmaGreenSolid
         : ArqmaColors.arqmaGreenDarkSolid;

@@ -7,16 +7,16 @@ use crate::gateway_emit::BackendReceiveSink;
 
 /// Same payload shape as Electron `webContents.send("receive", { event, data })` / Tauri `backend-receive`.
 pub trait SoloPoolSink: Send + Sync + 'static {
-  fn emit_receive (&self, event: &str, data: Value);
+    fn emit_receive(&self, event: &str, data: Value);
 }
 
 #[derive(Clone)]
-pub struct TauriSoloPoolSink (pub AppHandle);
+pub struct TauriSoloPoolSink(pub AppHandle);
 
 impl SoloPoolSink for TauriSoloPoolSink {
-  fn emit_receive (&self, event: &str, data: Value) {
-    let _ = BackendReceiveSink::emit_receive(&self.0, event, data);
-  }
+    fn emit_receive(&self, event: &str, data: Value) {
+        let _ = BackendReceiveSink::emit_receive(&self.0, event, data);
+    }
 }
 
 /// Flutter spawns `arqma_flutter_solo_pool`; each line is one JSON object `{ "event", "data" }`.
@@ -24,11 +24,11 @@ impl SoloPoolSink for TauriSoloPoolSink {
 pub struct JsonlStdoutSoloPoolSink;
 
 impl SoloPoolSink for JsonlStdoutSoloPoolSink {
-  fn emit_receive (&self, event: &str, data: Value) {
-    use std::io::Write;
-    let line = serde_json::json!({ "event": event, "data": data }).to_string();
-    let mut out = std::io::stdout().lock();
-    let _ = writeln!(out, "{line}");
-    let _ = out.flush();
-  }
+    fn emit_receive(&self, event: &str, data: Value) {
+        use std::io::Write;
+        let line = serde_json::json!({ "event": event, "data": data }).to_string();
+        let mut out = std::io::stdout().lock();
+        let _ = writeln!(out, "{line}");
+        let _ = out.flush();
+    }
 }

@@ -1,5 +1,3 @@
-use std::path::{Path, PathBuf};
-
 fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
@@ -107,19 +105,9 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     for lib in ["icuuc", "icuin", "icudt", "iconv"] {
         emit(&format!("-l{}", lib));
     }
-    // `rx-slow-hash.c` in `libwallet_merged.a` references the RandomX C API. Link `librandomx.a`
-    // **without** `--whole-archive` (avoids duplicate symbols vs objects already in the merge).
-    if let Some(rx) = mingw_librandomx_a_path() {
-        emit(&mingw_path_for_ld(&rx));
-    }
+    // RandomX is folded into `libwallet_merged.a` by upstream CMake (`wallet_merge_gnu_ar.cmake`).
     for lib in [
-        "ws2_32",
-        "iphlpapi",
-        "crypt32",
-        "advapi32",
-        "shell32",
-        "userenv",
-        "kernel32",
+        "ws2_32", "iphlpapi", "crypt32", "advapi32", "shell32", "userenv", "kernel32",
     ] {
         emit(&format!("-l{}", lib));
     }
@@ -129,29 +117,6 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     emit("-lunwind");
     emit("-lstdc++");
     emit("-Wl,--no-gc-sections");
-}
-
-fn mingw_path_for_ld(p: &Path) -> String {
-    p.display().to_string().replace('\\', "/")
-}
-
-/// `librandomx.a` from the MinGW CMake tree (CI sets `ARQMA_WALLET2_UPSTREAM_DIR`).
-fn mingw_librandomx_a_path() -> Option<PathBuf> {
-    let upstream = std::env::var("ARQMA_WALLET2_UPSTREAM_DIR")
-        .ok()
-        .filter(|s| !s.trim().is_empty())
-        .map(PathBuf::from)
-        .or_else(|| {
-            let md = std::env::var_os("CARGO_MANIFEST_DIR")?;
-            let p = PathBuf::from(md);
-            Some(p.join("../../arqma-rpc-upstream"))
-        })?;
-    let lib = upstream.join("build-mingw/external/randomarq/librandomx.a");
-    if lib.is_file() {
-        Some(lib)
-    } else {
-        None
-    }
 }
 
 fn mingw_tools_bin_from_env() -> Option<String> {

@@ -90,9 +90,11 @@ endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
-install(DIRECTORY "${NATIVE_ASSETS_DIR}"
-   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-   COMPONENT Runtime)
+if(IS_DIRECTORY "${NATIVE_ASSETS_DIR}")
+  install(DIRECTORY "${NATIVE_ASSETS_DIR}"
+     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+     COMPONENT Runtime)
+endif()
 
 # Fully re-copy the assets directory on each build to avoid having stale files
 # from a previous install.
@@ -116,7 +118,7 @@ foreach(_n IN ITEMS arqmad.exe arqma_flutter_solo_pool.exe)
   endif()
 endforeach()
 
-# Native wallet2 FFI — DLL under the bundle lib dir (see `wallet_native_ffi.dart`).
+# Native wallet2 FFI — DLL under `Release/lib/` (see `wallet_native_ffi.dart`, `install_arqma_wallet_ffi.cmake.in`).
 # **Prefer `x86_64-pc-windows-gnu` (MinGW)** over host `target/{debug,release}/` (MSVC): same as
 # Tauri Windows CI (`ci:tauri:native:windows-gnu`) and `arqma-wallet2-api` + `libwallet_merged.a` from `build-mingw`.
 # Picking MSVC `target/release/*.dll` when `wallet_merged` was built with MinGW causes wrong / unloadable FFI.

@@ -36,7 +36,7 @@ elif [[ "${OS}" == "Linux" ]] && [[ -d "${TARGET}/bin" ]]; then
   FFI_LIB="libarqma_wallet_flutter_ffi.so"
 elif [[ -f "${TARGET}/Arqma-Wallet.exe" ]]; then
   DEST="${TARGET}/bin"
-  FFI_DEST="${TARGET}"
+  FFI_DEST="${TARGET}/lib"
   FFI_LIB="arqma_wallet_flutter_ffi.dll"
 else
   DEST="${TARGET}/bin"
@@ -106,7 +106,7 @@ if [[ -n "${FFI_DEST}" ]] && [[ -n "${FFI_LIB}" ]]; then
   if [[ ! -f "${FFI_DEST}/${FFI_LIB}" ]]; then
     echo "warning: ${FFI_LIB} not found; run: bash rust/tool/build_wallet_flutter_ffi.sh" >&2
   fi
-  # MinGW-built FFI on Windows: loader needs these next to the exe (same folder as the DLL).
+  # MinGW-built FFI on Windows: runtime DLLs next to `arqma_wallet_flutter_ffi.dll` under `lib/`.
   if [[ -f "${FFI_DEST}/${FFI_LIB}" ]] && [[ "${FFI_SRC_USED}" == *x86_64-pc-windows-gnu* ]]; then
     MINGW_BIN=""
     if [[ -n "${MINGW_PREFIX:-}" ]] && [[ -d "${MINGW_PREFIX}/bin" ]]; then
@@ -122,7 +122,7 @@ if [[ -n "${FFI_DEST}" ]] && [[ -n "${FFI_LIB}" ]]; then
         fi
       done
     else
-      echo "warning: MinGW bin not found (${MINGW_BIN}); copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from MSYS2 mingw64/bin next to the exe if the wallet FFI fails to load" >&2
+      echo "warning: MinGW bin not found (${MINGW_BIN}); copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from MSYS2 mingw64/bin into Release/lib if the wallet FFI fails to load" >&2
     fi
   fi
 fi

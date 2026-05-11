@@ -2,7 +2,7 @@
 name = "arqma-daemon-helpers"
 version.workspace = true
 edition.workspace = true
-description = "Opcjonalne narzędzia / integracje z daemonem (pozycja startowa — rozszerzenia później)."
+description = "Optional daemon-related helpers and integration (starter layout; extensions later)."
 license.workspace = true
 default-run = "arqma-daemon-helpers"
 

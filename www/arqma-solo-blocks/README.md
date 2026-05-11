@@ -1,38 +1,38 @@
 # Arqma solo blocks dashboard
 
-Skanuje łańcuch po **`miner_tx.extra`** pasującym do fingerprintu (konwencja z rodziny portfeli Ryo). **Aktualny Arqma-Wallet** z solo pool zawsze żąda `get_block_template` z **`reserve_size: 8`** (jak publiczna pula); ten serwis nadal znajduje **historyczne** bloki z wcześniejszych wydań / innych narzędzi, które kopały przy **`reserve_size: 1`** i tym samym wzorcu `extra`.
+Scans the chain for **`miner_tx.extra`** matching the fingerprint (Ryo-family wallet convention). **Current Arqma-Wallet** with the solo pool always requests `get_block_template` with **`reserve_size: 8`** (same as public pools); this service still discovers **historical** blocks from older releases / tools that mined with **`reserve_size: 1`** and the same `extra` pattern.
 
-## Zgodność Fastify
+## Fastify compatibility
 
-`fastify` **5.x** wymaga `@fastify/static` **≥ 8.x**. Starsza seria 7.x jest tylko dla Fastify 4 — przy `FST_ERR_PLUGIN_VERSION_MISMATCH` usuń `node_modules`, zrób ponownie `npm install` po aktualizacji `package.json`.
+`fastify` **5.x** requires `@fastify/static` **≥ 8.x**. The older 7.x line is for Fastify 4 only — if you see `FST_ERR_PLUGIN_VERSION_MISMATCH`, remove `node_modules` and run `npm install` again after updating `package.json`.
 
-## Uruchomienie
+## Running
 
 ```bash
 cd www/arqma-solo-blocks
 cp config.example.json config.json
-# Edytuj daemon_url (RPC Arqma, zwykle port z GUI) i ewentualnie start_height
+# Edit daemon_url (Arqma RPC, usually the GUI port) and optionally start_height
 npm install
 npm start
 ```
 
-Otwórz `http://127.0.0.1:9177` (port zmienny w `config.json`).
+Open `http://127.0.0.1:9177` (port is configurable in `config.json`).
 
-## Dopasowanie fingerprintu
+## Fingerprint matching
 
-Domyślnie sprawdzane jest: **`extra.length === 36`** oraz **`extra[33] === 2`**, **`extra[34] === 1`** (konfiguracja: `solo_fixed_extra_len`, `solo_marker_*`).
+By default the checks are: **`extra.length === 36`**, **`extra[33] === 2`**, **`extra[34] === 1`** (see `solo_fixed_extra_len`, `solo_marker_*` in config).
 
-Jeśli po wykopaniu próbnego bloku nic się nie pojawia, pobierz `get_block` dla tej wysokości z daemona, sprawdź surowy `miner_tx.extra` (hex/tablica bajtów) i — w razie różnicy łańcucha Arqmy — dostosuj te trzy pola w `config.json`.
+If nothing appears after mining a test block, fetch `get_block` for that height from the daemon, inspect raw `miner_tx.extra` (hex / byte array), and — if your Arqma chain differs — adjust those three fields in `config.json`.
 
-## Pliki
+## Files
 
-| Plik | Rola |
+| File | Role |
 |------|------|
-| `server.mjs` | Fastify + skan bloków |
-| `fingerprint.mjs` | Bufory `extra` + test znacznika |
-| `store.mjs` | SQLite (`solo_blocks.sqlite`) + próbki `poll_samples` pod wykres sieci |
-| `public/index.html` | UI w stylu [ryo-wallet-solo-pool-website](https://github.com/mosu-forge/ryo-wallet-solo-pool-website) (layout dashboard / blocks / getting started), kolorystyka Arqmy |
+| `server.mjs` | Fastify + block scan |
+| `fingerprint.mjs` | `extra` buffers + marker test |
+| `store.mjs` | SQLite (`solo_blocks.sqlite`) + `poll_samples` for the network chart |
+| `public/index.html` | UI inspired by [ryo-wallet-solo-pool-website](https://github.com/mosu-forge/ryo-wallet-solo-pool-website) (dashboard / blocks / getting started layout), Arqma colors |
 
-Wykres **Network** budowany jest z okresowych zapisów hashrate sieci przy pollach daemona. Wykres **Solo** to Σ(trudność)/dzień (UTC) z indeksowanych bloków — przybliżenie aktywności, nie dokładny HR koparki.
+The **Network** chart comes from periodic network hashrate samples during daemon polls. The **Solo** chart is Σ(difficulty)/day (UTC) from indexed blocks — an activity approximation, not exact miner HR.
 
-Przy pierwszym skanowaniu na istniejącym łańcuchu ustaw sensowne **`start_height`** (np. wysokość aktywacji RandomX / ostatni hard fork), żeby nie czytać całej historii od zera.
+For the first scan on an existing chain, set a sensible **`start_height`** (e.g. RandomX activation height / last hard fork) so you do not read the whole history from genesis.

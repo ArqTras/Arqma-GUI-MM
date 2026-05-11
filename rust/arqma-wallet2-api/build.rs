@@ -98,6 +98,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_LIB_NAME");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_MSYS_ROOT");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_GXX");
+    println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_STATIC_HYBRID");
 
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
@@ -130,6 +131,14 @@ fn main() {
     }
 }
 
+/// When building `arqma-wallet-flutter-ffi` with hybrid static deps, that crate emits `-Wl,-Bstatic`
+/// groups and ICU as dynamic; skip duplicate `rustc-link-lib=dylib` lines here.
+fn wallet_ffi_static_hybrid() -> bool {
+    std::env::var("ARQMA_WALLET_FFI_STATIC_HYBRID")
+        .map(|v| matches!(v.trim(), "1" | "true" | "TRUE" | "yes" | "YES"))
+        .unwrap_or(false)
+}
+
 fn find_wallet_merged_dir(upstream: &Path) -> Option<PathBuf> {
     for root in [upstream.join("build"), upstream.join("build-mingw")] {
         if let Some(p) = find_wallet_merged_under(&root) {
@@ -145,7 +154,7 @@ fn find_wallet_merged_under(root: &Path) -> Option<PathBuf> {
     }
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        if dir.join("libwallet_merged.a").is_file() {
+        if dir.join("libwallet_merged.a").is_file() || dir.join("wallet_merged.lib").is_file() {
             return Some(dir);
         }
         if let Ok(entries) = std::fs::read_dir(&dir) {
@@ -216,35 +225,39 @@ fn configure_wallet2_linking_macos(upstream_path: &Path) {
         }
     }
 
-    for lib in [
-        "hidapi",
-        "boost_program_options",
-        "boost_thread",
-        "boost_container",
-        "boost_date_time",
-        "unbound",
-        "boost_filesystem",
-        "boost_atomic",
-        "boost_chrono",
-        "ssl",
-        "crypto",
-        "readline",
-        "boost_serialization",
-        "boost_regex",
-        "boost_locale",
-        "zmq",
-        "sodium",
-        "icuuc",
-        "icui18n",
-        "icudata",
-        "z",
-    ] {
-        println!("cargo:rustc-link-lib=dylib={lib}");
+    if !wallet_ffi_static_hybrid() {
+        for lib in [
+            "hidapi",
+            "boost_program_options",
+            "boost_thread",
+            "boost_container",
+            "boost_date_time",
+            "unbound",
+            "boost_filesystem",
+            "boost_atomic",
+            "boost_chrono",
+            "ssl",
+            "crypto",
+            "readline",
+            "boost_serialization",
+            "boost_regex",
+            "boost_locale",
+            "zmq",
+            "sodium",
+            "icuuc",
+            "icui18n",
+            "icudata",
+            "z",
+        ] {
+            println!("cargo:rustc-link-lib=dylib={lib}");
+        }
     }
 
-    println!("cargo:rustc-link-lib=framework=AppKit");
-    println!("cargo:rustc-link-lib=framework=IOKit");
-    println!("cargo:rustc-link-lib=framework=CoreFoundation");
+    if !wallet_ffi_static_hybrid() {
+        println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rustc-link-lib=framework=IOKit");
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
+    }
 }
 
 fn configure_wallet2_linking_linux(upstream_path: &Path) {
@@ -285,32 +298,34 @@ fn configure_wallet2_linking_linux(upstream_path: &Path) {
         }
     }
 
-    for lib in [
-        "hidapi-libusb",
-        "boost_program_options",
-        "boost_thread",
-        "boost_container",
-        "boost_date_time",
-        "unbound",
-        "boost_filesystem",
-        "boost_atomic",
-        "boost_chrono",
-        "ssl",
-        "crypto",
-        "readline",
-        "boost_serialization",
-        "boost_regex",
-        "boost_locale",
-        "zmq",
-        "sodium",
-        "icuuc",
-        "icui18n",
-        "icudata",
-        "z",
-        "dl",
-        "pthread",
-    ] {
-        println!("cargo:rustc-link-lib=dylib={lib}");
+    if !wallet_ffi_static_hybrid() {
+        for lib in [
+            "hidapi-libusb",
+            "boost_program_options",
+            "boost_thread",
+            "boost_container",
+            "boost_date_time",
+            "unbound",
+            "boost_filesystem",
+            "boost_atomic",
+            "boost_chrono",
+            "ssl",
+            "crypto",
+            "readline",
+            "boost_serialization",
+            "boost_regex",
+            "boost_locale",
+            "zmq",
+            "sodium",
+            "icuuc",
+            "icui18n",
+            "icudata",
+            "z",
+            "dl",
+            "pthread",
+        ] {
+            println!("cargo:rustc-link-lib=dylib={lib}");
+        }
     }
 
     // Duplicate `readline_buffer.cpp.o` across static archives: resolved at the **final** artifact
@@ -337,18 +352,15 @@ fn configure_wallet2_linking(upstream_path: &Path, target_env: &str) {
         }
     }
 
-    // Auto-detect mingw build output when target is windows-gnu.
-    if target_env == "gnu" {
-        let auto_lib_dir = upstream_path.join("build-mingw").join("src").join("wallet");
-        if auto_lib_dir.join("libwallet_merged.a").exists() {
-            println!("cargo:rustc-link-search=native={}", auto_lib_dir.display());
-            // `libwallet_merged.a`: link + whole-archive only via `force_wallet_static` in lib.rs
-            add_wallet2_external_libs(target_env);
-            return;
-        }
+    // Same strategy as macOS/Linux: search `build/` and `build-mingw/` for `libwallet_merged.a`
+    // (MinGW) or `wallet_merged.lib` (MSVC).
+    if let Some(lib_dir) = find_wallet_merged_dir(upstream_path) {
+        println!("cargo:rustc-link-search=native={}", lib_dir.display());
+        add_wallet2_external_libs(target_env);
+        return;
     }
 
-    println!("cargo:warning=wallet2 merged library not linked automatically. Set ARQMA_WALLET2_LIB_DIR (and optional ARQMA_WALLET2_LIB_NAME).");
+    println!("cargo:warning=wallet2 merged library not linked automatically. Build upstream target `wallet_merged`, or set ARQMA_WALLET2_LIB_DIR (and optional ARQMA_WALLET2_LIB_NAME).");
 }
 
 fn add_wallet2_external_libs(target_env: &str) {
@@ -358,31 +370,11 @@ fn add_wallet2_external_libs(target_env: &str) {
             .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| r"C:\msys64\mingw64".to_string());
         println!("cargo:rustc-link-search=native={}\\lib", msys_root);
-        // Static archives from `cmake --build build-mingw --target epee ...` (same layout as Linux).
-        if let Ok(upstream_dir) = std::env::var("ARQMA_WALLET2_UPSTREAM_DIR") {
-            let upstream_dir = PathBuf::from(upstream_dir);
-            let cmake_root = upstream_dir.join("build-mingw");
-            for rel in [
-                "contrib/epee/src",
-                "external/easylogging++",
-                "external/randomarq",
-                "src/lmdb/liblmdb",
-                "src/cryptonote_basic",
-            ] {
-                let p = cmake_root.join(rel);
-                if p.is_dir() {
-                    println!("cargo:rustc-link-search=native={}", p.display());
-                }
-            }
-            let install_lib = cmake_root.join("install").join("lib");
-            if install_lib.exists() {
-                println!("cargo:rustc-link-search=native={}", install_lib.display());
-            }
-        }
 
         // Boost / OpenSSL / ICU / Win32 — emit from `rust/tauri-app/src-tauri/build.rs` on windows-gnu
-        // so flags sit **after** `#[link]` whole-archive `wallet_merged` / epee / … in `lib.rs`.
+        // so flags sit **after** `#[link]` whole-archive `wallet_merged` in `lib.rs`.
         // Otherwise GNU ld processes Boost before `libwallet_merged.a`, drops unused objects, then
         // linking fails with undefined refs to `boost::serialization`, `boost::locale`, etc.
+        // Native `epee` / `easylogging` / `randomx` live inside `wallet_merged` (upstream CMake fat archive).
     }
 }

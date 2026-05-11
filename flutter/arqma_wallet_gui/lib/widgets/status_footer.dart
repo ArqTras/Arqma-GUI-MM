@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/services/native_bridge.dart';
+import '../core/wallet_daemon_tip_tolerance.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -86,7 +87,11 @@ class _StatusFooterState extends State<StatusFooter> {
     if (displayTip == 0) {
       return '';
     }
-    final bool walletBehind = walletHeight < displayTip;
+    final int tipGap = displayTip > 0
+        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 30)
+        : 0;
+    final bool walletBehind =
+        walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
     final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
     if (dtype == 'local') {
       if (daemonTip > 0 && dwo < daemonTip) {
@@ -146,6 +151,11 @@ class _StatusFooterState extends State<StatusFooter> {
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
+    final int gapBlocks = displayTip > 0
+        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
+        : 0;
+    final bool walletSyncedForFooter =
+        displayTip > 0 && gapBlocks <= kWalletDaemonTipToleranceBlocks;
 
     double daemonLocalPct() {
       if (dtype == 'remote') {
@@ -166,6 +176,9 @@ class _StatusFooterState extends State<StatusFooter> {
     double walletPct() {
       if (displayTip == 0) {
         return 0;
+      }
+      if (walletSyncedForFooter) {
+        return 100;
       }
       final num pct = (100 * walletHeight) / displayTip;
       if (pct >= 100) {
@@ -191,15 +204,14 @@ class _StatusFooterState extends State<StatusFooter> {
         (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
     final double wPct = walletPct();
 
-    final int walletBlocksLeft = displayTip == 0
-        ? 0
-        : (displayTip - walletHeight).clamp(0, 1 << 62).toInt();
+    final int walletBlocksLeft = walletSyncedForFooter ? 0 : gapBlocks;
 
     bool showBars() {
       if (displayTip == 0) {
         return false;
       }
-      final bool walletNeeds = walletHeight < displayTip;
+      final bool walletNeeds =
+          !walletSyncedForFooter && walletHeight < displayTip;
       if (dtype == 'remote') {
         return walletNeeds;
       }
@@ -212,8 +224,11 @@ class _StatusFooterState extends State<StatusFooter> {
         ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
         : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
             .clamp(0, daemonTip);
-    final num whDisp =
-        displayTip == 0 ? walletHeight : walletHeight.clamp(0, displayTip);
+    final num whDisp = displayTip == 0
+        ? walletHeight
+        : (walletSyncedForFooter
+            ? displayTip
+            : walletHeight.clamp(0, displayTip));
 
     String selectedLocaleLabel = loc.locale;
     for (final Map<String, String> o in _localeOptions) {

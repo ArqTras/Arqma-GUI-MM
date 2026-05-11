@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# After `wallet_merged`: build `daemon` (arqmad) and copy into `rust/tauri-app/src-tauri/bin/`
-# so Flutter/Tauri CMake bundles match Tauri `bundle.resources` (arqmad only — no arqma-wallet-rpc).
+# Optional local path: after `wallet_merged`, build **daemon** from the upstream tree and copy **arqmad**
+# into `rust/tauri-app/src-tauri/bin/`. CI Flutter/macOS/Linux uses **GitHub Releases** instead:
+# `build/ci/fetch-arqmad-github-release.sh` (binaries from `arqma/arqma` latest release).
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"

@@ -1,7 +1,7 @@
 {
     "pages": {
         "quit": {
-            "closing": "Closing..."
+            "closing": "Cerrando..."
         },
         "welcome": {
             "step_one": "Bienvenido",
@@ -34,7 +34,7 @@
                 "copy_address": "Copiar Dirección",
                 "open_account": "Abrir Cuenta",
                 "setup_required_banner": "Wallet paths or daemon setup need attention. Wallets are still listed from the configured directory when possible.",
-                "setup_wizard_button": "Initial setup"
+                "setup_wizard_button": "Configuración inicial"
             },
             "import_legacy": {
                 "full_wallet": "Billetera completa",
@@ -184,10 +184,10 @@
                 "show_unused_addresses": "Mostrar Direcciones No Usadas",
                 "copied_qr_code_to_clipboard": "Código QR copiado al portapapeles",
                 "address_copied_to_clipboard": "Dirección copiada al portapapeles",
-                "address_actions_title": "Address",
-                "copy_address_action": "Copy address",
-                "show_qr_action": "QR code",
-                "address_details_title": "Address details"
+                "address_actions_title": "Dirección",
+                "copy_address_action": "Copiar dirección",
+                "show_qr_action": "Código QR",
+                "address_details_title": "Detalles de la dirección"
             },
             "send": {
                 "view_only_mode": "Modo solo de visualización. Por favor, carga la cuenta completa para enviar monedas.",
@@ -212,9 +212,9 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "CANCELAR",
                 "calculating_fee": "Calculando comisión…",
-                "payment_id": "Payment ID",
-                "payment_id_hint": "Optional — 16 or 64 hex characters when sending with an integrated address / PID",
-                "invalid_payment_id": "Payment ID must be empty or 16 / 64 hexadecimal characters"
+                "payment_id": "ID de pago",
+                "payment_id_hint": "Opcional — 16 o 64 caracteres hex al enviar con dirección integrada / PID",
+                "invalid_payment_id": "El ID de pago debe estar vacío o tener 16 / 64 caracteres hexadecimales"
             },
             "staking_pools": {
                 "network_stats": "Estadísticas de la Red",
@@ -238,16 +238,16 @@
                 "closed": "Cerrado",
                 "operator": "Operador",
                 "contributor": "Contribuyente",
-                "all_description": "Show every service node pool.",
-                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
-                "closed_description": "Pools that have met their staking requirement.",
-                "operator_description": "Pools where your wallet is the operator.",
-                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "all_description": "Mostrar cada pool de nodo de servicio.",
+                "open_description": "Pools que aún aceptan contribuciones antes de alcanzar el requisito de staking.",
+                "closed_description": "Pools que han cumplido el requisito de staking.",
+                "operator_description": "Pools donde su monedero es el operador.",
+                "contributor_description": "Pools donde su monedero aportó stake pero usted no es el operador.",
                 "arq_spot_price": "ARQ (USD):",
                 "fiat_approx": "(≈ {amount} USD)",
-                "col_status": "Status",
+                "col_status": "Estado",
                 "col_stakers": "#",
-                "col_fee": "Fee"
+                "col_fee": "Comisión"
             },
             "swap": {
                 "error_occured_check_logs": "Ocurrió un error, revisa los registros",
@@ -291,12 +291,12 @@
                 "disclaimer3": "No hay garantía de funcionalidad o seguridad.",
                 "disclaimer4": "Utilizas el Puente Konigsberg bajo tu propio riesgo.",
                 "disclaimer5": "Asegúrate de actuar a tiempo para evitar la expiración y costos adicionales.",
-                "ethereum_address_hint": "Ethereum address (0x…) for swap notifications",
-                "web3_signing_not_available": "On-chain swap signing needs the browser Web3 wallet (Vue build). Subscribing with an address still refreshes swap-related data in the UI where supported.",
-                "tab_native_to_wrapped": "Native → Wrapped",
-                "tab_wrapped_to_native": "Wrapped → Native",
-                "add_asset_web3_only": "Adding the wrapped token requires a browser Web3 wallet (Vue build). Use wallet_watchAsset there.",
-                "governance_missing": "This network has no governance address in app state. Wait for daemon config or pick another network."
+                "ethereum_address_hint": "Dirección Ethereum (0x…) para notificaciones de swap",
+                "web3_signing_not_available": "Firmar el swap on-chain requiere la cartera Web3 del navegador (build Vue). Suscribirse con una dirección sigue actualizando datos de swap en la UI cuando esté soportado.",
+                "tab_native_to_wrapped": "Nativo → Wrapped",
+                "tab_wrapped_to_native": "Wrapped → Nativo",
+                "add_asset_web3_only": "Añadir el token envuelto requiere una cartera Web3 en el navegador (compilación Vue). Use wallet_watchAsset allí.",
+                "governance_missing": "Esta red no tiene dirección de gobernanza en el estado de la app. Espere la configuración del daemon u otra red."
             },
             "txhistory": {
                 "filter_by_transactionid": "Filtrar por ID de Transacción",
@@ -310,13 +310,16 @@
                 "service_node": "Nodo de Servicio",
                 "network": "Red",
                 "stake": "Participación",
-                "failed": "Fallido"
+                "failed": "Fallido",
+                "scan_progress_title": "La cartera está escaneando la cadena",
+                "scan_progress_detail": "Altura de bloque {current} / {target} ({pct}%). Quedan unos {left} bloques por escanear.",
+                "scan_progress_hint": "Los rangos tempranos a menudo no tienen transferencias coincidentes; las entradas aparecen cuando su monedero encuentra salidas en esta ventana."
             }
         },
         "not_found": {
-            "title": "Page not found",
-            "hint": "The requested route is not registered in this wallet build.",
-            "go_home": "Go to start"
+            "title": "Página no encontrada",
+            "hint": "La ruta solicitada no está registrada en esta compilación del monedero.",
+            "go_home": "Ir al inicio"
         }
     },
     "components": {
@@ -347,7 +350,7 @@
             "used": "usado",
             "not_used": "no usado",
             "this_address": "esta dirección",
-            "balance": "Balance",
+            "balance": "Saldo",
             "unlocked_balance": "Balance desbloqueado",
             "number_of_unspent_outputs": "Número de salidas no gastadas",
             "recent_incoming_tx_to_this_address": "Transacciones entrantes recientes a esta dirección",
@@ -385,7 +388,9 @@
             "switch_account_ok_label": "OK",
             "switch_account_cancel_label": "CANCELAR",
             "confirm_close": "¿Estás seguro de que deseas salir?",
-            "solo_pool": "Solo Pool"
+            "solo_pool": "Solo Pool",
+            "switch_account_closing": "Cerrando la cartera…",
+            "switch_account_failed": "No se pudo cerrar la sesión del monedero"
         },
         "swap_list_tabular": {
             "block_hash": "Hash del Bloque",
@@ -397,7 +402,7 @@
         "pool_list_tabular": {
             "no_staked_pools_found": "No se encontraron piscinas apostadas",
             "operator": "Operador",
-            "oracle_node_id": "Arq-Net Trust Node",
+            "oracle_node_id": "Nodo de confianza Arq-Net",
             "stakers": "Apostadores",
             "notreceived": "No recibido",
             "operator_fee": "Tarifa del operador",
@@ -414,7 +419,7 @@
             "equity": "Equidad",
             "add_operator_to_addressbook": "Agregar operador al Libro de Direcciones",
             "confirm_amount_to_stake": "CONFIRMAR CANTIDAD A APOSTAR",
-            "oracle_id": "Arq-Net Trust Node ID:",
+            "oracle_id": "ID del nodo de confianza Arq-Net:",
             "max_amount": "Cantidad Máxima: ",
             "min_amount": "Cantidad Mínima: ",
             "amount": "Cantidad",
@@ -443,7 +448,7 @@
         "receive_item": {
             "show_qr_code": "Mostrar Código QR",
             "copy_address": "Copiar Dirección",
-            "balance": "Balance",
+            "balance": "Saldo",
             "unlocked_balance": "Balance Desbloqueado",
             "unspent_outputs": "Salidas No Gastadas",
             "show_details": "Mostrar Detalles"
@@ -463,7 +468,7 @@
             "transactions_to_display": "Cuántos días de transacciones mostrar",
             "inactivity_timeout": "Tiempo de espera por inactividad",
             "inactivity_timeout_infinity": "∞",
-            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
+            "inactivity_timeout_infinity_note": "Último valor: no hay cierre por inactividad con Solo Pool activado. Si el solo pool está desactivado, esta posición usa 30 minutos.",
             "days": " días",
             "minutes": " minutos",
             "advanced_options": "Opciones Avanzadas",
@@ -506,12 +511,12 @@
             "banned_peers": "Peers Baneados (los baneos se eliminarán si la billetera\nse reinicia)",
             "banned_until": "Baneado hasta",
             "general": "General",
-            "peers": "Peers",
+            "peers": "Pares",
             "peer_details_title": "Detalles del Peer",
             "peer_details_ok_label": "Banear peer",
             "peer_details_cancel_label": "Cerrar",
             "peer_details_message": "Ingresa la duración para banear al peer en segundos.\nPor defecto 3600 = 1 hora.",
-            "no_daemon_connections": "No active daemon peer connections reported."
+            "no_daemon_connections": "No hay conexiones peer activas del daemon."
         },
         "tx_details": {
             "transaction_details": "Detalles de la transacción",
@@ -574,9 +579,9 @@
             "settings": "Configuraciones",
             "show_private_keys": "Mostrar Claves Privadas",
             "change_password": "Cambiar Contraseña",
-            "save_wallet": "Save wallet to disk",
-            "save_wallet_progress": "Saving wallet…",
-            "save_wallet_notify_ok": "Wallet saved",
+            "save_wallet": "Guardar la cartera en disco",
+            "save_wallet_progress": "Guardando la cartera…",
+            "save_wallet_notify_ok": "Cartera guardada",
             "rescan_account": "Volver a Escanear Cuenta",
             "sweep_all": "Consolidar Todo",
             "manage_key_images": "Gestionar Imágenes de Clave",
@@ -613,7 +618,7 @@
             "register_service_node_message_two": "<p>2. siga las instrucciones dadas por el daemon para producir una salida de &nbsp;<b>prepare_registration</b></p>",
             "register_service_node_message_three": "<p>3. Copie la salida de &nbsp;<b>prepare_registration</b>&nbsp; de la consola del daemon y péguela abajo</p>",
             "service_node_command": "Comando de Nodo de Servicio",
-            "service_node_command_placeholder": "register_service_node ...",
+            "service_node_command_placeholder": "register_service_node …",
             "sweep_all_fee": "Tarifa de Consolidar Todo",
             "sweep_all_rpc_success_message": "Consolidar Todo enviado con éxito",
             "sweep_all_inputs": "Consolida la billetera para consolidar entradas.",
@@ -652,44 +657,70 @@
             "show_register_service_node_password_confirmation_title": "Registrar nodo de servicio",
             "show_register_service_node_password_confirmation_message": "¿Desea registrar el nodo de servicio?",
             "show_register_service_node_password_confirmation_ok_label": "REGISTRAR",
-            "service_node_registering_message": "Registrando..."
+            "service_node_registering_message": "Registrando...",
+            "rescan_blocking_notice": "El rescaneo completo se ejecuta dentro del núcleo del monedero. La ventana puede congelarse hasta que termine; observe el pie para la altura del monedero cuando se reanude."
         },
         "solo_pool": {
             "title": "Solo Pool",
-            "enable": "Enable Solo Mining",
-            "mining_address": "Mining Address",
-            "bind_ip": "Bind IP",
-            "port": "Port",
-            "net_hashrate": "Network Hashrate",
-            "net_difficulty": "Network Difficulty",
-            "height": "Height",
+            "enable": "Activar minería en solitario",
+            "mining_address": "Dirección de minería",
+            "bind_ip": "Enlazar IP",
+            "port": "Puerto",
+            "net_hashrate": "Hashrate de red",
+            "net_difficulty": "Dificultad de red",
+            "height": "Altura",
             "workers": "Workers",
-            "pool_hashrate": "Pool Hashrate",
+            "pool_hashrate": "Hashrate del pool",
             "hashrate_5m": "Hashrate (5m)",
             "hashrate_1h": "Hashrate (1h)",
             "hashrate_6h": "Hashrate (6h)",
             "hashrate_24h": "Hashrate (24h)",
-            "hashrate_chart": "Hashrate Chart (Last 60m)",
+            "hashrate_chart": "Gráfico de hashrate (últimos 60 min)",
             "chart_worker": "Worker",
-            "chart_all_workers": "All workers",
+            "chart_all_workers": "Todos los trabajadores",
             "range_15m": "15m",
             "range_60m": "60m",
             "range_6h": "6h",
-            "now": "now",
+            "now": "ahora",
             "worker": "Worker",
-            "difficulty": "Difficulty",
-            "rejects": "Rejects",
-            "last_share": "Last Share",
-            "remote_warning": "Solo pool requires Local or Local + Remote daemon mode.",
-            "save": "Apply Settings",
-            "close": "Close",
-            "saved": "Solo pool settings saved",
-            "address_required": "Mining address cannot be empty",
-            "invalid_port": "Invalid pool port",
-            "status_ready": "Ready",
-            "status_waiting": "Waiting for daemon",
-            "status_not_ready": "Not ready",
-            "status_error": "Error"
+            "difficulty": "Dificultad",
+            "rejects": "Rechazados",
+            "last_share": "Último share",
+            "remote_warning": "Solo Pool requiere modo daemon local o local + remoto.",
+            "save": "Aplicar ajustes",
+            "close": "Cerrar",
+            "saved": "Ajustes del Solo Pool guardados",
+            "address_required": "La dirección de minería no puede estar vacía",
+            "invalid_port": "Puerto de pool no válido",
+            "status_ready": "Listo",
+            "status_waiting": "Esperando al daemon",
+            "status_not_ready": "No listo",
+            "status_error": "Error",
+            "round_hashes": "Ronda (hashes)",
+            "current_effort": "Esfuerzo actual",
+            "average_effort": "Esfuerzo medio del bloque",
+            "est_block_time": "Tiempo estimado al bloque",
+            "blocks_found": "Bloques encontrados",
+            "system_clock": "Reloj del sistema",
+            "clock_ok": "OK",
+            "clock_check_failed": "Comprobación fallida",
+            "pool_desync_hint": "El daemon no está totalmente sincronizado; la minería en solitario puede retrasarse hasta que la cadena lo alcance.",
+            "system_clock_error_hint": "El reloj del sistema puede estar mal (difiere del explorador en más de 15 minutos).",
+            "block_template_auto_refresh": "Actualización automática de la plantilla de bloques",
+            "block_refresh_interval_seconds": "Intervalo de actualización de la plantilla de bloques (segundos)",
+            "miner_timeout_seconds": "Tiempo de espera inactivo del minero (segundos)",
+            "blocks_table": "Bloques",
+            "vardiff_section": "Ajustes del pool",
+            "vardiff_caption": "VarDiff siempre está activo. Busca un intervalo estable entre shares aceptados. Reduzca el salto máximo para cambios más suaves.",
+            "vardiff_restart_prompt": "Ajustes VarDiff guardados. Reinicie el monedero para que el Solo Pool aplique los nuevos valores.",
+            "vardiff_start_diff": "Dificultad inicial (nuevas sesiones)",
+            "vardiff_min": "Dificultad mínima",
+            "vardiff_max": "Dificultad máxima",
+            "vardiff_target_time": "Segundos objetivo entre shares",
+            "vardiff_retarget_time": "Recalcular vardiff como máximo cada (s)",
+            "vardiff_variance": "Banda OK (± % del tiempo objetivo)",
+            "vardiff_max_jump": "Cambio máx. por reorientación (%)",
+            "vardiff_separator": "Separador Address.diff (p. ej. \".\" )"
         }
     },
     "layouts": {

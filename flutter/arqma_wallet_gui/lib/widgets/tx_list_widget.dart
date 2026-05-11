@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../core/app_api.dart';
+import '../core/wallet_daemon_tip_tolerance.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 import 'format_arqma.dart';
@@ -161,6 +162,128 @@ class TxListWidget extends StatelessWidget {
       limit: limit,
     );
     if (txs.isEmpty) {
+      final Map<String, dynamic> daemonInfo =
+          store.daemon['info'] as Map<String, dynamic>? ?? {};
+      final int daemonTip = () {
+        final num h = num.tryParse('${daemonInfo['height']}') ?? 0;
+        final num th = num.tryParse('${daemonInfo['target_height']}') ?? 0;
+        return (h > th ? h : th).toInt();
+      }();
+      final int walletH =
+          (num.tryParse('${store.walletInfo['height']}') ?? 0).round();
+      final int gapBlocks = daemonTip > 0
+          ? (daemonTip - walletH).clamp(0, 1 << 62)
+          : 0;
+      final bool scanningBehind =
+          daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
+
+      if (scanningBehind) {
+        final double pctRaw = (100.0 * walletH) / daemonTip;
+        final double pct = pctRaw.clamp(0.0, 100.0);
+        final String pctLabel = pct >= 10
+            ? pct.toStringAsFixed(1)
+            : pct.toStringAsFixed(2);
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color:
+                          ArqmaColors.outlineBright.withValues(alpha: 0.55),
+                    ),
+                    color: const Color(0xFF161410),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: ArqmaColors.warning,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                loc.tr(
+                                    'pages.wallet.txhistory.scan_progress_title'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  height: 1.25,
+                                  color: ArqmaColors.warning,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct / 100.0,
+                            minHeight: 7,
+                            backgroundColor: ArqmaColors.outlineDefault
+                                .withValues(alpha: 0.45),
+                            color: ArqmaColors.arqmaGreenSolid,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          loc.tr(
+                            'pages.wallet.txhistory.scan_progress_detail',
+                            named: <String, String>{
+                              'current': '$walletH',
+                              'target': '$daemonTip',
+                              'pct': pctLabel,
+                              'left': '$gapBlocks',
+                            },
+                          ),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: ArqmaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          loc.tr('pages.wallet.txhistory.scan_progress_hint'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: ArqmaColors.textMuted.withValues(alpha: 0.92),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  loc.tr('components.tx_list.no_transactions_found'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: ArqmaColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Text(loc.tr('components.tx_list.no_transactions_found')),

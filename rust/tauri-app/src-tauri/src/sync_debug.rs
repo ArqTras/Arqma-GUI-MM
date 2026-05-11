@@ -8,11 +8,11 @@
 //! while catching up (`wh` behind daemon tip); overrides tiered defaults (see `wallet_heartbeat`).
 
 /// `true` when `ARQMA_SYNC_DEBUG` is set to a truthy value (case-insensitive).
-pub fn is_sync_debug () -> bool {
-  std::env::var("ARQMA_SYNC_DEBUG")
-    .map(|v| {
-      let s = v.trim().to_ascii_lowercase();
-      matches!(s.as_str(), "1" | "true" | "yes" | "on")
-    })
-    .unwrap_or(false)
+pub fn is_sync_debug() -> bool {
+    std::env::var("ARQMA_SYNC_DEBUG")
+        .map(|v| {
+            let s = v.trim().to_ascii_lowercase();
+            matches!(s.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(false)
 }

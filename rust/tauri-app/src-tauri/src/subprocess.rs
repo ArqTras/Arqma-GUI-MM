@@ -10,13 +10,13 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// `std::process::Command` for background binaries; on Windows uses
 /// `creation_flags(CREATE_NO_WINDOW)`.
-pub fn new_child_command (program: impl AsRef<Path>) -> Command {
-  #[allow(unused_mut)]
-  let mut cmd = Command::new(program.as_ref());
-  #[cfg(windows)]
-  {
-    use std::os::windows::process::CommandExt;
-    cmd.creation_flags(CREATE_NO_WINDOW);
-  }
-  cmd
+pub fn new_child_command(program: impl AsRef<Path>) -> Command {
+    #[allow(unused_mut)]
+    let mut cmd = Command::new(program.as_ref());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
 }

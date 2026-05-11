@@ -17,3 +17,8 @@
 #    a custom target dir (e.g. remote agents) do not store bundles outside the repo.
 [build]
 target-dir = "target"
+
+# Default Arqma Core root next to `rust/` — build.rs links `wallet_merged` from upstream `build*`.
+# Path is relative to the parent of the `.cargo` directory (`rust/`).
+[env]
+ARQMA_WALLET2_UPSTREAM_DIR = { value = "../arqma-rpc-upstream", relative = true }

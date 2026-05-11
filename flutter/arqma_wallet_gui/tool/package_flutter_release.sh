@@ -18,7 +18,7 @@ if [[ ! -f pubspec.yaml ]]; then
 fi
 
 VERSION_LINE="$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')"
-VERSION_SAFE="$(echo "${VERSION_LINE}" | tr '+ ' '--')"
+VERSION_SAFE="${VERSION_LINE%%+*}"
 DIST="${GUI_ROOT}/dist"
 mkdir -p "${DIST}"
 

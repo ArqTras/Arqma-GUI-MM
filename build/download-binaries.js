@@ -1,5 +1,6 @@
 /**
- * Download Arqma binaries from GitHub Releases (Arqma API).
+ * Download Arqma **static release** binaries from GitHub Releases (`arqma/arqma` latest by default).
+ * Prefers full bundles over `build-depends-*` dependency archives when both exist.
  * Uses Node 20+ only (fetch, fs) — no axios/fs-extra so CI can run this before npm install.
  */
 const { createWriteStream } = require("fs")
@@ -23,9 +24,72 @@ async function fetchWithRetry403 (url, init = {}, maxRetries = 5) {
   return lastRes
 }
 
+/** Prefer real release bundles; penalize CMake dependency-only archives. */
+function scoreAssetName (name) {
+  const n = (name || "").toLowerCase()
+  let s = 0
+  if (n.includes("build-depends")) { s -= 80 }
+  if (n.includes("arqmad") || /daemon|cli|binaries|static|release/.test(n)) { s += 40 }
+  if (n.endsWith(".zip") || n.endsWith(".gz") || n.endsWith(".tar.gz") || n.endsWith(".tgz")) { s += 5 }
+  return s
+}
+
+function matchesPlatformAsset (name, browserUrl, platform, arch) {
+  const blob = `${name || ""} ${browserUrl || ""}`.toLowerCase()
+  if (platform === "darwin") {
+    if (arch === "arm64") {
+      return (/arm64|aarch64|apple|silicon|m-series/.test(blob) && /mac|darwin|osx/.test(blob)) ||
+        blob.includes("build-depends-macOS-arm64")
+    }
+    return (/x64|x86_64|amd64/.test(blob) && /mac|darwin|osx/.test(blob)) ||
+      blob.includes("osx-x64") || blob.includes("macos-x64")
+  }
+  if (platform === "win32") {
+    if (/linux|darwin|osx|mac|ubuntu|\.tar\.gz|\.dmg|\.AppImage/.test(blob)) {
+      return false
+    }
+    return /win64|windows|w64|mingw|msvc|\.exe/.test(blob)
+  }
+  if (/darwin|osx|mac|win64|windows|mingw|msvc/.test(blob)) {
+    return false
+  }
+  return /linux|x86_64|amd64|ubuntu|gnu|debian|fedora|appimage|\.tar\.gz|\.tar\.xz|\.gz|\.tgz/.test(blob)
+}
+
+function pickAsset (assets, platform, arch) {
+  const list = assets || []
+  const matched = list.filter(a =>
+    matchesPlatformAsset(a.name, a.browser_download_url, platform, arch)
+  )
+  if (matched.length === 0) {
+    return null
+  }
+  matched.sort((a, b) =>
+    scoreAssetName(b.name) - scoreAssetName(a.name)
+  )
+  return matched[0]
+}
+
+/** Legacy fallback (older release layouts). */
+function legacyPickAsset (assets, platform) {
+  return (assets || []).find(a => {
+    const url = a.browser_download_url || ""
+    if (platform === "darwin") {
+      return process.arch === "arm64"
+        ? url.includes("build-depends-macOS-arm64")
+        : url.includes("osx-x64") || url.includes("macOS-x64")
+    }
+    if (platform === "win32") {
+      return url.includes("win64")
+    }
+    return url.includes("build-depends-x86_64-linux")
+  })
+}
+
 async function download () {
   const { platform, env } = process
-  const repoUrl = "https://api.github.com/repos/arqma/arqma/releases/latest"
+  const repo = (env.ARQMA_GITHUB_RELEASE_REPO || "arqma/arqma").trim()
+  const repoUrl = `https://api.github.com/repos/${repo}/releases/latest`
   try {
     const pwd = process.cwd()
     const downloadDir = path.join(pwd, "downloads")
@@ -44,27 +108,21 @@ async function download () {
     }
     const data = await metaRes.json()
 
-    const asset = (data.assets || []).find(a => {
-      const url = a.browser_download_url || ""
-      if (platform === "darwin") {
-        return process.arch === "arm64"
-          ? url.includes("build-depends-macOS-arm64")
-          : url.includes("osx-x64") || url.includes("macOS-x64")
-      }
-      if (platform === "win32") {
-        return url.includes("win64")
-      }
-      return url.includes("build-depends-x86_64-linux")
-    })
+    let asset = pickAsset(data.assets || [], platform, process.arch)
+    if (!asset) {
+      asset = legacyPickAsset(data.assets || [], platform)
+    }
 
-    if (!asset) { throw new Error("Download url not found for " + process.platform + "/" + process.arch) }
+    if (!asset) {
+      throw new Error("Download url not found for " + process.platform + "/" + process.arch)
+    }
     const extension = path.extname(asset.browser_download_url)
     const filePath = path.join(downloadDir, "latest" + extension)
     const downloadHeaders = {
       Accept: "application/octet-stream",
       ...(env.GH_TOKEN ? { Authorization: `token ${env.GH_TOKEN}` } : {})
     }
-    console.log("Downloading binary: " + asset.name)
+    console.log("Downloading release asset: " + asset.name)
     const binRes = await fetchWithRetry403(asset.url, { headers: downloadHeaders })
     if (!binRes.ok) {
       throw new Error(`Download: ${binRes.status} ${binRes.statusText}`)

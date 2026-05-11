@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../app_nav.dart';
 import '../core/app_api.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -321,6 +324,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (pick != true || !mounted) {
       return;
     }
+    bool didMutate = false;
     if (mode == 'full') {
       final bool? hard = await showDialog<bool>(
         context: context,
@@ -342,12 +346,67 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         ),
       );
       if (hard == true) {
-        await api.send(
-            'wallet', 'rescan_blockchain', <String, dynamic>{'hard': true});
+        // Wait until the confirmation route is fully removed; pushing [AppLoading] before this
+        // finished caused `hide()` to pop the wrong overlay and leave this dialog stuck + spinner.
+        await Future<void>.delayed(Duration.zero);
+        await WidgetsBinding.instance.endOfFrame;
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(
+              duration: const Duration(seconds: 12),
+              content: Text(loc
+                  .tr('components.wallet_settings.rescan_blocking_notice')),
+            ),
+          );
+        }
+        // Let the snackbar / shell repaint before native `rescan_blockchain` monopolizes the isolate.
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        try {
+          await api.send(
+              'wallet', 'rescan_blockchain', <String, dynamic>{'hard': true});
+          didMutate = true;
+        } catch (e, st) {
+          debugPrint('[WalletSettings] rescan_blockchain failed: $e\n$st');
+          if (mounted) {
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              SnackBar(content: Text('$e')),
+            );
+          }
+        }
       }
     } else {
-      await api.send('wallet', 'rescan_spent', <String, dynamic>{});
+      await Future<void>.delayed(Duration.zero);
+      await WidgetsBinding.instance.endOfFrame;
+      try {
+        await api.send('wallet', 'rescan_spent', <String, dynamic>{});
+        didMutate = true;
+      } catch (e, st) {
+        debugPrint('[WalletSettings] rescan_spent failed: $e\n$st');
+        if (mounted) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(content: Text('$e')),
+          );
+        }
+      }
     }
+    if (didMutate && mounted) {
+      _goWalletTransactionsHome();
+    }
+  }
+
+  /// Uses [appNavigatorKey] so routing works even when [context] is under an overlay/dialog subtree.
+  void _goWalletTransactionsHome() {
+    void go() {
+      final BuildContext? ctx = appNavigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        GoRouter.of(ctx).go('/wallet');
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => go());
+    });
   }
 
   Future<void> _sweepAll() async {

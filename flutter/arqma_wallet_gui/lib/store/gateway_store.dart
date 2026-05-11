@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/utils/deep_merge.dart';
+import '../core/wallet_daemon_tip_tolerance.dart';
 import 'gateway_default_state.dart';
 
 typedef GatewayEventListener = void Function(String event, dynamic data);
@@ -99,6 +100,7 @@ class GatewayStore extends ChangeNotifier {
 
   void setWalletInfo(Map<String, dynamic> data) {
     final patch = Map<String, dynamic>.from(data);
+    final bool allowLowerHeight = patch.remove('allow_lower_height') == true;
     if (patch['height'] != null && patch['height'] != '') {
       final incoming = num.tryParse('${patch['height']}') ?? 0;
       final cur = num.tryParse('${(wallet['info'] as Map)['height']}') ?? 0;
@@ -107,7 +109,10 @@ class GatewayStore extends ChangeNotifier {
           (wallet['info'] as Map)['name'] == null ||
           (wallet['info'] as Map)['name'] == '' ||
           patch['name'] == (wallet['info'] as Map)['name'];
-      if (sameWallet && cur > 0 && incoming < cur) {
+      if (sameWallet &&
+          cur > 0 &&
+          incoming < cur &&
+          !allowLowerHeight) {
         patch['height'] = cur;
       } else {
         patch['height'] = incoming;
@@ -386,6 +391,29 @@ class GatewayStore extends ChangeNotifier {
     return h > th ? h.toInt() : th.toInt();
   }
 
+  /// Wallet height vs chain tip — match [kWalletDaemonTipToleranceBlocks] with footer / desktop bridge.
+  bool _walletRpcNearTip(num wh, int targetHeight) {
+    if (targetHeight <= 0) {
+      return false;
+    }
+    final int w = wh.round();
+    if (w >= targetHeight) {
+      return true;
+    }
+    return targetHeight - w <= kWalletDaemonTipToleranceBlocks;
+  }
+
+  bool _daemonBootstrapNearTip(num hwo, int targetHeight) {
+    if (targetHeight <= 0) {
+      return false;
+    }
+    final int h = hwo.round();
+    if (h >= targetHeight) {
+      return true;
+    }
+    return targetHeight - h <= kWalletDaemonTipToleranceBlocks;
+  }
+
   /// Wallet session has a display name (parity: RPC is for an opened wallet),
   /// independent of [isReady]. Used for **rescan** while still scanning chain.
   bool get hasOpenWallet {
@@ -399,7 +427,7 @@ class GatewayStore extends ChangeNotifier {
       return false;
     }
     final wh = num.tryParse('${walletInfo['height']}') ?? 0;
-    if (wh != targetHeight) {
+    if (!_walletRpcNearTip(wh, targetHeight)) {
       return false;
     }
     final cfg = app['config'] as Map<String, dynamic>?;
@@ -411,7 +439,7 @@ class GatewayStore extends ChangeNotifier {
       final hwo = num.tryParse(
               '${(daemon['info'] as Map)['height_without_bootstrap']}') ??
           0;
-      if (hwo < targetHeight) {
+      if (!_daemonBootstrapNearTip(hwo, targetHeight)) {
         return false;
       }
     }
@@ -429,13 +457,13 @@ class GatewayStore extends ChangeNotifier {
     if (targetHeight == 0) {
       return false;
     }
-    final walletAtTip =
-        (num.tryParse('${walletInfo['height']}') ?? 0) == targetHeight;
+    final walletAtTip = _walletRpcNearTip(
+        num.tryParse('${walletInfo['height']}') ?? 0, targetHeight);
     if (configDaemon['type'] == 'local_remote') {
       final hwo = num.tryParse(
               '${(daemon['info'] as Map)['height_without_bootstrap']}') ??
           0;
-      return hwo >= targetHeight && walletAtTip;
+      return _daemonBootstrapNearTip(hwo, targetHeight) && walletAtTip;
     }
     return walletAtTip;
   }

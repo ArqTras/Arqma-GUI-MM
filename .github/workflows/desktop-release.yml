@@ -1,5 +1,5 @@
 # Desktop release: Flutter (zip / DMG / tar.gz / AppImage / Inno Setup) + Tauri (bundled installers),
-# then **one** GitHub Release with all assets. Aligns with pubspec `5.1.0+1` → tag `5.1.0` or `v5.1.0`.
+# then **one** GitHub Release with all assets. Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
 # After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or
@@ -42,12 +42,12 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
-      - name: Pubspec version slug (release artifacts)
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
         id: pubver
         working-directory: ${{ github.workspace }}
         run: |
           LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
+          SAFE="${LINE%%+*}"
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
 
@@ -144,12 +144,12 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
-      - name: Pubspec version slug (release artifacts)
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
         id: pubver
         working-directory: ${{ github.workspace }}
         run: |
           LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
+          SAFE="${LINE%%+*}"
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
 
@@ -270,14 +270,14 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
-      - name: Pubspec version slug (release artifacts)
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
         id: pubver
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
           $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
-          $safe = $line -replace '\+', '-'
+          $safe = $line -replace '\+.*', ''
           "safe=$safe" >> $env:GITHUB_OUTPUT
           Write-Host "VersionSafe=$safe"
 
@@ -460,7 +460,7 @@ jobs:
           if (-not (Test-Path $rel)) { throw "missing $rel" }
           $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
           $ver = $line -replace '\+.*',''
-          $safe = $line -replace '\+', '-'
+          $safe = $line -replace '\+.*', ''
           $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
           & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$ver" "/DVersionSafe=$safe" "/DSrcRelease=$rel"
