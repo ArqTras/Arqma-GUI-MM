@@ -5,7 +5,7 @@ The GUI **always** links the real **`wallet2_api`** stack (`arqma-wallet2-api` �
 1. **Arqma core sources** (headers; after building upstream, also static libraries for linking).
 2. **`npm run tauri:dev`** / **`npm run tauri:build`** / **`npm run ci:tauri`** — no extra Cargo feature flags; the Tauri crate always depends on the native bridge.
 
-**CI note:** The [Tauri app workflow](../../.github/workflows/tauri-app.yml) clones **Arqma** (`arqtras/arqma`, `pospow`), builds **`libwallet_merged.a`**, then **`npm run ci:tauri`**. **Windows** uses the **`x86_64-pc-windows-gnu`** Rust target and MSYS2 MinGW (`npm run ci:tauri:native:windows-gnu`). [Flutter GitHub Release](../../.github/workflows/flutter-github-release.yml) on `v*` tags builds the same **`wallet_merged` + `arqma-wallet-flutter-ffi`** chain for Flutter desktop bundles (macOS / Linux / Windows) and places **`arqmad` only** under `rust/tauri-app/src-tauri/bin/` (no `arqma-wallet-rpc` there).
+**CI note:** Native **`wallet_merged`** is always built from **[arqtras/arqma](https://github.com/arqtras/arqma)** (`pospow`). The **`arqmad`** daemon binary bundled with the GUI comes from the **[latest GitHub Release of arqma/arqma](https://github.com/arqma/arqma/releases/latest)** (static bundles via [`build/download-binaries.js`](../../build/download-binaries.js); prefer full archives over `build-depends-*` when multiple assets exist). In [desktop release CI](../../.github/workflows/desktop-release.yml), the **tauri** matrix job builds **`wallet_merged`**, runs **`node build/download-binaries.js`**, extracts **`arqmad`** into `./bin`, copies **`arqmad` only** into `rust/tauri-app/src-tauri/bin/`, then **`npm run ci:tauri`**. **Windows** uses **`x86_64-pc-windows-gnu`** and MSYS2 MinGW (`npm run ci:tauri:native:windows-gnu`). The **flutter-*** jobs in the same workflow build **`wallet_merged` + `arqma-wallet-flutter-ffi`** and use the same release **`arqmad`** for macOS / Linux (`build/ci/fetch-arqmad-github-release.sh`) and Windows (`build/ci/flutter-windows-fetch-arqma-binaries.ps1`).
 
 ## 0. Building Arqma core on macOS (native + `libwallet_merged`)
 
@@ -26,8 +26,9 @@ From `rust/arqma-wallet2-api`, the default path is **`../arqma-rpc-upstream`**, 
 ```bash
 cd rust
 git clone -b pospow https://github.com/arqtras/arqma.git arqma-rpc-upstream
-# alternatively: git clone https://github.com/Arqma/Arqma.git arqma-rpc-upstream
 ```
+
+For the daemon only, use official binaries from **`arqma/arqma` Releases** (see `build/download-binaries.js`), not the checkout above.
 
 Custom location:
 
@@ -63,7 +64,7 @@ If the build fails on **missing `wallet2_api.h`**, fix **`ARQMA_WALLET2_UPSTREAM
 
 ## Windows MinGW (`x86_64-pc-windows-gnu`)
 
-From **`rust/tauri-app`**, after installing MSYS2 **MINGW64** toolchain and deps (Boost, OpenSSL, … — mirror **`tauri-app.yml`** MSYS package list):
+From **`rust/tauri-app`**, after installing MSYS2 **MINGW64** toolchain and deps (Boost, OpenSSL, … — mirror **`desktop-release.yml`** job **tauri** MSYS package list):
 
 ```bash
 npm run clone:arqma

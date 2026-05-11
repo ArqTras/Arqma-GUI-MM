@@ -40,9 +40,11 @@ if(_dll STREQUAL "")
 elseif(_dest STREQUAL "")
   message(STATUS "install_arqma_wallet_ffi: unknown CMAKE_INSTALL_CONFIG_NAME='${CMAKE_INSTALL_CONFIG_NAME}', skip FFI copy")
 else()
-  message(STATUS "install_arqma_wallet_ffi: copy FFI + MinGW deps to ${_dest}")
+  set(_lib "${_dest}/lib")
+  file(MAKE_DIRECTORY "${_lib}")
+  message(STATUS "install_arqma_wallet_ffi: copy FFI + MinGW deps to ${_lib}")
 
-  file(COPY "${_dll}" DESTINATION "${_dest}")
+  file(COPY "${_dll}" DESTINATION "${_lib}")
 
   string(FIND "${_dll}" "x86_64-pc-windows-gnu" _gnu)
   if(_gnu EQUAL -1)
@@ -62,11 +64,11 @@ else()
     else()
       foreach(_n IN ITEMS libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
         if(EXISTS "${_mbin}/${_n}")
-          file(COPY "${_mbin}/${_n}" DESTINATION "${_dest}")
+          file(COPY "${_mbin}/${_n}" DESTINATION "${_lib}")
         endif()
       endforeach()
 
-      # Keep in sync with tool/package_flutter_release.ps1 and .github/workflows/flutter-github-release.yml
+      # Keep in sync with tool/package_flutter_release.ps1 and .github/workflows/desktop-release.yml
       set(_ffideps "")
       foreach(_pat IN ITEMS
           "${_mbin}/libboost_*.dll"
@@ -113,7 +115,7 @@ else()
         if(EXISTS "${_dep}")
           get_filename_component(_depnm "${_dep}" NAME)
           if(NOT _depnm MATCHES "^libboost_python" AND NOT _depnm MATCHES "^libboost_numpy")
-            file(COPY "${_dep}" DESTINATION "${_dest}")
+            file(COPY "${_dep}" DESTINATION "${_lib}")
           endif()
         endif()
       endforeach()

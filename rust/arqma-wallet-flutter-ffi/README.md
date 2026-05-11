@@ -6,7 +6,9 @@ C ABI (`cdylib`) around [`Wallet2ApiClient`](https://github.com/ArqTras/Arqma-GU
 
 Requires an Arqma core checkout and `libwallet_merged` (or equivalent) per [`rust/docs/NATIVE_WALLET2.md`](../docs/NATIVE_WALLET2.md).
 
-This crate ships a `build.rs` so the **`cdylib`** link pulls the same MinGW system libraries as the Tauri app (OpenSSL, Boost, ICU, `shell32`, `advapi32`, …). Without it, `cargo build -p arqma-wallet-flutter-ffi` on `x86_64-pc-windows-gnu` fails at link time.
+This crate ships a `build.rs` so the **`cdylib`** link pulls the same MinGW system libraries as the Tauri app (OpenSSL, Boost, ICU, Win32 imports, …). It also wraps upstream CMake archives **`libepee.a`**, **`libeasylogging.a`**, **`libcryptonote_format_utils_basic.a`**, **`liblmdb.a`** in `-Wl,--whole-archive` (same objects must be on the link line as for `wallet_merged`).
+
+**Windows:** ship **`arqma_wallet_flutter_ffi.dll`** plus the usual MinGW dependency DLLs under **`Release/lib/`** next to the app (see `flutter/arqma_wallet_gui/tool/package_flutter_release.ps1`). Fully static “one DLL only” is not supported with stock MSYS2 because **Boost.Locale** is built against ICU **shared** imports (`__imp_*`), which conflicts with linking ICU entirely as static `.a` archives.
 
 **One-shot helpers**
 
@@ -35,11 +37,11 @@ Artifacts (host triple):
 ## Flutter packaging
 
 - **macOS:** Xcode “Copy Arqma Tauri bins” copies the dylib into `Contents/Frameworks/` when present under `rust/target/…`.
-- **Linux / Windows:** `flutter/arqma_wallet_gui/linux|windows/CMakeLists.txt` installs the library into the Flutter bundle (`lib/` on Linux, next to the `.exe` on Windows).
+- **Linux / Windows:** `flutter/arqma_wallet_gui/linux|windows/CMakeLists.txt` installs the library into the Flutter bundle (`lib/` on Linux and **`runner/Release/lib/`** on Windows).
 - **Manual:** `flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh` supports `.app`, Linux `bundle/`, and Windows `runner/Release`.
 
 Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_native_ffi.dart`.
 
 ## CI
 
-GitHub Actions **`.github/workflows/flutter-github-release.yml`** (on `v*` tag pushes) builds **`wallet_merged`**, copies **`arqmad`** into `src-tauri/bin/` (no `arqma-wallet-rpc` there), then `cargo build -p arqma-wallet-flutter-ffi --release` on **macOS**, **Linux**, and **Windows** (Windows: `--target x86_64-pc-windows-gnu`, same idea as the Tauri Windows job).
+GitHub Actions **`.github/workflows/desktop-release.yml`** (Flutter jobs on tag pushes `v*` / semver `*.*.*`) builds **`wallet_merged`**, copies **`arqmad`** into `src-tauri/bin/` (no `arqma-wallet-rpc` there), then `cargo build -p arqma-wallet-flutter-ffi --release` on **macOS**, **Linux**, and **Windows** (Windows: `--target x86_64-pc-windows-gnu`, same idea as the Tauri Windows job).

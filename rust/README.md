@@ -15,7 +15,7 @@ The workspace manifest is `rust/Cargo.toml`.
 ## Prerequisites
 
 - **Rust**: stable toolchain (`rustup` recommended), edition and MSRV as defined in the workspace `Cargo.toml`.
-- **Linux (Tauri / `cargo check` on Ubuntu CI)**: WebKit and related dev packages, e.g. `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf` (see `.github/workflows/tauri-app.yml` for the exact `apt` list).
+- **Linux (Tauri / `cargo check` on Ubuntu CI)**: WebKit and related dev packages, e.g. `libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf` (see `.github/workflows/desktop-release.yml`, job **tauri**, Ubuntu runner).
 
 ## Commands (from repository root)
 
@@ -31,7 +31,7 @@ cargo clippy --workspace --all-targets
 
 The Tauri shell **always** links **`wallet2_api`** via `arqma-wallet2-api`. You need an Arqma core checkout and a successful link; see [`docs/NATIVE_WALLET2.md`](docs/NATIVE_WALLET2.md).
 
-**GitHub Actions** [`tauri-app.yml`](../.github/workflows/tauri-app.yml) builds **native** `wallet2` (clone + CMake Arqma). Linux/macOS run **`npm run ci:tauri`**; **Windows** runs **`npm run ci:tauri:native:windows-gnu`** (MinGW + `x86_64-pc-windows-gnu`). Lokalnie pełny workspace: `cargo check --workspace --all-targets` z katalogu `rust/` (niektóre craty wymagają zbudowanego upstreamu — patrz `docs/NATIVE_WALLET2.md`).
+**GitHub Actions** [`desktop-release.yml`](../.github/workflows/desktop-release.yml) (job **tauri**) builds **native** `wallet2` (clone + CMake Arqma). Linux/macOS run **`npm run ci:tauri`**; **Windows** runs **`npm run ci:tauri:native:windows-gnu`** (MinGW + `x86_64-pc-windows-gnu`). Locally, from the `rust/` directory, run `cargo check --workspace --all-targets` for the full workspace (some crates need a built upstream — see `docs/NATIVE_WALLET2.md`).
 
 ## Tauri application (release build)
 

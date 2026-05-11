@@ -91,9 +91,9 @@ The Flutter **desktop** shell can use **`arqma-wallet-flutter-ffi`** (`rust/arqm
 |----------|-----------|
 | **macOS** | Xcode “Copy Arqma Tauri bins” → `Contents/Frameworks/libarqma_wallet_flutter_ffi.dylib` |
 | **Linux** | `flutter/arqma_wallet_gui/linux/CMakeLists.txt` → `bundle/lib/libarqma_wallet_flutter_ffi.so` |
-| **Windows** | `flutter/arqma_wallet_gui/windows/CMakeLists.txt` → `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe` |
+| **Windows** | `flutter/arqma_wallet_gui/windows/CMakeLists.txt` + install script → `lib/arqma_wallet_flutter_ffi.dll` (and MinGW deps) under `runner/Release/lib/` |
 | **Manual** | `flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh` (`.app`, Linux `bundle/`, Windows `runner/Release`) |
-| **CI** | `.github/workflows/flutter-github-release.yml` (tag `v*`) — **macOS / Linux / Windows** + `cargo build -p arqma-wallet-flutter-ffi --release` |
+| **CI** | `.github/workflows/desktop-release.yml` (jobs **flutter-*** — tag `v*` / `*.*.*`) — **macOS / Linux / Windows** + `cargo build -p arqma-wallet-flutter-ffi --release` |
 
 See **`rust/arqma-wallet-flutter-ffi/README.md`** and **`docs/WALLET_RUST_PORT.md`** (Phase D). A future **full** `arqma_engine_*` ABI for all `backend_send` modules remains separate from this wallet slice.
 

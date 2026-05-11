@@ -117,8 +117,7 @@ Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event
 
 ## CI (GitHub Actions)
 
-- **`tauri-app.yml`** — Tauri installers/bundles: tag `v*`, PRs and `workflow_dispatch` when paths under `rust/` and build scripts change.
-- **`flutter-github-release.yml`** — Tag `v*`: Flutter desktop (macOS / Linux / Windows) with the native FFI chain and release assets on GitHub Releases.
+- **`desktop-release.yml`** — On tag `v*` / semver `*.*.*` (np. `5.1.0` lub `v5.1.0`) lub `workflow_dispatch`: buduje **Flutter** (zip / DMG / tar.gz / AppImage / Inno) oraz **Tauri** (instalatory na macOS / Linux / Windows), jeden **GitHub Release** ze wszystkimi artefaktami. Opcjonalnie po push tagu: ustawienie repozytorium na **private** przy secrecie `ARQMA_REPO_VISIBILITY_PAT`.
 
 ---
 

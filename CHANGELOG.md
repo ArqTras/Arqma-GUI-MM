@@ -1,10 +1,16 @@
 # Changelog
 
+## 5.1.0 — 2026-05-11
+
+- Bump app / workspace version to **5.1.0** (from 5.0.5).
+- Documentation and CI labels in English where applicable; Flutter Windows FFI bundle paths documented under **`Release/lib/`**; release naming guide: `flutter/arqma_wallet_gui/tool/RELEASE_NAMING.md`.
+- CI: replaced **`flutter-github-release.yml`** + **`tauri-app.yml`** with unified **`desktop-release.yml`** — Flutter (instalatory / archiwa) + Tauri (bundlery) → jeden GitHub Release; tagi **`v*`** oraz semver **`X.Y.Z`** (np. **`5.1.0`**); po push tagu opcjonalnie **`repo-private-after-release`** przy secrecie **`ARQMA_REPO_VISIBILITY_PAT`**.
+
 ## 5.0.5 — 2026-05-11
 
 - Bump app / workspace version to 5.0.5.
-- CI: build upstream `daemon` and copy **`arqmad` only** into `rust/tauri-app/src-tauri/bin/` before Flutter desktop builds (no `arqma-wallet-rpc` in that directory).
-- CI: Flutter Windows — `arqmad.exe` from `arqma/arqma` release zip (`download-binaries.js`) into `src-tauri/bin/` only (no `arqma-wallet-rpc` in that folder).
+- CI: **`arqmad`** for Flutter macOS / Linux — from **`arqma/arqma` latest GitHub Release** (`fetch-arqmad-github-release.sh` + `download-binaries.js`), not a local CMake `daemon` target; **`wallet_merged`** still built from **`arqtras/arqma`**.
+- CI: Flutter Windows — unchanged: `arqmad.exe` from `arqma/arqma` release (`flutter-windows-fetch-arqma-binaries.ps1` / `download-binaries.js`).
 - CI: Windows Tauri bundle — `cargo-runner-gnu-flat-sync.mjs` also syncs `arqma_flutter_solo_pool.exe` into flat `target/release/` for NSIS.
 - Flutter GitHub Release: release assets use the **`Arqma-Wallet-Flutter-`** prefix (zip / tar.gz / DMG / AppImage / Inno **`Arqma-Wallet-Flutter-windows-x64-Setup.exe`**) so Flutter installers are distinct from Tauri bundles; `workflow_dispatch` to rebuild a tag; Tauri workflow tag-only + dispatch (no PR matrix).
 

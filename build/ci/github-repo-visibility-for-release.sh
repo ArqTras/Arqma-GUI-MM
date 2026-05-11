@@ -88,7 +88,7 @@ cmd_watch_tauri() {
     fi
     echo "[visibility] resolving latest Tauri app run for tag $tag …"
     run_id="$(
-      gh run list -R "$REPO" --workflow=tauri-app.yml --branch "$tag" -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true
+      gh run list -R "$REPO" --workflow=desktop-release.yml --branch "$tag" -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true
     )"
     if [[ -z "$run_id" || "$run_id" == "null" ]]; then
       echo "error: no workflow run found for branch/tag $tag (push the tag first?)" >&2
