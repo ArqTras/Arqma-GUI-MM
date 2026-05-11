@@ -1,5 +1,6 @@
 # Flutter GUI — verify analyze, tests, and a desktop build on branch `flutter`.
 # Does not upload artifacts, attach binaries to releases, or publish packages.
+# CI retrigger: full Flutter pipeline (Linux analyze/test + macOS build) on push.
 name: Flutter GUI
 
 on:
