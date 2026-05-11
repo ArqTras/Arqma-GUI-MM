@@ -42,4 +42,4 @@ Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_n
 
 ## CI
 
-GitHub Actions **`.github/workflows/wallet-flutter-ffi.yml`** runs a **matrix** (`macos-latest`, `ubuntu-latest`, `windows-latest`): `clone-arqma.sh`, then `build-arqma-{macos,linux,mingw}.sh`, then `cargo build -p arqma-wallet-flutter-ffi --release` (Windows uses `--target x86_64-pc-windows-gnu` and `CARGO_PROFILE_RELEASE_LTO=thin`, same idea as the Tauri Windows job).
+GitHub Actions **`.github/workflows/flutter-github-release.yml`** (on `v*` tag pushes) builds **`wallet_merged`**, copies daemon + wallet-rpc into `src-tauri/bin/`, then `cargo build -p arqma-wallet-flutter-ffi --release` on **macOS**, **Linux**, and **Windows** (Windows: `--target x86_64-pc-windows-gnu`, same idea as the Tauri Windows job).

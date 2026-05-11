@@ -5,7 +5,7 @@ The GUI **always** links the real **`wallet2_api`** stack (`arqma-wallet2-api` â
 1. **Arqma core sources** (headers; after building upstream, also static libraries for linking).
 2. **`npm run tauri:dev`** / **`npm run tauri:build`** / **`npm run ci:tauri`** â€” no extra Cargo feature flags; the Tauri crate always depends on the native bridge.
 
-**CI note:** The [Tauri app workflow](../../.github/workflows/tauri-app.yml) clones **Arqma** (`arqtras/arqma`, `pospow`), builds **`libwallet_merged.a`**, then **`npm run ci:tauri`**. **Windows** uses the **`x86_64-pc-windows-gnu`** Rust target and MSYS2 MinGW (`npm run ci:tauri:native:windows-gnu`). The lighter [**Rust**](../../.github/workflows/rust.yml) workflow checks only **`arqma-wallet-core`** and **`arqma-daemon-helpers`** (it excludes the Tauri + wallet2 FFI crates, which need the full upstream build).
+**CI note:** The [Tauri app workflow](../../.github/workflows/tauri-app.yml) clones **Arqma** (`arqtras/arqma`, `pospow`), builds **`libwallet_merged.a`**, then **`npm run ci:tauri`**. **Windows** uses the **`x86_64-pc-windows-gnu`** Rust target and MSYS2 MinGW (`npm run ci:tauri:native:windows-gnu`). [Flutter GitHub Release](../../.github/workflows/flutter-github-release.yml) on `v*` tags builds the same **`wallet_merged` + `arqma-wallet-flutter-ffi`** chain for Flutter desktop bundles (macOS / Linux / Windows).
 
 ## 0. Building Arqma core on macOS (native + `libwallet_merged`)
 

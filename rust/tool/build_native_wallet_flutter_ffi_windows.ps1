@@ -1,5 +1,5 @@
 # Build Arqma MinGW wallet_merged + arqma-wallet-flutter-ffi.dll (native wallet, no arqma-wallet-rpc).
-# Prereqs: MSYS2 MINGW64 packages per .github/workflows/wallet-flutter-ffi.yml, rustup target x86_64-pc-windows-gnu.
+# Prereqs: MSYS2 MINGW64 packages per .github/workflows/tauri-app.yml (Windows / MSYS2 job), rustup target x86_64-pc-windows-gnu.
 param(
     [string]$MsysRoot = "C:\msys64",
     [switch]$SkipArqmaCMake,
