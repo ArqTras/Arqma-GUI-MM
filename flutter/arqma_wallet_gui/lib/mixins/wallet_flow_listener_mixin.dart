@@ -34,21 +34,30 @@ mixin WalletFlowListenerMixin<T extends StatefulWidget> on State<T> {
         return;
       }
       _walletFlowLastToken = token;
-      switch (code) {
-        case 0:
-          AppLoading.hide();
-          context.go(_walletFlowSuccessRoute);
-          break;
-        case 1:
-          break;
-        default:
-          AppLoading.hide();
-          final String msg = '${st['message'] ?? ''}';
-          if (msg.isNotEmpty) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(msg)));
-          }
-      }
+      final String msg = '${st['message'] ?? ''}';
+      // Never navigate or touch ScaffoldMessenger synchronously inside
+      // [ChangeNotifier.notifyListeners]: [GoRouter] uses the same store as
+      // [refreshListenable], which can leave [InheritedElement]s with live
+      // dependents during deactivation (_dependents.isEmpty assert).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _walletFlowStore == null) {
+          return;
+        }
+        switch (code) {
+          case 0:
+            AppLoading.hide();
+            context.go(_walletFlowSuccessRoute);
+            break;
+          case 1:
+            break;
+          default:
+            AppLoading.hide();
+            if (msg.isNotEmpty) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(msg)));
+            }
+        }
+      });
     }
 
     _walletFlowListener = listener;

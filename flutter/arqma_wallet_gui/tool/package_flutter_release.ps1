@@ -63,7 +63,7 @@ if (-not (Test-Path $releaseDir)) {
     Write-Error "Missing $releaseDir after build"
 }
 
-# MinGW-built arqma_wallet_flutter_ffi.dll needs these next to Arqma-Wallet.exe or LoadLibrary fails.
+# MinGW-built FFI: compiler runtime + Boost/OpenSSL/sodium/unbound/ICU DLLs (otherwise Win32 error 126).
 $mingwBin = Join-Path $MsysRoot "mingw64\bin"
 if (Test-Path $mingwBin) {
     foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
@@ -73,8 +73,23 @@ if (Test-Path $mingwBin) {
             Write-Host "Copied MinGW runtime: $n -> $releaseDir"
         }
     }
+    # Match windows/cmake/install_arqma_wallet_ffi.cmake.in (MinGW deps for GNU FFI).
+    $globs = @(
+        "libboost_*.dll","libcrypto*.dll","libssl*.dll","libsodium*.dll","libhidapi*.dll",
+        "libunbound*.dll","libicu*.dll","libldns*.dll","libevent*.dll","libnghttp*.dll",
+        "libcares*.dll","libexpat*.dll","libsqlite3*.dll","libgmp*.dll",
+        "libzstd*.dll","zlib1.dll","libbz2*.dll","liblzma*.dll","libxml2*.dll","libiconv*.dll",
+        "libzmq*.dll","liblmdb*.dll","libunwind*.dll","libreadline*.dll","libhistory*.dll",
+        "libtermcap*.dll","libncurses*.dll","libncursesw*.dll","libintl*.dll","libffi*.dll",
+        "libssp*.dll","liblz4*.dll","libbrotli*.dll","libdeflate*.dll","libatomic*.dll"
+    )
+    foreach ($pat in $globs) {
+        Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
+            ForEach-Object { Copy-Item -Force $_.FullName $releaseDir; Write-Host "Copied $($_.Name) -> $releaseDir" }
+    }
 } else {
-    Write-Warning "MinGW bin not found at $mingwBin — if wallet FFI fails to load, copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from MSYS2 next to the exe."
+    Write-Warning "MinGW bin not found at $mingwBin — wallet FFI will not load unless you copy MinGW dependency DLLs next to the exe."
 }
 
 $zipName = "Arqma-Wallet-Flutter-$versionSafe-windows-x64.zip"

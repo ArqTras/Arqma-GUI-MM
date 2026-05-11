@@ -33,6 +33,9 @@ typedef _ResetDart = int Function();
 typedef _StringFreeNative = Void Function(Pointer<Utf8> p);
 typedef _StringFreeDart = void Function(Pointer<Utf8> p);
 
+typedef _SetDllDirectoryWNative = Int32 Function(Pointer<Utf16> lpPathName);
+typedef _SetDllDirectoryWDart = int Function(Pointer<Utf16> lpPathName);
+
 /// In-process wallet2 via `rust/arqma-wallet-flutter-ffi` (same `Wallet2ApiClient` as Tauri native mode).
 final class WalletNativeFfi {
   WalletNativeFfi._(DynamicLibrary lib)
@@ -105,22 +108,90 @@ final class WalletNativeFfi {
     }
   }
 
+  /// Last load error (path + exception) for wallet startup diagnostics / UI.
+  static String lastLoadFailureDetail = '';
+
+  /// MinGW-built `arqma_wallet_flutter_ffi.dll` links these DLLs dynamically; Dart `DynamicLibrary`
+  /// on `ffi.dll` often fails with **Win32 error 126** (“module not found”) when a *dependency*
+  /// is missing — preload by **absolute path** fixes that reliably.
+  static void _preloadWindowsAdjacentDlls(String exeDir) {
+    const List<String> names = <String>[
+      'libgcc_s_seh-1.dll',
+      'libstdc++-6.dll',
+      'libwinpthread-1.dll',
+    ];
+    for (final String n in names) {
+      final String p =
+          '$exeDir${Platform.pathSeparator}$n';
+      if (!File(p).existsSync()) {
+        debugPrint('[WalletNativeFfi] preload skip (missing file): $p');
+        continue;
+      }
+      try {
+        DynamicLibrary.open(p);
+        debugPrint('[WalletNativeFfi] preloaded dependency: $p');
+      } catch (e, st) {
+        debugPrint('[WalletNativeFfi] preload failed $p: $e\n$st');
+      }
+    }
+  }
+
   static WalletNativeFfi? tryLoad() {
     if (kIsWeb) {
       return null;
     }
-    for (final String path in _candidateLibraryPaths()) {
-      if (path.isEmpty) {
-        continue;
-      }
+    lastLoadFailureDetail = '';
+    final List<String> tried = <String>[];
+    bool windowsDllDirSet = false;
+    if (Platform.isWindows) {
       try {
-        final DynamicLibrary lib = DynamicLibrary.open(path);
-        return WalletNativeFfi._(lib);
+        final String exeDir = File(Platform.resolvedExecutable).parent.path;
+        final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+        final _SetDllDirectoryWDart setDll = k32.lookupFunction<
+            _SetDllDirectoryWNative,
+            _SetDllDirectoryWDart>('SetDllDirectoryW');
+        final Pointer<Utf16> dirW = exeDir.toNativeUtf16();
+        try {
+          if (setDll(dirW) != 0) {
+            windowsDllDirSet = true;
+          }
+        } finally {
+          malloc.free(dirW);
+        }
+        _preloadWindowsAdjacentDlls(exeDir);
       } catch (e) {
-        debugPrint('[WalletNativeFfi] skip open "$path": $e');
+        debugPrint('[WalletNativeFfi] SetDllDirectoryW / preload skipped: $e');
       }
     }
-    return null;
+    try {
+      for (final String path in _candidateLibraryPaths()) {
+        if (path.isEmpty) {
+          continue;
+        }
+        tried.add(path);
+        try {
+          final DynamicLibrary lib = DynamicLibrary.open(path);
+          return WalletNativeFfi._(lib);
+        } catch (e) {
+          lastLoadFailureDetail = '$path: $e';
+          debugPrint('[WalletNativeFfi] skip open "$path": $e');
+        }
+      }
+      if (tried.isNotEmpty && lastLoadFailureDetail.isEmpty) {
+        lastLoadFailureDetail = 'tried: ${tried.join(", ")}';
+      }
+      return null;
+    } finally {
+      if (Platform.isWindows && windowsDllDirSet) {
+        try {
+          final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+          final _SetDllDirectoryWDart setDll = k32.lookupFunction<
+              _SetDllDirectoryWNative,
+              _SetDllDirectoryWDart>('SetDllDirectoryW');
+          setDll(nullptr);
+        } catch (_) {}
+      }
+    }
   }
 
   static List<String> _candidateLibraryPaths() {
@@ -139,10 +210,8 @@ final class WalletNativeFfi {
       out.add('$dir/lib/libarqma_wallet_flutter_ffi.so');
       out.add('$dir/libarqma_wallet_flutter_ffi.so');
     } else if (Platform.isWindows) {
-      out.add('$dir\\arqma_wallet_flutter_ffi.dll');
-      out.add('$dir/arqma_wallet_flutter_ffi.dll');
-      // Let the loader search the executable directory (same as full path, tolerates odd resolvedExecutable).
-      out.add('arqma_wallet_flutter_ffi.dll');
+      // Absolute path only: a bare filename loads from CWD and often yields misleading Win32 126.
+      out.add('$dir${Platform.pathSeparator}arqma_wallet_flutter_ffi.dll');
     }
     return out;
   }

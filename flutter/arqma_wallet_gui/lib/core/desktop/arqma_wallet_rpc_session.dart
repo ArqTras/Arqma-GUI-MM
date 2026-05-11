@@ -96,15 +96,23 @@ final class ArqmaWalletRpcSession {
   /// True when [WalletNativeFfi] is active (no `arqma-wallet-rpc` subprocess).
   bool get usesNativeFfi => _native != null;
 
+  /// Cleared when [tryStart] begins; explains why native mode did not activate (shown in UI instead of guessing "missing DLL").
+  static String lastNativeStartupDiagnosis = '';
+
   static Future<ArqmaWalletRpcSession?> tryStart(
       Map<String, dynamic> configData) async {
+    lastNativeStartupDiagnosis = '';
     final String? daemonAddr = walletDaemonAddress(configData);
     if (daemonAddr == null || daemonAddr.isEmpty) {
+      lastNativeStartupDiagnosis =
+          'Configuration: daemon address missing (remote host/port or local bind not set — check gui/config.json / daemons).';
       debugPrint('[WalletRpc] missing daemon address in config');
       return null;
     }
     final String? wdir = walletFilesDir(configData);
     if (wdir == null || wdir.isEmpty) {
+      lastNativeStartupDiagnosis =
+          'Configuration: wallet directory missing in config.';
       debugPrint('[WalletRpc] missing wallet files directory');
       return null;
     }
@@ -136,6 +144,12 @@ final class ArqmaWalletRpcSession {
               return ArqmaWalletRpcSession._native(ffi, saltHex);
             }
           }
+          lastNativeStartupDiagnosis =
+              'Native FFI loaded but `get_languages` did not succeed after retries '
+              '(last response: ${lastLang ?? "<null>"}). Check daemon address $daemonAddr '
+              'and wallet2 logs — this is usually not "missing DLL" if `.dll/.so` copied already. '
+              'Windows GNU: confirm `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` next to the exe. '
+              'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
           debugPrint(
               '[WalletRpc] native FFI: get_languages not OK after retries; last=$lastLang '
               '(Windows GNU: also copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from '
@@ -143,12 +157,22 @@ final class ArqmaWalletRpcSession {
               '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
           ffi.reset();
         } else {
+          lastNativeStartupDiagnosis =
+              'Native FFI `configure` returned error code=$cfg '
+              '(invalid wallet dir UTF-8, internal lock error, etc.). Daemon: $daemonAddr. '
+              'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
           debugPrint(
               '[WalletRpc] native FFI configure failed (code=$cfg); not starting subprocess (set '
               '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
           ffi.reset();
         }
       } else {
+        lastNativeStartupDiagnosis =
+            'Could not load `arqma_wallet_flutter_ffi` native library. '
+            '${WalletNativeFfi.lastLoadFailureDetail.isNotEmpty ? "(${WalletNativeFfi.lastLoadFailureDetail}). " : ""}'
+            'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
+            'or set `$kArqmaFlutterWalletFfiEnv` to full path to DLL. '
+            'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
         debugPrint(
             '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
             'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '

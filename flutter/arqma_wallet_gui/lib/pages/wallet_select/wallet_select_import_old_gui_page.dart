@@ -45,20 +45,25 @@ class _WalletSelectImportOldGuiPageState
       _lastImportCode = code;
       if (_awaiting && code == 0) {
         _awaiting = false;
-        AppLoading.hide();
-        final List<dynamic> failed =
+        final List<dynamic> failedSnapshot =
             st['failed_wallets'] as List<dynamic>? ?? const <dynamic>[];
-        final LocaleController loc = context.read<LocaleController>();
-        for (final dynamic w in failed) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    '${loc.tr('pages.wallet_select.import_old_gui.failed_to_import_account')}: $w')),
-          );
-        }
-        if (failed.isEmpty) {
-          context.go('/wallet-select');
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          AppLoading.hide();
+          final LocaleController loc = context.read<LocaleController>();
+          for (final dynamic w in failedSnapshot) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(
+                      '${loc.tr('pages.wallet_select.import_old_gui.failed_to_import_account')}: $w')),
+            );
+          }
+          if (failedSnapshot.isEmpty) {
+            context.go('/wallet-select');
+          }
+        });
       }
     }
 

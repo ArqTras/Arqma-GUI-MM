@@ -78,22 +78,24 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final Map<String, dynamic> st =
         g.wallet['status'] as Map<String, dynamic>;
     final int code = st['code'] as int? ?? 1;
-    if (code == 0) {
-      AppLoading.hide();
-      if (context.mounted) {
-        context.go('/wallet');
+    final String errMsg = '${st['message'] ?? ''}';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) {
+        return;
       }
-    } else if (code < 0) {
-      AppLoading.hide();
-      if (context.mounted) {
+      if (code == 0) {
+        AppLoading.hide();
+        context.go('/wallet');
+      } else if (code < 0) {
+        AppLoading.hide();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${st['message'] ?? ''}')),
+          SnackBar(content: Text(errMsg)),
         );
         context
             .read<GatewayStore>()
             .resetWalletStatus({'code': 1, 'message': null});
       }
-    }
+    });
   }
 
   Future<void> _openWallet(Map<String, dynamic> wallet) async {

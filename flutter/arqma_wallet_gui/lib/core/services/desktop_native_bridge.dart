@@ -64,8 +64,10 @@ String _walletFfiMissedStartHint() {
       'Legacy: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and use `arqma-wallet-rpc`.';
   if (Platform.isWindows) {
     return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe`. '
-        'If the file is already there, copy **MinGW runtime** from MSYS2 `mingw64\\bin` into the same folder: '
-        '`libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` (GNU FFI cannot load without them). '
+        'If the `.dll` is present but still error **126**, missing **dependencies** (Boost, OpenSSL, libsodium, '
+        'unbound, ICU, …) from MSYS2 `mingw64\\bin` — rebuild with `ARQMA_WALLET2_MSYS_ROOT` set or run '
+        '`tool\\package_flutter_release.ps1` which copies those DLLs. Minimum runtime: `libgcc_s_seh-1.dll`, '
+        '`libstdc++-6.dll`, `libwinpthread-1.dll`. '
         'Build (CI-style): from `rust/`, '
         '`cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu`, then '
         '`flutter build windows --release` (see `rust/tool/build_native_wallet_flutter_ffi_windows.ps1`). '
@@ -1300,7 +1302,7 @@ final class DesktopNativeBridge implements NativeBridge {
       if (_walletRpc == null) {
         _showNotification(
           'warning',
-          'Native wallet FFI did not start (${_walletFfiMissedStartHint()})',
+          'Native wallet FFI did not start (${ArqmaWalletRpcSession.lastNativeStartupDiagnosis.trim().isNotEmpty ? ArqmaWalletRpcSession.lastNativeStartupDiagnosis : _walletFfiMissedStartHint()})',
           16000,
         );
       }
