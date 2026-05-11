@@ -20,6 +20,11 @@ if [ ! -d "$BUILD_DIR" ]; then
   exit 1
 fi
 
+# MSYS2: libunwind + libgcc_eh duplicate unwind symbols when linking arqmad.exe — merge weak defs.
+if [ -n "${ARQMA_MINGW:-}" ]; then
+  cmake "$BUILD_DIR" -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-multiple-definition
+fi
+
 cmake --build "$BUILD_DIR" --target daemon wallet_rpc_server -j"$J"
 
 BIN="$BUILD_DIR/bin"
