@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.0.5 — 2026-05-11
+
+- Bump app / workspace version to 5.0.5.
+- CI: build upstream `daemon` + `wallet_rpc_server` and copy `arqmad` / `arqma-wallet-rpc` into `rust/tauri-app/src-tauri/bin/` before Flutter desktop builds so release zips include bundled daemons (Windows / Linux / macOS).
+
 ## 5.0.4 — 2026-05-11
 
 - Bump app / workspace version to 5.0.4.

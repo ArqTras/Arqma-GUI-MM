@@ -54,6 +54,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-macos.sh
 
+      - name: Build Arqma daemon + wallet-rpc and copy to Tauri bin
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-arqma-daemon-wallet-rpc-copy.sh
+
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
         run: cargo build -p arqma-wallet-flutter-ffi --release
@@ -134,6 +138,10 @@ jobs:
       - name: Build Arqma wallet_merged (Linux)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-linux.sh
+
+      - name: Build Arqma daemon + wallet-rpc and copy to Tauri bin
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-arqma-daemon-wallet-rpc-copy.sh
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
@@ -231,6 +239,15 @@ jobs:
         run: |
           export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
           bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
+
+      - name: Build Arqma daemon + wallet-rpc (MinGW) and copy to Tauri bin
+        shell: msys2 {0}
+        working-directory: ${{ github.workspace }}
+        env:
+          ARQMA_MINGW: "1"
+        run: |
+          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-daemon-wallet-rpc-copy.sh"
 
       - name: cargo build — arqma-wallet-flutter-ffi (Windows GNU)
         working-directory: rust

@@ -107,6 +107,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-macos.sh
 
+      - name: Build Arqma daemon + wallet-rpc and copy to Tauri bin
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-arqma-daemon-wallet-rpc-copy.sh
+
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
         run: cargo build -p arqma-wallet-flutter-ffi --release
