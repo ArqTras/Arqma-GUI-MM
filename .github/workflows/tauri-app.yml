@@ -13,16 +13,13 @@ on:
   push:
     tags:
       - "v*"
-  pull_request:
-    paths:
-      - "rust/**"
-      - "build/**"
-      - "build/copy-to-tauri-bins.js"
-      - "rust/README.md"
-      - "CONTRIBUTING.md"
-      - "rust/docs/**"
-      - ".github/workflows/tauri-app.yml"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag to build (e.g. v5.0.5)"
+        required: true
+        default: "v5.0.5"
+        type: string
 
 concurrency:
   group: tauri-app-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -46,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
       - uses: actions/setup-node@v5
         with:
@@ -230,7 +229,7 @@ jobs:
   tauri-release:
     name: GitHub Release (Tauri)
     needs: tauri
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -267,7 +266,7 @@ jobs:
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
           name: Arqma-Wallet ${{ github.ref_name }}
           generate_release_notes: true
           overwrite_files: true
@@ -275,12 +274,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Runs after the Tauri matrix on tag pushes only. Requires PAT — see workflow header comment.
+  # Disabled: flipping private here runs as soon as the Tauri matrix finishes, while Flutter GitHub Release
+  # may still be building. Set visibility manually (or re-enable with a PAT and a single orchestrator workflow).
   repo-private-after-build:
     name: Repository private (after Tauri tag build)
     runs-on: ubuntu-latest
     needs: tauri
-    if: always() && startsWith(github.ref, 'refs/tags/v')
+    if: false
     steps:
       - name: Set repository to private
         env:

@@ -1,11 +1,19 @@
 # On version tags `v*`: build Flutter desktop (macOS / Linux / Windows) with native FFI chain,
-# then attach zip/tar.gz assets to the GitHub Release for that tag (alongside Tauri bundles if present).
+# then attach zip / tar.gz / dmg / AppImage / Windows Setup.exe to the GitHub Release for that tag.
 name: Flutter GitHub Release
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag to build (e.g. v5.0.5) — must exist on the remote"
+        required: true
+        default: "v5.0.5"
+        type: string
+
 permissions:
   contents: read
 
@@ -26,6 +34,8 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -77,10 +87,21 @@ jobs:
           cd build/macos/Build/Products/Release
           ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.zip"
 
+      - name: DMG (macOS)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
+          test -d "$APP"
+          hdiutil create -volname "Arqma Wallet" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.dmg"
+          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-macos.dmg"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Arqma-Wallet-macos
-          path: Arqma-Wallet-macos.zip
+          path: |
+            Arqma-Wallet-macos.zip
+            Arqma-Wallet-macos.dmg
           retention-days: 30
 
   linux:
@@ -92,6 +113,8 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -122,7 +145,10 @@ jobs:
             liblmdb-dev \
             libusb-1.0-0-dev \
             libudev-dev \
-            libicu-dev
+            libicu-dev \
+            file \
+            desktop-file-utils \
+            squashfs-tools
 
       - name: Make CI scripts executable
         working-directory: ${{ github.workspace }}
@@ -165,10 +191,21 @@ jobs:
           test -d "$b"
           tar -C "$b" -czf Arqma-Wallet-linux-x64.tar.gz .
 
+      - name: AppImage (Linux)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x build/ci/flutter-linux-bundle-to-appimage.sh
+          bash build/ci/flutter-linux-bundle-to-appimage.sh \
+            "flutter/arqma_wallet_gui/build/linux/x64/release/bundle" \
+            "${GITHUB_WORKSPACE}/Arqma-Wallet-x86_64.AppImage"
+
       - uses: actions/upload-artifact@v4
         with:
           name: Arqma-Wallet-linux-x64
-          path: Arqma-Wallet-linux-x64.tar.gz
+          path: |
+            Arqma-Wallet-linux-x64.tar.gz
+            Arqma-Wallet-x86_64.AppImage
           retention-days: 30
 
   windows:
@@ -180,6 +217,8 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -286,16 +325,35 @@ jobs:
           Compress-Archive -Path (Join-Path $rel "*") -DestinationPath $zip -Force
           Write-Host "Packaged: $zip"
 
+      - name: Inno Setup installer (Windows)
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          choco install innosetup -y --no-progress
+          $rel = Join-Path $pwd "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
+          if (-not (Test-Path $rel)) { throw "missing $rel" }
+          $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
+          $ver = $line -replace '\+.*',''
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
+          & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$ver" "/DSrcRelease=$rel"
+          $setup = Join-Path $pwd "Arqma-Wallet-windows-x64-Setup.exe"
+          if (-not (Test-Path $setup)) { throw "missing $setup" }
+          Get-Item $setup | Format-List *
+
       - uses: actions/upload-artifact@v4
         with:
           name: Arqma-Wallet-windows-x64
-          path: Arqma-Wallet-windows-x64.zip
+          path: |
+            Arqma-Wallet-windows-x64.zip
+            Arqma-Wallet-windows-x64-Setup.exe
           retention-days: 30
 
   publish-flutter-assets:
     name: Attach Flutter bundles to GitHub Release
     needs: [macos, linux, windows]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -310,7 +368,10 @@ jobs:
         run: |
           set -eu
           mkdir -p upload
-          find flutter-bundles -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp -f {} upload/ \;
+          find flutter-bundles -type f \( \
+            -name '*.zip' -o -name '*.tar.gz' -o -name '*.dmg' \
+            -o -name '*.AppImage' -o -name 'Arqma-Wallet-windows-x64-Setup.exe' \
+            \) -exec cp -f {} upload/ \;
           ls -la upload/
           n=$(find upload -type f | wc -l | tr -d ' ')
           if [ "$n" -lt 1 ]; then
@@ -322,7 +383,7 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
           files: upload/*
           fail_on_unmatched_files: true
         env:

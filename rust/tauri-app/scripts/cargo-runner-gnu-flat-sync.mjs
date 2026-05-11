@@ -140,7 +140,11 @@ copyMingwRuntimeDlls(gnuDir)
 
 let n = 0
 for (const name of readdirSync(gnuDir)) {
-  if (name === "arqma-wallet.exe" || name.endsWith(".dll")) {
+  if (
+    name === "arqma-wallet.exe" ||
+    name === "arqma_flutter_solo_pool.exe" ||
+    name.endsWith(".dll")
+  ) {
     copyFileSync(join(gnuDir, name), join(flatDir, name))
     n++
   }

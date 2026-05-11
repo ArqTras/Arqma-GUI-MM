@@ -20,6 +20,11 @@ if [ ! -d "$BUILD_DIR" ]; then
   exit 1
 fi
 
+# MSYS2 MinGW: libunwind.a and libgcc_eh.a both provide unwind symbols — allow merge for daemon link.
+if [ -n "${ARQMA_MINGW:-}" ]; then
+  export LDFLAGS="${LDFLAGS:-} -Wl,--allow-multiple-definition"
+fi
+
 cmake --build "$BUILD_DIR" --target daemon wallet_rpc_server -j"$J"
 
 BIN="$BUILD_DIR/bin"
