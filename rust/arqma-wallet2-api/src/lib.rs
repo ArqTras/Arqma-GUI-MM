@@ -1,13 +1,47 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-// Desktop `wallet_merged`: upstream CMake folds epee + easylogging + randomx into one fat `.a` /
-// `.lib` (see `arqma-rpc-upstream/src/wallet/CMakeLists.txt`). iOS keeps separate archives (no merge step).
-// Whole-archive + bundle: macOS / Linux cdylib need it so members are not dropped.
+// Desktop `wallet_merged`: upstream CMake still emits separate static libs (`liblmdb.a`, `libepee.a`, …)
+// alongside `libwallet_merged.a` (ringdb / LMDB is not folded into the merged archive on Linux/macOS CI).
+// Whole-archive + bundle on macOS/Linux (and iOS): pull those archives so `cdylib` / `dylib` links resolve LMDB, etc.
 // windows-gnu: `+whole-archive` without `+bundle` (PE).
 // Do not emit `rustc-link-lib=static=wallet_merged` from build.rs — rustc forbids mixing that with
 // these #[link] modifiers ("overriding linking modifiers from command line").
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+mod force_wallet_static {
+    #![allow(dead_code)]
+    #[link(
+        name = "wallet_merged",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(name = "epee", kind = "static", modifiers = "+bundle,+whole-archive")]
+    extern "C" {}
+    #[link(
+        name = "easylogging",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(
+        name = "randomx",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(name = "lmdb", kind = "static", modifiers = "+bundle,+whole-archive")]
+    extern "C" {}
+    #[link(
+        name = "cryptonote_format_utils_basic",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+}
+
 #[cfg(all(
+    not(any(target_os = "macos", target_os = "linux")),
     not(target_os = "ios"),
     not(all(target_os = "windows", target_env = "gnu"))
 ))]
