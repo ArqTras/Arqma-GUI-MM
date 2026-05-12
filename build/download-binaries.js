@@ -86,6 +86,20 @@ function legacyPickAsset (assets, platform) {
   })
 }
 
+function localDownloadBasename (assetName, browserDownloadUrl) {
+  const n = (assetName || "").toLowerCase()
+  if (n.endsWith(".tar.xz")) return "latest.tar.xz"
+  if (n.endsWith(".txz")) return "latest.txz"
+  if (n.endsWith(".tar.gz")) return "latest.tar.gz"
+  if (n.endsWith(".tgz")) return "latest.tgz"
+  if (n.endsWith(".zip")) return "latest.zip"
+  const u = (browserDownloadUrl || "").toLowerCase()
+  if (u.includes(".tar.xz")) return "latest.tar.xz"
+  if (u.includes(".tar.gz")) return "latest.tar.gz"
+  const ext = path.extname(assetName || "") || path.extname(browserDownloadUrl || "") || ".bin"
+  return "latest" + ext
+}
+
 async function download () {
   const { platform, env } = process
   const repo = (env.ARQMA_GITHUB_RELEASE_REPO || "arqma/arqma").trim()
@@ -116,8 +130,9 @@ async function download () {
     if (!asset) {
       throw new Error("Download url not found for " + process.platform + "/" + process.arch)
     }
-    const extension = path.extname(asset.browser_download_url)
-    const filePath = path.join(downloadDir, "latest" + extension)
+    // GitHub asset URLs may omit multi-suffix names (e.g. `.tar.xz` → `path.extname` is `.xz`).
+    // CI expects stable names like `latest.tar.xz` / `latest.zip` for extract steps.
+    const filePath = path.join(downloadDir, localDownloadBasename(asset.name, asset.browser_download_url))
     const downloadHeaders = {
       Accept: "application/octet-stream",
       ...(env.GH_TOKEN ? { Authorization: `token ${env.GH_TOKEN}` } : {})

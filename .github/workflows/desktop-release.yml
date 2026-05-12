@@ -607,8 +607,31 @@ jobs:
       - name: Extract archive (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          tar -xvf "${{ github.workspace }}/downloads/latest.gz" --directory "${{ github.workspace }}"
-          ls -la "${{ github.workspace }}/bin" || true
+          set -eu
+          ROOT="${{ github.workspace }}"
+          shopt -s nullglob
+          candidates=(
+            "$ROOT/downloads/latest.tar.xz"
+            "$ROOT/downloads/latest.xz"
+            "$ROOT/downloads/latest.tar.gz"
+            "$ROOT/downloads/latest.tgz"
+            "$ROOT/downloads/latest.gz"
+          )
+          f=""
+          for c in "${candidates[@]}"; do
+            if [[ -f "$c" ]]; then f="$c"; break; fi
+          done
+          if [[ -z "$f" ]]; then
+            echo "::error::no archive under downloads/latest.{tar.xz,xz,tar.gz,tgz,gz}"
+            ls -la "$ROOT/downloads" || true
+            exit 1
+          fi
+          case "$f" in
+            *.tar.xz|*.txz|*.xz) tar -xJf "$f" --directory "$ROOT" ;;
+            *.tar.gz|*.tgz|*.gz) tar -xzvf "$f" --directory "$ROOT" ;;
+            *) echo "::error::unhandled archive: $f"; exit 1 ;;
+          esac
+          ls -la "$ROOT/bin" || true
 
       - name: Extract archive (Windows)
         if: matrix.os == 'windows-latest'

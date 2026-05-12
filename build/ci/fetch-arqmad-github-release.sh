@@ -19,15 +19,25 @@ case "$OS" in
   Linux)
     # Same layout as `.github/workflows/desktop-release.yml` job `tauri` (extract into repo root, expect ./bin/arqmad).
     f=""
-    for c in "$ROOT/downloads/latest.gz" "$ROOT/downloads/latest.tar.gz" "$ROOT/downloads/latest.tgz"; do
+    for c in \
+      "$ROOT/downloads/latest.tar.xz" \
+      "$ROOT/downloads/latest.xz" \
+      "$ROOT/downloads/latest.tar.gz" \
+      "$ROOT/downloads/latest.tgz" \
+      "$ROOT/downloads/latest.gz"
+    do
       if [[ -f "$c" ]]; then f="$c"; break; fi
     done
     if [[ -z "$f" ]]; then
-      echo "[fetch-arqmad-github-release] error: no downloads/latest.{gz,tar.gz,tgz}" >&2
+      echo "[fetch-arqmad-github-release] error: no downloads/latest.{tar.xz,xz,tar.gz,tgz,gz}" >&2
       ls -la "$ROOT/downloads" || true
       exit 1
     fi
-    tar -xvf "$f" --directory "$ROOT"
+    case "$f" in
+      *.tar.xz|*.txz|*.xz) tar -xJf "$f" --directory "$ROOT" ;;
+      *.tar.gz|*.tgz|*.gz) tar -xzvf "$f" --directory "$ROOT" ;;
+      *) echo "[fetch-arqmad-github-release] error: unhandled archive $f" >&2; exit 1 ;;
+    esac
     ;;
   Darwin)
     z="$ROOT/downloads/latest.zip"

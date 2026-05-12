@@ -252,7 +252,12 @@ fn arqma_upstream_root() -> PathBuf {
 
 fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
-    for sub in ["build-mingw", "build"] {
+    // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
+    for sub in [
+        "build-mingw",
+        "build/ci-native-release",
+        "build",
+    ] {
         let root = upstream.join(sub);
         let epee = root.join("contrib/epee/src/libepee.a");
         let elog = root.join("external/easylogging++/libeasylogging.a");
@@ -269,13 +274,17 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
         }
     }
     println!(
-        "cargo:warning=arqma-wallet-flutter-ffi: upstream aux archives (epee/easylogging/cryptonote/lmdb) not found under build-mingw or build - wallet link may fail"
+        "cargo:warning=arqma-wallet-flutter-ffi: upstream aux archives (epee/easylogging/cryptonote/lmdb) not found under build-mingw, build/ci-native-release, or build - wallet link may fail"
     );
 }
 
 fn upstream_librandomx_a_path() -> Option<PathBuf> {
     let upstream = arqma_upstream_root();
-    for sub in ["build-mingw", "build"] {
+    for sub in [
+        "build-mingw",
+        "build/ci-native-release",
+        "build",
+    ] {
         let lib = upstream.join(sub).join("external/randomarq/librandomx.a");
         if lib.is_file() {
             return Some(lib);
