@@ -60,7 +60,13 @@ package_macos() {
   local dmg_out="${DIST}/${base}.dmg"
   rm -f "${zip_out}" "${dmg_out}"
   (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
-  hdiutil create -quiet -volname "Arqma Wallet (Flutter)" -srcfolder "${app}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
+  # DMG must contain both the app and a symlink to /Applications for the standard drag-to-install layout.
+  local staging
+  staging="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
+  ditto "${app}" "${staging}/$(basename "${app}")"
+  ln -sf /Applications "${staging}/Applications"
+  hdiutil create -quiet -volname "Arqma Wallet (Flutter)" -srcfolder "${staging}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
+  rm -rf "${staging}"
   echo "Packaged: ${zip_out}"
   echo "Packaged: ${dmg_out}"
 }

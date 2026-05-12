@@ -121,7 +121,11 @@ jobs:
           set -eu
           APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
           test -d "$APP"
-          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          STAGE="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
+          ditto "$APP" "$STAGE/$(basename "$APP")"
+          ln -sf /Applications "$STAGE/Applications"
+          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$STAGE" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          rm -rf "$STAGE"
           ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
 
       - uses: actions/upload-artifact@v6
