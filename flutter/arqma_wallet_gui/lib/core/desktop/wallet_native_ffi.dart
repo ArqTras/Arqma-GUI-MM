@@ -151,13 +151,24 @@ final class WalletNativeFfi {
             '$exeDir${Platform.pathSeparator}lib';
         final bool bundleUsesLib =
             Directory(libDir).existsSync();
+        final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+        final _SetDllDirectoryWDart setDll = k32.lookupFunction<
+            _SetDllDirectoryWNative,
+            _SetDllDirectoryWDart>('SetDllDirectoryW');
         if (bundleUsesLib) {
+          // MinGW deps live under `lib/`; transitive LoadLibrary from the FFI DLL must resolve
+          // them there — otherwise Win32 error 126 ("module not found") even when the path to
+          // `arqma_wallet_flutter_ffi.dll` is correct.
           _preloadWindowsDllsFrom(libDir);
+          final Pointer<Utf16> libW = libDir.toNativeUtf16();
+          try {
+            if (setDll(libW) != 0) {
+              windowsDllDirSet = true;
+            }
+          } finally {
+            malloc.free(libW);
+          }
         } else {
-          final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
-          final _SetDllDirectoryWDart setDll = k32.lookupFunction<
-              _SetDllDirectoryWNative,
-              _SetDllDirectoryWDart>('SetDllDirectoryW');
           final Pointer<Utf16> dirW = exeDir.toNativeUtf16();
           try {
             if (setDll(dirW) != 0) {
