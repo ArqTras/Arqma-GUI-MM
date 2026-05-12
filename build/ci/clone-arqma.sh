@@ -4,8 +4,8 @@
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEST="${ARQMA_CLONE_DIR:-$ROOT/rust/arqma-rpc-upstream}"
-REPO="${ARQMA_UPSTREAM_REPO:-https://github.com/arqma/arqma.git}"
-REF="${ARQMA_UPSTREAM_REF:-master}"
+REPO="${ARQMA_UPSTREAM_REPO:-https://github.com/arqtras/arqma.git}"
+REF="${ARQMA_UPSTREAM_REF:-pospow}"
 
 if [[ ! -f "$DEST/src/wallet/api/wallet2_api.h" ]]; then
   rm -rf "$DEST"

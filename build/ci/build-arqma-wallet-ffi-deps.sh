@@ -3,7 +3,7 @@
 # static archives that rustc links (see rust/arqma-wallet2-api/build.rs), plus wallet_merged.
 # This does NOT run a blanket `cmake --build` of the whole Arqma tree (no arqmad, no rpc, etc.).
 #
-# Upstream: arqma/arqma — clone with build/ci/clone-arqma.sh first (ARQMA_UPSTREAM_REF, default master).
+# Upstream: arqtras/arqma (fork) — clone with build/ci/clone-arqma.sh first (ARQMA_UPSTREAM_REF, default pospow).
 #
 # Usage:
 #   bash build/ci/build-arqma-wallet-ffi-deps.sh linux|macos|mingw
