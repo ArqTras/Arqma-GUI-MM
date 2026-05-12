@@ -77,7 +77,7 @@ fn main() {
         panic!(
             "arqma-wallet2-api: expected Arqma core headers at {} (missing {}).\n\
        From the `rust/` directory in this repo, run for example:\n\
-         git clone -b pospow https://github.com/arqtras/arqma.git arqma-rpc-upstream\n\
+         git clone -b master https://github.com/arqma/arqma.git arqma-rpc-upstream\n\
        so that `rust/arqma-rpc-upstream/src/wallet/api/wallet2_api.h` exists, or set\n\
        ARQMA_WALLET2_UPSTREAM_DIR to the root of your Arqma core checkout.\n\
        See rust/docs/NATIVE_WALLET2.md",

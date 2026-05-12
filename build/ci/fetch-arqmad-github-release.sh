@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch **arqmad** from the latest GitHub Release of `arqma/arqma` (static binaries in the published archive).
-# Native `wallet_merged` must still be built from **arqtras/arqma** via `build/ci/build-arqma-*.sh` — this script only supplies the daemon executable for `rust/tauri-app/src-tauri/bin/`.
+# Native `wallet_merged` must still be built from **arqma/arqma** via `build/ci/build-arqma-*.sh` — this script only supplies the daemon executable for `rust/tauri-app/src-tauri/bin/`.
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
