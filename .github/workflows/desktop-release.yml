@@ -1,4 +1,4 @@
-# Desktop release: Flutter only (zip / DMG / tar.gz / AppImage / Inno Setup), then **one** GitHub Release.
+# Desktop release: Flutter Linux + Windows (tar.gz / AppImage / zip / Inno Setup), then **one** GitHub Release. (macOS CI job removed.)
 # Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
@@ -30,119 +30,6 @@ env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
 
 jobs:
-  flutter-macos:
-    name: macOS Flutter bundle
-    runs-on: macos-latest
-    timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: flutter/arqma_wallet_gui
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
-
-      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
-        id: pubver
-        working-directory: ${{ github.workspace }}
-        run: |
-          LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE="${LINE%%+*}"
-          echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
-          echo "VersionSafe=${SAFE}"
-
-      - name: Pinned Flutter / Rust versions (repo files)
-        id: pinned
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/gh-read-pin-versions.sh
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.pinned.outputs.rust_toolchain }}
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: flutter-release-macos
-
-      - name: macOS — Homebrew via Brewfile (strict)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/brew-install-macos.sh
-
-      - name: Make CI scripts executable
-        working-directory: ${{ github.workspace }}
-        run: chmod +x build/ci/*.sh || true
-
-      - name: Clone Arqma upstream (pospow)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
-
-      - name: Build Arqma wallet_merged (macOS)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-macos.sh
-
-      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-copy.sh
-
-      - name: cargo build — arqma-wallet-flutter-ffi (release)
-        working-directory: rust
-        run: cargo build -p arqma-wallet-flutter-ffi --release
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
-          cache: true
-
-      - run: flutter pub get
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Ensure wallet FFI dylib in macOS app bundle
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -eu
-          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
-          FW="${APP}/Contents/Frameworks"
-          DY="${FW}/libarqma_wallet_flutter_ffi.dylib"
-          if test -f "$DY"; then echo "FFI dylib already present: $DY"; exit 0; fi
-          mkdir -p "$FW"
-          SRC="${GITHUB_WORKSPACE}/rust/target/release/libarqma_wallet_flutter_ffi.dylib"
-          test -f "$SRC" || { echo "::error::missing $SRC (cargo build arqma-wallet-flutter-ffi)"; exit 1; }
-          cp -f "$SRC" "$DY"
-          echo "Copied FFI dylib -> $DY"
-
-      - name: Zip app bundle
-        run: |
-          cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip"
-
-      - name: DMG (macOS)
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -eu
-          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
-          test -d "$APP"
-          STAGE="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
-          ditto "$APP" "$STAGE/$(basename "$APP")"
-          ln -sf /Applications "$STAGE/Applications"
-          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$STAGE" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
-          rm -rf "$STAGE"
-          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
-          path: |
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg
-          retention-days: 30
-
   flutter-linux:
     name: Linux Flutter bundle
     runs-on: ubuntu-latest
@@ -511,7 +398,7 @@ jobs:
 
   publish-release:
     name: GitHub Release (Flutter)
-    needs: [flutter-macos, flutter-linux, flutter-windows]
+    needs: [flutter-linux, flutter-windows]
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
