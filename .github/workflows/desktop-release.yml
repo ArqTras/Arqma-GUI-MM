@@ -28,6 +28,8 @@ concurrency:
 
 env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
+  ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
+  ARQMA_UPSTREAM_REF: pospow
 
 jobs:
   flutter-linux:
@@ -96,20 +98,19 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
-      - name: Clone Arqma upstream (pospow)
+      - name: Clone Arqma upstream (wallet_merged sources)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
 
       - name: Build Arqma wallet_merged (Linux)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-linux.sh
 
-      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
+      - name: Fetch Arqmad from arqma/arqma GitHub Release (Linux)
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-copy.sh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/fetch-arqmad-github-release.sh
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
@@ -239,13 +240,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
-      - name: Clone Arqma upstream (pospow)
+      - name: Clone Arqma upstream (wallet_merged sources)
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
 
       - name: Build Arqma wallet_merged (Windows MinGW)
         shell: msys2 {0}
