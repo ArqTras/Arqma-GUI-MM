@@ -4,7 +4,8 @@ use thiserror::Error;
 // Desktop `wallet_merged`: upstream CMake still emits separate static libs (`liblmdb.a`, `libepee.a`, …)
 // alongside `libwallet_merged.a` (ringdb / LMDB is not folded into the merged archive on Linux/macOS CI).
 // Whole-archive + bundle on macOS/Linux (and iOS): pull those archives so `cdylib` / `dylib` links resolve LMDB, etc.
-// windows-gnu: `+whole-archive` without `+bundle` (PE).
+// windows-gnu: `+whole-archive` without `+bundle` (PE). MinGW `wallet_merged` already
+// folds epee/LMDB/randomx/etc.; linking those `.a` again causes duplicate symbol errors.
 // Do not emit `rustc-link-lib=static=wallet_merged` from build.rs — rustc forbids mixing that with
 // these #[link] modifiers ("overriding linking modifiers from command line").
 #[cfg(any(target_os = "macos", target_os = "linux"))]

@@ -118,7 +118,7 @@ foreach(_n IN ITEMS arqmad.exe arqma_flutter_solo_pool.exe)
   endif()
 endforeach()
 
-# Native wallet2 FFI — DLL under `Release/lib/` (see `wallet_native_ffi.dart`, `install_arqma_wallet_ffi.cmake.in`).
+# Native wallet2 FFI — DLL next to `Arqma-Wallet.exe` in `Release/` (see `wallet_native_ffi.dart`, `install_arqma_wallet_ffi.cmake.in`).
 # **Prefer `x86_64-pc-windows-gnu` (MinGW)** over host `target/{debug,release}/` (MSVC): same as
 # Tauri Windows CI (`ci:tauri:native:windows-gnu`) and `arqma-wallet2-api` + `libwallet_merged.a` from `build-mingw`.
 # Picking MSVC `target/release/*.dll` when `wallet_merged` was built with MinGW causes wrong / unloadable FFI.

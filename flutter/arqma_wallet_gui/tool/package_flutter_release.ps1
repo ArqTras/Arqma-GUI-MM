@@ -1,5 +1,5 @@
 # Build Flutter Windows release and zip the runner output under .\dist\.
-# Self-contained portable layout: exe + data/flutter_assets + FFI DLL + MinGW deps + bin\arqmad.exe (+ optional solo pool).
+# Self-contained portable layout: exe + data/flutter_assets + FFI DLL + MinGW deps (flat Release/) + bin\arqmad.exe (+ optional solo pool).
 #
 #   cd flutter\arqma_wallet_gui
 #   .\tool\package_flutter_release.ps1
@@ -117,19 +117,16 @@ if (-not (Test-Path $releaseDir)) {
 Copy-RepoRootDaemonToTauriBin -RepoRoot $repoRoot
 Copy-TauriBinIntoRelease -RepoRoot $repoRoot -ReleaseDir $releaseDir
 
-$releaseLib = Join-Path $releaseDir "lib"
-New-Item -ItemType Directory -Force -Path $releaseLib | Out-Null
-
-# MinGW-built FFI: compiler runtime + Boost/OpenSSL/sodium/unbound/ICU DLLs (otherwise Win32 error 126).
-# Keeps the Release folder runnable without MSYS2 on PATH (same patterns as windows/cmake/install_arqma_wallet_ffi.cmake.in).
+# MinGW-built FFI: compiler runtime + Boost/OpenSSL/sodium/unbound/ICU DLLs next to Arqma-Wallet.exe (Win32 126 if missing).
+# Same globs as windows/cmake/install_arqma_wallet_ffi.cmake.in — flat Release layout (not Release\lib).
 $mingwBin = Join-Path $MsysRoot "mingw64\bin"
 $copiedDeps = 0
 if (Test-Path $mingwBin) {
     foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
         $s = Join-Path $mingwBin $n
         if (Test-Path $s) {
-            Copy-Item -Force $s $releaseLib
-            Write-Host "Copied MinGW runtime: $n -> $releaseLib"
+            Copy-Item -Force $s $releaseDir
+            Write-Host "Copied MinGW runtime: $n -> $releaseDir"
             $copiedDeps++
         }
     }
@@ -146,13 +143,24 @@ if (Test-Path $mingwBin) {
         Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
             ForEach-Object {
-                Copy-Item -Force $_.FullName $releaseLib
+                Copy-Item -Force $_.FullName $releaseDir
                 $script:copiedDeps++
             }
     }
-    Write-Host "MinGW dependency DLLs synced: $copiedDeps file(s) -> $releaseLib"
+    Write-Host "MinGW dependency DLLs synced: $copiedDeps file(s) -> $releaseDir"
 } else {
-    Write-Warning "MinGW bin not found at $mingwBin - wallet FFI will not load unless you copy MinGW dependency DLLs into Release\lib."
+    Write-Warning "MinGW bin not found at $mingwBin - wallet FFI will not load unless you copy MinGW dependency DLLs into Release (next to the exe)."
+}
+
+foreach ($merged in @(
+        (Join-Path $repoRoot "rust\arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a"),
+        (Join-Path $repoRoot "arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a")
+    )) {
+    if (Test-Path $merged) {
+        Copy-Item -Force $merged $releaseDir
+        Write-Host "Copied libwallet_merged.a -> $releaseDir"
+        break
+    }
 }
 
 if (-not $SkipBundleVerify) {
@@ -169,10 +177,15 @@ if ($BuildInstaller) {
     $iss = Join-Path $repoRoot "build\ci\flutter-windows-installer.iss"
     if (-not (Test-Path $iss)) { throw "Missing $iss" }
     $verForInno = $versionLine -replace '\+.*', ''
-    $pf86 = ${env:ProgramFiles(x86)}
-    $iscc = Join-Path $pf86 "Inno Setup 6\ISCC.exe"
-    if (-not (Test-Path $iscc)) {
-        Write-Warning "Inno Setup not found at $iscc - install Inno Setup 6 or omit -BuildInstaller"
+    $isccCandidates = @(
+        $env:INNO_ISCC
+        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
+        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe")
+    ) | Where-Object { $_ -and (Test-Path $_) }
+    $iscc = $isccCandidates | Select-Object -First 1
+    if (-not $iscc) {
+        Write-Warning "Inno Setup not found (set INNO_ISCC to ISCC.exe, or install Inno Setup 6). Omit -BuildInstaller for zip-only."
     } else {
         Push-Location $repoRoot
         try {

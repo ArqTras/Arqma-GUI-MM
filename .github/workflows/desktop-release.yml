@@ -374,7 +374,7 @@ jobs:
           ARQMA_WALLET2_MSYS_ROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
         run: flutter build windows --release
 
-      - name: Ensure wallet FFI DLL and MinGW runtime under Release/lib
+      - name: Ensure wallet FFI DLL, MinGW runtime, and merged static lib in Release (flat layout)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
@@ -384,9 +384,7 @@ jobs:
           $mingwBin = Join-Path $root "mingw64\bin"
           $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
           if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $lib = Join-Path $rel "lib"
-          New-Item -Force -ItemType Directory -Path $lib | Out-Null
-          $dll = Join-Path $lib "arqma_wallet_flutter_ffi.dll"
+          $dll = Join-Path $rel "arqma_wallet_flutter_ffi.dll"
           if (-not (Test-Path $dll)) {
             $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
             if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
@@ -398,8 +396,8 @@ jobs:
           foreach ($n in @('libgcc_s_seh-1.dll','libstdc++-6.dll','libwinpthread-1.dll')) {
             $src = Join-Path $mingwBin $n
             if (-not (Test-Path $src)) { Write-Host "::warning::missing MinGW runtime: $src"; continue }
-            Copy-Item -Force $src $lib
-            Write-Host "Copied $n -> $lib"
+            Copy-Item -Force $src $rel
+            Write-Host "Copied $n -> $rel"
           }
           # Match flutter/arqma_wallet_gui/windows/cmake/install_arqma_wallet_ffi.cmake.in
           $patterns = @(
@@ -414,7 +412,14 @@ jobs:
           foreach ($pat in $patterns) {
             Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
-              ForEach-Object { Copy-Item -Force $_.FullName $lib; Write-Host "Copied $($_.Name) -> $lib" }
+              ForEach-Object { Copy-Item -Force $_.FullName $rel; Write-Host "Copied $($_.Name) -> $rel" }
+          }
+          $merged = "rust/arqma-rpc-upstream/build-mingw/src/wallet/libwallet_merged.a"
+          if (Test-Path $merged) {
+            Copy-Item -Force $merged $rel
+            Write-Host "Copied libwallet_merged.a -> $rel"
+          } else {
+            Write-Host "::warning::optional static lib not found (local rebuilds): $merged"
           }
 
       - name: Sync daemon into Flutter Release + verify bundle (local script parity)

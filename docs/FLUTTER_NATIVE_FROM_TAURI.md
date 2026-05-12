@@ -91,7 +91,7 @@ The Flutter **desktop** shell can use **`arqma-wallet-flutter-ffi`** (`rust/arqm
 |----------|-----------|
 | **macOS** | Xcode “Copy Arqma Tauri bins” → `Contents/Frameworks/libarqma_wallet_flutter_ffi.dylib` |
 | **Linux** | `flutter/arqma_wallet_gui/linux/CMakeLists.txt` → `bundle/lib/libarqma_wallet_flutter_ffi.so` |
-| **Windows** | `flutter/arqma_wallet_gui/windows/CMakeLists.txt` + install script → `lib/arqma_wallet_flutter_ffi.dll` (and MinGW deps) under `runner/Release/lib/` |
+| **Windows** | `flutter/arqma_wallet_gui/windows/CMakeLists.txt` + install script → `arqma_wallet_flutter_ffi.dll` (and MinGW deps, optional `libwallet_merged.a`) under `runner/Release/` |
 | **Manual** | `flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh` (`.app`, Linux `bundle/`, Windows `runner/Release`) |
 | **CI** | `.github/workflows/desktop-release.yml` (jobs **flutter-*** — tag `v*` / `*.*.*`) — **macOS / Linux / Windows** + `cargo build -p arqma-wallet-flutter-ffi --release` |
 

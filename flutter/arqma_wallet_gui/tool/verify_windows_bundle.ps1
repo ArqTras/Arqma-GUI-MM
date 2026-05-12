@@ -17,7 +17,7 @@ if (-not (Test-Path $ReleaseDir)) {
 $failed = $false
 foreach ($rel in @(
         "Arqma-Wallet.exe",
-        "lib\arqma_wallet_flutter_ffi.dll",
+        "arqma_wallet_flutter_ffi.dll",
         "flutter_windows.dll",
         "data\flutter_assets\AssetManifest.bin"
     )) {

@@ -83,7 +83,7 @@ String _walletFfiMissedStartHint() {
   const String rpc =
       'Legacy: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and use `arqma-wallet-rpc`.';
   if (Platform.isWindows) {
-    return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` under `lib\\` or next to `Arqma-Wallet.exe`. '
+    return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe` (legacy: `lib\\`). '
         'If the `.dll` is present but still error **126**, missing **dependencies** (Boost, OpenSSL, libsodium, '
         'unbound, ICU, …) from MSYS2 `mingw64\\bin` — rebuild with `ARQMA_WALLET2_MSYS_ROOT` set or run '
         '`tool\\package_flutter_release.ps1` which copies those DLLs. Minimum runtime: `libgcc_s_seh-1.dll`, '
@@ -108,7 +108,7 @@ String _walletFfiMissedStartHint() {
 
 String _walletFfiBackendOfflineHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (embed `lib\\arqma_wallet_flutter_ffi.dll` or next to the exe, or '
+    return 'Wallet backend is not running (embed `arqma_wallet_flutter_ffi.dll` next to the exe, or legacy `lib\\`, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
@@ -127,7 +127,7 @@ String _walletFfiBackendOfflineHint() {
 
 String _walletFfiCreateRestoreHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/lib/`, or '
+    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/` next to the exe, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
   }
   if (Platform.isMacOS) {

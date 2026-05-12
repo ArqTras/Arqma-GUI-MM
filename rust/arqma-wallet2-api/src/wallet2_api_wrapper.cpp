@@ -22,7 +22,7 @@ Monero::NetworkType to_network(const std::uint8_t network) {
   }
 }
 
-std::string json_escape(const std::string& in) {
+static std::string json_escape(const std::string& in) {
   std::string out;
   out.reserve(in.size() + 8);
   for (char c : in) {
@@ -37,7 +37,8 @@ std::string json_escape(const std::string& in) {
   }
   return out;
 }
-}
+
+}  // namespace
 
 Wallet2Bridge::~Wallet2Bridge() {
   if (wallet != nullptr) {
@@ -398,16 +399,31 @@ rust::String wallet2_stake_prepare_json(
     bridge.wallet->disposeTransaction(ptx);
     throw std::runtime_error(e.empty() ? "stake pending status error" : e);
   }
-  const std::string metadata = ptx->multisigSignData();
-  if (metadata.empty()) {
+  const uint64_t fee = ptx->fee();
+  std::string metadata;
+  if (bridge.wallet->multisig().isMultisig) {
+    metadata = ptx->multisigSignData();
+    if (metadata.empty()) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw std::runtime_error("stake: empty tx metadata");
+    }
+    bridge.pending_by_metadata[metadata] = ptx;
+  } else {
+    std::vector<std::string> hexes;
+    std::vector<uint64_t> fees;
+    if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees) ||
+        hexes.size() != 1u ||
+        hexes[0].empty()) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw std::runtime_error("stake: empty tx metadata");
+    }
+    metadata = hexes[0];
     bridge.wallet->disposeTransaction(ptx);
-    throw std::runtime_error("stake: empty tx metadata");
   }
-  bridge.pending_by_metadata[metadata] = ptx;
   std::ostringstream oss;
   oss << "{"
       << "\"tx_metadata\":\"" << json_escape(metadata) << "\","
-      << "\"fee\":" << ptx->fee()
+      << "\"fee\":" << fee
       << "}";
   return rust::String(oss.str());
 }
@@ -444,18 +460,56 @@ rust::String wallet2_sweep_all_prepare_json(
   const std::string txh = txids.empty() ? "" : txids.front();
   const uint64_t fee = ptx->fee();
   if (do_not_relay) {
-    const std::string metadata = ptx->multisigSignData();
-    if (metadata.empty()) {
+    if (bridge.wallet->multisig().isMultisig) {
+      const std::string metadata = ptx->multisigSignData();
+      if (metadata.empty()) {
+        bridge.wallet->disposeTransaction(ptx);
+        throw std::runtime_error("sweep_all: empty tx metadata");
+      }
+      bridge.pending_by_metadata[metadata] = ptx;
+      std::ostringstream oss;
+      oss << "{"
+          << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
+          << "\"tx_hash_list\":[\"" << json_escape(txh) << "\"],"
+          << "\"fee_list\":[" << fee << "]"
+          << "}";
+      return rust::String(oss.str());
+    }
+    std::vector<std::string> hexes;
+    std::vector<uint64_t> fees;
+    if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees)) {
       bridge.wallet->disposeTransaction(ptx);
       throw std::runtime_error("sweep_all: empty tx metadata");
     }
-    bridge.pending_by_metadata[metadata] = ptx;
+    txids = ptx->txid();
+    if (hexes.empty() || hexes.size() != fees.size() || hexes.size() != txids.size()) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw std::runtime_error("sweep_all: empty tx metadata");
+    }
+    for (const std::string& h : hexes) {
+      if (h.empty()) {
+        bridge.wallet->disposeTransaction(ptx);
+        throw std::runtime_error("sweep_all: empty tx metadata");
+      }
+    }
     std::ostringstream oss;
-    oss << "{"
-        << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
-        << "\"tx_hash_list\":[\"" << json_escape(txh) << "\"],"
-        << "\"fee_list\":[" << fee << "]"
-        << "}";
+    oss << "{\"tx_metadata_list\":[";
+    for (size_t i = 0; i < hexes.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(hexes[i]) << '"';
+    }
+    oss << "],\"tx_hash_list\":[";
+    for (size_t i = 0; i < txids.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(txids[i]) << '"';
+    }
+    oss << "],\"fee_list\":[";
+    for (size_t i = 0; i < fees.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << fees[i];
+    }
+    oss << "]}";
+    bridge.wallet->disposeTransaction(ptx);
     return rust::String(oss.str());
   }
   if (!ptx->commit()) {
@@ -477,17 +531,25 @@ rust::String wallet2_relay_tx_json(Wallet2Bridge& bridge, const std::string& met
     throw std::runtime_error("wallet is null");
   }
   auto it = bridge.pending_by_metadata.find(metadata_hex);
-  if (it == bridge.pending_by_metadata.end() || it->second == nullptr) {
-    throw std::runtime_error("relay_tx: unknown tx metadata");
+  if (it != bridge.pending_by_metadata.end() && it->second != nullptr) {
+    Monero::PendingTransaction* ptx = it->second;
+    std::vector<std::string> txids = ptx->txid();
+    const std::string txh = txids.empty() ? "" : txids.front();
+    if (!ptx->commit()) {
+      throw std::runtime_error(ptx->errorString());
+    }
+    bridge.wallet->disposeTransaction(ptx);
+    bridge.pending_by_metadata.erase(it);
+    std::ostringstream oss;
+    oss << "{"
+        << "\"tx_hash\":\"" << json_escape(txh) << "\""
+        << "}";
+    return rust::String(oss.str());
   }
-  Monero::PendingTransaction* ptx = it->second;
-  std::vector<std::string> txids = ptx->txid();
-  const std::string txh = txids.empty() ? "" : txids.front();
-  if (!ptx->commit()) {
-    throw std::runtime_error(ptx->errorString());
+  std::string txh;
+  if (!bridge.wallet->relayTxFromMetadataHex(metadata_hex, txh)) {
+    throw std::runtime_error("relay_tx: failed to relay transaction");
   }
-  bridge.wallet->disposeTransaction(ptx);
-  bridge.pending_by_metadata.erase(it);
   std::ostringstream oss;
   oss << "{"
       << "\"tx_hash\":\"" << json_escape(txh) << "\""
@@ -622,18 +684,56 @@ rust::String wallet2_transfer_split_prepare_json(
   const std::string txh = txids.empty() ? "" : txids.front();
   const uint64_t fee = ptx->fee();
   if (do_not_relay) {
-    const std::string metadata = ptx->multisigSignData();
-    if (metadata.empty()) {
+    if (bridge.wallet->multisig().isMultisig) {
+      const std::string metadata = ptx->multisigSignData();
+      if (metadata.empty()) {
+        bridge.wallet->disposeTransaction(ptx);
+        throw std::runtime_error("transfer_split: empty tx metadata");
+      }
+      bridge.pending_by_metadata[metadata] = ptx;
+      std::ostringstream oss;
+      oss << "{"
+          << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
+          << "\"tx_hash_list\":[\"" << json_escape(txh) << "\"],"
+          << "\"fee_list\":[" << fee << "]"
+          << "}";
+      return rust::String(oss.str());
+    }
+    std::vector<std::string> hexes;
+    std::vector<uint64_t> fees;
+    if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees)) {
       bridge.wallet->disposeTransaction(ptx);
       throw std::runtime_error("transfer_split: empty tx metadata");
     }
-    bridge.pending_by_metadata[metadata] = ptx;
+    txids = ptx->txid();
+    if (hexes.empty() || hexes.size() != fees.size() || hexes.size() != txids.size()) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw std::runtime_error("transfer_split: empty tx metadata");
+    }
+    for (const std::string& h : hexes) {
+      if (h.empty()) {
+        bridge.wallet->disposeTransaction(ptx);
+        throw std::runtime_error("transfer_split: empty tx metadata");
+      }
+    }
     std::ostringstream oss;
-    oss << "{"
-        << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
-        << "\"tx_hash_list\":[\"" << json_escape(txh) << "\"],"
-        << "\"fee_list\":[" << fee << "]"
-        << "}";
+    oss << "{\"tx_metadata_list\":[";
+    for (size_t i = 0; i < hexes.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(hexes[i]) << '"';
+    }
+    oss << "],\"tx_hash_list\":[";
+    for (size_t i = 0; i < txids.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(txids[i]) << '"';
+    }
+    oss << "],\"fee_list\":[";
+    for (size_t i = 0; i < fees.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << fees[i];
+    }
+    oss << "]}";
+    bridge.wallet->disposeTransaction(ptx);
     return rust::String(oss.str());
   }
   if (!ptx->commit()) {

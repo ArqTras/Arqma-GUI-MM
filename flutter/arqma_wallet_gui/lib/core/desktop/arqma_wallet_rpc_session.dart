@@ -148,7 +148,7 @@ final class ArqmaWalletRpcSession {
               'Native FFI loaded but `get_languages` did not succeed after retries '
               '(last response: ${lastLang ?? "<null>"}). Check daemon address $daemonAddr '
               'and wallet2 logs — this is usually not "missing DLL" if `.dll/.so` copied already. '
-              'Windows GNU: confirm `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` under `lib\\\\` next to the exe. '
+              'Windows GNU: confirm `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` next to `Arqma-Wallet.exe` (flat Release; legacy `lib\\\\` still supported). '
               'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
           debugPrint(
               '[WalletRpc] native FFI: get_languages not OK after retries; last=$lastLang '
@@ -175,7 +175,7 @@ final class ArqmaWalletRpcSession {
             'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
         debugPrint(
             '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
-            'Windows: missing MinGW runtime DLLs under `lib\\\\` is common). Not starting subprocess (set '
+            'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '
             '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
       }
       return null;

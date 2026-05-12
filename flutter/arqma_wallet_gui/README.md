@@ -54,7 +54,7 @@ From `flutter/arqma_wallet_gui`, after `flutter pub get` and with **`rust/tauri-
 The PowerShell packager aims for a **single extract-and-run** tree (no MSYS2 / MinGW on `PATH`):
 
 1. **Daemon:** put **`arqmad.exe`** in the repo **`bin/`** directory (or manually under `rust/tauri-app/src-tauri/bin/`). The script runs **`build/copy-to-tauri-bins.js`** (needs Node on `PATH`) so Tauri’s bin folder matches Tauri/CMake, then copies **`bin/arqmad.exe`** into `build/windows/x64/runner/Release/bin/` for Flutter.
-2. **Native wallet FFI:** `arqma_wallet_flutter_ffi.dll` plus the **MinGW dependency DLLs** are synced into **`Release/lib/`** (same globs as `windows/cmake/install_arqma_wallet_ffi.cmake.in`; Dart loads from `lib/`).
+2. **Native wallet FFI:** `arqma_wallet_flutter_ffi.dll` plus the **MinGW dependency DLLs** are synced into **`Release/`** next to `Arqma-Wallet.exe` (same globs as `windows/cmake/install_arqma_wallet_ffi.cmake.in`; optional `libwallet_merged.a` if built). Legacy `Release/lib/` is still supported by the loader.
 3. **Checks:** `tool/verify_windows_bundle.ps1` validates the Release folder (exe, engine DLL, FFI DLL under `lib/`, assets; warns or fails on missing `bin/arqmad.exe`). `package_flutter_release.ps1` runs it unless `-SkipBundleVerify`. CI runs the same script with `-FailIfNoArqmad` after fetching `arqmad.exe`. Use `-SkipBundleVerify` or `-SkipCopyToTauriBins` to opt out locally.
 
 Installer equivalent: **`build/ci/flutter-windows-installer.iss`** packs the same `Release` folder into a Setup.exe (CI uses Inno Setup).

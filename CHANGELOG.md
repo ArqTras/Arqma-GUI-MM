@@ -3,7 +3,7 @@
 ## 5.1.0 — 2026-05-11
 
 - Bump app / workspace version to **5.1.0** (from 5.0.5).
-- Documentation and CI labels in English where applicable; Flutter Windows FFI bundle paths documented under **`Release/lib/`**; release naming guide: `flutter/arqma_wallet_gui/tool/RELEASE_NAMING.md`.
+- Flutter Windows FFI bundle: DLLs and optional **`libwallet_merged.a`** under **`Release/`** (flat next to exe); release naming guide: `flutter/arqma_wallet_gui/tool/RELEASE_NAMING.md`.
 - CI: replaced **`flutter-github-release.yml`** + **`tauri-app.yml`** with unified **`desktop-release.yml`** — Flutter (instalatory / archiwa) + Tauri (bundlery) → jeden GitHub Release; tagi **`v*`** oraz semver **`X.Y.Z`** (np. **`5.1.0`**); po push tagu opcjonalnie **`repo-private-after-release`** przy secrecie **`ARQMA_REPO_VISIBILITY_PAT`**.
 
 ## 5.0.5 — 2026-05-11

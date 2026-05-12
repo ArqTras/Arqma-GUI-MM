@@ -8,7 +8,7 @@ Requires an Arqma core checkout and `libwallet_merged` (or equivalent) per [`rus
 
 This crate ships a `build.rs` so the **`cdylib`** link pulls the same MinGW system libraries as the Tauri app (OpenSSL, Boost, ICU, Win32 imports, …). It also wraps upstream CMake archives **`libepee.a`**, **`libeasylogging.a`**, **`libcryptonote_format_utils_basic.a`**, **`liblmdb.a`** in `-Wl,--whole-archive` (same objects must be on the link line as for `wallet_merged`).
 
-**Windows:** ship **`arqma_wallet_flutter_ffi.dll`** plus the usual MinGW dependency DLLs under **`Release/lib/`** next to the app (see `flutter/arqma_wallet_gui/tool/package_flutter_release.ps1`). Fully static “one DLL only” is not supported with stock MSYS2 because **Boost.Locale** is built against ICU **shared** imports (`__imp_*`), which conflicts with linking ICU entirely as static `.a` archives.
+**Windows:** ship **`arqma_wallet_flutter_ffi.dll`** plus the usual MinGW dependency DLLs in **`runner/Release/`** next to the app (see `flutter/arqma_wallet_gui/tool/package_flutter_release.ps1`). Optional: **`libwallet_merged.a`** is copied there when `rust/arqma-rpc-upstream/build-mingw/` exists (CI / local MinGW build). Fully static “one DLL only” is not supported with stock MSYS2 because **Boost.Locale** is built against ICU **shared** imports (`__imp_*`), which conflicts with linking ICU entirely as static `.a` archives.
 
 **One-shot helpers**
 
@@ -37,7 +37,7 @@ Artifacts (host triple):
 ## Flutter packaging
 
 - **macOS:** Xcode “Copy Arqma Tauri bins” copies the dylib into `Contents/Frameworks/` when present under `rust/target/…`.
-- **Linux / Windows:** `flutter/arqma_wallet_gui/linux|windows/CMakeLists.txt` installs the library into the Flutter bundle (`lib/` on Linux and **`runner/Release/lib/`** on Windows).
+- **Linux / Windows:** `flutter/arqma_wallet_gui/linux|windows/CMakeLists.txt` installs the library into the Flutter bundle (`lib/` on Linux and **`runner/Release/`** next to the exe on Windows).
 - **Manual:** `flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh` supports `.app`, Linux `bundle/`, and Windows `runner/Release`.
 
 Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_native_ffi.dart`.
