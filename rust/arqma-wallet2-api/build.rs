@@ -94,14 +94,6 @@ fn main() {
         "cargo:rerun-if-changed={}",
         api_dir.join("wallet2_api.h").display()
     );
-    println!(
-        "cargo:rerun-if-changed={}",
-        api_dir.join("wallet.h").display()
-    );
-    println!(
-        "cargo:rerun-if-changed={}",
-        api_dir.join("wallet.cpp").display()
-    );
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_LIB_DIR");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_LIB_NAME");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_MSYS_ROOT");

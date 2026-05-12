@@ -20,5 +20,3 @@ fi
 bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$DEST"
 # RandomX ARCH_ID, wallet_merged+daemonizer, stack_trace MinGW — must run for cached clones too.
 bash "$ROOT/build/ci/patch-arqma-mingw-gui.sh" "$DEST"
-# Flutter FFI / wallet2_api: relay metadata helpers (must run for cached clones too).
-node "$ROOT/build/ci/patch-arqma-wallet2-api-relay.js" "$DEST"
