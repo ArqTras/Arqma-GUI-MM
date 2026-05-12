@@ -41,6 +41,7 @@ Source: "{#SrcRelease}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"
 
 [Run]
 Filename: "{app}\Arqma-Wallet.exe"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
