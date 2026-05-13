@@ -97,11 +97,15 @@ fn main() {
         );
     }
 
-    // `wallet2_api.h` on older Arqma (e.g. pospow) omits slice-relay helpers; C++ uses file-based
-    // unsigned tx export + `submitTransaction` instead of `exportPendingRelaySlices` /
-    // `relayTxFromMetadataHex` / `destinationAmountsPerSlice`.
+    // `wallet2_api.h` on older Arqma (e.g. pospow) may declare only part of the slice-relay API
+    // (e.g. `relayTxFromMetadataHex` on `Wallet`) while `PendingTransaction` still lacks
+    // `destinationAmountsPerSlice` — compiling with `ARQMA_WALLET2_HAS_SLICE_RELAY` then fails on
+    // Linux CI. Enable the slice path only when the header advertises the full surface we call from
+    // `wallet2_api_wrapper.cpp`; otherwise use file-based unsigned export + `submitTransaction`.
     let header_text = std::fs::read_to_string(&header).unwrap_or_default();
-    let has_slice_relay = header_text.contains("relayTxFromMetadataHex");
+    let has_slice_relay = header_text.contains("exportPendingRelaySlices")
+        && header_text.contains("relayTxFromMetadataHex")
+        && header_text.contains("destinationAmountsPerSlice");
 
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_UPSTREAM_DIR");
     println!("cargo:rerun-if-changed=src/native.rs");
