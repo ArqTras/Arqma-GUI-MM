@@ -2245,9 +2245,12 @@ final class DesktopNativeBridge implements NativeBridge {
     return _walletPasswordMatches(password);
   }
 
-  Future<void> _emitWalletOpenedUi(String name) async {
+  Future<void> _emitWalletOpenedUi(String name,
+      {bool isNewWallet = false}) async {
     final Stopwatch sw = Stopwatch()..start();
-    _traceWalletOpen('_emitWalletOpenedUi begin name=$name', sw: sw);
+    _traceWalletOpen(
+        '_emitWalletOpenedUi begin name=$name isNewWallet=$isNewWallet',
+        sw: sw);
     final ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
       _traceWalletOpen('_emitWalletOpenedUi abort: no session', sw: sw);
@@ -2312,6 +2315,45 @@ final class DesktopNativeBridge implements NativeBridge {
         }
       }
     }
+
+    if (isNewWallet) {
+      final Map<String, dynamic>? qm = await w.call(
+          'query_key', <String, dynamic>{'key_type': 'mnemonic'}).timeout(
+              const Duration(seconds: 20),
+              onTimeout: () => null);
+      _traceWalletOpen(
+          'post-open query_key(mnemonic) ok=${walletJsonRpcNoError(qm)}',
+          sw: sw);
+      if (walletJsonRpcNoError(qm) && qm != null) {
+        final Object? res = qm['result'];
+        if (res is Map) {
+          final String key = '${res['key'] ?? ''}';
+          if (key.isNotEmpty) {
+            _emit(<String, dynamic>{
+              'event': 'set_wallet_secret',
+              'data': <String, dynamic>{
+                'mnemonic': key,
+                'spend_key': '',
+                'view_key': '',
+              },
+            });
+          }
+        }
+      }
+
+      try {
+        final Map<String, dynamic>? st0 = await w
+            .call('store', <String, dynamic>{}).timeout(
+                const Duration(seconds: 60),
+                onTimeout: () => null);
+        _traceWalletOpen(
+            'post-open store ok=${walletJsonRpcNoError(st0)}',
+            sw: sw);
+      } catch (e, st) {
+        debugPrint('[DesktopNative] wallet store after create/restore: $e\n$st');
+      }
+    }
+
     if (address != null) {
       await _persistWalletAddressFile(name, address);
     }
@@ -3675,7 +3717,7 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);
-      await _emitWalletOpenedUi(name);
+      await _emitWalletOpenedUi(name, isNewWallet: true);
       return <String, dynamic>{};
     }
     if (method == 'restore_wallet') {
@@ -3732,7 +3774,7 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);
-      await _emitWalletOpenedUi(name);
+      await _emitWalletOpenedUi(name, isNewWallet: true);
       return <String, dynamic>{};
     }
     if (method == 'restore_view_wallet') {
@@ -3796,7 +3838,7 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       _refreshSessionPasswordDigest(password);
-      await _emitWalletOpenedUi(name);
+      await _emitWalletOpenedUi(name, isNewWallet: true);
       return <String, dynamic>{};
     }
     if (method == 'import_wallet') {
