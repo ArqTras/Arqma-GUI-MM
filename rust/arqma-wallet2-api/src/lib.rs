@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-// Desktop `wallet_merged`: upstream CMake still emits separate static libs (`liblmdb.a`, `libepee.a`, …)
-// alongside `libwallet_merged.a` (ringdb / LMDB is not folded into the merged archive on Linux/macOS CI).
-// Whole-archive + bundle on macOS/Linux (and iOS): pull those archives so `cdylib` / `dylib` links resolve LMDB, etc.
-// windows-gnu: `+whole-archive` without `+bundle` (PE). MinGW `wallet_merged` already
-// folds epee/LMDB/randomx/etc.; linking those `.a` again causes duplicate symbol errors.
+// **Linux** `cdylib`: `arqma-wallet-flutter-ffi/build.rs` passes `-Wl,-z,muldefs`, so we can still pull the
+// auxiliary static archives next to `libwallet_merged.a` (some CI trees match the classic Monero split).
+//
+// **macOS** `cdylib`: Apple `ld` does not offer `muldefs`; upstream `libwallet_merged.a` already folds **epee** /
+// **easylogging** / **randomx** / **cryptonote_format_utils_basic**. Link those `.a` files again → hundreds of
+// duplicate symbols. Keep **LMDB** only beside `wallet_merged` (`mdb_*` from `ringdb.cpp`).
+//
+// **windows-gnu** / **iOS**: separate `#[link]` blocks below.
 // Do not emit `rustc-link-lib=static=wallet_merged` from build.rs — rustc forbids mixing that with
 // these #[link] modifiers ("overriding linking modifiers from command line").
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 mod force_wallet_static {
     #![allow(dead_code)]
     #[link(
@@ -41,8 +44,22 @@ mod force_wallet_static {
     extern "C" {}
 }
 
+#[cfg(target_os = "macos")]
+mod force_wallet_static {
+    #![allow(dead_code)]
+    #[link(
+        name = "wallet_merged",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(name = "lmdb", kind = "static", modifiers = "+bundle,+whole-archive")]
+    extern "C" {}
+}
+
 #[cfg(all(
-    not(any(target_os = "macos", target_os = "linux")),
+    not(target_os = "macos"),
+    not(target_os = "linux"),
     not(target_os = "ios"),
     not(all(target_os = "windows", target_env = "gnu"))
 ))]
@@ -132,6 +149,13 @@ pub struct Wallet2Session {
 impl Wallet2Session {
     pub fn open(_cfg: &Wallet2OpenConfig) -> Wallet2Result<Self> {
         let inner = native::NativeWallet2Session::open(_cfg)?;
+        Ok(Self { inner })
+    }
+
+    /// Manager-only session (no wallet on disk required) for `create_wallet` /
+    /// `restore_deterministic_wallet` / `generate_from_keys`.
+    pub fn bare() -> Wallet2Result<Self> {
+        let inner = native::NativeWallet2Session::bare()?;
         Ok(Self { inner })
     }
 

@@ -351,15 +351,13 @@ impl Wallet2ApiClient {
                     .and_then(|v| v.as_str())
                     .unwrap_or("English");
                 let path = resolve_wallet_path(&self.cfg.wallet_dir, filename);
+                // Wallet does not exist on disk yet — use a manager-only "bare" session so we
+                // never call `openWallet` against the future path (would create a stale, empty
+                // cache file and later fail `recoveryWallet` with "file already exists").
                 let mut session = match g.take() {
                     Some(s) => s,
-                    None => Wallet2Session::open(&Wallet2OpenConfig {
-                        wallet_path: path.clone(),
-                        password: password.to_string(),
-                        daemon_address: self.cfg.daemon_address.clone(),
-                        network: self.cfg.network.clone(),
-                    })
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
+                    None => Wallet2Session::bare()
+                        .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
                 };
                 session
                     .create_wallet(
@@ -404,15 +402,12 @@ impl Wallet2ApiClient {
                     .and_then(|v| v.as_u64())
                     .unwrap_or(0);
                 let path = resolve_wallet_path(&self.cfg.wallet_dir, filename);
+                // Same reasoning as `create_wallet`: never call `openWallet` for a wallet that
+                // does not yet exist on disk — fresh manager-only bridge avoids stale cache files.
                 let mut session = match g.take() {
                     Some(s) => s,
-                    None => Wallet2Session::open(&Wallet2OpenConfig {
-                        wallet_path: path.clone(),
-                        password: password.to_string(),
-                        daemon_address: self.cfg.daemon_address.clone(),
-                        network: self.cfg.network.clone(),
-                    })
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
+                    None => Wallet2Session::bare()
+                        .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
                 };
                 session
                     .restore_deterministic_wallet(
@@ -477,15 +472,11 @@ impl Wallet2ApiClient {
                     .and_then(|v| v.as_str())
                     .unwrap_or("English");
                 let path = resolve_wallet_path(&self.cfg.wallet_dir, filename);
+                // Same reasoning as `create_wallet` / `restore_deterministic_wallet`.
                 let mut session = match g.take() {
                     Some(s) => s,
-                    None => Wallet2Session::open(&Wallet2OpenConfig {
-                        wallet_path: path.clone(),
-                        password: password.to_string(),
-                        daemon_address: self.cfg.daemon_address.clone(),
-                        network: self.cfg.network.clone(),
-                    })
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
+                    None => Wallet2Session::bare()
+                        .map_err(|e| WalletRpcError::Transport(e.to_string()))?,
                 };
                 session
                     .generate_from_keys(

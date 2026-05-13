@@ -192,10 +192,30 @@ std::unique_ptr<Wallet2Bridge> wallet2_open(
   if (bridge->wallet == nullptr) {
     throw std::runtime_error("openWallet returned null");
   }
+  // `WalletManagerImpl::openWallet` ALWAYS returns a non-null wallet, even after a
+  // failed load (e.g. wallet does not exist on disk yet). The wallet ends up in
+  // `Status_Critical` and a subsequent `init(daemon)` would CLEAR that status, leaving
+  // a broken session that would later create empty wallet cache files on `closeWallet`.
+  // Detect the failure here and roll back without touching the filesystem.
+  if (bridge->wallet->status() != Monero::Wallet::Status_Ok) {
+    std::string err = bridge->wallet->errorString();
+    bridge->manager->closeWallet(bridge->wallet, false);
+    bridge->wallet = nullptr;
+    throw std::runtime_error(err.empty() ? "openWallet failed" : err);
+  }
 
   if (!daemon_s.empty()) {
     bridge->wallet->init(daemon_s);
     bridge->wallet->startRefresh();
+  }
+  return bridge;
+}
+
+std::unique_ptr<Wallet2Bridge> wallet2_init_bare() {
+  auto bridge = std::make_unique<Wallet2Bridge>();
+  bridge->manager = Monero::WalletManagerFactory::getWalletManager();
+  if (bridge->manager == nullptr) {
+    throw std::runtime_error("WalletManagerFactory::getWalletManager returned null");
   }
   return bridge;
 }

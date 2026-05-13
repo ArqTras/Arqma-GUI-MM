@@ -26,6 +26,10 @@ std::unique_ptr<Wallet2Bridge> wallet2_open(
   const std::string& daemon,
   std::uint8_t network
 );
+// Initialize a bare bridge with only the wallet manager (no openWallet call).
+// Used before `create_wallet` / `restore_deterministic_wallet` / `generate_from_keys`
+// when the wallet does not yet exist on disk and we must NOT touch the filesystem.
+std::unique_ptr<Wallet2Bridge> wallet2_init_bare();
 void wallet2_store(Wallet2Bridge& bridge);
 void wallet2_close(Wallet2Bridge& bridge);
 rust::String wallet2_address(const Wallet2Bridge& bridge);

@@ -15,6 +15,7 @@ mod ffi {
             daemon: &CxxString,
             network: u8,
         ) -> Result<UniquePtr<Wallet2Bridge>>;
+        fn wallet2_init_bare() -> Result<UniquePtr<Wallet2Bridge>>;
         fn wallet2_store(bridge: Pin<&mut Wallet2Bridge>) -> Result<()>;
         fn wallet2_close(bridge: Pin<&mut Wallet2Bridge>) -> Result<()>;
         fn wallet2_address(bridge: &Wallet2Bridge) -> Result<String>;
@@ -161,6 +162,12 @@ impl NativeWallet2Session {
         let_cxx_string!(daemon = cfg.daemon_address.as_str());
         let bridge = ffi::wallet2_open(&path, &password, &daemon, net_to_u8(&cfg.network))
             .map_err(|e| Wallet2Error::OperationFailed(e.to_string()))?;
+        Ok(Self { bridge })
+    }
+
+    pub fn bare() -> Wallet2Result<Self> {
+        let bridge =
+            ffi::wallet2_init_bare().map_err(|e| Wallet2Error::OperationFailed(e.to_string()))?;
         Ok(Self { bridge })
     }
 
