@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Optional local path: after `wallet_merged`, build **daemon** from the upstream tree and copy **arqmad**
-# into `rust/tauri-app/src-tauri/bin/`. CI Flutter/macOS/Linux uses **GitHub Releases** instead:
-# `build/ci/fetch-arqmad-github-release.sh` (binaries from `arqma/arqma` latest release).
+# Optional local path: after `wallet_merged`, build **daemon** from the upstream CMake tree and copy **arqmad**
+# into `rust/tauri-app/src-tauri/bin/`. **CI Flutter** (Linux/macOS/Windows release workflow) fetches **`arqmad`**
+# from **`arqma/arqma` GitHub Releases** instead (`fetch-arqmad-github-release.sh` or `flutter-windows-fetch-arqma-binaries.ps1`).
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UP="${ARQMA_WALLET2_UPSTREAM_DIR:-$ROOT/rust/arqma-rpc-upstream}"

@@ -73,6 +73,38 @@ String? _tauriStyleBundledExecutable(ArqmaExecutableKind kind) {
   return null;
 }
 
+/// When the macOS/Linux bundle has no `arqmad` under `Resources/bin/` yet, still resolve the
+/// checkout copy by walking parents of [Platform.resolvedExecutable] (works for `flutter run`
+/// when [Directory.current] is not the repo root — e.g. launched from Finder).
+String? _exeInSrcTauriBinNearResolvedExecutable(ArqmaExecutableKind kind) {
+  final String sep = Platform.pathSeparator;
+  final String name = _pickExeName(kind);
+  try {
+    Directory dir = File(Platform.resolvedExecutable).parent;
+    for (int i = 0; i < 18; i++) {
+      final String p = <String>[
+        dir.path,
+        'rust',
+        'tauri-app',
+        'src-tauri',
+        'bin',
+        name,
+      ].join(sep);
+      if (File(p).existsSync()) {
+        return p;
+      }
+      final Directory parent = dir.parent;
+      if (parent.path == dir.path) {
+        break;
+      }
+      dir = parent;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
 /// If [root] already ends with `bin`, use it; else `<root>/bin` (same as Rust `bin_subdir`).
 String _binSubdir(String root) {
   final String t = root.trim();
@@ -189,6 +221,10 @@ String? resolveArqmaExecutable(ArqmaExecutableKind kind) {
   final String? bundled = _tauriStyleBundledExecutable(kind);
   if (bundled != null) {
     return bundled;
+  }
+  final String? nearCheckout = _exeInSrcTauriBinNearResolvedExecutable(kind);
+  if (nearCheckout != null) {
+    return nearCheckout;
   }
   final String? build = Platform.environment['ARQMA_BUILD_DIR'];
   if (build != null && build.isNotEmpty) {
