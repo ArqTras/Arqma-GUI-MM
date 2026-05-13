@@ -59,18 +59,37 @@ function patchWalletCMake () {
   ) {
     return
   }
-  const re = /(\s+checkpoints\s*\r?\n\s+version\s*\r?\n\s+net\)\s*\r?\n)(\s+else\(\))/
-  if (!re.test(s)) {
+  // Match the desktop (non‑iOS) `libs_to_merge` list: it ends with `p2p` / `lmdb_lib)` then `else()`.
+  // Older Arqma trees ended with `net)` only — support both shapes.
+  const reDesktop =
+    /(\s+p2p\s*\r?\n)(\s+lmdb_lib\)\s*\r?\n)(\s+else\(\))/
+  const reLegacy =
+    /(\s+checkpoints\s*\r?\n\s+version\s*\r?\n\s+net\)\s*\r?\n)(\s+else\(\))/
+  let block
+  if (reDesktop.test(s)) {
+    block = (_, p2p, lmdbClose, elseLine) =>
+      p2p +
+      lmdbClose +
+      "    # Arqma-GUI-MM: wallet_merged MinGW daemonizer\n" +
+      "    # MinGW GUI link pulls `windows::check_admin` from daemonizer via cryptonote_core.\n" +
+      "    if(MINGW)\n" +
+      "      list(APPEND libs_to_merge daemonizer)\n" +
+      "    endif()\n\n" +
+      elseLine
+    s = s.replace(reDesktop, block)
+  } else if (reLegacy.test(s)) {
+    block = (_, a, b) =>
+      a +
+      "    # Arqma-GUI-MM: wallet_merged MinGW daemonizer\n" +
+      "    if(MINGW)\n" +
+      "      list(APPEND libs_to_merge daemonizer)\n" +
+      "    endif()\n\n" +
+      b
+    s = s.replace(reLegacy, block)
+  } else {
     console.warn("[patch-arqma-mingw-gui] skip src/wallet/CMakeLists.txt (pattern not found)")
     return
   }
-  const block =
-    "    # Arqma-GUI-MM: wallet_merged MinGW daemonizer\n" +
-    "    # MinGW GUI link pulls `windows::check_admin` from daemonizer via cryptonote_core headers.\n" +
-    "    if(MINGW)\n" +
-    "      list(APPEND libs_to_merge daemonizer)\n" +
-    "    endif()\n\n"
-  s = s.replace(re, (_, a, b) => a + block + b)
   fs.writeFileSync(f, s)
   console.log("[patch-arqma-mingw-gui] patched src/wallet/CMakeLists.txt")
 }

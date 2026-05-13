@@ -179,6 +179,10 @@ fn mingw_wallet_dep_libs() -> &'static [&'static str] {
         "sodium",
         "hidapi",
         "unbound",
+        // `readline_buffer.cpp` in folded epee / cryptonote archives (MSYS2 GNU readline).
+        "readline",
+        "history",
+        "ncurses",
     ]
 }
 
