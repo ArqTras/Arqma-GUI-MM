@@ -1535,6 +1535,32 @@ final class DesktopNativeBridge implements NativeBridge {
       'stake',
       'net',
     ];
+    // Wallet RPC `get_transfers` only emits five top-level buckets (`in`, `out`,
+    // `pending`, `failed`, `pool`); the per-row `type` carries the real
+    // `pay_type` (`in`/`out`/`snode`/`miner`/`gov`/`stake`/`net`/`dev`) — see
+    // `arqma-rpc-upstream::wallet2.h::pay_type_string`. Preserve the row's
+    // `type` for the categorising buckets so the Service Node / Stake / Miner
+    // filters match (parity with Tauri `wallet_heartbeat::merge_transfers_list`).
+    // For `pending`/`failed`/`pool` the bucket key is authoritative because
+    // native FFI rows still carry a direction-derived `in`/`out` placeholder.
+    const Set<String> bucketKeyAuthoritative = <String>{
+      'pending',
+      'failed',
+      'pool',
+    };
+    const Set<String> validRpcTypes = <String>{
+      'in',
+      'out',
+      'snode',
+      'stake',
+      'miner',
+      'gov',
+      'dev',
+      'net',
+      'pending',
+      'failed',
+      'pool',
+    };
     final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
     for (final String k in keys) {
       final Object? arr = result[k];
@@ -1542,9 +1568,11 @@ final class DesktopNativeBridge implements NativeBridge {
         for (final Object? x in arr) {
           if (x is Map) {
             final Map<String, dynamic> row = Map<String, dynamic>.from(x);
-            // Bucket key is authoritative for UI filters (`snode`, `stake`, …). Wallet RPC may
-            // return a generic `type` (e.g. `in`/`out`) even for rows under `snode` / `stake`.
-            row['type'] = k;
+            final String existing = '${row['type'] ?? ''}';
+            if (bucketKeyAuthoritative.contains(k) ||
+                !validRpcTypes.contains(existing)) {
+              row['type'] = k;
+            }
             out.add(row);
           }
         }
@@ -1608,6 +1636,15 @@ final class DesktopNativeBridge implements NativeBridge {
       });
       emittedOk = true;
       _whFetchTxPending = false;
+      // A slow `get_transfers` can finish after the wallet height has advanced several
+      // ticks (footer updates from `getheight` while this call was in flight). The RPC
+      // snapshot may omit rows for blocks scanned only after [curH]. Without a follow-up
+      // xfer, `xferTrigger` stays false at a flat tip (`newH == h0`) and the tx list
+      // stays stuck with an old newest height — see wallet_heartbeat parity / issue reports.
+      if (walletNameAtStart == _openedWalletDisplayName &&
+          _whStoredHeight > curH) {
+        _whFetchTxPending = true;
+      }
     } catch (e, st) {
       debugPrint('[DesktopNative] wallet get_transfers: $e\n$st');
     } finally {

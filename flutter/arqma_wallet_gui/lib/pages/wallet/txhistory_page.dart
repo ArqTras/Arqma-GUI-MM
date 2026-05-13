@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../widgets/arqma_field.dart';
@@ -21,17 +20,12 @@ class TxHistoryPage extends StatefulWidget {
 
 class _TxHistoryPageState extends State<TxHistoryPage>
     with WidgetsBindingObserver {
-  /// Same height for the three filter cells (label + input row).
-  static const double _kFilterRowHeight = 124;
+  /// Label + single-line control per filter cell (tx id + type).
+  static const double _kFilterRowHeight = 104;
 
   final TextEditingController _txid = TextEditingController();
   int _typeIndex = 0;
   Timer? _txidDebounce;
-
-  /// `pages/wallet/txhistory.vue` watcher → `core::set_daysOfTransactions` (now persists `config.json`).
-  int _daysOfTransactions = 1;
-  Timer? _daysDebounce;
-  GatewayStore? _gatewayForDays;
 
   static const List<Map<String, dynamic>> _typeOptions = <Map<String, dynamic>>[
     <String, dynamic>{'index': 0, 'label': 'pages.wallet.txhistory.all'},
@@ -55,7 +49,6 @@ class _TxHistoryPageState extends State<TxHistoryPage>
         return;
       }
       final GatewayStore s = context.read<GatewayStore>();
-      final int days0 = _readDaysOfTransactionsFromStore(s);
       final Map<String, dynamic> cur =
           Map<String, dynamic>.from(s.raw['transactions_filter'] as Map? ?? {});
       final int idx = cur['index'] as int? ?? 0;
@@ -63,7 +56,6 @@ class _TxHistoryPageState extends State<TxHistoryPage>
           s.raw['transaction_id_filter'] as Map? ?? {});
       final String v = '${tid['value'] ?? ''}';
       setState(() {
-        _daysOfTransactions = days0;
         if (_typeOptions.any((Map<String, dynamic> e) => e['index'] == idx)) {
           _typeIndex = idx;
         }
@@ -85,65 +77,9 @@ class _TxHistoryPageState extends State<TxHistoryPage>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final GatewayStore g = context.read<GatewayStore>();
-    if (!identical(_gatewayForDays, g)) {
-      _gatewayForDays?.removeListener(_onGatewayStoreForDays);
-      _gatewayForDays = g;
-      _gatewayForDays!.addListener(_onGatewayStoreForDays);
-    }
-  }
-
-  void _onGatewayStoreForDays() {
-    if (!mounted || _gatewayForDays == null) {
-      return;
-    }
-    final int d = _readDaysOfTransactionsFromStore(_gatewayForDays!);
-    if (d != _daysOfTransactions) {
-      setState(() => _daysOfTransactions = d);
-    }
-  }
-
-  static int _readDaysOfTransactionsFromStore(GatewayStore s) {
-    final Map<String, dynamic>? pending = s.app['pending_config'] is Map
-        ? Map<String, dynamic>.from(s.app['pending_config'] as Map)
-        : null;
-    final Map<String, dynamic>? conf = s.app['config'] is Map
-        ? Map<String, dynamic>.from(s.app['config'] as Map)
-        : null;
-    final Map<String, dynamic>? box = (pending?['app'] is Map) ? pending : conf;
-    final Object? fromNested = (box?['app'] as Map?)?['daysOfTransactions'];
-    final Object? fromRoot = s.app['daysOfTransactions'];
-    final int d = int.tryParse('$fromNested') ?? int.tryParse('$fromRoot') ?? 1;
-    return d.clamp(1, 30);
-  }
-
-  void _scheduleDaysToBackend(int v) {
-    _daysDebounce?.cancel();
-    _daysDebounce = Timer(const Duration(milliseconds: 400), () async {
-      if (!mounted) {
-        return;
-      }
-      try {
-        await context.read<AppApi>().send(
-          'core',
-          'set_daysOfTransactions',
-          <String, dynamic>{'daysOfTransactions': v},
-        );
-      } catch (e, st) {
-        debugPrint('[TxHistoryPage] set_daysOfTransactions $e\n$st');
-      }
-    });
-  }
-
-  @override
   void dispose() {
-    _gatewayForDays?.removeListener(_onGatewayStoreForDays);
-    _gatewayForDays = null;
     WidgetsBinding.instance.removeObserver(this);
     _txidDebounce?.cancel();
-    _daysDebounce?.cancel();
     final String tidSnapshot = _txid.text.trim();
     final int typeSnapshot = _typeIndex;
     _txid.dispose();
@@ -201,6 +137,7 @@ class _TxHistoryPageState extends State<TxHistoryPage>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
+                  flex: 5,
                   child: ArqmaField(
                     stretchContent: true,
                     goldChrome: true,
@@ -208,77 +145,29 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                         .tr('pages.wallet.txhistory.filter_by_transactionid'),
                     disableMenu: false,
                     child: TextField(
-                    controller: _txid,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: ArqmaColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: loc.tr(
-                          'pages.wallet.txhistory.filter_by_transactionid_placeholder'),
-                      hintStyle: TextStyle(
+                      controller: _txid,
+                      style: const TextStyle(
                         fontSize: 13,
-                        color: ArqmaColors.textMuted.withValues(alpha: 0.9),
+                        color: ArqmaColors.textPrimary,
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (_) => _scheduleTxidFilter(),
-                  ),
-                ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ArqmaField(
-                    stretchContent: true,
-                    goldChrome: true,
-                    label: loc.tr(
-                        'components.general_settings.transactions_to_display'),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.max,
-                      children: [
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 3,
-                            activeTrackColor: ArqmaColors.arqmaGreenSolid,
-                            inactiveTrackColor:
-                                ArqmaColors.outlineDefault.withValues(alpha: 0.5),
-                            thumbColor: ArqmaColors.arqmaGreenSolid,
-                            overlayColor: ArqmaColors.selection,
-                            thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 7),
-                          ),
-                          child: Slider(
-                          min: 1,
-                          max: 30,
-                          divisions: 29,
-                          value: _daysOfTransactions.toDouble().clamp(1, 30),
-                          label: '$_daysOfTransactions',
-                          onChanged: (double x) {
-                            final int v = x.round().clamp(1, 30);
-                            setState(() => _daysOfTransactions = v);
-                            _scheduleDaysToBackend(v);
-                          },
+                      decoration: InputDecoration(
+                        hintText: loc.tr(
+                            'pages.wallet.txhistory.filter_by_transactionid_placeholder'),
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: ArqmaColors.textMuted.withValues(alpha: 0.9),
                         ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
-                        Text(
-                          '$_daysOfTransactions${loc.tr('components.general_settings.days')}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: ArqmaColors.arqmaGreenSolid,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ],
+                      onChanged: (_) => _scheduleTxidFilter(),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
+                  flex: 4,
                   child: ArqmaField(
                     stretchContent: true,
                     goldChrome: true,
@@ -320,7 +209,7 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                         },
                       ),
                     ),
-                ),
+                  ),
                 ),
               ],
             ),
