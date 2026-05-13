@@ -366,6 +366,51 @@ final class DesktopNativeBridge implements NativeBridge {
     _emit(<String, dynamic>{'event': 'wallet_list', 'data': wallets});
   }
 
+  /// Tauri parity: `finalize_new_wallet_like_electron` writes `{name}.address.txt`
+  /// next to the wallet (`{name}` + `{name}.keys`) when it's missing or empty,
+  /// then re-emits `wallet_list`. Path uses [Platform.pathSeparator] so it works
+  /// on Windows, Linux and macOS without changes.
+  Future<void> _persistWalletAddressFile(String name, String address) async {
+    if (name.isEmpty || address.isEmpty) {
+      return;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg == null) {
+      return;
+    }
+    final String? wdir = walletFilesDir(cfg);
+    if (wdir == null || wdir.isEmpty) {
+      return;
+    }
+    try {
+      final Directory d = Directory(wdir);
+      if (!d.existsSync()) {
+        d.createSync(recursive: true);
+      }
+      final File addrFile =
+          File('$wdir${Platform.pathSeparator}$name.address.txt');
+      bool needsWrite = true;
+      if (addrFile.existsSync()) {
+        try {
+          if (addrFile.readAsStringSync().trim().isNotEmpty) {
+            needsWrite = false;
+          }
+        } catch (_) {
+          needsWrite = true;
+        }
+      }
+      if (needsWrite) {
+        await addrFile.writeAsString(address, flush: true);
+        _emit(<String, dynamic>{
+          'event': 'wallet_list',
+          'data': listWalletFiles(wdir),
+        });
+      }
+    } catch (e, st) {
+      debugPrint('[DesktopNative] write address.txt for "$name": $e\n$st');
+    }
+  }
+
   @override
   Stream<Map<String, dynamic>> get backendReceive => _controller.stream;
 
@@ -2266,6 +2311,9 @@ final class DesktopNativeBridge implements NativeBridge {
           address = a;
         }
       }
+    }
+    if (address != null) {
+      await _persistWalletAddressFile(name, address);
     }
 
     bool viewOnly = false;
