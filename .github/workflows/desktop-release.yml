@@ -1,4 +1,4 @@
-# Desktop release: Flutter Linux + Windows (tar.gz / AppImage / zip / Inno Setup), then **one** GitHub Release. (macOS CI job removed.)
+# Desktop release: Flutter Linux + macOS + Windows (archives / AppImage / DMG / Inno), then **one** GitHub Release.
 # Fast `flutter analyze` on Linux/Windows/macOS runners: `.github/workflows/flutter-verify.yml`.
 # Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
@@ -33,6 +33,8 @@ env:
   ARQMA_UPSTREAM_REF: pospow
 
 jobs:
+  # Linux: clone + build-arqma-linux.sh → libwallet_merged.a (Rust FFI) only. arqmad is never built here;
+  # it is fetched from arqma/arqma GitHub Releases (fetch-arqmad-github-release.sh), same policy as macOS.
   flutter-linux:
     name: Linux Flutter bundle
     runs-on: ubuntu-latest
@@ -99,7 +101,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
-      - name: Clone Arqma upstream (wallet_merged sources)
+      - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
 
@@ -164,6 +166,93 @@ jobs:
           path: |
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-linux-x64.tar.gz
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-x86_64.AppImage
+          retention-days: 30
+
+  # macOS: same split as Linux — upstream build = wallet_merged for FFI; arqmad from GitHub Releases.
+  flutter-macos:
+    name: macOS Flutter bundle
+    runs-on: macos-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: flutter/arqma_wallet_gui
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
+        id: pubver
+        working-directory: ${{ github.workspace }}
+        run: |
+          LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
+          SAFE="${LINE%%+*}"
+          echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
+          echo "VersionSafe=${SAFE}"
+
+      - name: Pinned Flutter / Rust versions (repo files)
+        id: pinned
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/gh-read-pin-versions.sh
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.pinned.outputs.rust_toolchain }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: flutter-release-macos
+
+      - name: macOS — Homebrew dependencies (Arqma + Flutter desktop)
+        run: |
+          brew update
+          brew install cmake ninja pkg-config boost openssl@3 libsodium zeromq hidapi readline unbound lmdb icu4c ccache || true
+
+      - name: Make CI scripts executable
+        working-directory: ${{ github.workspace }}
+        run: chmod +x build/ci/*.sh || true
+
+      - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/clone-arqma.sh
+
+      - name: Build Arqma wallet_merged (macOS)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-arqma-macos.sh
+
+      - name: Fetch Arqmad from arqma/arqma GitHub Release (macOS)
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/fetch-arqmad-github-release.sh
+
+      - name: cargo build — arqma-wallet-flutter-ffi (release)
+        working-directory: rust
+        run: cargo build -p arqma-wallet-flutter-ffi --release
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build + package macOS (zip + DMG)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x flutter/arqma_wallet_gui/tool/package_flutter_release.sh
+          (cd flutter/arqma_wallet_gui && ./tool/package_flutter_release.sh macos)
+          ls -la flutter/arqma_wallet_gui/dist/
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
+          path: |
+            flutter/arqma_wallet_gui/dist/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip
+            flutter/arqma_wallet_gui/dist/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg
           retention-days: 30
 
   flutter-windows:
@@ -398,7 +487,7 @@ jobs:
 
   publish-release:
     name: GitHub Release (Flutter)
-    needs: [flutter-linux, flutter-windows]
+    needs: [flutter-linux, flutter-macos, flutter-windows]
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
