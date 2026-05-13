@@ -78,6 +78,13 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
+bool _walletCaughtDaemonTip(int walletHeight, int daemonTip) {
+  if (daemonTip <= 0) {
+    return false;
+  }
+  return walletHeight >= daemonTip;
+}
+
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
 String _walletFfiMissedStartHint() {
   const String rpc =
@@ -175,6 +182,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// Limits `get_transfers` rate while [inScanRhythm] — height advances every tick during sync.
   DateTime? _walletXferScanThrottleUntil;
+
+  /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
+  bool _walletFullRescanUi = false;
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -373,6 +383,22 @@ final class DesktopNativeBridge implements NativeBridge {
     );
   }
 
+  Future<void> _runConfirmCloseShutdown(ArqmaWalletRpcSession? w) async {
+    try {
+      await _stopSoloPoolSidecar();
+    } catch (e, st) {
+      debugPrint('[DesktopNative] confirm_close solo pool: $e\n$st');
+    }
+    try {
+      await w?.shutdown().timeout(const Duration(seconds: 3));
+    } catch (e, st) {
+      debugPrint('[DesktopNative] confirm_close shutdown: $e\n$st');
+    }
+    try {
+      exit(0);
+    } catch (_) {}
+  }
+
   @override
   Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) async {
     if (cmd == 'app_log_info' || cmd == 'app_log_error') {
@@ -449,7 +475,8 @@ final class DesktopNativeBridge implements NativeBridge {
       return kDebugMode;
     }
     if (cmd == 'confirm_close') {
-      await _stopSoloPoolSidecar();
+      // Stop timers synchronously; do not await wallet shutdown here — a stuck FFI
+      // blocks this isolate and the window close future never completes.
       _stopWalletHeartbeat();
       _stakePoolsTimer?.cancel();
       _stakePoolsTimer = null;
@@ -459,15 +486,14 @@ final class DesktopNativeBridge implements NativeBridge {
       _heartbeatSlow = null;
       _walletPasswordHashHex = null;
       _openedWalletDisplayName = '';
-      try {
-        await _walletRpc?.shutdown();
-      } catch (_) {}
+      final ArqmaWalletRpcSession? w = _walletRpc;
       _walletRpc = null;
       try {
         _daemonProcess?.kill();
       } catch (_) {}
       _daemonProcess = null;
-      exit(0);
+      unawaited(_runConfirmCloseShutdown(w));
+      return null;
     }
     if (cmd == 'dialog_open_dir') {
       final Map<String, dynamic> a = _coerceMap(args);
@@ -1516,10 +1542,9 @@ final class DesktopNativeBridge implements NativeBridge {
         for (final Object? x in arr) {
           if (x is Map) {
             final Map<String, dynamic> row = Map<String, dynamic>.from(x);
-            // `get_transfers` buckets imply type; Vue/Electron filters use `c.type === "snode"` etc.
-            if ('${row['type'] ?? ''}'.trim().isEmpty) {
-              row['type'] = k;
-            }
+            // Bucket key is authoritative for UI filters (`snode`, `stake`, …). Wallet RPC may
+            // return a generic `type` (e.g. `in`/`out`) even for rows under `snode` / `stake`.
+            row['type'] = k;
             out.add(row);
           }
         }
@@ -1658,10 +1683,14 @@ final class DesktopNativeBridge implements NativeBridge {
         newH = parsed;
       }
     }
+    if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
+      _walletFullRescanUi = false;
+    }
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
       'height': newH,
       'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+      'full_rescan_ui': _walletFullRescanUi,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
       final Object? res = ga['result'];
@@ -1690,6 +1719,12 @@ final class DesktopNativeBridge implements NativeBridge {
     _whStoredHeight = newH;
     _whStoredBalance = newB;
     _whStoredUnlocked = newU;
+    // One more `get_transfers` after the wallet height crosses the daemon tip in this tick.
+    // Otherwise the last poll can leave an empty list / zero balance until the next height
+    // nudge (which never comes at a flat tip).
+    if (dh > 0 && h0 < dh && newH >= dh) {
+      _whFetchTxPending = true;
+    }
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': info,
@@ -1743,6 +1778,7 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     _whStoredHeight = 0;
     _whFetchTxPending = true;
+    _walletFullRescanUi = true;
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
@@ -1752,6 +1788,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'allow_lower_height': true,
+        'full_rescan_ui': true,
       },
     });
     if (clearTransactions) {
@@ -1890,11 +1927,17 @@ final class DesktopNativeBridge implements NativeBridge {
     final Map<String, dynamic> m = Map<String, dynamic>.from(result);
     m['is_ready_daemon_rpc'] = isReadyRpc;
     m['is_ready'] = isReadyUi;
+    final int prevDaemonTip = _daemonChainTipHeight;
     _emit(<String, dynamic>{
       'event': 'set_daemon_data',
       'data': <String, dynamic>{'info': m},
     });
     _daemonChainTipHeight = footerTarget;
+    if (_openedWalletDisplayName.isNotEmpty &&
+        prevDaemonTip > 0 &&
+        footerTarget > prevDaemonTip) {
+      _whFetchTxPending = true;
+    }
     _emitPoolDataWithHeartbeat(cfg, m);
   }
 
@@ -2071,6 +2114,7 @@ final class DesktopNativeBridge implements NativeBridge {
       });
       return <String, dynamic>{};
     }
+    _walletFullRescanUi = false;
     _refreshSessionPasswordDigest(password);
     _traceWalletOpen('starting _emitWalletOpenedUi', sw: sw);
     await _emitWalletOpenedUi(name);
@@ -2207,7 +2251,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
         'name': name,
-        if (address != null) 'address': address,
+        'address': ?address,
         'height': openedHeight,
         'balance': bal,
         'unlocked_balance': unl,
@@ -2229,6 +2273,47 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   static const double _arqCoinUnits = 1e9;
+  /// Warn / suggest sweep when any relay slice sends less than this many ARQ (atomic units).
+  static const int _maxSingleSplitPartArqAtoms = 1000 * 1000000000;
+
+  Map<String, dynamic> _transferSplitFeeDialogExtras(
+      Map<String, dynamic> res) {
+    final List<dynamic>? metaList =
+        res['tx_metadata_list'] as List<dynamic>?;
+    final List<dynamic>? partAmounts = res['amount_list'] as List<dynamic>?;
+    final int nParts = metaList?.length ??
+        partAmounts?.length ??
+        1;
+    int minAtoms = -1;
+    bool anyUnder1000 = false;
+    final List<String> partArqStrs = <String>[];
+    if (partAmounts != null) {
+      for (final Object? v in partAmounts) {
+        final int a = (v is num) ? v.toInt() : int.tryParse('$v') ?? 0;
+        partArqStrs.add((a / _arqCoinUnits).toStringAsFixed(9));
+        if (a <= 0) {
+          continue;
+        }
+        if (minAtoms < 0 || a < minAtoms) {
+          minAtoms = a;
+        }
+        if (a < _maxSingleSplitPartArqAtoms) {
+          anyUnder1000 = true;
+        }
+      }
+    }
+    if (minAtoms < 0) {
+      minAtoms = 0;
+    }
+    return <String, dynamic>{
+      'transfer_split_parts': nParts,
+      'transfer_split_is_split': nParts > 1,
+      'transfer_split_min_part_atoms': minAtoms,
+      'transfer_split_any_part_under_1000_arq': anyUnder1000,
+      'transfer_suggest_sweep_all': anyUnder1000,
+      if (partArqStrs.isNotEmpty) 'transfer_split_part_amounts_arq': partArqStrs,
+    };
+  }
 
   String _walletRpcErrCapitalized(Object? err) {
     if (err is! Map) {
@@ -2439,6 +2524,7 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       });
     } else {
+      _whFetchTxPending = true;
       _emit(<String, dynamic>{
         'event': 'set_tx_status',
         'data': <String, dynamic>{
@@ -2503,6 +2589,9 @@ final class DesktopNativeBridge implements NativeBridge {
         }
       }
     }
+    if (items.isNotEmpty) {
+      _whFetchTxPending = true;
+    }
     _pendingTxRelay
         .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
   }
@@ -2536,6 +2625,7 @@ final class DesktopNativeBridge implements NativeBridge {
         },
       });
     } else {
+      _whFetchTxPending = true;
       _emit(<String, dynamic>{
         'event': 'set_tx_status',
         'data': <String, dynamic>{
@@ -2683,9 +2773,10 @@ final class DesktopNativeBridge implements NativeBridge {
       _stopWalletHeartbeat();
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
+      _walletFullRescanUi = false;
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
-        await w.call('close_wallet', <String, dynamic>{});
+        await w.closeWalletSession();
       }
       _emit(<String, dynamic>{
         'event': 'reset_wallet_error',
@@ -2766,7 +2857,9 @@ final class DesktopNativeBridge implements NativeBridge {
               'data': <String, dynamic>{
                 'code': 200,
                 'message': feeMsg,
-                'sending': false
+                'sending': false,
+                ..._transferSplitFeeDialogExtras(
+                    Map<String, dynamic>.from(res)),
               },
             });
             if (p['address_book'] is Map &&
@@ -2843,8 +2936,18 @@ final class DesktopNativeBridge implements NativeBridge {
           );
         } catch (e, st) {
           debugPrint('[DesktopNative] rescan_blockchain: $e\n$st');
+          _walletFullRescanUi = false;
+          _emit(<String, dynamic>{
+            'event': 'set_wallet_info',
+            'data': <String, dynamic>{
+              'full_rescan_ui': false,
+              'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+            },
+          });
         }
-        // Native rescan runs on a background thread; footer/transfers refresh via heartbeat / xfer.
+        // Native rescan runs on a background thread; still push one RPC snapshot so the
+        // footer height can drop immediately (allow_lower_height); xfer keeps txs flowing.
+        unawaited(_refreshWalletUiAfterRescan(clearTransactions: hard));
       }
       return <String, dynamic>{};
     }
@@ -2856,6 +2959,7 @@ final class DesktopNativeBridge implements NativeBridge {
         } catch (e, st) {
           debugPrint('[DesktopNative] rescan_spent: $e\n$st');
         }
+        unawaited(_refreshWalletUiAfterRescan(clearTransactions: false));
       }
       return <String, dynamic>{};
     }
@@ -3414,7 +3518,6 @@ final class DesktopNativeBridge implements NativeBridge {
     });
     _stopWalletHeartbeat();
     await w.call('store', <String, dynamic>{});
-    await w.call('close_wallet', <String, dynamic>{});
     _openedWalletDisplayName = '';
     _walletPasswordHashHex = null;
     _pendingTxRelay.clear();
@@ -3523,7 +3626,7 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       _stopWalletHeartbeat();
-      await w.call('close_wallet', <String, dynamic>{});
+      await w.closeWalletSession();
       final String seed = _normalizeRestoreSeed('${p['seed'] ?? ''}');
       final String name = '${p['name'] ?? ''}';
       final String password = '${p['password'] ?? ''}';
@@ -3587,7 +3690,7 @@ final class DesktopNativeBridge implements NativeBridge {
         }
       }
       _stopWalletHeartbeat();
-      await w.call('close_wallet', <String, dynamic>{});
+      await w.closeWalletSession();
       final String name = '${p['name'] ?? ''}';
       final String password = '${p['password'] ?? ''}';
       final Map<String, dynamic>? r = await w.call(

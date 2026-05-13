@@ -284,38 +284,42 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                     goldChrome: true,
                     label: loc
                         .tr('pages.wallet.txhistory.filter_by_transaction_type'),
-                    child: DropdownButtonFormField<int>(
-                    value: _typeIndex,
-                    isDense: true,
-                    isExpanded: true,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: ArqmaColors.textPrimary,
-                    ),
-                    iconEnabledColor: ArqmaColors.arqmaGreenSolid,
-                    dropdownColor: const Color(0xFF1d1d1d),
-                    decoration: const InputDecoration(border: InputBorder.none),
-                    items: _typeOptions
-                        .map(
-                          (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                            value: o['index'] as int,
-                            child: Text(
-                              loc.tr(o['label'] as String),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: ArqmaColors.textPrimary,
+                    child: InputDecorator(
+                      decoration:
+                          const InputDecoration(border: InputBorder.none),
+                      child: DropdownButton<int>(
+                        value: _typeIndex,
+                        isDense: true,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: ArqmaColors.textPrimary,
+                        ),
+                        iconEnabledColor: ArqmaColors.arqmaGreenSolid,
+                        dropdownColor: const Color(0xFF1d1d1d),
+                        items: _typeOptions
+                            .map(
+                              (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                                value: o['index'] as int,
+                                child: Text(
+                                  loc.tr(o['label'] as String),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: ArqmaColors.textPrimary,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (int? v) {
-                      if (v != null) {
-                        setState(() => _typeIndex = v);
-                        _pushFilter();
-                      }
-                    },
-                  ),
+                            )
+                            .toList(),
+                        onChanged: (int? v) {
+                          if (v != null) {
+                            setState(() => _typeIndex = v);
+                            _pushFilter();
+                          }
+                        },
+                      ),
+                    ),
                 ),
                 ),
               ],

@@ -94,10 +94,9 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
       );
       return;
     }
+    final AppApi api = context.read<AppApi>();
     await AppLoading.show();
-    await context
-        .read<AppApi>()
-        .send('wallet', 'import_wallet', <String, dynamic>{
+    await api.send('wallet', 'import_wallet', <String, dynamic>{
       'name': name,
       'path': path,
       'password': _password.text,

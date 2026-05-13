@@ -21,8 +21,6 @@ class WalletSelectIndexPage extends StatefulWidget {
 }
 
 class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
-  StreamSubscription<Map<String, dynamic>>? _sub;
-
   /// Held for [dispose] — do not call [context.read] there (element already deactivated).
   GatewayStore? _gatewayListenTarget;
 
@@ -45,26 +43,10 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     });
     _gatewayListenTarget = context.read<GatewayStore>();
     _gatewayListenTarget!.addListener(_onWalletStatus);
-    _sub = context
-        .read<AppApi>()
-        .bridge
-        .backendReceive
-        .listen((Map<String, dynamic> msg) {
-      if (msg['event'] == 'reset_wallet_status' ||
-          msg['event'] == 'set_wallet_error') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!context.mounted) {
-            return;
-          }
-          _onWalletStatus();
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _sub?.cancel();
     _gatewayListenTarget?.removeListener(_onWalletStatus);
     _gatewayListenTarget = null;
     super.dispose();
@@ -85,7 +67,10 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
       }
       if (code == 0) {
         AppLoading.hide();
-        context.go('/wallet');
+        final String path = GoRouterState.of(context).uri.path;
+        if (path != '/wallet') {
+          context.go('/wallet');
+        }
       } else if (code < 0) {
         AppLoading.hide();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -105,57 +90,11 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final bool pwdProt = wallet['password_protected'] != false;
     String? password = '';
     if (pwdProt) {
-      // Controller must live outside `builder` — rebuilding the dialog would
-      // recreate an empty controller and wipe typed characters.
-      final TextEditingController pw = TextEditingController();
-      try {
-        password = await showDialog<String>(
-          context: context,
-          builder: (BuildContext c) => AlertDialog(
-            backgroundColor: const Color(0xFF1d1d1d),
-            title: Text(
-                loc.tr('pages.wallet_select.index.open_wallet_password_title')),
-            content: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 300),
-              child: TextField(
-                controller: pw,
-                autofocus: true,
-                obscureText: true,
-                style: const TextStyle(
-                  color: ArqmaColors.textPrimary,
-                  fontSize: 15,
-                ),
-                cursorColor: ArqmaColors.arqmaGreenSolid,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => Navigator.pop(c, pw.text),
-                decoration: InputDecoration(
-                  labelText: loc.tr(
-                      'pages.wallet_select.index.open_wallet_password_message'),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(c),
-                child: Text(loc
-                    .tr('pages.wallet_select.index.open_wallet_cancel_label')),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(c, pw.text),
-                child: Text(
-                    loc.tr('pages.wallet_select.index.open_wallet_ok_label')),
-              ),
-            ],
-          ),
-        );
-      } finally {
-        // `showDialog` future completes before the route finishes disposing its
-        // subtree — disposing the controller immediately triggers
-        // "TextEditingController was used after being disposed".
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          pw.dispose();
-        });
-      }
+      password = await showDialog<String>(
+        context: context,
+        builder: (BuildContext _) =>
+            _OpenWalletPasswordDialog(loc: loc),
+      );
       if (password == null) {
         return;
       }
@@ -166,12 +105,14 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     if (!mounted) {
       return;
     }
+    AppLoading.hide();
     final Map<String, dynamic> st =
         context.read<GatewayStore>().wallet['status'] as Map<String, dynamic>;
     final int code = st['code'] as int? ?? 1;
     if (code == 0) {
-      AppLoading.hide();
-      context.go('/wallet');
+      // Success: [GatewayStore] listener [_onWalletStatus] navigates to `/wallet`
+      // once `reset_wallet_status` is applied (avoid duplicate `go` + transient build errors).
+      return;
     }
   }
 
@@ -345,7 +286,8 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (BuildContext context, int index) =>
+                  const SizedBox(height: 8),
               itemBuilder: (BuildContext c, int i) =>
                   walletRow(Map<String, dynamic>.from(list[i] as Map)),
             ),
@@ -369,6 +311,68 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
                   .toList(),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Owns the password [TextEditingController] for the route lifetime (avoids
+/// disposing before the dialog subtree finishes unmounting).
+class _OpenWalletPasswordDialog extends StatefulWidget {
+  const _OpenWalletPasswordDialog({required this.loc});
+
+  final LocaleController loc;
+
+  @override
+  State<_OpenWalletPasswordDialog> createState() =>
+      _OpenWalletPasswordDialogState();
+}
+
+class _OpenWalletPasswordDialogState extends State<_OpenWalletPasswordDialog> {
+  late final TextEditingController _pw = TextEditingController();
+
+  @override
+  void dispose() {
+    _pw.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1d1d1d),
+      title: Text(
+          widget.loc.tr('pages.wallet_select.index.open_wallet_password_title')),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 300),
+        child: TextField(
+          controller: _pw,
+          autofocus: true,
+          obscureText: true,
+          style: const TextStyle(
+            color: ArqmaColors.textPrimary,
+            fontSize: 15,
+          ),
+          cursorColor: ArqmaColors.arqmaGreenSolid,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.pop(context, _pw.text),
+          decoration: InputDecoration(
+            labelText: widget.loc
+                .tr('pages.wallet_select.index.open_wallet_password_message'),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(widget.loc
+              .tr('pages.wallet_select.index.open_wallet_cancel_label')),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _pw.text),
+          child: Text(
+              widget.loc.tr('pages.wallet_select.index.open_wallet_ok_label')),
+        ),
       ],
     );
   }

@@ -22,7 +22,7 @@
     "clone:arqma": "node scripts/run-bash-script.mjs ../../build/ci/clone-arqma.sh",
     "build:arqma:mingw": "node scripts/run-bash-script.mjs ../../build/ci/build-arqma-mingw.sh",
     "ci:tauri:native": "npm run copy:bins && npm run build && npm run kill:dev && node scripts/with-rust-target.mjs tauri build",
-    "ci:tauri:native:windows-gnu": "npm run copy:bins && npm run build && npm run kill:dev && node scripts/with-rust-target.mjs npx tauri build --runner ../scripts/cargo-runner-gnu-flat-sync.cmd -- --target x86_64-pc-windows-gnu",
+    "ci:tauri:native:windows-gnu": "node scripts/run-windows-gnu-tauri-ci.mjs",
     "ci:tauri": "npm run ci:tauri:native",
     "ci:tauri:local": "npm run copy:bins && npm run build && npm run tauri:build:local",
     "release:win": "npm run copy:bins && npm run build && node scripts/with-rust-target.mjs cargo build --release -p arqma-wallet --target x86_64-pc-windows-gnu && node scripts/postbuild-rename-windows.mjs",

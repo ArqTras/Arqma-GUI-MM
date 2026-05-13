@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
+
 import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +10,20 @@ import 'arqma_executable_resolve.dart';
 import 'arqma_paths.dart';
 import 'wallet_json_rpc.dart';
 import 'wallet_native_ffi.dart';
+
+/// After this many milliseconds in native FFI mode, a helper [Isolate] calls
+/// [WalletNativeFfi.reset] so shutdown can proceed if `close_wallet` blocks the UI isolate.
+const int kNativeWalletCloseWatchdogMs = 10000;
+
+@pragma('vm:entry-point')
+void _nativeWalletFfiResetWatchdogMain(int delayMs) {
+  if (delayMs > 0) {
+    sleep(Duration(milliseconds: delayMs));
+  }
+  try {
+    WalletNativeFfi.tryLoad()?.reset();
+  } catch (_) {}
+}
 
 /// Same random `rpc-login` shape as `wallet_process::generate_auth_triple` (160 bytes → 320 hex chars).
 (String user, String pass, String salt) generateWalletRpcAuthTriple() {
@@ -274,11 +290,48 @@ final class ArqmaWalletRpcSession {
     return client!.call(method, params);
   }
 
+  /// Closes the wallet session. Subprocess mode uses HTTP JSON-RPC only.
+  ///
+  /// Native FFI: `close_wallet` runs synchronously inside the C entrypoint and can block
+  /// the Dart UI isolate for a long time; [Future.timeout] does not preempt it. We spawn
+  /// a short-lived [Isolate] that sleeps then calls [WalletNativeFfi.reset] (see Rust
+  /// `arqma_wallet_ffi_call_json`: global `CLIENT` must not be held across `block_on`).
+  Future<void> closeWalletSession(
+      {int nativeCloseWatchdogMs = kNativeWalletCloseWatchdogMs}) async {
+    final WalletNativeFfi? nat = _native;
+    if (nat == null) {
+      await call('close_wallet', <String, dynamic>{});
+      return;
+    }
+    if (kIsWeb) {
+      await call('close_wallet', <String, dynamic>{});
+      return;
+    }
+    Isolate? watchdog;
+    try {
+      watchdog = await Isolate.spawn<int>(
+        _nativeWalletFfiResetWatchdogMain,
+        nativeCloseWatchdogMs,
+        debugName: 'arqma_wallet_close_watchdog',
+      );
+    } catch (e, st) {
+      debugPrint('[WalletRpc] native close watchdog spawn failed: $e\n$st');
+    }
+    try {
+      await call('close_wallet', <String, dynamic>{});
+    } catch (_) {
+    } finally {
+      try {
+        watchdog?.kill(priority: Isolate.immediate);
+      } catch (_) {}
+    }
+  }
+
   Future<void> shutdown() async {
     final WalletNativeFfi? n = _native;
     if (n != null) {
       try {
-        await call('close_wallet', <String, dynamic>{});
+        await closeWalletSession();
       } catch (_) {}
       n.reset();
       return;

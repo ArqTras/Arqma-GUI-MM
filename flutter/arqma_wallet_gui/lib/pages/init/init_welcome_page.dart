@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/arqma_logo_asset.dart';
 import '../../widgets/settings_general_panel.dart';
 
 /// Parity with `pages/init/welcome.vue` (stepper + `SettingsGeneral`).
@@ -89,8 +90,7 @@ class _InitWelcomePageState extends State<InitWelcomePage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.asset('assets/images/arq_logo_with_padding.png',
-                          height: 100),
+                      const ArqmaLogoAsset(height: 100),
                       const SizedBox(height: 12),
                       Text(
                         '${loc.tr('pages.welcome.version')}: $_version',

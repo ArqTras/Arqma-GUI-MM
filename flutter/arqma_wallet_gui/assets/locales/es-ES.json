@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "CANCELAR",
                 "calculating_fee": "Calculando comisión…",
+                "split_fee_parts_info": "Este pago se emitirá como {n} transacción(es) on-chain independiente(s).",
+                "split_fee_parts_amounts_intro": "Importe de destino por transacción on-chain (ARQ):",
+                "split_fee_part_amount_line": "Transacción {index}: {amount} ARQ",
+                "split_fee_under_1000": "Al menos una parte es inferior a 1000 ARQ (parte más pequeña en una tx: {min} ARQ). « Barrer todo » en los ajustes del monedero puede consolidar salidas pequeñas; aún puede enviar este fraccionamiento.",
+                "split_fee_sweep_hint": "Menú principal → Ajustes del monedero → Barrer todo fusiona salidas pequeñas antes de volver a enviar.",
+                "tx_status_sweep_all_label": "Barrer todo (aviso)",
+                "split_fee_sweep_snackbar": "Abra los ajustes del monedero desde el menú y luego use Barrer todo.",
                 "payment_id": "ID de pago",
                 "payment_id_hint": "Opcional — 16 o 64 caracteres hex al enviar con dirección integrada / PID",
                 "invalid_payment_id": "El ID de pago debe estar vacío o tener 16 / 64 caracteres hexadecimales"
@@ -313,7 +320,8 @@
                 "failed": "Fallido",
                 "scan_progress_title": "La cartera está escaneando la cadena",
                 "scan_progress_detail": "Altura de bloque {current} / {target} ({pct}%). Quedan unos {left} bloques por escanear.",
-                "scan_progress_hint": "Los rangos tempranos a menudo no tienen transferencias coincidentes; las entradas aparecen cuando su monedero encuentra salidas en esta ventana."
+                "scan_progress_hint": "Los rangos tempranos a menudo no tienen transferencias coincidentes; las entradas aparecen cuando su monedero encuentra salidas en esta ventana.",
+                "scan_progress_rescan_detail": "Rescan completo de la cadena en curso. Los contadores no se actualizan hasta que termine el monedero (punta ~{target})."
             }
         },
         "not_found": {

@@ -1,4 +1,5 @@
 # Desktop release: Flutter Linux + Windows (tar.gz / AppImage / zip / Inno Setup), then **one** GitHub Release. (macOS CI job removed.)
+# Fast `flutter analyze` on Linux/Windows/macOS runners: `.github/workflows/flutter-verify.yml`.
 # Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`

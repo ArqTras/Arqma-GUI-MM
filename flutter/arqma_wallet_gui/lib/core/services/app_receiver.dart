@@ -194,6 +194,18 @@ class AppReceiver {
       case 'settings_changed_reboot':
         _promptRestartAfterSettingsChange();
         break;
+      // Transaction list must hit the store before the next paint; deferring only to
+      // `addPostFrameCallback` (with other events) can leave the list visually stale on
+      // Windows until the next pointer-driven repaint (e.g. hover over a row).
+      case 'set_wallet_transactions':
+      case 'set_wallet_transaction':
+        final String ev = event;
+        final dynamic payload = data;
+        scheduleMicrotask(() {
+          store.applyBackendEvent(ev, payload);
+          WidgetsBinding.instance.scheduleFrame();
+        });
+        break;
       default:
         // Defer high-frequency daemon/wallet merges to after the frame so we do not call
         // `notifyListeners` while a route is mid-dispose (avoids "deactivated ancestor" races).

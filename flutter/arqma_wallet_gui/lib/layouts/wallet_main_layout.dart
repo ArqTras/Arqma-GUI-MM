@@ -10,6 +10,7 @@ import '../core/services/native_bridge.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
+import '../widgets/arqma_logo_asset.dart';
 import '../widgets/format_arqma.dart';
 import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
@@ -270,10 +271,9 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
           titleSpacing: 0,
           title: Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(left: 8, top: 5),
-                child: Image.asset('assets/images/arq_logo_with_padding.png',
-                    height: 52),
+              const Padding(
+                padding: EdgeInsets.only(left: 8, top: 5),
+                child: ArqmaLogoAsset(height: 52),
               ),
               Expanded(
                 child: Column(

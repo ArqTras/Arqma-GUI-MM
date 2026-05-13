@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OKAY",
                 "tx_status_cancel_label": "ABBRECHEN",
                 "calculating_fee": "Gebühr wird berechnet…",
+                "split_fee_parts_amounts_intro": "Zielbetrag pro On-Chain-Transaktion (ARQ):",
+                "split_fee_part_amount_line": "Transaktion {index}: {amount} ARQ",
+                "split_fee_parts_info": "Diese Überweisung wird als {n} separate On-Chain-Transaktion(en) gesendet.",
+                "split_fee_under_1000": "Mindestens ein Teil liegt unter 1000 ARQ (kleinster Teil in einer Tx: {min} ARQ). „Alle zusammenführen“ in den Wallet-Einstellungen kann kleine Outputs bündeln; Sie können die geteilte Überweisung trotzdem senden.",
+                "split_fee_sweep_hint": "Hauptmenü → Wallet-Einstellungen → Alle zusammenführen vereint kleine Outputs vor dem erneuten Senden.",
+                "tx_status_sweep_all_label": "Alle zusammenführen (Hinweis)",
+                "split_fee_sweep_snackbar": "Wallet-Einstellungen im Menü öffnen, dann „Alle zusammenführen“ verwenden.",
                 "payment_id": "Zahlungs-ID",
                 "payment_id_hint": "Optional — 16 oder 64 Hexzeichen beim Senden mit integrierter Adresse / PID",
                 "invalid_payment_id": "Zahlungs-ID muss leer oder 16 / 64 Hexzeichen sein"
@@ -313,7 +320,8 @@
                 "failed": "Misslungen",
                 "scan_progress_title": "Die Wallet scannt die Blockchain",
                 "scan_progress_detail": "Blockhöhe {current} / {target} ({pct}%). Etwa {left} Blöcke zum Scannen übrig.",
-                "scan_progress_hint": "Frühe Bereiche haben oft keine passenden Transfers — Einträge erscheinen, wenn Ihre Wallet Outputs in diesem Fenster findet."
+                "scan_progress_hint": "Frühe Bereiche haben oft keine passenden Transfers — Einträge erscheinen, wenn Ihre Wallet Outputs in diesem Fenster findet.",
+                "scan_progress_rescan_detail": "Vollständiger Blockchain-Rescan läuft. Blockzähler bleiben eingefroren, bis die Wallet fertig ist (Kettenspitze ca. {target})."
             }
         },
         "not_found": {

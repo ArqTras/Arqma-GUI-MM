@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show FlutterError, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
@@ -14,13 +14,31 @@ import 'core/app_api.dart';
 import 'core/services/app_receiver.dart';
 import 'core/services/native_bridge.dart';
 import 'core/services/native_bridge_resolver.dart';
+import 'core/theme/arqma_colors.dart';
 import 'core/theme/arqma_theme.dart';
 import 'i18n/locale_controller.dart';
 import 'router/app_router.dart';
 import 'store/gateway_store.dart';
 
+void _configureAppErrorPresentation() {
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    return const Material(
+      color: Color(0xFF0E0C09),
+      child: Center(
+        child: Icon(
+          Icons.warning_amber_rounded,
+          size: 56,
+          color: ArqmaColors.warning,
+        ),
+      ),
+    );
+  };
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureAppErrorPresentation();
 
   final LocaleController locale = LocaleController();
   await locale.loadSaved();
@@ -242,7 +260,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
         Provider<NativeBridge>.value(value: widget.bridge),
         ProxyProvider2<NativeBridge, GatewayStore, AppApi>(
           update:
-              (BuildContext _, NativeBridge b, GatewayStore s, AppApi? __) =>
+              (BuildContext context, NativeBridge b, GatewayStore s, AppApi? _) =>
                   AppApi(b, s),
         ),
       ],

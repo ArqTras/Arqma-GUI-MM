@@ -143,10 +143,9 @@ class _WalletSelectImportViewOnlyPageState
       );
       return;
     }
+    final AppApi api = context.read<AppApi>();
     await AppLoading.show();
-    await context
-        .read<AppApi>()
-        .send('wallet', 'restore_view_wallet', <String, dynamic>{
+    await api.send('wallet', 'restore_view_wallet', <String, dynamic>{
       'name': name,
       'address': address,
       'viewkey': viewkey,

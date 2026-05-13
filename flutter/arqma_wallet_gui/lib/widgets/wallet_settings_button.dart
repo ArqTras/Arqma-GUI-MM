@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -204,70 +203,14 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
   Future<void> _changePassword() async {
     final LocaleController loc = context.read<LocaleController>();
     final AppApi api = context.read<AppApi>();
-    final TextEditingController oldPw = TextEditingController();
-    final TextEditingController newPw = TextEditingController();
-    final TextEditingController newPw2 = TextEditingController();
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final Map<String, String>? result = await showDialog<Map<String, String>>(
       context: context,
-      builder: (BuildContext c) => AlertDialog(
-        title: Text(loc.tr('components.wallet_settings.change_password')),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: oldPw,
-                obscureText: true,
-                decoration: InputDecoration(
-                    labelText:
-                        loc.tr('components.wallet_settings.old_password')),
-              ),
-              TextField(
-                controller: newPw,
-                obscureText: true,
-                decoration: InputDecoration(
-                    labelText:
-                        loc.tr('components.wallet_settings.new_password')),
-              ),
-              TextField(
-                controller: newPw2,
-                obscureText: true,
-                decoration: InputDecoration(
-                    labelText: loc
-                        .tr('components.wallet_settings.confirm_new_password')),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: Text(loc.tr('composables.cancel'))),
-          TextButton(
-            onPressed: () {
-              if (newPw.text != newPw2.text) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(loc.tr(
-                        'components.wallet_settings.invalid_change_password_not_match_message'))));
-                return;
-              }
-              if (newPw.text == oldPw.text) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(loc.tr(
-                        'components.wallet_settings.invalid_change_password_message'))));
-                return;
-              }
-              Navigator.pop(
-                  c, <String, String>{'old': oldPw.text, 'new': newPw.text});
-            },
-            child: Text(loc.tr('components.wallet_settings.change')),
-          ),
-        ],
+      builder: (BuildContext _) => _ChangeWalletPasswordDialog(
+        loc: loc,
+        scaffoldMessenger: messenger,
       ),
     );
-    oldPw.dispose();
-    newPw.dispose();
-    newPw2.dispose();
     if (result == null || !mounted) {
       return;
     }
@@ -288,26 +231,25 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         builder: (BuildContext c, void Function(void Function()) setLocal) {
           return AlertDialog(
             title: Text(loc.tr('components.wallet_settings.rescan_account')),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                RadioListTile<String>(
-                  title: Text(loc.tr(
-                      'components.wallet_settings.rescan_full_blockchain')),
-                  value: 'full',
-                  groupValue: mode,
-                  onChanged: (String? v) =>
-                      setLocal(() => mode = v ?? 'spent'),
-                ),
-                RadioListTile<String>(
-                  title: Text(loc.tr(
-                      'components.wallet_settings.rescan_spent_outputs')),
-                  value: 'spent',
-                  groupValue: mode,
-                  onChanged: (String? v) =>
-                      setLocal(() => mode = v ?? 'spent'),
-                ),
-              ],
+            content: RadioGroup<String>(
+              groupValue: mode,
+              onChanged: (String? v) =>
+                  setLocal(() => mode = v ?? 'spent'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  RadioListTile<String>(
+                    title: Text(loc.tr(
+                        'components.wallet_settings.rescan_full_blockchain')),
+                    value: 'full',
+                  ),
+                  RadioListTile<String>(
+                    title: Text(loc.tr(
+                        'components.wallet_settings.rescan_spent_outputs')),
+                    value: 'spent',
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -737,6 +679,94 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             value: 'delete',
             enabled: ready,
             child: Text(loc.tr('components.wallet_settings.delete_account'))),
+      ],
+    );
+  }
+}
+
+class _ChangeWalletPasswordDialog extends StatefulWidget {
+  const _ChangeWalletPasswordDialog({
+    required this.loc,
+    required this.scaffoldMessenger,
+  });
+
+  final LocaleController loc;
+  final ScaffoldMessengerState scaffoldMessenger;
+
+  @override
+  State<_ChangeWalletPasswordDialog> createState() =>
+      _ChangeWalletPasswordDialogState();
+}
+
+class _ChangeWalletPasswordDialogState
+    extends State<_ChangeWalletPasswordDialog> {
+  late final TextEditingController _oldPw = TextEditingController();
+  late final TextEditingController _newPw = TextEditingController();
+  late final TextEditingController _newPw2 = TextEditingController();
+
+  @override
+  void dispose() {
+    _oldPw.dispose();
+    _newPw.dispose();
+    _newPw2.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.loc.tr('components.wallet_settings.change_password')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _oldPw,
+              obscureText: true,
+              decoration: InputDecoration(
+                  labelText:
+                      widget.loc.tr('components.wallet_settings.old_password')),
+            ),
+            TextField(
+              controller: _newPw,
+              obscureText: true,
+              decoration: InputDecoration(
+                  labelText:
+                      widget.loc.tr('components.wallet_settings.new_password')),
+            ),
+            TextField(
+              controller: _newPw2,
+              obscureText: true,
+              decoration: InputDecoration(
+                  labelText: widget.loc
+                      .tr('components.wallet_settings.confirm_new_password')),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(widget.loc.tr('composables.cancel'))),
+        TextButton(
+          onPressed: () {
+            if (_newPw.text != _newPw2.text) {
+              widget.scaffoldMessenger.showSnackBar(SnackBar(
+                  content: Text(widget.loc.tr(
+                      'components.wallet_settings.invalid_change_password_not_match_message'))));
+              return;
+            }
+            if (_newPw.text == _oldPw.text) {
+              widget.scaffoldMessenger.showSnackBar(SnackBar(
+                  content: Text(widget.loc.tr(
+                      'components.wallet_settings.invalid_change_password_message'))));
+              return;
+            }
+            Navigator.pop(context,
+                <String, String>{'old': _oldPw.text, 'new': _newPw.text});
+          },
+          child: Text(widget.loc.tr('components.wallet_settings.change')),
+        ),
       ],
     );
   }

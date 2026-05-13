@@ -802,21 +802,26 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
                       labelText: loc.tr('components.solo_pool.mining_address')),
                 );
               }
-              return DropdownButtonFormField<String>(
-                value: mt,
+              return InputDecorator(
                 decoration: InputDecoration(
                     labelText: loc.tr('components.solo_pool.mining_address')),
-                items: miningChoices
-                    .map(
-                      (({String label, String value}) e) =>
-                          DropdownMenuItem<String>(
-                        value: e.value,
-                        child: Text(e.label, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (String? nv) =>
-                    setState(() => _miningAddress.text = nv ?? ''),
+                child: DropdownButton<String>(
+                  value: mt,
+                  isExpanded: true,
+                  underline: const SizedBox.shrink(),
+                  items: miningChoices
+                      .map(
+                        (({String label, String value}) e) =>
+                            DropdownMenuItem<String>(
+                          value: e.value,
+                          child:
+                              Text(e.label, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (String? nv) =>
+                      setState(() => _miningAddress.text = nv ?? ''),
+                ),
               );
             },
           ),
@@ -825,18 +830,22 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
             children: [
               Expanded(
                 flex: 2,
-                child: DropdownButtonFormField<String>(
-                  value: bindChoices.contains(_bindIpValue)
-                      ? _bindIpValue
-                      : bindChoices.first,
+                child: InputDecorator(
                   decoration: InputDecoration(
                       labelText: loc.tr('components.solo_pool.bind_ip')),
-                  items: bindChoices
-                      .map((String ip) =>
-                          DropdownMenuItem<String>(value: ip, child: Text(ip)))
-                      .toList(),
-                  onChanged: (String? v) =>
-                      setState(() => _bindIpValue = v ?? _bindIpValue),
+                  child: DropdownButton<String>(
+                    value: bindChoices.contains(_bindIpValue)
+                        ? _bindIpValue
+                        : bindChoices.first,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    items: bindChoices
+                        .map((String ip) => DropdownMenuItem<String>(
+                            value: ip, child: Text(ip)))
+                        .toList(),
+                    onChanged: (String? v) =>
+                        setState(() => _bindIpValue = v ?? _bindIpValue),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -947,31 +956,35 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
                             const SizedBox(width: 8),
                             SizedBox(
                               width: 200,
-                              child: DropdownButtonFormField<String>(
-                                value: chartWorker,
-                                isDense: true,
+                              child: InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: loc
                                       .tr('components.solo_pool.chart_worker'),
                                   isDense: true,
                                 ),
-                                items: <DropdownMenuItem<String>>[
-                                  DropdownMenuItem<String>(
-                                    value: '__all__',
-                                    child: Text(loc.tr(
-                                        'components.solo_pool.chart_all_workers')),
-                                  ),
-                                  ...workers.map(
-                                    (Map<String, dynamic> w) =>
-                                        DropdownMenuItem<String>(
-                                      value: '${w['miner']}',
-                                      child: Text('${w['miner']}',
-                                          overflow: TextOverflow.ellipsis),
+                                child: DropdownButton<String>(
+                                  value: chartWorker,
+                                  isDense: true,
+                                  isExpanded: true,
+                                  underline: const SizedBox.shrink(),
+                                  items: <DropdownMenuItem<String>>[
+                                    DropdownMenuItem<String>(
+                                      value: '__all__',
+                                      child: Text(loc.tr(
+                                          'components.solo_pool.chart_all_workers')),
                                     ),
-                                  ),
-                                ],
-                                onChanged: (String? v) => setState(
-                                    () => _selectedWorker = v ?? '__all__'),
+                                    ...workers.map(
+                                      (Map<String, dynamic> w) =>
+                                          DropdownMenuItem<String>(
+                                        value: '${w['miner']}',
+                                        child: Text('${w['miner']}',
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (String? v) => setState(
+                                      () => _selectedWorker = v ?? '__all__'),
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),

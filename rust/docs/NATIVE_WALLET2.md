@@ -64,6 +64,8 @@ If the build fails on **missing `wallet2_api.h`**, fix **`ARQMA_WALLET2_UPSTREAM
 
 ## Windows MinGW (`x86_64-pc-windows-gnu`)
 
+**Windows only:** `npm run ci:tauri:native:windows-gnu` runs **`scripts/run-windows-gnu-tauri-ci.mjs`**, which exits with a hint on Linux/macOS — on those platforms use **`npm run ci:tauri:native`** (same as **`npm run ci:tauri`**).
+
 From **`rust/tauri-app`**, after installing MSYS2 **MINGW64** toolchain and deps (Boost, OpenSSL, … — mirror **`desktop-release.yml`** job **tauri** MSYS package list):
 
 ```bash
@@ -75,3 +77,4 @@ Equivalent: run **`build/ci/clone-arqma.sh`** and **`build/ci/build-arqma-mingw.
 
 1. **Rebuild upstream** after CMake fixes: **`build-arqma-mingw.sh`** sets **`CMAKE_SYSTEM_PROCESSOR=x86_64`** and **`ARCH=native`** so RandomX includes **`jit_compiler_x86`**. If **`librandomx.a`** was built without x86 JIT objects, GNU ld reports undefined references to **`randomx::JitCompilerX86::*`** when linking the Tauri DLL.
 2. **`rust/tauri-app/scripts/with-rust-target.mjs`** sets **`CARGO_PROFILE_RELEASE_LTO=thin`** when the command line includes **`x86_64-pc-windows-gnu`** (unless **`CARGO_PROFILE_RELEASE_LTO`** is already set). Applies to **`npm run ci:tauri:native:windows-gnu`**, **`npm run release:win`**, and any **`node scripts/with-rust-target.mjs cargo … --target x86_64-pc-windows-gnu`**. This avoids occasional MinGW / libstdc++ issues such as **`__real___cxa_throw`** during the final link.
+3. **`npm run ci:tauri:native:windows-gnu`** runs **`scripts/run-windows-gnu-tauri-ci.mjs`**: Vite/npm use a **`PATH`** without **`msys64`** (avoids native-addon / **`bad_weak_ptr`** crashes). The **`cargo tauri build`** step appends **`%MSYS2_ROOT%\mingw64\bin`** and **`usr\bin`** at the **end** of **`PATH`** (root override: **`MSYS2_ROOT`** / **`ARQMA_MSYS2_ROOT`**), sets **`CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER`**, **`ARQMA_WALLET2_MSYS_ROOT`**, **`ARQMA_MINGW_BIN`**, and default **`ARQMA_WALLET2_UPSTREAM_DIR`** when unset — so **`arqma-wallet2-api`** emits the right **`-l…`** for MinGW while **MSVC host** `build.rs` (e.g. **`vswhom-sys`**) still uses **`cl`+`link`**. It clears stray **`CC`/`CXX`** for that Cargo step (MSYS shells often set them). It uses **`cargo tauri build`** (not **`npx tauri`**) and merges **`scripts/tauri-ci-gnu-no-frontend.json`** so **`beforeBuildCommand`** is not run twice.

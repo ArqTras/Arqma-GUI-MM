@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "キャンセル",
                 "calculating_fee": "手数料を計算しています…",
+                "split_fee_parts_info": "この送金はオンチェーンで {n} 件の別々のトランザクションとして送信されます。",
+                "split_fee_parts_amounts_intro": "各オンチェーン送金の宛先金額（ARQ）：",
+                "split_fee_part_amount_line": "送金 {index}: {amount} ARQ",
+                "split_fee_under_1000": "少なくとも1つの分割が 1000 ARQ 未満です（1件あたりの最小送金額: {min} ARQ）。ウォレット設定のスイープオールで小さな出力をまとめられます。この分割送信も続行できます。",
+                "split_fee_sweep_hint": "メインメニュー → ウォレット設定 → スイープオールで、再送前に小さな出力をまとめられます。",
+                "tx_status_sweep_all_label": "スイープオール（案内）",
+                "split_fee_sweep_snackbar": "メニューからウォレット設定を開き、スイープオールを使ってください。",
                 "payment_id": "支払い ID",
                 "payment_id_hint": "任意 — 統合アドレス/PID 送信時は 16 または 64 桁の16進",
                 "invalid_payment_id": "支払い ID は空か 16/64 桁の16進である必要があります"
@@ -313,7 +320,8 @@
                 "failed": "失敗",
                 "scan_progress_title": "ウォレットがブロックチェーンをスキャン中",
                 "scan_progress_detail": "ブロック高 {current} / {target} ({pct}%)。スキャンまであと約 {left} ブロック。",
-                "scan_progress_hint": "初期範囲では一致する送金がないことが多いです。ウォレットがこのウィンドウでアウトプットを見つけるとエントリが表示されます。"
+                "scan_progress_hint": "初期範囲では一致する送金がないことが多いです。ウォレットがこのウィンドウでアウトプットを見つけるとエントリが表示されます。",
+                "scan_progress_rescan_detail": "全チェーンの再スキャン中です。ウォレットの処理が終わるまでブロック数は更新されません（チェーン先端 約 {target}）。"
             }
         },
         "not_found": {

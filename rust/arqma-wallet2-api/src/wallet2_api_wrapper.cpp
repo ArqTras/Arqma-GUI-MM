@@ -691,11 +691,14 @@ rust::String wallet2_transfer_split_prepare_json(
         throw std::runtime_error("transfer_split: empty tx metadata");
       }
       bridge.pending_by_metadata[metadata] = ptx;
+      const std::vector<uint64_t> slice_amts = ptx->destinationAmountsPerSlice();
+      const uint64_t a0 = slice_amts.empty() ? 0 : slice_amts[0];
       std::ostringstream oss;
       oss << "{"
           << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
           << "\"tx_hash_list\":[\"" << json_escape(txh) << "\"],"
-          << "\"fee_list\":[" << fee << "]"
+          << "\"fee_list\":[" << fee << "],"
+          << "\"amount_list\":[" << a0 << "]"
           << "}";
       return rust::String(oss.str());
     }
@@ -727,10 +730,17 @@ rust::String wallet2_transfer_split_prepare_json(
       if (i > 0) oss << ',';
       oss << '"' << json_escape(txids[i]) << '"';
     }
+    const std::vector<uint64_t> slice_amts = ptx->destinationAmountsPerSlice();
     oss << "],\"fee_list\":[";
     for (size_t i = 0; i < fees.size(); ++i) {
       if (i > 0) oss << ',';
       oss << fees[i];
+    }
+    oss << "],\"amount_list\":[";
+    for (size_t i = 0; i < hexes.size(); ++i) {
+      if (i > 0) oss << ',';
+      const uint64_t a = (i < slice_amts.size()) ? slice_amts[i] : 0;
+      oss << a;
     }
     oss << "]}";
     bridge.wallet->disposeTransaction(ptx);

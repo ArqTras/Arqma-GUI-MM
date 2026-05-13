@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "BATAL",
                 "calculating_fee": "Mengira yuran…",
+                "split_fee_parts_info": "Bayaran ini akan disiarkan sebagai {n} transaksi on-chain berasingan.",
+                "split_fee_parts_amounts_intro": "Amaun destinasi bagi setiap transaksi on-chain (ARQ):",
+                "split_fee_part_amount_line": "Transaksi {index}: {amount} ARQ",
+                "split_fee_under_1000": "Sekurang-kurangnya satu bahagian di bawah 1000 ARQ (bahagian terkecil dalam satu tx: {min} ARQ). «Sweep all» dalam tetapan dompet boleh cantumkan output kecil; anda masih boleh hantar pecahan ini.",
+                "split_fee_sweep_hint": "Menu utama → Tetapan dompet → Sweep all cantumkan output kecil sebelum hantar semula.",
+                "tx_status_sweep_all_label": "Sweep all (petunjuk)",
+                "split_fee_sweep_snackbar": "Buka Tetapan dompet dari menu, kemudian gunakan Sweep all.",
                 "payment_id": "ID pembayaran",
                 "payment_id_hint": "Pilihan — 16 atau 64 aksara hex semasa hantar dengan alamat terintegrasi / PID",
                 "invalid_payment_id": "ID pembayaran mesti kosong atau 16 / 64 aksara hex"
@@ -313,7 +320,8 @@
                 "failed": "Gagal",
                 "scan_progress_title": "Dompet mengimbas rantaian blok",
                 "scan_progress_detail": "Ketinggian blok {current} / {target} ({pct}%). Kira-kira {left} blok lagi untuk imbas.",
-                "scan_progress_hint": "Julat awal sering tiada pemindahan yang sepadan — entri muncul apabila dompet anda menjumpai output dalam tetingkap ini."
+                "scan_progress_hint": "Julat awal sering tiada pemindahan yang sepadan — entri muncul apabila dompet anda menjumpai output dalam tetingkap ini.",
+                "scan_progress_rescan_detail": "Rescan penuh blockchain sedang berjalan. Kiraan blok dibekukan sehingga dompet selesai (hujung rantai ~{target})."
             }
         },
         "not_found": {

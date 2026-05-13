@@ -107,9 +107,12 @@ pub unsafe extern "C" fn arqma_wallet_ffi_call_json (
     Ok(g) => g,
     Err(_) => return -3,
   };
-  let Some(c) = client.as_ref() else {
+  let Some(c) = client.as_ref().cloned() else {
     return -4;
   };
+  // Do not hold `CLIENT` across `block_on`: a long `close_wallet` / scan would block
+  // `arqma_wallet_ffi_reset` on another thread (Dart watchdog isolate) and freeze shutdown.
+  drop(client);
 
   let result = catch_unwind(AssertUnwindSafe(|| {
     runtime().block_on(c.call_json(method_s, &params))

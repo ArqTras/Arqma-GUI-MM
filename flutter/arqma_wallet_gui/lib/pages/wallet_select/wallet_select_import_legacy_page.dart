@@ -94,10 +94,9 @@ class _WalletSelectImportLegacyPageState
       );
       return;
     }
+    final AppApi api = context.read<AppApi>();
     await AppLoading.show();
-    await context
-        .read<AppApi>()
-        .send('wallet', 'import_wallet', <String, dynamic>{
+    await api.send('wallet', 'import_wallet', <String, dynamic>{
       'name': name,
       'path': path,
       'password': _password.text,
@@ -120,32 +119,28 @@ class _WalletSelectImportLegacyPageState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (legacy.length == 2) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                RadioListTile<String>(
-                  title: Text(
-                      loc.tr('pages.wallet_select.import_legacy.full_wallet')),
-                  value: '0',
-                  groupValue: _legacyType,
-                  onChanged: (String? v) {
-                    if (v != null) {
-                      setState(() => _legacyType = v);
-                    }
-                  },
-                ),
-                RadioListTile<String>(
-                  title: Text(
-                      loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
-                  value: '1',
-                  groupValue: _legacyType,
-                  onChanged: (String? v) {
-                    if (v != null) {
-                      setState(() => _legacyType = v);
-                    }
-                  },
-                ),
-              ],
+            RadioGroup<String>(
+              groupValue: _legacyType,
+              onChanged: (String? v) {
+                if (v != null) {
+                  setState(() => _legacyType = v);
+                }
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  RadioListTile<String>(
+                    title: Text(
+                        loc.tr('pages.wallet_select.import_legacy.full_wallet')),
+                    value: '0',
+                  ),
+                  RadioListTile<String>(
+                    title: Text(
+                        loc.tr('pages.wallet_select.import_legacy.lite_wallet')),
+                    value: '1',
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
           ],

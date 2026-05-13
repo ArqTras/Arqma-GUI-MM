@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/services/native_bridge.dart';
 import '../core/theme/arqma_colors.dart';
 import '../store/gateway_store.dart';
+import '../widgets/arqma_logo_asset.dart';
 import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
 
@@ -63,7 +64,24 @@ class WalletSelectLayout extends StatelessWidget {
                 icon: const Icon(Icons.reply, color: ArqmaColors.textPrimary),
                 onPressed: () async {
                   final NativeBridge bridge = context.read<NativeBridge>();
-                  await bridge.backendSend('wallet', 'close_wallet', {});
+                  await Future<void>.delayed(Duration.zero);
+                  try {
+                    await bridge
+                        .backendSend(
+                            'wallet', 'save_wallet', <String, dynamic>{})
+                        .timeout(const Duration(seconds: 12));
+                  } catch (e, st) {
+                    debugPrint('[WalletSelectLayout] back save_wallet: $e\n$st');
+                  }
+                  try {
+                    await bridge
+                        .backendSend(
+                            'wallet', 'close_wallet', <String, dynamic>{})
+                        .timeout(const Duration(seconds: 22));
+                  } catch (e, st) {
+                    debugPrint(
+                        '[WalletSelectLayout] back close_wallet: $e\n$st');
+                  }
                   if (context.mounted) {
                     context.go('/wallet-select');
                     context.read<GatewayStore>().resetWalletDataDispatch();
@@ -71,10 +89,7 @@ class WalletSelectLayout extends StatelessWidget {
                 },
               ),
         title: title == 'Arqma'
-            ? Image.asset(
-                'assets/images/arq_logo_with_padding.png',
-                height: 48,
-              )
+            ? const ArqmaLogoAsset(height: 48)
             : Text(
                 title,
                 style:

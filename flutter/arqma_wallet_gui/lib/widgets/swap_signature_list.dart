@@ -29,7 +29,7 @@ class SwapSignatureList extends StatelessWidget {
 
     return ListView.separated(
       itemCount: items.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (BuildContext context, int index) =>
           const Divider(height: 1, color: ArqmaColors.dividerLine),
       itemBuilder: (BuildContext context, int i) {
         final Map<String, dynamic> m =

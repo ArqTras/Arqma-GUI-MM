@@ -9,6 +9,7 @@ import '../core/services/native_bridge.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
+import 'arqma_logo_asset.dart';
 import 'daemon_settings_dialog.dart';
 
 /// Parity with `components/mainmenu.vue` (settings via [showDaemonSettingsDialog]).
@@ -164,8 +165,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
               useRootNavigator: true,
               builder: (BuildContext c) => AlertDialog(
                 backgroundColor: ArqmaColors.darkPanel,
-                title: Image.asset('assets/images/arq_logo_with_padding.png',
-                    height: 64),
+                title: const ArqmaLogoAsset(height: 64),
                 content: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

@@ -219,7 +219,14 @@
                 "tx_status_title": "Confirm Fee",
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "CANCEL",
-                "calculating_fee": "Calculating fee…"
+                "calculating_fee": "Calculating fee…",
+                "split_fee_parts_info": "This transfer will be broadcast as {n} separate on-chain transaction(s).",
+                "split_fee_parts_amounts_intro": "Destination amount per on-chain transaction (ARQ):",
+                "split_fee_part_amount_line": "Transaction {index}: {amount} ARQ",
+                "split_fee_under_1000": "At least one part is below 1000 ARQ (smallest part in one tx: {min} ARQ). Sweep all in wallet settings can consolidate small outputs; you may still send this split.",
+                "split_fee_sweep_hint": "Main menu → Wallet settings → Sweep all merges small outputs before you send again.",
+                "tx_status_sweep_all_label": "Sweep all (hint)",
+                "split_fee_sweep_snackbar": "Open Wallet settings from the menu, then use Sweep all."
             },
             "staking_pools": {
                 "network_stats": "Network Stats",
@@ -310,6 +317,7 @@
                 "scan_progress_title": "Wallet is scanning the blockchain",
                 "scan_progress_detail": "Block height {current} / {target} ({pct}%). About {left} blocks left to scan.",
                 "scan_progress_hint": "Early ranges often have no matching transfers — entries appear when your wallet finds outputs in this window.",
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block counts stay frozen until the wallet finishes (chain tip about {target}).",
                 "transactions": "Transactions",
                 "all": "All",
                 "incoming": "Incoming",

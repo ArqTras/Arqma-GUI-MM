@@ -151,6 +151,113 @@ class TxListWidget extends StatelessWidget {
     return '${loc.tr('components.tx_list.height')} $height ${loc.tr('components.tx_list.confirmed')}';
   }
 
+  /// Banner when the wallet height is still far below the daemon tip (same rule as [GatewayStore] / footer).
+  static Widget _walletScanProgressBanner(
+    LocaleController loc, {
+    required int walletH,
+    required int daemonTip,
+    required bool fullRescanUi,
+  }) {
+    final int gapBlocks = daemonTip > 0
+        ? (daemonTip - walletH).clamp(0, 1 << 62)
+        : 0;
+    final double pctRaw =
+        daemonTip > 0 ? (100.0 * walletH) / daemonTip : 0.0;
+    final double pct = pctRaw.clamp(0.0, 100.0);
+    final String pctLabel =
+        pct >= 10 ? pct.toStringAsFixed(1) : pct.toStringAsFixed(2);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: ArqmaColors.outlineBright.withValues(alpha: 0.55),
+        ),
+        color: const Color(0xFF161410),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: ArqmaColors.warning,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    loc.tr('pages.wallet.txhistory.scan_progress_title'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      height: 1.25,
+                      color: ArqmaColors.warning,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: fullRescanUi
+                  ? const LinearProgressIndicator(
+                      minHeight: 7,
+                      backgroundColor: ArqmaColors.outlineDefault,
+                      color: ArqmaColors.arqmaGreenSolid,
+                    )
+                  : LinearProgressIndicator(
+                      value: pct / 100.0,
+                      minHeight: 7,
+                      backgroundColor: ArqmaColors.outlineDefault
+                          .withValues(alpha: 0.45),
+                      color: ArqmaColors.arqmaGreenSolid,
+                    ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              fullRescanUi
+                  ? loc.tr(
+                      'pages.wallet.txhistory.scan_progress_rescan_detail',
+                      named: <String, String>{'target': '$daemonTip'},
+                    )
+                  : loc.tr(
+                      'pages.wallet.txhistory.scan_progress_detail',
+                      named: <String, String>{
+                        'current': '$walletH',
+                        'target': '$daemonTip',
+                        'pct': pctLabel,
+                        'left': '$gapBlocks',
+                      },
+                    ),
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: ArqmaColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              loc.tr('pages.wallet.txhistory.scan_progress_hint'),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: ArqmaColors.textMuted.withValues(alpha: 0.92),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
@@ -161,139 +268,49 @@ class TxListWidget extends StatelessWidget {
       filterAddressMinor: filterAddressMinor,
       limit: limit,
     );
-    if (txs.isEmpty) {
-      final Map<String, dynamic> daemonInfo =
-          store.daemon['info'] as Map<String, dynamic>? ?? {};
-      final int daemonTip = () {
-        final num h = num.tryParse('${daemonInfo['height']}') ?? 0;
-        final num th = num.tryParse('${daemonInfo['target_height']}') ?? 0;
-        return (h > th ? h : th).toInt();
-      }();
-      final int walletH =
-          (num.tryParse('${store.walletInfo['height']}') ?? 0).round();
-      final int gapBlocks = daemonTip > 0
-          ? (daemonTip - walletH).clamp(0, 1 << 62)
-          : 0;
-      final bool scanningBehind =
-          daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
+    final Map<String, dynamic> daemonInfo =
+        store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final int daemonTip = () {
+      final num h = num.tryParse('${daemonInfo['height']}') ?? 0;
+      final num th = num.tryParse('${daemonInfo['target_height']}') ?? 0;
+      return (h > th ? h : th).toInt();
+    }();
+    final int walletH =
+        (num.tryParse('${store.walletInfo['height']}') ?? 0).round();
+    final int gapBlocks = daemonTip > 0
+        ? (daemonTip - walletH).clamp(0, 1 << 62)
+        : 0;
+    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
+    final bool scanningBehind =
+        daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
+    final bool showScanProgress = scanningBehind || fullRescanUi;
 
-      if (scanningBehind) {
-        final double pctRaw = (100.0 * walletH) / daemonTip;
-        final double pct = pctRaw.clamp(0.0, 100.0);
-        final String pctLabel = pct >= 10
-            ? pct.toStringAsFixed(1)
-            : pct.toStringAsFixed(2);
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color:
-                          ArqmaColors.outlineBright.withValues(alpha: 0.55),
-                    ),
-                    color: const Color(0xFF161410),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: ArqmaColors.warning,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                loc.tr(
-                                    'pages.wallet.txhistory.scan_progress_title'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  height: 1.25,
-                                  color: ArqmaColors.warning,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: pct / 100.0,
-                            minHeight: 7,
-                            backgroundColor: ArqmaColors.outlineDefault
-                                .withValues(alpha: 0.45),
-                            color: ArqmaColors.arqmaGreenSolid,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          loc.tr(
-                            'pages.wallet.txhistory.scan_progress_detail',
-                            named: <String, String>{
-                              'current': '$walletH',
-                              'target': '$daemonTip',
-                              'pct': pctLabel,
-                              'left': '$gapBlocks',
-                            },
-                          ),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.4,
-                            color: ArqmaColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          loc.tr('pages.wallet.txhistory.scan_progress_hint'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: ArqmaColors.textMuted.withValues(alpha: 0.92),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  loc.tr('components.tx_list.no_transactions_found'),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: ArqmaColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-
+    if (txs.isEmpty && !showScanProgress) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Text(loc.tr('components.tx_list.no_transactions_found')),
       );
     }
-    return ListView.separated(
+
+    if (txs.isEmpty && showScanProgress) {
+      return SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: _walletScanProgressBanner(
+            loc,
+            walletH: walletH,
+            daemonTip: daemonTip,
+            fullRescanUi: fullRescanUi,
+          ),
+        ),
+      );
+    }
+
+    final Widget listView = ListView.separated(
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const ClampingScrollPhysics() : null,
       itemCount: txs.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (BuildContext context, int index) =>
           const Divider(height: 1, color: ArqmaColors.outlineSubtle),
       itemBuilder: (BuildContext context, int i) {
         final Map<String, dynamic> tx =
@@ -418,6 +435,35 @@ class TxListWidget extends StatelessWidget {
           },
         );
       },
+    );
+    if (!showScanProgress) {
+      return listView;
+    }
+    final Widget banner = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: _walletScanProgressBanner(
+        loc,
+        walletH: walletH,
+        daemonTip: daemonTip,
+        fullRescanUi: fullRescanUi,
+      ),
+    );
+    if (shrinkWrap) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          banner,
+          listView,
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        banner,
+        Expanded(child: listView),
+      ],
     );
   }
 }

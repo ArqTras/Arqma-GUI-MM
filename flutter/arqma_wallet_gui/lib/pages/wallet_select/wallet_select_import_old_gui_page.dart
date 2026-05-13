@@ -110,8 +110,9 @@ class _WalletSelectImportOldGuiPageState
       return;
     }
     _awaiting = true;
+    final AppApi api = context.read<AppApi>();
     await AppLoading.show();
-    await context.read<AppApi>().send('wallet', 'copy_old_gui_wallets',
+    await api.send('wallet', 'copy_old_gui_wallets',
         <String, dynamic>{'wallets': selected});
   }
 

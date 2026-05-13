@@ -44,6 +44,10 @@ pub struct Wallet2ApiClient {
     inner: Arc<Mutex<Option<Wallet2Session>>>,
     /// Last successful `getheight` (UI/footer); used when the session mutex is held by background work.
     height_stale_cache: Arc<AtomicU64>,
+    /// Last successful `getbalance` (atomic units); same rationale as height during `rescan_*` / long refresh.
+    balance_stale_cache: Arc<AtomicU64>,
+    unlocked_stale_cache: Arc<AtomicU64>,
+    address_stale_cache: Arc<Mutex<String>>,
     /// One in-flight background wallet job (`rescan_*`, …) — avoids overlapping native calls.
     wallet_background_busy: Arc<AtomicBool>,
 }
@@ -54,6 +58,9 @@ impl Wallet2ApiClient {
             cfg: Arc::new(cfg),
             inner: Arc::new(Mutex::new(None)),
             height_stale_cache: Arc::new(AtomicU64::new(0)),
+            balance_stale_cache: Arc::new(AtomicU64::new(0)),
+            unlocked_stale_cache: Arc::new(AtomicU64::new(0)),
+            address_stale_cache: Arc::new(Mutex::new(String::new())),
             wallet_background_busy: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -84,6 +91,119 @@ impl Wallet2ApiClient {
                 Ok(json!({ "result": { "height": h } }))
             }
         }
+    }
+
+    fn getbalance_nonblocking_or_stale(&self) -> Result<Value, WalletRpcError> {
+        match self.inner.try_lock() {
+            Ok(guard) => {
+                let s = guard.as_ref().ok_or_else(|| {
+                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
+                })?;
+                let b = s
+                    .balance()
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                self.balance_stale_cache
+                    .store(b.balance, Ordering::Release);
+                self.unlocked_stale_cache
+                    .store(b.unlocked_balance, Ordering::Release);
+                Ok(
+                    json!({ "result": { "balance": b.balance, "unlocked_balance": b.unlocked_balance } }),
+                )
+            }
+            Err(_) => {
+                let balance = self.balance_stale_cache.load(Ordering::Acquire);
+                let unlocked = self.unlocked_stale_cache.load(Ordering::Acquire);
+                Ok(json!({
+                    "result": { "balance": balance, "unlocked_balance": unlocked }
+                }))
+            }
+        }
+    }
+
+    fn get_address_nonblocking_or_stale(&self) -> Result<Value, WalletRpcError> {
+        match self.inner.try_lock() {
+            Ok(guard) => {
+                let s = guard.as_ref().ok_or_else(|| {
+                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
+                })?;
+                let addr = s
+                    .address()
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                if let Ok(mut c) = self.address_stale_cache.lock() {
+                    *c = addr.clone();
+                }
+                Ok(json!({ "result": { "address": addr } }))
+            }
+            Err(_) => {
+                let addr = match self.address_stale_cache.lock() {
+                    Ok(g) => g.clone(),
+                    Err(e) => e.into_inner().clone(),
+                };
+                Ok(json!({ "result": { "address": addr } }))
+            }
+        }
+    }
+
+    /// When `rescan_*` holds `inner`, a blocking `get_transfers` would freeze the Flutter isolate (FFI `block_on`).
+    fn get_transfers_nonblocking_or_empty(&self, _params: &Value) -> Result<Value, WalletRpcError> {
+        let in_flag = _params.get("in").and_then(|v| v.as_bool()).unwrap_or(false);
+        let out_flag = _params
+            .get("out")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let pending_flag = _params
+            .get("pending")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let failed_flag = _params
+            .get("failed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let pool_flag = _params
+            .get("pool")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let min_height = _params
+            .get("min_height")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let max_height = _params
+            .get("max_height")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(u64::MAX);
+
+        let g = match self.inner.try_lock() {
+            Ok(g) => g,
+            Err(_) => {
+                let empty: Vec<Value> = Vec::new();
+                let mut m = serde_json::Map::new();
+                for k in [
+                    "in", "out", "pending", "failed", "pool", "miner", "snode", "gov", "stake",
+                    "net",
+                ] {
+                    m.insert(k.to_string(), json!(empty));
+                }
+                return Ok(json!({ "result": Value::Object(m) }));
+            }
+        };
+
+        let s = g.as_ref().ok_or_else(|| {
+            WalletRpcError::Transport("wallet2: no wallet session".to_string())
+        })?;
+        let raw = s
+            .get_transfers_json(
+                in_flag,
+                out_flag,
+                pending_flag,
+                failed_flag,
+                pool_flag,
+                min_height,
+                max_height,
+            )
+            .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+        let parsed: Value = serde_json::from_str(&raw)
+            .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+        Ok(json!({ "result": parsed }))
     }
 
     fn spawn_wallet_background_job(
@@ -132,8 +252,8 @@ impl Wallet2ApiClient {
     pub async fn call_json(&self, method: &str, _params: &Value) -> Result<Value, WalletRpcError> {
         match method {
             "rescan_blockchain" => {
-                // While the mutex is held by rescan, `getheight` falls back to this cache — match UI “from genesis”.
-                self.height_stale_cache.store(0, Ordering::Release);
+                // Do **not** zero `height_stale_cache` here: `rescan_blockchain` holds `inner` for the whole job,
+                // so `getheight` only sees the stale path — a forced `0` makes the GUI stuck at “0 / tip” until done.
                 return self.spawn_wallet_background_job("rescan_blockchain", |s| {
                     let ok = s
                         .rescan_blockchain()
@@ -161,6 +281,15 @@ impl Wallet2ApiClient {
             }
             "getheight" => {
                 return self.getheight_nonblocking_or_stale();
+            }
+            "getbalance" => {
+                return self.getbalance_nonblocking_or_stale();
+            }
+            "get_address" => {
+                return self.get_address_nonblocking_or_stale();
+            }
+            "get_transfers" => {
+                return self.get_transfers_nonblocking_or_empty(_params);
             }
             _ => {}
         }
@@ -373,26 +502,6 @@ impl Wallet2ApiClient {
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 *g = Some(session);
                 Ok(json!({ "result": {} }))
-            }
-            "get_address" => {
-                let s = g.as_ref().ok_or_else(|| {
-                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
-                })?;
-                let addr = s
-                    .address()
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
-                Ok(json!({ "result": { "address": addr } }))
-            }
-            "getbalance" => {
-                let s = g.as_ref().ok_or_else(|| {
-                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
-                })?;
-                let b = s
-                    .balance()
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
-                Ok(
-                    json!({ "result": { "balance": b.balance, "unlocked_balance": b.unlocked_balance } }),
-                )
             }
             "query_key" => {
                 let key_type = _params
@@ -860,50 +969,6 @@ impl Wallet2ApiClient {
                 })?;
                 let raw = s
                     .transfer_split_prepare_json(address, amount, priority, do_not_relay)
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
-                let parsed = serde_json::from_str::<Value>(&raw)
-                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
-                Ok(json!({ "result": parsed }))
-            }
-            "get_transfers" => {
-                let in_flag = _params.get("in").and_then(|v| v.as_bool()).unwrap_or(false);
-                let out_flag = _params
-                    .get("out")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                let pending_flag = _params
-                    .get("pending")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                let failed_flag = _params
-                    .get("failed")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                let pool_flag = _params
-                    .get("pool")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                let min_height = _params
-                    .get("min_height")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let max_height = _params
-                    .get("max_height")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(u64::MAX);
-                let s = g.as_ref().ok_or_else(|| {
-                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
-                })?;
-                let raw = s
-                    .get_transfers_json(
-                        in_flag,
-                        out_flag,
-                        pending_flag,
-                        failed_flag,
-                        pool_flag,
-                        min_height,
-                        max_height,
-                    )
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 let parsed = serde_json::from_str::<Value>(&raw)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;

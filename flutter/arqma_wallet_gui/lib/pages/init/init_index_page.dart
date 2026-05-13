@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app_strings.dart';
 import '../../core/theme/arqma_colors.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/arqma_logo_asset.dart';
 
 /// Parity with `pages/init/index.vue` (icon strip simplified to status text).
 class InitIndexPage extends StatelessWidget {
@@ -48,7 +49,7 @@ class InitIndexPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/arq_logo_with_padding.png', width: 320),
+            const ArqmaLogoAsset(width: 320),
             const SizedBox(height: 32),
             Text(
               line,

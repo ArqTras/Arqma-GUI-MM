@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "CANCELAR",
                 "calculating_fee": "Calculando taxa…",
+                "split_fee_parts_info": "Este pagamento será transmitido como {n} transação(ões) on-chain separada(s).",
+                "split_fee_parts_amounts_intro": "Valor de destino por transação on-chain (ARQ):",
+                "split_fee_part_amount_line": "Transação {index}: {amount} ARQ",
+                "split_fee_under_1000": "Pelo menos uma parte é inferior a 1000 ARQ (menor parte numa tx: {min} ARQ). « Varre tudo » nas definições da carteira pode consolidar saídas pequenas; ainda pode enviar este fracionamento.",
+                "split_fee_sweep_hint": "Menu principal → Definições da carteira → Varre tudo junta saídas pequenas antes de enviar de novo.",
+                "tx_status_sweep_all_label": "Varre tudo (dica)",
+                "split_fee_sweep_snackbar": "Abra as definições da carteira no menu e use Varre tudo.",
                 "payment_id": "ID de pagamento",
                 "payment_id_hint": "Opcional — 16 ou 64 caracteres hex ao enviar com endereço integrado / PID",
                 "invalid_payment_id": "O ID de pagamento deve estar vazio ou ter 16 / 64 caracteres hexadecimais"
@@ -313,7 +320,8 @@
                 "failed": "Falha",
                 "scan_progress_title": "A carteira está escaneando a blockchain",
                 "scan_progress_detail": "Altura do bloco {current} / {target} ({pct}%). Cerca de {left} blocos restantes para escanear.",
-                "scan_progress_hint": "Intervalos iniciais frequentemente não têm transferências correspondentes — as entradas aparecem quando a carteira encontra saídas nesta janela."
+                "scan_progress_hint": "Intervalos iniciais frequentemente não têm transferências correspondentes — as entradas aparecem quando a carteira encontra saídas nesta janela.",
+                "scan_progress_rescan_detail": "Rescan completo da blockchain em andamento. Os contadores ficam congelados até a carteira terminar (ponta da cadeia ~{target})."
             }
         },
         "not_found": {

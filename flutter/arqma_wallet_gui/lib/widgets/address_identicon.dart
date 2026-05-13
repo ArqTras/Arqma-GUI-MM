@@ -42,7 +42,8 @@ class AddressIdenticon extends StatelessWidget {
             _logoAsset,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.medium,
-            errorBuilder: (_, __, ___) => Icon(
+            errorBuilder: (BuildContext context, Object error, StackTrace? st) =>
+                Icon(
               Icons.account_balance_wallet,
               size: size * 0.65,
               color: ArqmaColors.textMuted,

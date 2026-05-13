@@ -219,7 +219,14 @@
                 "tx_status_title": "Potwierdź opłatę",
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "ANULUJ",
-                "calculating_fee": "Obliczanie opłaty…"
+                "calculating_fee": "Obliczanie opłaty…",
+                "split_fee_parts_info": "Płatność zostanie nadana w {n} osobnych transakcjach on-chain.",
+                "split_fee_parts_amounts_intro": "Kwota docelowa w każdej transakcji on-chain (ARQ):",
+                "split_fee_part_amount_line": "Transakcja {index}: {amount} ARQ",
+                "split_fee_under_1000": "Co najmniej jedna część jest poniżej 1000 ARQ (najmniejsza część w jednej transakcji: {min} ARQ). Sweep all w ustawieniach portfela scala drobne wyjścia; możesz też wysłać ten podział mimo to.",
+                "split_fee_sweep_hint": "Menu główne → Ustawienia portfela → Sweep all scala drobne UTXO przed ponowną wysyłką.",
+                "tx_status_sweep_all_label": "Sweep all (wskazówka)",
+                "split_fee_sweep_snackbar": "Otwórz Ustawienia portfela z menu, potem użyj Sweep all."
             },
             "staking_pools": {
                 "network_stats": "Statystyki sieci",
@@ -310,6 +317,7 @@
                 "scan_progress_title": "Portfel skanuje łańcuch",
                 "scan_progress_detail": "Wysokość bloków {current} / {target} ({pct}%). Pozostało ok. {left} bloków.",
                 "scan_progress_hint": "W początkowych zakresach często nie ma przelewów — lista uzupełni się, gdy portfel znajdzie wyjścia w tym oknie.",
+                "scan_progress_rescan_detail": "Trwa pełny rescan łańcucha. Licznik bloków nie odświeża się do końca pracy wątku portfela (cel ok. {target} bloków).",
                 "transactions": "Transakcje",
                 "all": "Wszystkie",
                 "incoming": "Przychodzące",

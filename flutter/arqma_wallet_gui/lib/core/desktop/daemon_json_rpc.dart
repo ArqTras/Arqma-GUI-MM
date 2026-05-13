@@ -60,6 +60,33 @@ Future<String> readHttpResponseBodyUtf8(HttpClientResponse resp) async {
 class DaemonJsonRpc {
   DaemonJsonRpc._();
 
+  /// Some `arqmad` RPC payloads (notably `get_txpool_backlog`) may embed raw control
+  /// characters inside JSON string fields; strict [jsonDecode] then fails. Strip only
+  /// illegal ASCII controls while keeping TAB/LF/CR so pretty-printed JSON between tokens
+  /// stays valid.
+  static Object? _jsonDecodeDaemonBody(String method, String text) {
+    try {
+      return jsonDecode(text);
+    } on FormatException catch (e) {
+      debugPrint(
+        '[DaemonJsonRpc] $method invalid JSON (${text.length} chars): ${e.message}',
+      );
+      final String stripped =
+          text.replaceAll(RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f]'), '');
+      if (stripped == text) {
+        return null;
+      }
+      try {
+        return jsonDecode(stripped);
+      } on FormatException catch (e2) {
+        debugPrint(
+          '[DaemonJsonRpc] $method JSON retry after control-strip failed: $e2',
+        );
+        return null;
+      }
+    }
+  }
+
   /// Default for heartbeat / footer polling — matches Tauri reqwest total request budget.
   static const Duration defaultDaemonConnectTimeout = Duration(seconds: 30);
   static const Duration defaultDaemonRequestTimeout = Duration(seconds: 120);
@@ -133,13 +160,8 @@ class DaemonJsonRpc {
           debugPrint('[DaemonJsonRpc] HTTP ${resp.statusCode} $text');
           return null;
         }
-        final Object? decoded;
-        try {
-          decoded = jsonDecode(text);
-        } on FormatException catch (e) {
-          debugPrint(
-            '[DaemonJsonRpc] $method invalid JSON (${text.length} chars): ${e.message}',
-          );
+        final Object? decoded = _jsonDecodeDaemonBody(method, text);
+        if (decoded == null) {
           return null;
         }
         if (decoded is Map<String, dynamic>) {

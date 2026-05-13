@@ -1,0 +1,53 @@
+# Fast Flutter verification on Linux / Windows / macOS (no full Arqma + FFI chain).
+# Full release artifacts: workflow `desktop-release.yml`.
+name: Flutter verify
+
+on:
+  push:
+    paths:
+      - "flutter/arqma_wallet_gui/**"
+      - ".github/workflows/flutter-verify.yml"
+      - "build/ci/flutter-version"
+      - "build/ci/gh-read-pin-versions.sh"
+  pull_request:
+    paths:
+      - "flutter/arqma_wallet_gui/**"
+      - ".github/workflows/flutter-verify.yml"
+      - "build/ci/flutter-version"
+      - "build/ci/gh-read-pin-versions.sh"
+
+concurrency:
+  group: flutter-verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: flutter/arqma_wallet_gui
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Pinned Flutter version
+        id: pinned
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/gh-read-pin-versions.sh
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: flutter analyze
+        run: flutter analyze --fatal-infos --fatal-warnings

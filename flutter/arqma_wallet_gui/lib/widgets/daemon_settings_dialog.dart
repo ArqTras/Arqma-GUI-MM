@@ -88,39 +88,10 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
     if (wantBan != true || !context.mounted) {
       return;
     }
-    final TextEditingController seconds = TextEditingController(text: '3600');
     final int? picked = await showDialog<int>(
       context: context,
-      builder: (BuildContext c) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a1a),
-        title: Text(loc.tr('components.settings.peer_details_title')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(loc.tr('components.settings.peer_details_message')),
-            const SizedBox(height: 8),
-            TextField(
-              controller: seconds,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(isDense: true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c),
-              child: Text(
-                  loc.tr('components.settings.peer_details_cancel_label'))),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(c, int.tryParse(seconds.text.trim()) ?? 3600),
-            child: Text(loc.tr('components.settings.peer_details_ok_label')),
-          ),
-        ],
-      ),
+      builder: (BuildContext _) => _BanPeerSecondsDialog(loc: loc),
     );
-    seconds.dispose();
     if (picked == null || !context.mounted) {
       return;
     }
@@ -262,6 +233,58 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BanPeerSecondsDialog extends StatefulWidget {
+  const _BanPeerSecondsDialog({required this.loc});
+
+  final LocaleController loc;
+
+  @override
+  State<_BanPeerSecondsDialog> createState() => _BanPeerSecondsDialogState();
+}
+
+class _BanPeerSecondsDialogState extends State<_BanPeerSecondsDialog> {
+  late final TextEditingController _seconds =
+      TextEditingController(text: '3600');
+
+  @override
+  void dispose() {
+    _seconds.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1a1a1a),
+      title: Text(widget.loc.tr('components.settings.peer_details_title')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.loc.tr('components.settings.peer_details_message')),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _seconds,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(isDense: true),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+                widget.loc.tr('components.settings.peer_details_cancel_label'))),
+        TextButton(
+          onPressed: () => Navigator.pop(
+              context, int.tryParse(_seconds.text.trim()) ?? 3600),
+          child: Text(widget.loc.tr('components.settings.peer_details_ok_label')),
+        ),
+      ],
     );
   }
 }

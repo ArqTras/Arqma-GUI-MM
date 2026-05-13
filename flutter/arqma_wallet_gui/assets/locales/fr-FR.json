@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "OK",
                 "tx_status_cancel_label": "ANNULER",
                 "calculating_fee": "Calcul des frais…",
+                "split_fee_parts_info": "Ce paiement sera diffusé en {n} transaction(s) on-chain distincte(s).",
+                "split_fee_parts_amounts_intro": "Montant de destination par transaction on-chain (ARQ) :",
+                "split_fee_part_amount_line": "Transaction {index} : {amount} ARQ",
+                "split_fee_under_1000": "Au moins une part est inférieure à 1000 ARQ (plus petite part dans une tx : {min} ARQ). « Tout balayer » dans les paramètres du portefeuille peut regrouper les petites sorties ; vous pouvez quand même envoyer ce fractionnement.",
+                "split_fee_sweep_hint": "Menu principal → Paramètres du portefeuille → Tout balayer regroupe les petites sorties avant un nouvel envoi.",
+                "tx_status_sweep_all_label": "Tout balayer (indication)",
+                "split_fee_sweep_snackbar": "Ouvrez les paramètres du portefeuille depuis le menu, puis utilisez Tout balayer.",
                 "payment_id": "ID de paiement",
                 "payment_id_hint": "Facultatif — 16 ou 64 caractères hex lors de l’envoi avec adresse intégrée / PID",
                 "invalid_payment_id": "L’ID de paiement doit être vide ou comporter 16 / 64 caractères hexadécimaux"
@@ -313,7 +320,8 @@
                 "failed": "Échoué",
                 "scan_progress_title": "Le portefeuille analyse la blockchain",
                 "scan_progress_detail": "Hauteur de bloc {current} / {target} ({pct}%). Environ {left} blocs restants à analyser.",
-                "scan_progress_hint": "Les plages précoces n’ont souvent pas de transferts correspondants — les entrées apparaissent quand votre portefeuille trouve des sorties dans cette fenêtre."
+                "scan_progress_hint": "Les plages précoces n’ont souvent pas de transferts correspondants — les entrées apparaissent quand votre portefeuille trouve des sorties dans cette fenêtre.",
+                "scan_progress_rescan_detail": "Rescan complet de la blockchain en cours. Les compteurs restent figés jusqu’à la fin du portefeuille (pointe ~{target})."
             }
         },
         "not_found": {

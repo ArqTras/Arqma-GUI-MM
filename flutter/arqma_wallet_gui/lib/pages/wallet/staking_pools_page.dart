@@ -472,91 +472,24 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         num.tryParse('${store.walletInfo['unlocked_balance'] ?? 0}') ?? 0;
     final double unlockedArq = unlockedAtoms / _coinUnits;
     final double cap = maxArq < unlockedArq ? maxArq : unlockedArq;
-    final TextEditingController amount = TextEditingController(
-        text: '${_minStakeArq > cap ? cap.toStringAsFixed(0) : _minStakeArq}');
-
-    void disposeAmountAfterDialogFrame() {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        amount.dispose();
-      });
-    }
-
-    final bool? ok = await showDialog<bool>(
+    final String initialAmount =
+        '${_minStakeArq > cap ? cap.toStringAsFixed(0) : _minStakeArq}';
+    final String? amountEntered = await showDialog<String>(
       context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: Text(
-              loc.tr('components.pool_list_tabular.confirm_amount_to_stake')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(loc.tr('components.pool_list_tabular.oracle_id')),
-                SelectableText(oracleKey, style: const TextStyle(fontSize: 12)),
-                const SizedBox(height: 8),
-                Text(
-                    '${loc.tr('components.pool_list_tabular.max_amount')}${cap.toStringAsFixed(9)}'),
-                Text(
-                    '${loc.tr('components.pool_list_tabular.min_amount')}$_minStakeArq'),
-                const SizedBox(height: 8),
-                ArqmaField(
-                  label: loc.tr('components.pool_list_tabular.amount'),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: amount,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          decoration: const InputDecoration(
-                              border: InputBorder.none, hintText: '100'),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          amount.text = cap
-                              .toStringAsFixed(9)
-                              .replaceAll(RegExp(r'\.?0+$'), '');
-                          if (amount.text.isEmpty) {
-                            amount.text = cap.toStringAsFixed(0);
-                          }
-                        },
-                        child: const Text('Max'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: Text(loc.tr('composables.cancel'))),
-            if (unlockedArq >= _minStakeArq)
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child:
-                    Text(loc.tr('components.pool_list_tabular.confirm_stake')),
-              )
-            else
-              TextButton(
-                  onPressed: null,
-                  child: Text(
-                      loc.tr('components.pool_list_tabular.not_enough_coins'))),
-          ],
-        );
-      },
+      builder: (BuildContext ctx) => _StakeAmountDialog(
+        loc: loc,
+        oracleKey: oracleKey,
+        cap: cap,
+        unlockedArq: unlockedArq,
+        minStakeArq: _minStakeArq,
+        initialAmount: initialAmount,
+      ),
     );
-    final String amountEntered =
-        amount.text.trim().replaceAll(',', '');
-    if (ok != true || !mounted) {
-      disposeAmountAfterDialogFrame();
+    if (amountEntered == null || !mounted) {
       return;
     }
-    final double? parsed = double.tryParse(amountEntered);
-    disposeAmountAfterDialogFrame();
+    final String cleaned = amountEntered.trim().replaceAll(',', '');
+    final double? parsed = double.tryParse(cleaned);
     if (parsed == null || parsed < _minStakeArq || parsed > cap) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
@@ -1249,58 +1182,61 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         ArqmaField(
           label: loc
               .tr('pages.wallet.staking_pools.filter_by_oracle_node_status'),
-          child: DropdownButtonFormField<int>(
-            isExpanded: true,
-            value: filterIndex.clamp(0, 4),
-            itemHeight: 88,
-            selectedItemBuilder: (BuildContext ctx) {
-              return _nodeFilterOptions.map((Map<String, dynamic> o) {
-                return Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    loc.tr(o['label'] as String),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                );
-              }).toList();
-            },
-            dropdownColor: ArqmaColors.darkPanel,
+          child: InputDecorator(
             decoration: const InputDecoration(border: InputBorder.none),
-            items: _nodeFilterOptions
-                .map(
-                  (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                    value: o['index'] as int,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(loc.tr(o['label'] as String),
-                            overflow: TextOverflow.ellipsis),
-                        Text(
-                          loc.tr(o['description'] as String? ?? ''),
-                          style: const TextStyle(
-                              fontSize: 10,
-                              color: ArqmaColors.textMuted,
-                              height: 1.2),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+            child: DropdownButton<int>(
+              isExpanded: true,
+              value: filterIndex.clamp(0, 4),
+              itemHeight: 88,
+              underline: const SizedBox.shrink(),
+              selectedItemBuilder: (BuildContext ctx) {
+                return _nodeFilterOptions.map((Map<String, dynamic> o) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      loc.tr(o['label'] as String),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                  ),
-                )
-                .toList(),
-            onChanged: (int? v) {
-              if (v == null) {
-                return;
-              }
-              final Map<String, dynamic> opt = Map<String, dynamic>.from(
-                _nodeFilterOptions.firstWhere(
-                    (Map<String, dynamic> e) => e['index'] == v),
-              );
-              store.setPoolsFilterState(opt);
-            },
+                  );
+                }).toList();
+              },
+              dropdownColor: ArqmaColors.darkPanel,
+              items: _nodeFilterOptions
+                  .map(
+                    (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                      value: o['index'] as int,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(loc.tr(o['label'] as String),
+                              overflow: TextOverflow.ellipsis),
+                          Text(
+                            loc.tr(o['description'] as String? ?? ''),
+                            style: const TextStyle(
+                                fontSize: 10,
+                                color: ArqmaColors.textMuted,
+                                height: 1.2),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (int? v) {
+                if (v == null) {
+                  return;
+                }
+                final Map<String, dynamic> opt = Map<String, dynamic>.from(
+                  _nodeFilterOptions.firstWhere(
+                      (Map<String, dynamic> e) => e['index'] == v),
+                );
+                store.setPoolsFilterState(opt);
+              },
+            ),
           ),
         ),
         if (poolFilterDesc.isNotEmpty)
@@ -1374,6 +1310,109 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
               },
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _StakeAmountDialog extends StatefulWidget {
+  const _StakeAmountDialog({
+    required this.loc,
+    required this.oracleKey,
+    required this.cap,
+    required this.unlockedArq,
+    required this.minStakeArq,
+    required this.initialAmount,
+  });
+
+  final LocaleController loc;
+  final String oracleKey;
+  final double cap;
+  final double unlockedArq;
+  final int minStakeArq;
+  final String initialAmount;
+
+  @override
+  State<_StakeAmountDialog> createState() => _StakeAmountDialogState();
+}
+
+class _StakeAmountDialogState extends State<_StakeAmountDialog> {
+  late final TextEditingController _amount =
+      TextEditingController(text: widget.initialAmount);
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.loc
+          .tr('components.pool_list_tabular.confirm_amount_to_stake')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.loc.tr('components.pool_list_tabular.oracle_id')),
+            SelectableText(widget.oracleKey,
+                style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 8),
+            Text(
+                '${widget.loc.tr('components.pool_list_tabular.max_amount')}${widget.cap.toStringAsFixed(9)}'),
+            Text(
+                '${widget.loc.tr('components.pool_list_tabular.min_amount')}${widget.minStakeArq}'),
+            const SizedBox(height: 8),
+            ArqmaField(
+              label: widget.loc.tr('components.pool_list_tabular.amount'),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _amount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      decoration: const InputDecoration(
+                          border: InputBorder.none, hintText: '100'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _amount.text = widget.cap
+                            .toStringAsFixed(9)
+                            .replaceAll(RegExp(r'\.?0+$'), '');
+                        if (_amount.text.isEmpty) {
+                          _amount.text = widget.cap.toStringAsFixed(0);
+                        }
+                      });
+                    },
+                    child: const Text('Max'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(widget.loc.tr('composables.cancel'))),
+        if (widget.unlockedArq >= widget.minStakeArq)
+          TextButton(
+            onPressed: () => Navigator.pop(
+                context, _amount.text.trim().replaceAll(',', '')),
+            child: Text(
+                widget.loc.tr('components.pool_list_tabular.confirm_stake')),
+          )
+        else
+          TextButton(
+              onPressed: null,
+              child: Text(widget.loc
+                  .tr('components.pool_list_tabular.not_enough_coins'))),
       ],
     );
   }

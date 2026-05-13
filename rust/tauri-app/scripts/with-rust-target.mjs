@@ -20,6 +20,18 @@ if (rest.length === 0) {
   process.exit(1)
 }
 
+/** Run Cargo from `src-tauri/` (needed for `cargo tauri build` on any OS); strip this flag before spawn. */
+const cwdTauriSrcIdx = rest.indexOf("--cwd-tauri-src")
+let cwd = tauriAppRoot
+if (cwdTauriSrcIdx !== -1) {
+  cwd = join(tauriAppRoot, "src-tauri")
+  rest.splice(cwdTauriSrcIdx, 1)
+}
+if (rest.length === 0) {
+  console.error("with-rust-target: missing command after --cwd-tauri-src")
+  process.exit(1)
+}
+
 // Full workspace `lto = true` + huge MinGW static archives can trigger unresolved
 // libstdc++ symbols (`__real___cxa_throw`) at the final GNU ld step. Thin LTO keeps most
 // Rust optimizations without that edge case. Override: set CARGO_PROFILE_RELEASE_LTO
@@ -33,7 +45,7 @@ if (/\bx86_64-pc-windows-gnu\b/.test(joined) && process.env.CARGO_PROFILE_RELEAS
 const r = spawnSync(rest[0], rest.slice(1), {
   stdio: "inherit",
   env: process.env,
-  cwd: tauriAppRoot,
+  cwd,
   shell: process.platform === "win32",
 })
 process.exit(r.status ?? 1)

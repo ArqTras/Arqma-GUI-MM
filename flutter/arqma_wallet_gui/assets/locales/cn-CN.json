@@ -212,6 +212,13 @@
                 "tx_status_ok_label": "确定",
                 "tx_status_cancel_label": "取消",
                 "calculating_fee": "正在计算手续费…",
+                "split_fee_parts_info": "此付款将作为 {n} 笔独立的链上交易广播。",
+                "split_fee_parts_amounts_intro": "每笔链上交易的到账金额（ARQ）：",
+                "split_fee_part_amount_line": "第 {index} 笔：{amount} ARQ",
+                "split_fee_under_1000": "至少有一部分低于 1000 ARQ（单笔交易中最小部分：{min} ARQ）。钱包设置中的「全部归集」可合并小额输出；您仍可发送此次拆分交易。",
+                "split_fee_sweep_hint": "主菜单 → 钱包设置 →「全部归集」可在再次发送前合并小额输出。",
+                "tx_status_sweep_all_label": "全部归集（提示）",
+                "split_fee_sweep_snackbar": "从菜单打开钱包设置，然后使用「全部归集」。",
                 "payment_id": "支付 ID",
                 "payment_id_hint": "可选 — 使用集成地址 / PID 发送时需要 16 或 64 个十六进制字符",
                 "invalid_payment_id": "支付 ID 必须为空或 16 / 64 个十六进制字符"
@@ -313,7 +320,8 @@
                 "failed": "失败",
                 "scan_progress_title": "钱包正在扫描区块链",
                 "scan_progress_detail": "区块高度 {current} / {target} ({pct}%)。大约还剩 {left} 个区块待扫描。",
-                "scan_progress_hint": "早期区间通常没有匹配的转账——当你的钱包在此窗口内找到输出时，条目才会出现。"
+                "scan_progress_hint": "早期区间通常没有匹配的转账——当你的钱包在此窗口内找到输出时，条目才会出现。",
+                "scan_progress_rescan_detail": "正在进行全链重扫。在钱包线程完成前区块计数不会更新（链尖约 {target}）。"
             }
         },
         "not_found": {

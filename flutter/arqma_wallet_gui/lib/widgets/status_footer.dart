@@ -81,6 +81,7 @@ class _StatusFooterState extends State<StatusFooter> {
         store.daemon['info'] as Map<String, dynamic>? ?? {};
     final int daemonTip = _daemonChainTip(info);
     final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
+    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
@@ -92,12 +93,13 @@ class _StatusFooterState extends State<StatusFooter> {
         : 0;
     final bool walletBehind =
         walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
+    final bool walletBehindOrRescan = walletBehind || fullRescanUi;
     final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
     if (dtype == 'local') {
       if (daemonTip > 0 && dwo < daemonTip) {
         return loc.tr('components.footer.syncing');
       }
-      if (walletBehind) {
+      if (walletBehindOrRescan) {
         return loc.tr('components.footer.scanning');
       }
       if (daemonTip == 0 && walletHeight > 0) {
@@ -105,7 +107,7 @@ class _StatusFooterState extends State<StatusFooter> {
       }
       return loc.tr('components.footer.ready');
     }
-    if (walletBehind) {
+    if (walletBehindOrRescan) {
       return loc.tr('components.footer.scanning');
     }
     if (dtype == 'local_remote' && daemonTip > 0 && dwo < daemonTip) {
@@ -148,14 +150,16 @@ class _StatusFooterState extends State<StatusFooter> {
         store.daemon['info'] as Map<String, dynamic>? ?? {};
     final int daemonTip = _daemonChainTip(info);
     final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
+    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
     final int gapBlocks = displayTip > 0
         ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
         : 0;
-    final bool walletSyncedForFooter =
-        displayTip > 0 && gapBlocks <= kWalletDaemonTipToleranceBlocks;
+    final bool walletSyncedForFooter = displayTip > 0 &&
+        gapBlocks <= kWalletDaemonTipToleranceBlocks &&
+        !fullRescanUi;
 
     double daemonLocalPct() {
       if (dtype == 'remote') {
@@ -176,6 +180,9 @@ class _StatusFooterState extends State<StatusFooter> {
     double walletPct() {
       if (displayTip == 0) {
         return 0;
+      }
+      if (fullRescanUi) {
+        return 2;
       }
       if (walletSyncedForFooter) {
         return 100;
@@ -210,8 +217,8 @@ class _StatusFooterState extends State<StatusFooter> {
       if (displayTip == 0) {
         return false;
       }
-      final bool walletNeeds =
-          !walletSyncedForFooter && walletHeight < displayTip;
+      final bool walletNeeds = fullRescanUi ||
+          (!walletSyncedForFooter && walletHeight < displayTip);
       if (dtype == 'remote') {
         return walletNeeds;
       }
@@ -229,7 +236,12 @@ class _StatusFooterState extends State<StatusFooter> {
         : (walletSyncedForFooter
             ? displayTip
             : walletHeight.clamp(0, displayTip));
-
+    final String walletLine = fullRescanUi
+        ? '${loc.tr('components.footer.wallet')}: — / $displayTip (—)'
+        : '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
+            '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
+                  'n': walletBlocksLeft.toString()
+                })}' : ''}';
     String selectedLocaleLabel = loc.locale;
     for (final Map<String, String> o in _localeOptions) {
       if (o['value'] == loc.locale) {
@@ -297,12 +309,7 @@ class _StatusFooterState extends State<StatusFooter> {
                   if (dtype != 'local')
                     Text(
                         '${loc.tr('components.footer.remote')}: ${info['height']}'),
-                  Text(
-                    '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
-                    '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
-                            'n': walletBlocksLeft.toString()
-                          })}' : ''}',
-                  ),
+                  Text(walletLine),
                 ],
               ),
             ),

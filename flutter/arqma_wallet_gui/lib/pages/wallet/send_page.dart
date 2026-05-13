@@ -111,11 +111,71 @@ class _SendPageState extends State<SendPage> {
     final int code = st['code'] as int? ?? 0;
     final String message = '${st['message'] ?? ''}';
     if (code == 200) {
+      final int parts =
+          (st['transfer_split_parts'] as num?)?.toInt() ?? 1;
+      final bool isSplit = st['transfer_split_is_split'] == true || parts > 1;
+      final bool under1000 =
+          st['transfer_split_any_part_under_1000_arq'] == true;
+      final int minAtoms =
+          (st['transfer_split_min_part_atoms'] as num?)?.toInt() ?? 0;
+      final double minArq = minAtoms / 1e9;
+      final String minArqStr = minArq.toStringAsFixed(9);
       await showDialog<void>(
         context: context,
         builder: (BuildContext c) => AlertDialog(
           title: Text(loc.tr('pages.wallet.send.tx_status_title')),
-          content: Text(message),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message),
+                if (isSplit) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    loc.tr('pages.wallet.send.split_fee_parts_info',
+                        named: <String, String>{'n': '$parts'}),
+                  ),
+                  if (st['transfer_split_part_amounts_arq'] is List &&
+                      (st['transfer_split_part_amounts_arq'] as List)
+                          .isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(loc.tr('pages.wallet.send.split_fee_parts_amounts_intro')),
+                    const SizedBox(height: 8),
+                    ...List<Widget>.generate(
+                      (st['transfer_split_part_amounts_arq'] as List).length,
+                      (int i) {
+                        final Object? raw =
+                            (st['transfer_split_part_amounts_arq'] as List)[i];
+                        final String amt = '$raw';
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            loc.tr(
+                              'pages.wallet.send.split_fee_part_amount_line',
+                              named: <String, String>{
+                                'index': '${i + 1}',
+                                'amount': amt,
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+                if (under1000) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    loc.tr('pages.wallet.send.split_fee_under_1000',
+                        named: <String, String>{'min': minArqStr}),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(loc.tr('pages.wallet.send.split_fee_sweep_hint')),
+                ],
+              ],
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -125,6 +185,23 @@ class _SendPageState extends State<SendPage> {
               },
               child: Text(loc.tr('pages.wallet.send.tx_status_cancel_label')),
             ),
+            if (under1000)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(c);
+                  context.read<AppApi>().send('wallet', 'cancelTransaction',
+                      <String, dynamic>{'type': 'transfer_split'});
+                  GoRouter.of(context).go('/wallet');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          loc.tr('pages.wallet.send.split_fee_sweep_snackbar')),
+                    ),
+                  );
+                },
+                child: Text(
+                    loc.tr('pages.wallet.send.tx_status_sweep_all_label')),
+              ),
             TextButton(
               onPressed: () {
                 Navigator.pop(c);

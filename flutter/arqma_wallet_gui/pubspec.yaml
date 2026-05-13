@@ -4,7 +4,9 @@ publish_to: "none"
 version: 5.1.0+1
 
 environment:
-  sdk: ">=3.5.0 <4.0.0"
+  sdk: ">=3.11.0 <4.0.0"
+  # Lower bound = `build/ci/flutter-version` (CI + recommended local SDK for all desktop OS).
+  flutter: ">=3.41.9"
 
 dependencies:
   flutter:
@@ -25,7 +27,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

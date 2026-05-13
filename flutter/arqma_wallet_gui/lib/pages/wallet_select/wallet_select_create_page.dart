@@ -102,10 +102,9 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
       return;
     }
     Future<void> send() async {
+      final AppApi api = context.read<AppApi>();
       await AppLoading.show();
-      await context
-          .read<AppApi>()
-          .send('wallet', 'create_wallet', <String, dynamic>{
+      await api.send('wallet', 'create_wallet', <String, dynamic>{
         'name': name,
         'language': _language,
         'password': _password.text,
@@ -145,21 +144,25 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
           const SizedBox(height: 12),
           ArqmaField(
             label: loc.tr('pages.wallet_select.create.seed_language'),
-            child: DropdownButtonFormField<String>(
-              value: _seedLanguages.contains(_language)
-                  ? _language
-                  : _seedLanguages.first,
-              dropdownColor: const Color(0xFF1d1d1d),
+            child: InputDecorator(
               decoration: const InputDecoration(border: InputBorder.none),
-              items: _seedLanguages
-                  .map((String s) =>
-                      DropdownMenuItem<String>(value: s, child: Text(s)))
-                  .toList(),
-              onChanged: (String? v) {
-                if (v != null) {
-                  setState(() => _language = v);
-                }
-              },
+              child: DropdownButton<String>(
+                value: _seedLanguages.contains(_language)
+                    ? _language
+                    : _seedLanguages.first,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                dropdownColor: const Color(0xFF1d1d1d),
+                items: _seedLanguages
+                    .map((String s) =>
+                        DropdownMenuItem<String>(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (String? v) {
+                  if (v != null) {
+                    setState(() => _language = v);
+                  }
+                },
+              ),
             ),
           ),
           const SizedBox(height: 12),
