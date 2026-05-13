@@ -223,6 +223,7 @@ jobs:
             mingw-w64-x86_64-zeromq
             mingw-w64-x86_64-hidapi
             mingw-w64-x86_64-readline
+            mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-unbound
             mingw-w64-x86_64-lmdb
             mingw-w64-x86_64-icu
