@@ -1,6 +1,9 @@
 #include "wallet2_api_wrapper.hpp"
 
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -37,6 +40,109 @@ static std::string json_escape(const std::string& in) {
   }
   return out;
 }
+
+#ifndef ARQMA_WALLET2_HAS_SLICE_RELAY
+static std::filesystem::path make_temp_unsigned_tx_path() {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<unsigned> d(0, 15);
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string suffix(16, '0');
+  for (char& c : suffix) {
+    c = kHex[d(gen)];
+  }
+  return std::filesystem::temp_directory_path() /
+         ("arqma_wallet2_unsigned_" + suffix + ".tx");
+}
+
+static std::string legacy_hex_encode(const std::string& raw) {
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(raw.size() * 2);
+  for (unsigned char c : raw) {
+    out.push_back(kHex[c >> 4]);
+    out.push_back(kHex[c & 0xf]);
+  }
+  return out;
+}
+
+static bool legacy_hex_decode(const std::string& hex, std::string& out) {
+  out.clear();
+  if (hex.size() % 2 != 0) {
+    return false;
+  }
+  auto xd = [](char x) -> int {
+    if (x >= '0' && x <= '9') {
+      return x - '0';
+    }
+    if (x >= 'a' && x <= 'f') {
+      return x - 'a' + 10;
+    }
+    if (x >= 'A' && x <= 'F') {
+      return x - 'A' + 10;
+    }
+    return -1;
+  };
+  for (size_t i = 0; i + 1 < hex.size(); i += 2) {
+    const int hi = xd(hex[i]);
+    const int lo = xd(hex[i + 1]);
+    if (hi < 0 || lo < 0) {
+      return false;
+    }
+    out.push_back(static_cast<char>((hi << 4) | lo));
+  }
+  return true;
+}
+
+static bool legacy_read_file_binary(const std::filesystem::path& path, std::string& out) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f) {
+    return false;
+  }
+  f.seekg(0, std::ios::end);
+  const auto sz = f.tellg();
+  if (sz < 0) {
+    return false;
+  }
+  f.seekg(0, std::ios::beg);
+  out.resize(static_cast<size_t>(sz));
+  if (sz > 0) {
+    f.read(out.data(), sz);
+  }
+  return static_cast<bool>(f);
+}
+
+static bool legacy_write_file_binary(const std::filesystem::path& path, const std::string& data) {
+  std::ofstream f(path, std::ios::binary | std::ios::trunc);
+  if (!f) {
+    return false;
+  }
+  if (!data.empty()) {
+    f.write(data.data(), static_cast<std::streamsize>(data.size()));
+  }
+  return static_cast<bool>(f);
+}
+
+static std::string legacy_export_unsigned_pending_hex(Monero::PendingTransaction* ptx) {
+  const auto path = make_temp_unsigned_tx_path();
+  const std::string path_str = path.string();
+  if (!ptx->commit(path_str, true)) {
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    throw std::runtime_error("prepare: failed to export unsigned transaction");
+  }
+  std::string raw;
+  if (!legacy_read_file_binary(path, raw) || raw.empty()) {
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    throw std::runtime_error("prepare: empty unsigned transaction blob");
+  }
+  std::error_code ec;
+  std::filesystem::remove(path, ec);
+  return legacy_hex_encode(raw);
+}
+
+#endif  // !ARQMA_WALLET2_HAS_SLICE_RELAY
 
 }  // namespace
 
@@ -409,6 +515,7 @@ rust::String wallet2_stake_prepare_json(
     }
     bridge.pending_by_metadata[metadata] = ptx;
   } else {
+#if defined(ARQMA_WALLET2_HAS_SLICE_RELAY)
     std::vector<std::string> hexes;
     std::vector<uint64_t> fees;
     if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees) ||
@@ -418,6 +525,14 @@ rust::String wallet2_stake_prepare_json(
       throw std::runtime_error("stake: empty tx metadata");
     }
     metadata = hexes[0];
+#else
+    try {
+      metadata = legacy_export_unsigned_pending_hex(ptx);
+    } catch (const std::runtime_error&) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw;
+    }
+#endif
     bridge.wallet->disposeTransaction(ptx);
   }
   std::ostringstream oss;
@@ -475,6 +590,7 @@ rust::String wallet2_sweep_all_prepare_json(
           << "}";
       return rust::String(oss.str());
     }
+#if defined(ARQMA_WALLET2_HAS_SLICE_RELAY)
     std::vector<std::string> hexes;
     std::vector<uint64_t> fees;
     if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees)) {
@@ -511,6 +627,34 @@ rust::String wallet2_sweep_all_prepare_json(
     oss << "]}";
     bridge.wallet->disposeTransaction(ptx);
     return rust::String(oss.str());
+#else
+    std::string combined_hex;
+    try {
+      combined_hex = legacy_export_unsigned_pending_hex(ptx);
+    } catch (const std::runtime_error&) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw;
+    }
+    txids = ptx->txid();
+    const size_t n = txids.empty() ? 1 : txids.size();
+    const uint64_t base_fee = n ? fee / static_cast<uint64_t>(n) : 0;
+    const uint64_t fee_rem = n ? fee % static_cast<uint64_t>(n) : 0;
+    std::ostringstream oss;
+    oss << "{\"tx_metadata_list\":[\"" << json_escape(combined_hex) << "\"],\"tx_hash_list\":[";
+    for (size_t i = 0; i < txids.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(txids[i]) << '"';
+    }
+    oss << "],\"fee_list\":[";
+    for (size_t i = 0; i < n; ++i) {
+      if (i > 0) oss << ',';
+      const uint64_t fi = base_fee + (i == 0 ? fee_rem : 0);
+      oss << fi;
+    }
+    oss << "]}";
+    bridge.wallet->disposeTransaction(ptx);
+    return rust::String(oss.str());
+#endif
   }
   if (!ptx->commit()) {
     std::string e = ptx->errorString();
@@ -546,6 +690,7 @@ rust::String wallet2_relay_tx_json(Wallet2Bridge& bridge, const std::string& met
         << "}";
     return rust::String(oss.str());
   }
+#if defined(ARQMA_WALLET2_HAS_SLICE_RELAY)
   std::string txh;
   if (!bridge.wallet->relayTxFromMetadataHex(metadata_hex, txh)) {
     throw std::runtime_error("relay_tx: failed to relay transaction");
@@ -555,6 +700,26 @@ rust::String wallet2_relay_tx_json(Wallet2Bridge& bridge, const std::string& met
       << "\"tx_hash\":\"" << json_escape(txh) << "\""
       << "}";
   return rust::String(oss.str());
+#else
+  std::string raw;
+  if (!legacy_hex_decode(metadata_hex, raw) || raw.empty()) {
+    throw std::runtime_error("relay_tx: invalid hex metadata");
+  }
+  const auto path = make_temp_unsigned_tx_path();
+  if (!legacy_write_file_binary(path, raw)) {
+    throw std::runtime_error("relay_tx: failed to write temp transaction file");
+  }
+  const bool ok = bridge.wallet->submitTransaction(path.string());
+  std::error_code ec;
+  std::filesystem::remove(path, ec);
+  if (!ok) {
+    const std::string werr = bridge.wallet->errorString();
+    const std::string msg =
+        werr.empty() ? "relay_tx: submitTransaction failed" : ("relay_tx: " + werr);
+    throw std::runtime_error(msg);
+  }
+  return rust::String("{\"tx_hash\":\"\"}");
+#endif
 }
 
 rust::String wallet2_get_accounts_json(const Wallet2Bridge& bridge, std::uint32_t) {
@@ -691,8 +856,12 @@ rust::String wallet2_transfer_split_prepare_json(
         throw std::runtime_error("transfer_split: empty tx metadata");
       }
       bridge.pending_by_metadata[metadata] = ptx;
+#if defined(ARQMA_WALLET2_HAS_SLICE_RELAY)
       const std::vector<uint64_t> slice_amts = ptx->destinationAmountsPerSlice();
       const uint64_t a0 = slice_amts.empty() ? 0 : slice_amts[0];
+#else
+      const uint64_t a0 = ptx->amount();
+#endif
       std::ostringstream oss;
       oss << "{"
           << "\"tx_metadata_list\":[\"" << json_escape(metadata) << "\"],"
@@ -702,6 +871,7 @@ rust::String wallet2_transfer_split_prepare_json(
           << "}";
       return rust::String(oss.str());
     }
+#if defined(ARQMA_WALLET2_HAS_SLICE_RELAY)
     std::vector<std::string> hexes;
     std::vector<uint64_t> fees;
     if (!bridge.wallet->exportPendingRelaySlices(ptx, hexes, fees)) {
@@ -745,6 +915,41 @@ rust::String wallet2_transfer_split_prepare_json(
     oss << "]}";
     bridge.wallet->disposeTransaction(ptx);
     return rust::String(oss.str());
+#else
+    std::string combined_hex;
+    try {
+      combined_hex = legacy_export_unsigned_pending_hex(ptx);
+    } catch (const std::runtime_error&) {
+      bridge.wallet->disposeTransaction(ptx);
+      throw;
+    }
+    txids = ptx->txid();
+    const size_t n = txids.empty() ? 1 : txids.size();
+    const uint64_t total_amt = ptx->amount();
+    const uint64_t base_amt = n ? total_amt / static_cast<uint64_t>(n) : 0;
+    const uint64_t amt_rem = n ? total_amt % static_cast<uint64_t>(n) : 0;
+    const uint64_t base_fee = n ? fee / static_cast<uint64_t>(n) : 0;
+    const uint64_t fee_rem = n ? fee % static_cast<uint64_t>(n) : 0;
+    std::ostringstream oss;
+    oss << "{\"tx_metadata_list\":[\"" << json_escape(combined_hex) << "\"],\"tx_hash_list\":[";
+    for (size_t i = 0; i < txids.size(); ++i) {
+      if (i > 0) oss << ',';
+      oss << '"' << json_escape(txids[i]) << '"';
+    }
+    oss << "],\"fee_list\":[";
+    for (size_t i = 0; i < n; ++i) {
+      if (i > 0) oss << ',';
+      oss << (base_fee + (i == 0 ? fee_rem : 0));
+    }
+    oss << "],\"amount_list\":[";
+    for (size_t i = 0; i < n; ++i) {
+      if (i > 0) oss << ',';
+      oss << (base_amt + (i == 0 ? amt_rem : 0));
+    }
+    oss << "]}";
+    bridge.wallet->disposeTransaction(ptx);
+    return rust::String(oss.str());
+#endif
   }
   if (!ptx->commit()) {
     std::string e = ptx->errorString();
@@ -790,6 +995,21 @@ rust::String wallet2_get_transfers_json(
     if (!tx) continue;
     const uint64_t h = tx->blockHeight();
     if (h < min_height || h > max_height) continue;
+    // `type` mirrors `arqma-rpc-upstream::wallet2.h::pay_type_string` so the
+    // Flutter/Tauri/Electron filters (Service Node / Miner / Stake / …) match.
+    // `TransactionInfo` only exposes service-node and miner reward flags here,
+    // so outgoing stakes remain `out` — same as upstream `make_transfer_view`
+    // for `confirmed_transfer_details`.
+    const bool is_in =
+        tx->direction() == Monero::TransactionInfo::Direction_In;
+    const char* pay_type_str = is_in ? "in" : "out";
+    if (is_in) {
+      if (tx->isServiceNodeReward()) {
+        pay_type_str = "snode";
+      } else if (tx->isMinerReward()) {
+        pay_type_str = "miner";
+      }
+    }
     std::ostringstream row;
     row << "{"
         << "\"amount\":" << tx->amount() << ","
@@ -798,7 +1018,7 @@ rust::String wallet2_get_transfers_json(
         << "\"timestamp\":" << static_cast<std::uint64_t>(tx->timestamp()) << ","
         << "\"txid\":\"" << json_escape(tx->hash()) << "\","
         << "\"payment_id\":\"" << json_escape(tx->paymentId()) << "\","
-        << "\"type\":\"" << (tx->direction() == Monero::TransactionInfo::Direction_In ? "in" : "out") << "\""
+        << "\"type\":\"" << pay_type_str << "\""
         << "}";
     const std::string row_s = row.str();
     if (tx->isFailed()) {

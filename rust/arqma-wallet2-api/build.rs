@@ -65,10 +65,21 @@ fn resolve_mingw_gxx_exe() -> Option<String> {
 fn main() {
     let manifest_dir =
         PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let rust_workspace = manifest_dir
+        .parent()
+        .expect("arqma-wallet2-api crate must live under rust/");
     let upstream_path = match std::env::var("ARQMA_WALLET2_UPSTREAM_DIR") {
-        Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
-        // `arqma-wallet2-api` lives in `rust/`; upstream clone is `rust/arqma-rpc-upstream`.
-        _ => manifest_dir.join("../arqma-rpc-upstream"),
+        Ok(p) if !p.trim().is_empty() => {
+            let pb = PathBuf::from(p.trim());
+            if pb.is_absolute() {
+                pb
+            } else {
+                // `rust/.cargo/config.toml` `[env]` paths are relative to the directory that contains
+                // `.cargo/` (i.e. `rust/`), not the package manifest dir.
+                rust_workspace.join(pb)
+            }
+        }
+        _ => rust_workspace.join("arqma-rpc-upstream"),
     };
     let api_dir = upstream_path.join("src").join("wallet").join("api");
     let upstream_src_dir = upstream_path.join("src");
@@ -85,6 +96,12 @@ fn main() {
             header.display()
         );
     }
+
+    // `wallet2_api.h` on older Arqma (e.g. pospow) omits slice-relay helpers; C++ uses file-based
+    // unsigned tx export + `submitTransaction` instead of `exportPendingRelaySlices` /
+    // `relayTxFromMetadataHex` / `destinationAmountsPerSlice`.
+    let header_text = std::fs::read_to_string(&header).unwrap_or_default();
+    let has_slice_relay = header_text.contains("relayTxFromMetadataHex");
 
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_UPSTREAM_DIR");
     println!("cargo:rerun-if-changed=src/native.rs");
@@ -109,6 +126,9 @@ fn main() {
         if let Some(compiler) = resolve_mingw_gxx_exe() {
             b.compiler(compiler);
         }
+    }
+    if has_slice_relay {
+        b.define("ARQMA_WALLET2_HAS_SLICE_RELAY", "1");
     }
     b.file("src/wallet2_api_wrapper.cpp")
         .include("src")
