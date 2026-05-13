@@ -51,6 +51,10 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     };
 
     emit("-Wl,--no-as-needed");
+    // GitHub `wallet_merged` already folds easylogging/epee/…; re-linking the same `.a` files then
+    // causes GNU ld "multiple definition". Local/offline merges may omit them — keep aux archives.
+    // Prefer resolving duplicates over missing symbols (identical object code in practice).
+    emit("-Wl,--allow-multiple-definition");
     emit_upstream_aux_archives(&emit);
 
     if hybrid {
@@ -225,6 +229,7 @@ fn macos_hybrid_dep_libs() -> &'static [&'static str] {
 fn mingw_windows_system_libs() -> &'static [&'static str] {
     &[
         "ws2_32",
+        "mswsock",
         "iphlpapi",
         "crypt32",
         "advapi32",
