@@ -122,6 +122,13 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     emit("-Wl,--no-as-needed");
     emit_upstream_aux_archives(&emit);
 
+    if vendor.is_some() {
+        // Pull shared libstdc++ before -Bstatic/--start-group so GNU ld does not satisfy C++ symbols from
+        // libboost*.a by linking libstdc++.a (non-PIC) into the cdylib.
+        emit("-Wl,-Bdynamic");
+        emit("-lstdc++");
+    }
+
     emit("-Wl,-Bstatic");
     emit("-static-libgcc");
 
@@ -156,7 +163,9 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     emit("-lm");
     emit("-lresolv");
     emit("-ltinfo");
-    emit("-lstdc++");
+    if vendor.is_none() {
+        emit("-lstdc++");
+    }
 }
 
 fn macos_wallet_ffi_static_hybrid_cdylib_args() {
@@ -179,7 +188,6 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     // Avoid GNU ld-only flags (`--no-as-needed`, `--start-group`) — Apple ld / Rust's linker driver mishandles them.
     emit_upstream_aux_archives(&emit);
 
-    emit("-Wl,-Bstatic");
     let mac_libs: &[&str] = if vendor.is_some() {
         macos_hybrid_full_static_dep_libs()
     } else {
@@ -190,10 +198,9 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     }
 
     if let Some(rx) = upstream_librandomx_a_path() {
+        emit("-Wl,-force_load");
         emit(&path_for_ld(&rx));
     }
-
-    emit("-Wl,-Bdynamic");
     if vendor.is_none() {
         println!("cargo:rustc-link-lib=dylib=zmq");
         println!("cargo:rustc-link-lib=dylib=unbound");
@@ -382,6 +389,7 @@ fn depends_vendor_lib_dir(upstream: &Path) -> Option<PathBuf> {
 
 fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
+    let macos = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "macos";
     // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
     for sub in [
         "build/ci-depends-release",
@@ -395,12 +403,20 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
         let cn = root.join("src/cryptonote_basic/libcryptonote_format_utils_basic.a");
         let lmdb = root.join("src/lmdb/liblmdb/liblmdb.a");
         if epee.is_file() && elog.is_file() && cn.is_file() && lmdb.is_file() {
-            emit("-Wl,--whole-archive");
-            emit(&path_for_ld(&epee));
-            emit(&path_for_ld(&elog));
-            emit(&path_for_ld(&cn));
-            emit(&path_for_ld(&lmdb));
-            emit("-Wl,--no-whole-archive");
+            if macos {
+                // Apple ld does not accept GNU `--whole-archive`; force-load each .a instead.
+                for p in [&epee, &elog, &cn, &lmdb] {
+                    emit("-Wl,-force_load");
+                    emit(&path_for_ld(p));
+                }
+            } else {
+                emit("-Wl,--whole-archive");
+                emit(&path_for_ld(&epee));
+                emit(&path_for_ld(&elog));
+                emit(&path_for_ld(&cn));
+                emit(&path_for_ld(&lmdb));
+                emit("-Wl,--no-whole-archive");
+            }
             return;
         }
     }
