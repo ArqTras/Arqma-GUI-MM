@@ -62,7 +62,9 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final int code = st['code'] as int? ?? 1;
     final String errMsg = '${st['message'] ?? ''}';
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) {
+      // Use [mounted] only — reading [context.mounted] still touches [context] and throws
+      // after dispose ("widget has been unmounted").
+      if (!mounted) {
         return;
       }
       if (code == 0) {
