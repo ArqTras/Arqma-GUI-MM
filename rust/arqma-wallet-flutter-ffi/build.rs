@@ -265,6 +265,7 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
     // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
     for sub in [
+        "build/ci-depends-release",
         "build-mingw",
         "build/ci-native-release",
         "build",
@@ -292,6 +293,7 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
 fn upstream_librandomx_a_path() -> Option<PathBuf> {
     let upstream = arqma_upstream_root();
     for sub in [
+        "build/ci-depends-release",
         "build-mingw",
         "build/ci-native-release",
         "build",

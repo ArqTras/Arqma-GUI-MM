@@ -7,6 +7,10 @@ The GUI **always** links the real **`wallet2_api`** stack (`arqma-wallet2-api` �
 
 **CI note:** **[desktop release CI](../../.github/workflows/desktop-release.yml)** — **`flutter-linux`**, **`flutter-macos`**, i **`flutter-windows`** współdzielą upstream **`wallet_merged`** (**[arqtras/arqma](https://github.com/arqtras/arqma)**, **`pospow`**): klon i skrypty **`build/ci/build-arqma-*.sh`** służą **wyłącznie** do bibliotek natywnych (FFI / `wallet_merged`), **bez** budowy **`arqmad`**. **`arqmad`** dla bundli Flutter pochodzi z **najnowszego release [arqma/arqma](https://github.com/arqma/arqma/releases/latest)**: Linux i macOS — **`build/ci/fetch-arqmad-github-release.sh`**, Windows — **`build/ci/flutter-windows-fetch-arqma-binaries.ps1`**. Lokalnie możesz nadal zbudować **`arqmad`** z drzewa CMake: **`build/ci/build-arqma-daemon-copy.sh`**.
 
+## contrib/depends (Linux / macOS)
+
+With **`ARQMA_WALLET_FFI_USE_DEPENDS=1`**, **`build/ci/build-arqma-linux.sh`** / **`build/ci/build-arqma-macos.sh`** run **`make -C contrib/depends HOST=<triplet>`** under **`rust/arqma-rpc-upstream`**, then CMake with **`contrib/depends/<HOST>/share/toolchain.cmake`** and **`STATIC=ON`**, producing **`libwallet_merged.a`** under **`build/ci-depends-release/`** (same helper targets as the default path). Linux host packages for the depends build are installed via **`build/ci/install-arqma-depends-linux.sh`**. Use **`ARQMA_WALLET_FFI_USE_DEPENDS=0`** for the faster host-dev-package path (**`build/ci-native-release/`**).
+
 ## 0. Building Arqma core on macOS (native + `libwallet_merged`)
 
 To produce **`libwallet_merged.a`** (required for linking the GUI on macOS), reconfigure your CMake build with **`BUILD_GUI_DEPS=ON`** and build the **`wallet_merged`** target:

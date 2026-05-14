@@ -31,14 +31,15 @@ env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
   ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
   ARQMA_UPSTREAM_REF: pospow
+  ARQMA_WALLET_FFI_USE_DEPENDS: "1"
 
 jobs:
-  # Linux: clone + build-arqma-linux.sh → libwallet_merged.a (Rust FFI) only. arqmad is never built here;
+  # Linux: clone + contrib/depends + CMake toolchain → libwallet_merged.a (Rust FFI) only. arqmad is never built here;
   # it is fetched from arqma/arqma GitHub Releases (fetch-arqmad-github-release.sh), same policy as macOS.
   flutter-linux:
     name: Linux Flutter bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -106,6 +107,14 @@ jobs:
       - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
+
+      - name: Cache Arqma contrib/depends (vendored static deps)
+        uses: actions/cache@v4
+        with:
+          path: rust/arqma-rpc-upstream/contrib/depends
+          key: ${{ runner.os }}-arqma-depends-v1-${{ hashFiles('build/ci/build-arqma-wallet-ffi-deps.sh', 'build/ci/install-arqma-depends-linux.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-arqma-depends-v1-
 
       - name: Build Arqma wallet_merged (Linux)
         working-directory: ${{ github.workspace }}
@@ -185,7 +194,7 @@ jobs:
   flutter-macos:
     name: macOS Flutter bundle
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -229,6 +238,14 @@ jobs:
       - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
+
+      - name: Cache Arqma contrib/depends (vendored static deps)
+        uses: actions/cache@v4
+        with:
+          path: rust/arqma-rpc-upstream/contrib/depends
+          key: ${{ runner.os }}-arqma-depends-v1-${{ hashFiles('build/ci/build-arqma-wallet-ffi-deps.sh', 'build/ci/install-arqma-depends-linux.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-arqma-depends-v1-
 
       - name: Build Arqma wallet_merged (macOS)
         working-directory: ${{ github.workspace }}
