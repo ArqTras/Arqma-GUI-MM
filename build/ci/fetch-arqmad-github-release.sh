@@ -54,6 +54,24 @@ case "$OS" in
     ;;
 esac
 
+# Linux: some archives unpack `arqmad` at repo root (not under ./bin/); stage for copy-to-tauri-bins.
+if [[ "$(uname -s)" == "Linux" ]] && [[ ! -f "$ROOT/bin/arqmad" ]]; then
+  found=""
+  while IFS= read -r f; do
+    case "$f" in
+      *.app/*) continue ;;
+    esac
+    found="$f"
+    break
+  done < <(find "$ROOT" \( -path "$ROOT/.git" -o -path "$ROOT/rust/target" -o -path "$ROOT/flutter" -o -path "$ROOT/node_modules" -o -path "$ROOT/downloads" \) -prune -o -type f -name arqmad ! -path "*.app/*" -print 2>/dev/null)
+  if [[ -n "$found" ]]; then
+    mkdir -p "$ROOT/bin"
+    cp -f "$found" "$ROOT/bin/arqmad"
+    chmod +x "$ROOT/bin/arqmad" || true
+    echo "[fetch-arqmad-github-release] staged Linux daemon from $found -> bin/arqmad"
+  fi
+fi
+
 node "$ROOT/build/copy-to-tauri-bins.js"
 if [[ ! -f "$ROOT/rust/tauri-app/src-tauri/bin/arqmad" ]]; then
   echo "[fetch-arqmad-github-release] error: arqmad missing under rust/tauri-app/src-tauri/bin/ after copy (see ./bin layout and build/copy-to-tauri-bins.js)" >&2

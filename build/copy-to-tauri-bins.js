@@ -34,16 +34,40 @@ function listFilesRecursive (dir, acc) {
   return acc
 }
 
+/** Prefer standalone `bin/arqmad`; never pick a copy embedded inside `*.app` if any alternative exists. */
+function daemonPathScore (abs, binRoot) {
+  const rel = path.relative(binRoot, abs).replace(/\\/g, "/")
+  let s = 0
+  if (rel === "arqmad" || rel === "arqmad.exe") s += 200
+  if (rel.includes(".app/")) s -= 350
+  s -= rel.split("/").filter(Boolean).length
+  return s
+}
+
 function findDaemonFile (allowedNames) {
   const allowed = new Set(allowedNames)
   const all = listFilesRecursive(srcDir, [])
+  const hits = []
   for (const filePath of all) {
     const base = path.basename(filePath)
-    if (allowed.has(base)) {
-      return { filePath, destName: base }
+    if (!allowed.has(base)) {
+      continue
     }
+    hits.push({
+      filePath,
+      destName: base,
+      score: daemonPathScore(filePath, srcDir)
+    })
   }
-  return null
+  if (hits.length === 0) {
+    return null
+  }
+  hits.sort((a, b) => b.score - a.score)
+  const best = hits[0]
+  if (best.score < 0) {
+    return null
+  }
+  return { filePath: best.filePath, destName: best.destName }
 }
 
 function main () {

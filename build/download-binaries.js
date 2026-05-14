@@ -29,8 +29,12 @@ function scoreAssetName (name) {
   const n = (name || "").toLowerCase()
   let s = 0
   if (n.includes("build-depends")) { s -= 80 }
-  if (n.includes("arqmad") || /daemon|cli|binaries|static|release/.test(n)) { s += 40 }
-  if (n.endsWith(".zip") || n.endsWith(".gz") || n.endsWith(".tar.gz") || n.endsWith(".tgz")) { s += 5 }
+  // Full GUI wallet archives often match "linux/mac + x64" but are not static `arqmad` drops.
+  if (/\bwallet\b/i.test(n) && !/daemon|arqmad|static.?bin|binaries/i.test(n)) { s -= 220 }
+  if (/arqma-wallet/i.test(n) && !/daemon|arqmad/i.test(n)) { s -= 220 }
+  if (n.includes("arqmad") || /daemon|cli|binaries|static/.test(n)) { s += 45 }
+  if (n.endsWith(".zip") || n.endsWith(".gz") || n.endsWith(".tar.gz") || n.endsWith(".tgz") ||
+      n.endsWith(".tar.xz") || n.endsWith(".txz") || n.endsWith(".xz")) { s += 5 }
   return s
 }
 

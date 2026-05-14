@@ -117,7 +117,10 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
-        run: cargo build -p arqma-wallet-flutter-ffi --release
+        run: |
+          set -eu
+          export PATH="${HOME}/.cargo/bin:${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
 
       - uses: subosito/flutter-action@v2
         with:
@@ -229,7 +232,10 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
-        run: cargo build -p arqma-wallet-flutter-ffi --release
+        run: |
+          set -eu
+          export PATH="${HOME}/.cargo/bin:${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
 
       - uses: subosito/flutter-action@v2
         with:
