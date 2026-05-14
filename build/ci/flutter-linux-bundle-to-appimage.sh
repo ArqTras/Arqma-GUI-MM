@@ -9,6 +9,10 @@ TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/a
 ICON="${ARQMA_FLUTTER_APPIMAGE_ICON:-$ROOT/rust/tauri-app/public/icon_512x512.png}"
 
 test -x "$BUNDLE/Arqma-Wallet" || { echo "error: missing executable $BUNDLE/Arqma-Wallet" >&2; exit 1; }
+if [[ ! -f "$BUNDLE/lib/libarqma_wallet_flutter_ffi.so" ]]; then
+  echo "error: missing $BUNDLE/lib/libarqma_wallet_flutter_ffi.so — build wallet FFI first (see rust/arqma-wallet-flutter-ffi/README.md) and ensure flutter build linux copied it into the bundle" >&2
+  exit 1
+fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -20,10 +24,21 @@ APPDIR="$TMP/AppDir"
 mkdir -p "$APPDIR"
 cp -a "$BUNDLE"/. "$APPDIR/"
 
+# Dart `WalletNativeFfi` tries `$ORIGIN/lib/...` then `$ORIGIN/...` (same order as Windows fallback).
+# Symlink the .so next to the executable so the second path works even if `lib/` resolution differs
+# under some AppImage / FUSE / extract-and-run layouts.
+if [[ -f "$APPDIR/lib/libarqma_wallet_flutter_ffi.so" ]]; then
+  ln -sf "lib/libarqma_wallet_flutter_ffi.so" "$APPDIR/libarqma_wallet_flutter_ffi.so"
+fi
+
 cat > "$APPDIR/AppRun" << 'EOF'
 #!/bin/sh
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE" || exit 1
+# Wallet FFI `.so` links Boost/OpenSSL/ICU/etc. from the distro that built the bundle; also pick up
+# any future bundled deps shipped under `lib/`. Without this, `dlopen` can fail inside AppImage mounts
+# with a misleading "No such file or directory" when a NEEDED shared library is not found.
+export LD_LIBRARY_PATH="$HERE/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec ./Arqma-Wallet "$@"
 EOF
 chmod +x "$APPDIR/AppRun"

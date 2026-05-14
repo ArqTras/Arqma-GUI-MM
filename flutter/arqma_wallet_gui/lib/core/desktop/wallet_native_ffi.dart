@@ -170,6 +170,7 @@ final class WalletNativeFfi {
       }
     }
     try {
+      final List<String> errors = <String>[];
       for (final String path in _candidateLibraryPaths()) {
         if (path.isEmpty) {
           continue;
@@ -179,11 +180,15 @@ final class WalletNativeFfi {
           final DynamicLibrary lib = DynamicLibrary.open(path);
           return WalletNativeFfi._(lib);
         } catch (e) {
-          lastLoadFailureDetail = '$path: $e';
+          final String line = '$path: $e';
+          errors.add(line);
+          lastLoadFailureDetail = line;
           debugPrint('[WalletNativeFfi] skip open "$path": $e');
         }
       }
-      if (tried.isNotEmpty && lastLoadFailureDetail.isEmpty) {
+      if (errors.isNotEmpty) {
+        lastLoadFailureDetail = errors.join(' | ');
+      } else if (tried.isNotEmpty) {
         lastLoadFailureDetail = 'tried: ${tried.join(", ")}';
       }
       return null;
