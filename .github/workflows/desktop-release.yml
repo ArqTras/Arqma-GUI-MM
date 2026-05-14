@@ -119,6 +119,9 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          # Static-hybrid folds most native deps into the cdylib; zmq/unbound stay shared (non-PIC `.a` on Ubuntu).
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
@@ -239,6 +242,8 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.

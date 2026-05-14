@@ -5,9 +5,10 @@
 //! **Default:** native deps linked as **dynamic** where `arqma-wallet2-api` emits `rustc-link-lib=dylib` (Linux/macOS),
 //! or MSYS2-style `-l…` on **windows-gnu** (this crate always appends those flags on MinGW).
 //!
-//! **Experimental:** `ARQMA_WALLET_FFI_STATIC_HYBRID=1` — link Boost/OpenSSL/libsodium/zmq/hidapi/unbound (+ readline on Unix)
-//! **statically** into the FFI shared library; keep **ICU + iconv** on Windows and **ICU** on Linux/macOS **dynamic**
-//! (Boost.Locale). **libstdc++** stays dynamic on Windows/Linux; match toolchain defaults on macOS.
+//! **Experimental:** `ARQMA_WALLET_FFI_STATIC_HYBRID=1` — link Boost/OpenSSL/libsodium/hidapi (+ readline on Unix)
+//! **statically** into the FFI `cdylib`; **libzmq** and **libunbound** stay **dynamic** (distro static `.a` archives are
+//! often built without `-fPIC`, which breaks linking into a `.so`). Keep **ICU + iconv** on Windows and **ICU** on
+//! Linux/macOS **dynamic** (Boost.Locale). **libstdc++** stays dynamic on Windows/Linux; match toolchain defaults on macOS.
 //! On Linux/macOS you must set this env when building `arqma-wallet-flutter-ffi` so `arqma-wallet2-api` skips duplicate
 //! `dylib` link lines (see `arqma-wallet2-api/build.rs`).
 
@@ -108,7 +109,7 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     emit("-static-libgcc");
 
     emit("-Wl,--start-group");
-    for lib in linux_hybrid_dep_libs() {
+    for lib in linux_hybrid_static_dep_libs() {
         emit(&format!("-l{lib}"));
     }
     emit("-Wl,--end-group");
@@ -118,6 +119,9 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     }
 
     emit("-Wl,-Bdynamic");
+    // `libzmq.a` / `libunbound.a` from typical distro packages are not PIC → cannot go into a shared object.
+    println!("cargo:rustc-link-lib=dylib=zmq");
+    println!("cargo:rustc-link-lib=dylib=unbound");
 
     for lib in ["icuuc", "icui18n", "icudata"] {
         emit(&format!("-l{lib}"));
@@ -136,30 +140,30 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     let emit = |flag: &str| println!("cargo:rustc-cdylib-link-arg={flag}");
 
     emit("-Wl,-search_paths_first,-headerpad_max_install_names");
-    emit("-Wl,--no-as-needed");
+    // Avoid GNU ld-only flags (`--no-as-needed`, `--start-group`) — Apple ld / Rust's linker driver mishandles them.
     emit_upstream_aux_archives(&emit);
 
     emit("-Wl,-Bstatic");
-
-    emit("-Wl,--start-group");
-    for lib in macos_hybrid_dep_libs() {
+    for lib in macos_hybrid_static_dep_libs() {
         emit(&format!("-l{lib}"));
     }
-    emit("-Wl,--end-group");
 
     if let Some(rx) = upstream_librandomx_a_path() {
         emit(&path_for_ld(&rx));
     }
 
     emit("-Wl,-Bdynamic");
+    println!("cargo:rustc-link-lib=dylib=zmq");
+    println!("cargo:rustc-link-lib=dylib=unbound");
 
     for lib in ["icuuc", "icui18n", "icudata", "z"] {
         emit(&format!("-l{lib}"));
     }
 
-    for fw in ["AppKit", "IOKit", "CoreFoundation"] {
-        emit(&format!("-framework {fw}"));
-    }
+    // One token `-framework AppKit` via `rustc-cdylib-link-arg` is rejected by the driver; use Cargo's framework form.
+    println!("cargo:rustc-link-lib=framework=AppKit");
+    println!("cargo:rustc-link-lib=framework=IOKit");
+    println!("cargo:rustc-link-lib=framework=CoreFoundation");
 }
 
 fn mingw_wallet_dep_libs() -> &'static [&'static str] {
@@ -186,14 +190,14 @@ fn mingw_wallet_dep_libs() -> &'static [&'static str] {
     ]
 }
 
-fn linux_hybrid_dep_libs() -> &'static [&'static str] {
+/// Statically folded into the Linux `cdylib` (not zmq/unbound — see module doc).
+fn linux_hybrid_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi-libusb",
         "boost_program_options",
         "boost_thread",
         "boost_container",
         "boost_date_time",
-        "unbound",
         "boost_filesystem",
         "boost_atomic",
         "boost_chrono",
@@ -203,19 +207,18 @@ fn linux_hybrid_dep_libs() -> &'static [&'static str] {
         "boost_serialization",
         "boost_regex",
         "boost_locale",
-        "zmq",
         "sodium",
     ]
 }
 
-fn macos_hybrid_dep_libs() -> &'static [&'static str] {
+/// Statically folded into the macOS `cdylib` (not zmq/unbound — see module doc).
+fn macos_hybrid_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi",
         "boost_program_options",
         "boost_thread",
         "boost_container",
         "boost_date_time",
-        "unbound",
         "boost_filesystem",
         "boost_atomic",
         "boost_chrono",
@@ -225,7 +228,6 @@ fn macos_hybrid_dep_libs() -> &'static [&'static str] {
         "boost_serialization",
         "boost_regex",
         "boost_locale",
-        "zmq",
         "sodium",
     ]
 }
