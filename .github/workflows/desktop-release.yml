@@ -3,8 +3,8 @@
 # Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
-# After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or
-# `gh repo edit <owner>/<repo> --visibility private`
+# After **platform builds** finish (success or failure), job `repo-private-after-release` sets the
+# repo private when `ARQMA_REPO_VISIBILITY_PAT` is set; otherwise see `build/ci/github-repo-visibility-for-release.sh`.
 name: Desktop release (Flutter)
 
 on:
@@ -99,7 +99,9 @@ jobs:
 
       - name: Make CI scripts executable
         working-directory: ${{ github.workspace }}
-        run: chmod +x build/ci/*.sh || true
+        run: |
+          chmod +x build/ci/*.sh || true
+          chmod +x flutter/arqma_wallet_gui/tool/*.sh 2>/dev/null || true
 
       - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
         working-directory: ${{ github.workspace }}
@@ -120,7 +122,8 @@ jobs:
         run: |
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
-          cargo build -p arqma-wallet-flutter-ffi --release
+          # Match macOS job: use pinned toolchain explicitly (avoids broken or shadowed `cargo` on PATH).
+          rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
 
       - uses: subosito/flutter-action@v2
         with:
@@ -145,6 +148,10 @@ jobs:
           test -f "$SRC" || { echo "::error::missing $SRC"; exit 1; }
           cp -f "$SRC" "$lib"
           echo "Copied FFI .so -> $lib"
+
+      - name: Verify Linux bundle (parity with Windows verify step)
+        working-directory: ${{ github.workspace }}
+        run: bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh
 
       - name: Tar bundle
         working-directory: ${{ github.workspace }}
@@ -542,8 +549,10 @@ jobs:
 
   repo-private-after-release:
     name: Repository private (optional PAT)
-    needs: publish-release
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    # Run after all desktop builds finish — even if `publish-release` failed or was skipped — so the
+    # repo returns to private per release procedure (same intent as `build/ci/github-repo-visibility-for-release.sh`).
+    needs: [flutter-linux, flutter-macos, flutter-windows]
+    if: always() && github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions: {}
     steps:

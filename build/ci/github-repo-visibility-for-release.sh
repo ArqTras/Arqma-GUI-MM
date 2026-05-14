@@ -3,16 +3,16 @@
 # Use this script so visibility is public BEFORE pushes that trigger CI (commit/tag/release), then
 # private again after the Tauri workflow run finishes.
 #
-# If secret `ARQMA_REPO_VISIBILITY_PAT` is set in the repo, the Tauri workflow job
-# `repo-private-after-build` switches the repository to private after tag builds (no local script).
+# If secret `ARQMA_REPO_VISIBILITY_PAT` is set in the repo, the Desktop release workflow job
+# `repo-private-after-release` switches the repository to private after tag builds (no local script).
 #
 # Typical flow:
 #   1) ./build/ci/github-repo-visibility-for-release.sh public
 #   2) git commit … && git push … && git tag vX.Y.Z && git push origin vX.Y.Z && gh release create …
 #   3) ./build/ci/github-repo-visibility-for-release.sh watch-tauri --tag vX.Y.Z
 #
-# On **workflow_dispatch** of *Tauri app*, Actions also starts *Flutter GitHub Release* in parallel;
-# `watch-tauri` only waits for Tauri — wait for the Flutter run separately if you need both before `private`.
+# On **workflow_dispatch** of *Desktop release (Flutter)*, Actions may run parallel jobs;
+# `watch-tauri` only waits for the workflow run you select — use `gh run watch` for the Flutter run separately if needed before `private`.
 #
 # Environment: GH_TOKEN or gh auth (same as `gh`). Optional: GITHUB_REPOSITORY=owner/name
 set -eu
@@ -35,8 +35,8 @@ Usage:
   github-repo-visibility-for-release.sh private
       Set repository to private (run after CI if you skipped watch-tauri).
 
-  github-repo-visibility-for-release.sh watch-tauri --tag vX.Y.Z
-      Wait for the latest "Tauri app" workflow run for that tag, then set repository to private.
+  github-repo-visibility-for-release.sh   watch-tauri --tag vX.Y.Z
+      Wait for the latest "Desktop release (Flutter)" workflow run for that tag, then set repository to private.
       Always restores private on exit (even if the workflow failed or watch was interrupted).
 
   github-repo-visibility-for-release.sh watch-tauri --run-id RUN_ID
@@ -86,7 +86,7 @@ cmd_watch_tauri() {
       usage >&2
       exit 1
     fi
-    echo "[visibility] resolving latest Tauri app run for tag $tag …"
+    echo "[visibility] resolving latest Desktop release (Flutter) run for tag $tag …"
     run_id="$(
       gh run list -R "$REPO" --workflow=desktop-release.yml --branch "$tag" -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true
     )"
