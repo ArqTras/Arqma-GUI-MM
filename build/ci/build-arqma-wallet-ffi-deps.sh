@@ -82,6 +82,19 @@ if $use_depends; then
       ;;
   esac
 
+  if [[ "$PLATFORM" == macos ]]; then
+    if [[ -z "${SDKROOT:-}" ]]; then
+      SDKROOT="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+      export SDKROOT
+    fi
+    if [[ -z "${SDKROOT:-}" ]]; then
+      echo "error: macOS SDKROOT is empty; install Xcode / Command Line Tools" >&2
+      exit 1
+    fi
+    export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-11.0}"
+    echo "[build-arqma-wallet-ffi-deps] using SDKROOT=${SDKROOT} MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET}"
+  fi
+
   BUILD_DIR="${ARQMA_CMAKE_BUILD_DIR:-$UP/build/ci-depends-release}"
   mkdir -p "$UP/contrib/depends/built" "$UP/contrib/depends/sources"
 
