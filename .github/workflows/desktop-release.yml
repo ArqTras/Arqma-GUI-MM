@@ -304,10 +304,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash build/ci/fetch-arqmad-github-release.sh
 
+      # Omit ARQMA_WALLET_FFI_STATIC_HYBRID on macOS: contrib/depends often lacks static boost_container /
+      # boost_locale for aarch64-apple-darwin, and emit_depends_vendor_lib then falls back to `-l…` which
+      # Apple ld cannot resolve (see failed link: library 'boost_container' not found). Linux keeps full hybrid.
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
-        env:
-          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.
