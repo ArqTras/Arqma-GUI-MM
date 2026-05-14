@@ -5,12 +5,15 @@
 //! **Default:** native deps linked as **dynamic** where `arqma-wallet2-api` emits `rustc-link-lib=dylib` (Linux/macOS),
 //! or MSYS2-style `-l…` on **windows-gnu** (this crate always appends those flags on MinGW).
 //!
-//! **Experimental:** `ARQMA_WALLET_FFI_STATIC_HYBRID=1` — link Boost/OpenSSL/libsodium/hidapi (+ readline on Unix)
-//! **statically** into the FFI `cdylib`; **libzmq** and **libunbound** stay **dynamic** (distro static `.a` archives are
-//! often built without `-fPIC`, which breaks linking into a `.so`). Keep **ICU + iconv** on Windows and **ICU** on
-//! Linux/macOS **dynamic** (Boost.Locale). **libstdc++** stays dynamic on Windows/Linux; match toolchain defaults on macOS.
-//! On Linux/macOS you must set this env when building `arqma-wallet-flutter-ffi` so `arqma-wallet2-api` skips duplicate
-//! `dylib` link lines (see `arqma-wallet2-api/build.rs`).
+//! **Experimental:** `ARQMA_WALLET_FFI_STATIC_HYBRID=1` — fold Boost/OpenSSL/libsodium/hidapi/readline (+ **zmq** / **unbound**
+//! when possible) into the FFI `cdylib` for portable bundles.
+//!
+//! **Linux/macOS:** if **`contrib/depends/<host>/lib`** exists under **`ARQMA_WALLET2_UPSTREAM_DIR`** (or **`ARQMA_WALLET_FFI_DEPENDS_LIB_DIR`**),
+//! `build.rs` prepends that path so `-l…` resolves to **PIC** static archives from `make depends` — then **zmq** and **unbound**
+//! are linked **statically** too (full hybrid). Otherwise **zmq** / **unbound** stay **dynamic** (distro `.a` is usually not PIC).
+//! **ICU** (Boost.Locale) and **`libstdc++`** (Linux) typically stay **dynamic**.
+//! On Linux/macOS set this env when building `arqma-wallet-flutter-ffi` so `arqma-wallet2-api` skips duplicate `dylib` lines
+//! (see `arqma-wallet2-api/build.rs`).
 
 use std::path::{Path, PathBuf};
 
@@ -19,6 +22,7 @@ fn main() {
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
 
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_STATIC_HYBRID");
+    println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_DEPENDS_LIB_DIR");
 
     if target_os == "linux" {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
@@ -102,6 +106,19 @@ fn mingw_wallet2_native_libs_cdylib_args() {
 fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     let emit = |flag: &str| println!("cargo:rustc-cdylib-link-arg={flag}");
 
+    let upstream = arqma_upstream_root();
+    let vendor = depends_vendor_lib_dir(&upstream);
+    if let Some(ref libdir) = vendor {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            libdir.display().to_string().replace('\\', "/")
+        );
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: static-hybrid prefers contrib/depends ({})",
+            libdir.display()
+        );
+    }
+
     emit("-Wl,--no-as-needed");
     emit_upstream_aux_archives(&emit);
 
@@ -109,7 +126,12 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     emit("-static-libgcc");
 
     emit("-Wl,--start-group");
-    for lib in linux_hybrid_static_dep_libs() {
+    let linux_libs: &[&str] = if vendor.is_some() {
+        linux_hybrid_full_static_dep_libs()
+    } else {
+        linux_hybrid_static_dep_libs()
+    };
+    for lib in linux_libs {
         emit(&format!("-l{lib}"));
     }
     emit("-Wl,--end-group");
@@ -119,9 +141,10 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     }
 
     emit("-Wl,-Bdynamic");
-    // `libzmq.a` / `libunbound.a` from typical distro packages are not PIC → cannot go into a shared object.
-    println!("cargo:rustc-link-lib=dylib=zmq");
-    println!("cargo:rustc-link-lib=dylib=unbound");
+    if vendor.is_none() {
+        println!("cargo:rustc-link-lib=dylib=zmq");
+        println!("cargo:rustc-link-lib=dylib=unbound");
+    }
 
     for lib in ["icuuc", "icui18n", "icudata"] {
         emit(&format!("-l{lib}"));
@@ -139,12 +162,30 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
 fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     let emit = |flag: &str| println!("cargo:rustc-cdylib-link-arg={flag}");
 
+    let upstream = arqma_upstream_root();
+    let vendor = depends_vendor_lib_dir(&upstream);
+    if let Some(ref libdir) = vendor {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            libdir.display().to_string().replace('\\', "/")
+        );
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: static-hybrid prefers contrib/depends ({})",
+            libdir.display()
+        );
+    }
+
     emit("-Wl,-search_paths_first,-headerpad_max_install_names");
     // Avoid GNU ld-only flags (`--no-as-needed`, `--start-group`) — Apple ld / Rust's linker driver mishandles them.
     emit_upstream_aux_archives(&emit);
 
     emit("-Wl,-Bstatic");
-    for lib in macos_hybrid_static_dep_libs() {
+    let mac_libs: &[&str] = if vendor.is_some() {
+        macos_hybrid_full_static_dep_libs()
+    } else {
+        macos_hybrid_static_dep_libs()
+    };
+    for lib in mac_libs {
         emit(&format!("-l{lib}"));
     }
 
@@ -153,8 +194,10 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     }
 
     emit("-Wl,-Bdynamic");
-    println!("cargo:rustc-link-lib=dylib=zmq");
-    println!("cargo:rustc-link-lib=dylib=unbound");
+    if vendor.is_none() {
+        println!("cargo:rustc-link-lib=dylib=zmq");
+        println!("cargo:rustc-link-lib=dylib=unbound");
+    }
 
     for lib in ["icuuc", "icui18n", "icudata", "z"] {
         emit(&format!("-l{lib}"));
@@ -190,7 +233,30 @@ fn mingw_wallet_dep_libs() -> &'static [&'static str] {
     ]
 }
 
-/// Statically folded into the Linux `cdylib` (not zmq/unbound — see module doc).
+/// `contrib/depends` PIC static libs — full set for portable `cdylib` (includes zmq + unbound).
+fn linux_hybrid_full_static_dep_libs() -> &'static [&'static str] {
+    &[
+        "hidapi-libusb",
+        "boost_program_options",
+        "boost_thread",
+        "boost_container",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "ssl",
+        "crypto",
+        "readline",
+        "boost_serialization",
+        "boost_regex",
+        "boost_locale",
+        "zmq",
+        "sodium",
+    ]
+}
+
+/// Host static libs only (no zmq/unbound) when `contrib/depends` is absent — see module doc.
 fn linux_hybrid_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi-libusb",
@@ -211,7 +277,29 @@ fn linux_hybrid_static_dep_libs() -> &'static [&'static str] {
     ]
 }
 
-/// Statically folded into the macOS `cdylib` (not zmq/unbound — see module doc).
+fn macos_hybrid_full_static_dep_libs() -> &'static [&'static str] {
+    &[
+        "hidapi",
+        "boost_program_options",
+        "boost_thread",
+        "boost_container",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "ssl",
+        "crypto",
+        "readline",
+        "boost_serialization",
+        "boost_regex",
+        "boost_locale",
+        "zmq",
+        "sodium",
+    ]
+}
+
+/// Host static libs only when `contrib/depends` is absent — see module doc.
 fn macos_hybrid_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi",
@@ -259,6 +347,37 @@ fn arqma_upstream_root() -> PathBuf {
             PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
                 .join("../arqma-rpc-upstream")
         })
+}
+
+/// Matches `contrib/depends` hosts used in `build/ci/build-arqma-wallet-ffi-deps.sh`.
+fn depends_host_triple() -> Option<&'static str> {
+    let os = std::env::var("CARGO_CFG_TARGET_OS").ok()?;
+    let arch = std::env::var("CARGO_CFG_TARGET_ARCH").ok()?;
+    match (os.as_str(), arch.as_str()) {
+        ("linux", "x86_64") => Some("x86_64-unknown-linux-gnu"),
+        ("macos", "aarch64") => Some("aarch64-apple-darwin"),
+        ("macos", "x86_64") => Some("x86_64-apple-darwin"),
+        _ => None,
+    }
+}
+
+/// Vendored static/PIC libs from `make -C contrib/depends` (full hybrid when present).
+fn depends_vendor_lib_dir(upstream: &Path) -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("ARQMA_WALLET_FFI_DEPENDS_LIB_DIR") {
+        let pb = PathBuf::from(p.trim());
+        if pb.is_dir() {
+            return Some(pb);
+        }
+    }
+    let host = depends_host_triple()?;
+    let lib = upstream.join("contrib/depends").join(host).join("lib");
+    if !lib.is_dir() {
+        return None;
+    }
+    if lib.join("libssl.a").is_file() || lib.join("libzmq.a").is_file() {
+        return Some(lib);
+    }
+    None
 }
 
 fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {

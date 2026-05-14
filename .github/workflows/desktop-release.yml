@@ -31,6 +31,8 @@ env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
   ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
   ARQMA_UPSTREAM_REF: pospow
+  # Native wallet_merged: vendored static deps via contrib/depends (Linux/mac). Flutter FFI STATIC_HYBRID then
+  # resolves zmq/Boost/… from contrib/depends/.../lib when that tree exists (see arqma-wallet-flutter-ffi/build.rs).
   ARQMA_WALLET_FFI_USE_DEPENDS: "1"
 
 jobs:
@@ -128,6 +130,9 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          # Full static-hybrid when contrib/depends is present (PIC); build.rs falls back to dylib zmq/unbound otherwise.
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
@@ -256,6 +261,8 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.
