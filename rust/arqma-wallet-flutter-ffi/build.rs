@@ -197,10 +197,9 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
         emit(&format!("-l{lib}"));
     }
 
-    if let Some(rx) = upstream_librandomx_a_path() {
-        emit("-Wl,-force_load");
-        emit(&path_for_ld(&rx));
-    }
+    // `arqma-wallet2-api` on macOS links `wallet_merged` + `lmdb` only; merged already folds epee /
+    // easylogging / randomx / cryptonote. Do not `force_load` standalone `librandomx.a` here.
+
     if vendor.is_none() {
         println!("cargo:rustc-link-lib=dylib=zmq");
         println!("cargo:rustc-link-lib=dylib=unbound");
@@ -404,11 +403,10 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
         let lmdb = root.join("src/lmdb/liblmdb/liblmdb.a");
         if epee.is_file() && elog.is_file() && cn.is_file() && lmdb.is_file() {
             if macos {
-                // Apple ld does not accept GNU `--whole-archive`; force-load each .a instead.
-                for p in [&epee, &elog, &cn, &lmdb] {
-                    emit("-Wl,-force_load");
-                    emit(&path_for_ld(p));
-                }
+                // `wallet_merged` on macOS already contains these objects; `arqma-wallet2-api` links
+                // `wallet_merged` + `lmdb` via `#[link]`. Re-linking the split `.a` files causes hundreds
+                // of duplicate symbols (Apple ld has no `-z muldefs`).
+                return;
             } else {
                 emit("-Wl,--whole-archive");
                 emit(&path_for_ld(&epee));

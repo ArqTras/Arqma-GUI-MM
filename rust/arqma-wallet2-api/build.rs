@@ -120,6 +120,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_MSYS_ROOT");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_GXX");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_STATIC_HYBRID");
+    println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_USE_DEPENDS");
 
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
@@ -200,6 +201,15 @@ fn brew_prefix() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/opt/homebrew"))
 }
 
+/// Linux/macOS: `contrib/depends` + static-hybrid — do not add distro/Homebrew `-L` paths that shadow
+/// the vendored static archives (e.g. Ubuntu `libboost_*.a` in `/usr` breaks PIC when linking `.so`).
+fn wallet_ffi_depends_vendor_paths_suppressed() -> bool {
+    wallet_ffi_static_hybrid()
+        && std::env::var("ARQMA_WALLET_FFI_USE_DEPENDS")
+            .map(|v| matches!(v.trim(), "1" | "true" | "TRUE" | "yes" | "YES"))
+            .unwrap_or(false)
+}
+
 fn configure_wallet2_linking_macos(upstream_path: &Path) {
     let lib_dir = std::env::var("ARQMA_WALLET2_LIB_DIR")
         .ok()
@@ -230,22 +240,24 @@ fn configure_wallet2_linking_macos(upstream_path: &Path) {
 
     let bp = brew_prefix();
     println!("cargo:rustc-link-arg=-Wl,-search_paths_first,-headerpad_max_install_names");
-    for rel in [
-        "lib",
-        "opt/openssl@3/lib",
-        "opt/boost/lib",
-        "opt/libsodium/lib",
-        "opt/unbound/lib",
-        "opt/readline/lib",
-        "opt/hidapi/lib",
-        "opt/icu4c/lib",
-        "opt/icu4c@78/lib",
-        "opt/lmdb/lib",
-        "opt/zeromq/lib",
-    ] {
-        let p = bp.join(rel);
-        if p.is_dir() {
-            println!("cargo:rustc-link-search=native={}", p.display());
+    if !wallet_ffi_depends_vendor_paths_suppressed() {
+        for rel in [
+            "lib",
+            "opt/openssl@3/lib",
+            "opt/boost/lib",
+            "opt/libsodium/lib",
+            "opt/unbound/lib",
+            "opt/readline/lib",
+            "opt/hidapi/lib",
+            "opt/icu4c/lib",
+            "opt/icu4c@78/lib",
+            "opt/lmdb/lib",
+            "opt/zeromq/lib",
+        ] {
+            let p = bp.join(rel);
+            if p.is_dir() {
+                println!("cargo:rustc-link-search=native={}", p.display());
+            }
         }
     }
 
@@ -312,13 +324,15 @@ fn configure_wallet2_linking_linux(upstream_path: &Path) {
         }
     }
 
-    for dir in [
-        "/usr/lib/x86_64-linux-gnu",
-        "/usr/lib",
-        "/lib/x86_64-linux-gnu",
-    ] {
-        if Path::new(dir).is_dir() {
-            println!("cargo:rustc-link-search=native={dir}");
+    if !wallet_ffi_depends_vendor_paths_suppressed() {
+        for dir in [
+            "/usr/lib/x86_64-linux-gnu",
+            "/usr/lib",
+            "/lib/x86_64-linux-gnu",
+        ] {
+            if Path::new(dir).is_dir() {
+                println!("cargo:rustc-link-search=native={dir}");
+            }
         }
     }
 
