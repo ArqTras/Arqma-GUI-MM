@@ -2473,7 +2473,8 @@ final class DesktopNativeBridge implements NativeBridge {
     final double amountFixed = double.parse(amountUi.toStringAsFixed(9));
     final int atoms = (amountFixed * _arqCoinUnits).round();
     final int priority = (p['priority'] as num?)?.toInt() ?? 0;
-    return <String, dynamic>{
+    final String paymentId = '${p['payment_id'] ?? ''}'.trim();
+    final Map<String, dynamic> out = <String, dynamic>{
       'destinations': <Map<String, dynamic>>[
         <String, dynamic>{'amount': atoms, 'address': address},
       ],
@@ -2482,6 +2483,10 @@ final class DesktopNativeBridge implements NativeBridge {
       'do_not_relay': true,
       'get_tx_metadata': true,
     };
+    if (paymentId.isNotEmpty) {
+      out['payment_id'] = paymentId;
+    }
+    return out;
   }
 
   void _pushTransferMetadataFromResult(
