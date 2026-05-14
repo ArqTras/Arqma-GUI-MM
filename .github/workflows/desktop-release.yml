@@ -119,6 +119,10 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          # Fold Boost/OpenSSL/zmq/… into the cdylib so AppImage/tarball work on distros without
+          # Ubuntu 24.04’s exact `libboost_program_options.so.N` soname (see `wallet_native_ffi` / `build.rs`).
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
@@ -239,6 +243,8 @@ jobs:
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
+        env:
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
         run: |
           set -eu
           # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.

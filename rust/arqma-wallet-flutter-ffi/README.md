@@ -10,6 +10,8 @@ This crate ships a `build.rs` so the **`cdylib`** link pulls the same MinGW syst
 
 **Windows:** ship **`arqma_wallet_flutter_ffi.dll`** plus the usual MinGW dependency DLLs in **`runner/Release/`** next to the app (see `flutter/arqma_wallet_gui/tool/package_flutter_release.ps1`). Optional: **`libwallet_merged.a`** is copied there when `rust/arqma-rpc-upstream/build-mingw/` exists (CI / local MinGW build). Fully static “one DLL only” is not supported with stock MSYS2 because **Boost.Locale** is built against ICU **shared** imports (`__imp_*`), which conflicts with linking ICU entirely as static `.a` archives.
 
+**Linux / macOS (portable bundles, AppImage, tarballs):** the default `cdylib` link leaves **`NEEDED`** entries for Boost/OpenSSL/etc. matching the **build host** (e.g. Ubuntu’s `libboost_program_options.so.1.83.0`). Other machines then fail `dlopen` with “no such file” even though `libarqma_wallet_flutter_ffi.so` is present. Set **`ARQMA_WALLET_FFI_STATIC_HYBRID=1`** when running `cargo build -p arqma-wallet-flutter-ffi` so those deps are folded in statically where supported (ICU + `libstdc++` stay dynamic — see `build.rs`). GitHub Actions **`.github/workflows/desktop-release.yml`** sets this for the Linux and macOS Flutter release jobs.
+
 **One-shot helpers**
 
 - **Windows (PowerShell):** `rust/tool/build_native_wallet_flutter_ffi_windows.ps1` — runs `npm run build:arqma:mingw` then `cargo build …--target x86_64-pc-windows-gnu` and optionally `flutter build windows --release`.
