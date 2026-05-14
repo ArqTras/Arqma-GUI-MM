@@ -2,7 +2,9 @@
 # Fast `flutter analyze` on Linux/Windows/macOS runners: `.github/workflows/flutter-verify.yml`.
 # Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
-# Before first public release: `gh repo edit <owner>/<repo> --visibility public`
+# Before CI on a **private** org repo (minute limits): set public — locally `gh repo edit … --visibility public`,
+# or run *Desktop release (Flutter)* via `workflow_dispatch` with `make_repo_public=true` and secret
+# `ARQMA_REPO_VISIBILITY_PAT` (PAT must allow `repo` / admin for visibility).
 # After **platform builds** finish (success or failure), job `repo-private-after-release` sets the
 # repo private when `ARQMA_REPO_VISIBILITY_PAT` is set; otherwise see `build/ci/github-repo-visibility-for-release.sh`.
 name: Desktop release (Flutter)
@@ -19,6 +21,11 @@ on:
         required: true
         default: "5.1.0"
         type: string
+      make_repo_public:
+        description: "If true, set repository public before builds (requires ARQMA_REPO_VISIBILITY_PAT)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -36,10 +43,39 @@ env:
   ARQMA_WALLET_FFI_USE_DEPENDS: "1"
 
 jobs:
+  # Single entry job so platform jobs do not run while optional "public first" is pending; skipped steps are OK.
+  ci-bootstrap:
+    name: CI bootstrap (optional repo public)
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Optionally set repository public
+        env:
+          GH_TOKEN: ${{ secrets.ARQMA_REPO_VISIBILITY_PAT }}
+          EVENT_NAME: ${{ github.event_name }}
+          MAKE_PUBLIC: ${{ github.event.inputs.make_repo_public }}
+        run: |
+          set -eu
+          if [ "${EVENT_NAME}" != "workflow_dispatch" ]; then
+            echo "Not workflow_dispatch — skip visibility change."
+            exit 0
+          fi
+          if [ "${MAKE_PUBLIC:-false}" != "true" ]; then
+            echo "make_repo_public not true — skip."
+            exit 0
+          fi
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::make_repo_public requires secret ARQMA_REPO_VISIBILITY_PAT (admin on repo)"
+            exit 1
+          fi
+          gh api -X PATCH "repos/${{ github.repository }}" -f visibility=public
+          gh repo view "${{ github.repository }}" --json visibility,isPrivate
+
   # Linux: clone + contrib/depends + CMake toolchain → libwallet_merged.a (Rust FFI) only. arqmad is never built here;
   # it is fetched from arqma/arqma GitHub Releases (fetch-arqmad-github-release.sh), same policy as macOS.
   flutter-linux:
     name: Linux Flutter bundle
+    needs: [ci-bootstrap]
     runs-on: ubuntu-latest
     timeout-minutes: 180
     defaults:
@@ -203,6 +239,7 @@ jobs:
   # macOS: same split as Linux — upstream build = wallet_merged for FFI; arqmad from GitHub Releases.
   flutter-macos:
     name: macOS Flutter bundle
+    needs: [ci-bootstrap]
     runs-on: macos-latest
     timeout-minutes: 180
     defaults:
@@ -292,6 +329,19 @@ jobs:
           (cd flutter/arqma_wallet_gui && ./tool/package_flutter_release.sh macos)
           ls -la flutter/arqma_wallet_gui/dist/
 
+      - name: Verify macOS bundle (native FFI dylib + arqmad in .app)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          app="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
+          test -d "$app"
+          test -f "$app/Contents/Frameworks/libarqma_wallet_flutter_ffi.dylib" \
+            || { echo "::error::missing native wallet FFI dylib in $app"; exit 1; }
+          test -f "$app/Contents/Resources/bin/arqmad" \
+            || { echo "::error::missing bundled arqmad (fetch + copy-to-tauri-bins before flutter build)"; exit 1; }
+          chmod +x "$app/Contents/Resources/bin/arqmad" || true
+          echo "macOS bundle verify OK"
+
       - uses: actions/upload-artifact@v6
         with:
           name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
@@ -302,6 +352,7 @@ jobs:
 
   flutter-windows:
     name: Windows Flutter bundle
+    needs: [ci-bootstrap]
     runs-on: windows-latest
     timeout-minutes: 180
     defaults:
@@ -532,7 +583,7 @@ jobs:
 
   publish-release:
     name: GitHub Release (Flutter)
-    needs: [flutter-linux, flutter-macos, flutter-windows]
+    needs: [ci-bootstrap, flutter-linux, flutter-macos, flutter-windows]
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
@@ -583,8 +634,11 @@ jobs:
     name: Repository private (optional PAT)
     # Run after all desktop builds finish — even if `publish-release` failed or was skipped — so the
     # repo returns to private per release procedure (same intent as `build/ci/github-repo-visibility-for-release.sh`).
-    needs: [flutter-linux, flutter-macos, flutter-windows]
-    if: always() && github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [ci-bootstrap, flutter-linux, flutter-macos, flutter-windows]
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref_type == 'tag'))
     runs-on: ubuntu-latest
     permissions: {}
     steps:
