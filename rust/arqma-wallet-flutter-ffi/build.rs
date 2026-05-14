@@ -11,7 +11,9 @@
 //! **Linux/macOS:** if **`contrib/depends/<host>/lib`** exists under **`ARQMA_WALLET2_UPSTREAM_DIR`** (or **`ARQMA_WALLET_FFI_DEPENDS_LIB_DIR`**),
 //! `build.rs` prepends that path so `-l…` resolves to **PIC** static archives from `make depends` — then **zmq** and **unbound**
 //! are linked **statically** too (full hybrid). Otherwise **zmq** / **unbound** stay **dynamic** (distro `.a` is usually not PIC).
-//! **ICU** (Boost.Locale) and **`libstdc++`** (Linux) typically stay **dynamic**.
+//! **ICU:** when **`libicuuc.a`**, **`libicui18n.a`**, and **`libicudata.a`** are present in that same `lib/` (from
+//! `build/ci/build-icu-static-into-depends.sh`), they are folded **statically**; otherwise ICU stays **dynamic**.
+//! **`libstdc++`** (Linux) typically stays **dynamic** when using vendored Boost.
 //! On Linux/macOS set this env when building `arqma-wallet-flutter-ffi` so `arqma-wallet2-api` skips duplicate `dylib` lines
 //! (see `arqma-wallet2-api/build.rs`).
 
@@ -143,6 +145,7 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
             for stem in linux_libs {
                 emit_depends_vendor_lib(&emit, libdir, stem);
             }
+            emit_depends_icu_static_if_present(&emit, libdir);
         }
         None => {
             for stem in linux_libs {
@@ -162,8 +165,14 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
         println!("cargo:rustc-link-lib=dylib=unbound");
     }
 
-    for lib in ["icuuc", "icui18n", "icudata"] {
-        emit(&format!("-l{lib}"));
+    if vendor
+        .as_ref()
+        .and_then(|d| depends_vendor_icu_static_triple(d))
+        .is_none()
+    {
+        for lib in ["icuuc", "icui18n", "icudata"] {
+            emit(&format!("-l{lib}"));
+        }
     }
 
     emit("-lz");
@@ -175,7 +184,7 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     if vendor.is_none() {
         emit("-lstdc++");
     }
-    // ICU/zlib/etc. are often copied next to this `.so` under `bundle/lib/` — resolve them before global paths.
+    // Remaining dynamic deps (e.g. zlib) may still be resolved from global paths; `$ORIGIN` picks up bundled `.so` copies.
     emit("-Wl,-z,origin");
     emit("-Wl,-rpath,$ORIGIN");
 }
@@ -210,6 +219,7 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
             for stem in mac_libs {
                 emit_depends_vendor_lib(&emit, libdir, stem);
             }
+            emit_depends_icu_static_if_present(&emit, libdir);
         }
         None => {
             for stem in mac_libs {
@@ -226,11 +236,16 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
         println!("cargo:rustc-link-lib=dylib=unbound");
     }
 
-    for lib in ["icuuc", "icui18n", "icudata", "z"] {
-        emit(&format!("-l{lib}"));
+    if vendor
+        .as_ref()
+        .and_then(|d| depends_vendor_icu_static_triple(d))
+        .is_none()
+    {
+        for lib in ["icuuc", "icui18n", "icudata"] {
+            emit(&format!("-l{lib}"));
+        }
     }
-
-    // One token `-framework AppKit` via `rustc-cdylib-link-arg` is rejected by the driver; use Cargo's framework form.
+    emit("-lz");
     println!("cargo:rustc-link-lib=framework=AppKit");
     println!("cargo:rustc-link-lib=framework=IOKit");
     println!("cargo:rustc-link-lib=framework=CoreFoundation");
@@ -388,6 +403,30 @@ fn depends_vendor_archive_paths(libdir: &Path, stem: &str) -> Vec<PathBuf> {
         _ => out.push(libdir.join(format!("lib{stem}.a"))),
     }
     out
+}
+
+/// Static ICU archives from `build/ci/build-icu-static-into-depends.sh` (same `contrib/depends/.../lib` tree).
+fn depends_vendor_icu_static_triple(libdir: &Path) -> Option<(PathBuf, PathBuf, PathBuf)> {
+    let data = libdir.join("libicudata.a");
+    let i18n = libdir.join("libicui18n.a");
+    let uc = libdir.join("libicuuc.a");
+    if data.is_file() && i18n.is_file() && uc.is_file() {
+        Some((data, i18n, uc))
+    } else {
+        None
+    }
+}
+
+fn emit_depends_icu_static_if_present(emit: &dyn Fn(&str), libdir: &Path) {
+    if let Some((data, i18n, uc)) = depends_vendor_icu_static_triple(libdir) {
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: linking static ICU from {}",
+            libdir.display()
+        );
+        emit(&path_for_ld(&data));
+        emit(&path_for_ld(&i18n));
+        emit(&path_for_ld(&uc));
+    }
 }
 
 /// `contrib/depends` Boost packages often use non-canonical names (e.g. `libboost_thread-mt-x64.a`).

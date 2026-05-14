@@ -101,6 +101,10 @@ if $use_depends; then
   echo "[build-arqma-wallet-ffi-deps] contrib/depends (HOST=$DEPENDS_HOST) — this can take a long time on a cold cache"
   make -C "$UP/contrib/depends" "HOST=$DEPENDS_HOST" -j"$J"
 
+  # Static ICU into the same depends lib/ tree (not part of upstream packages.mk) so the Flutter FFI
+  # cdylib can link Boost.Locale without runtime libicu*.so.
+  bash "$ROOT/build/ci/build-icu-static-into-depends.sh" "$UP" "$DEPENDS_HOST"
+
   TOOLCHAIN="$UP/contrib/depends/$DEPENDS_HOST/share/toolchain.cmake"
   test -f "$TOOLCHAIN" || {
     echo "error: missing toolchain file: $TOOLCHAIN" >&2
