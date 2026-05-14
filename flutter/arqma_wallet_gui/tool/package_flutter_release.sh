@@ -84,6 +84,8 @@ package_linux() {
     echo "error: missing ${bundle} after build" >&2
     exit 1
   fi
+  chmod +x "${GUI_ROOT}/tool/bundle_linux_ffi_runtime_libs.sh"
+  bash "${GUI_ROOT}/tool/bundle_linux_ffi_runtime_libs.sh" "${bundle}"
   local base="Arqma-Wallet-Flutter-${VERSION_SAFE}-linux-${arch}"
   local tgz="${DIST}/${base}.tar.gz"
   rm -f "${tgz}"

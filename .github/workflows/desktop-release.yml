@@ -163,6 +163,14 @@ jobs:
           cp -f "$SRC" "$lib"
           echo "Copied FFI .so -> $lib"
 
+      - name: Bundle Linux wallet FFI runtime libs (ICU, zlib, …)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh
+          bash flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh \
+            "flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
+
       - name: Verify Linux bundle (parity with Windows verify step)
         working-directory: ${{ github.workspace }}
         run: bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh

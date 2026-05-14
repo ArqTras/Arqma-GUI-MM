@@ -39,6 +39,15 @@ if [[ ! -f "${B}/bin/arqmad" ]]; then
   fi
 fi
 
+export LC_ALL=C
+if command -v ldd >/dev/null 2>&1; then
+  if ldd "${B}/lib/libarqma_wallet_flutter_ffi.so" 2>/dev/null | grep -q 'not found'; then
+    echo "::error::bundle verify: libarqma_wallet_flutter_ffi.so has unresolved shared libs (run tool/bundle_linux_ffi_runtime_libs.sh after build)" >&2
+    ldd "${B}/lib/libarqma_wallet_flutter_ffi.so" >&2 || true
+    failed=1
+  fi
+fi
+
 if [[ "${failed}" -ne 0 ]]; then
   exit 1
 fi

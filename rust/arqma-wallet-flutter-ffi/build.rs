@@ -175,6 +175,9 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     if vendor.is_none() {
         emit("-lstdc++");
     }
+    // ICU/zlib/etc. are often copied next to this `.so` under `bundle/lib/` — resolve them before global paths.
+    emit("-Wl,-z,origin");
+    emit("-Wl,-rpath,$ORIGIN");
 }
 
 fn macos_wallet_ffi_static_hybrid_cdylib_args() {
