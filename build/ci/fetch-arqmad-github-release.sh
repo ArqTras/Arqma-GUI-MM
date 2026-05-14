@@ -55,4 +55,9 @@ case "$OS" in
 esac
 
 node "$ROOT/build/copy-to-tauri-bins.js"
+if [[ ! -f "$ROOT/rust/tauri-app/src-tauri/bin/arqmad" ]]; then
+  echo "[fetch-arqmad-github-release] error: arqmad missing under rust/tauri-app/src-tauri/bin/ after copy (see ./bin layout and build/copy-to-tauri-bins.js)" >&2
+  find "$ROOT/bin" -type f 2>/dev/null | head -80 || true
+  exit 1
+fi
 echo "[fetch-arqmad-github-release] OK"

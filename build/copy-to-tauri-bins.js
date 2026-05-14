@@ -17,33 +17,51 @@ function daemonBasenames () {
   return ["arqmad"]
 }
 
+/** macOS `unzip` often leaves `arqmad` nested under `./bin/<subdir>/...`; Linux tar can too. */
+function listFilesRecursive (dir, acc) {
+  if (!fs.existsSync(dir)) {
+    return acc
+  }
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name)
+    const st = fs.statSync(full)
+    if (st.isDirectory()) {
+      listFilesRecursive(full, acc)
+    } else if (st.isFile()) {
+      acc.push(full)
+    }
+  }
+  return acc
+}
+
+function findDaemonFile (allowedNames) {
+  const allowed = new Set(allowedNames)
+  const all = listFilesRecursive(srcDir, [])
+  for (const filePath of all) {
+    const base = path.basename(filePath)
+    if (allowed.has(base)) {
+      return { filePath, destName: base }
+    }
+  }
+  return null
+}
+
 function main () {
   if (!fs.existsSync(srcDir)) {
     console.log("[copy-to-tauri-bins] no ./bin directory — skipping (build without external binaries).")
     return
   }
   fs.mkdirSync(dstDir, { recursive: true })
-  const allowed = new Set(daemonBasenames())
-  const names = fs.readdirSync(srcDir)
-  let n = 0
-  for (const name of names) {
-    if (!allowed.has(name)) {
-      continue
-    }
-    const s = path.join(srcDir, name)
-    if (!fs.statSync(s).isFile()) {
-      continue
-    }
-    fs.copyFileSync(s, path.join(dstDir, name))
-    n++
-  }
-  if (n === 0) {
+  const names = daemonBasenames()
+  const hit = findDaemonFile(names)
+  if (!hit) {
     console.log(
-      `[copy-to-tauri-bins] no matching daemon in ./bin (expected ${[...allowed].join(", ")}) — skipping`
+      `[copy-to-tauri-bins] no matching daemon under ./bin (expected ${names.join(", ")} anywhere under ./bin) — skipping`
     )
     return
   }
-  console.log(`[copy-to-tauri-bins] copied ${n} file(s) (arqmad only) to ${dstDir}`)
+  fs.copyFileSync(hit.filePath, path.join(dstDir, hit.destName))
+  console.log(`[copy-to-tauri-bins] copied ${hit.destName} from ${hit.filePath} -> ${dstDir}`)
 }
 
 main()
