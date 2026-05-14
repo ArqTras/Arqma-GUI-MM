@@ -387,6 +387,36 @@ fn depends_vendor_archive_paths(libdir: &Path, stem: &str) -> Vec<PathBuf> {
     out
 }
 
+/// `contrib/depends` Boost packages often use non-canonical names (e.g. `libboost_thread-mt-x64.a`).
+/// Pick the first matching `lib{stem}*.a` so we never fall back to `-l` (GCC would resolve host `libboost_*.a`).
+fn depends_vendor_archive_fuzzy_boost(libdir: &Path, stem: &str) -> Option<PathBuf> {
+    if !stem.starts_with("boost_") {
+        return None;
+    }
+    let prefix = format!("lib{stem}");
+    let mut hits: Vec<PathBuf> = std::fs::read_dir(libdir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension().and_then(|x| x.to_str()) == Some("a")
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| {
+                        if !n.starts_with(&prefix) {
+                            return false;
+                        }
+                        let tail = &n[prefix.len()..];
+                        tail.is_empty() || tail.starts_with('-') || tail.starts_with('.')
+                    })
+                    .unwrap_or(false)
+        })
+        .collect();
+    hits.sort();
+    hits.into_iter().next()
+}
+
 /// Emit an absolute path to a vendored `.a` so the linker does not fall back to GCC/Homebrew `-l` search paths.
 fn emit_depends_vendor_lib(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
     for p in depends_vendor_archive_paths(libdir, stem) {
@@ -394,6 +424,10 @@ fn emit_depends_vendor_lib(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
             emit(&path_for_ld(&p));
             return;
         }
+    }
+    if let Some(p) = depends_vendor_archive_fuzzy_boost(libdir, stem) {
+        emit(&path_for_ld(&p));
+        return;
     }
     println!(
         "cargo:warning=arqma-wallet-flutter-ffi: contrib/depends has no static archive for `{stem}` under {}",
