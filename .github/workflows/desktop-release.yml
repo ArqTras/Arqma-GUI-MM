@@ -234,8 +234,8 @@ jobs:
         working-directory: rust
         run: |
           set -eu
-          export PATH="${HOME}/.cargo/bin:${PATH}"
-          cargo build -p arqma-wallet-flutter-ffi --release
+          # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.
+          rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
 
       - uses: subosito/flutter-action@v2
         with:
