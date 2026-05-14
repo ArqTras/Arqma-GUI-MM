@@ -279,6 +279,7 @@ fn mingw_wallet_dep_libs() -> &'static [&'static str] {
 fn linux_hybrid_full_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi-libusb",
+        "usb-1.0",
         "boost_program_options",
         "boost_thread",
         "boost_container",
@@ -302,6 +303,7 @@ fn linux_hybrid_full_static_dep_libs() -> &'static [&'static str] {
 fn linux_hybrid_static_dep_libs() -> &'static [&'static str] {
     &[
         "hidapi-libusb",
+        "usb-1.0",
         "boost_program_options",
         "boost_thread",
         "boost_container",
