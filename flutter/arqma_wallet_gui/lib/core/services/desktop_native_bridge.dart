@@ -2957,6 +2957,7 @@ final class DesktopNativeBridge implements NativeBridge {
       final Map<String, dynamic> p = _coerceMap(data);
       try {
         final Map<String, dynamic> params = _mapTransferSplitParams(p);
+        await WidgetsBinding.instance.endOfFrame;
         final Map<String, dynamic>? r = await w.call('transfer_split', params);
         if (!walletJsonRpcNoError(r)) {
           _emit(<String, dynamic>{
@@ -3000,18 +3001,26 @@ final class DesktopNativeBridge implements NativeBridge {
               if (addr.isNotEmpty) {
                 final Map<String, dynamic> ab = Map<String, dynamic>.from(
                     p['address_book'] as Map? ?? <String, dynamic>{});
-                await backendSend(
-                  'wallet',
-                  'add_address_book',
-                  <String, dynamic>{
-                    'address': addr,
-                    'payment_id': '${p['payment_id'] ?? ''}',
-                    'name': '${ab['name'] ?? ''}',
-                    'description': '${ab['description'] ?? ''}',
-                    'starred': false,
-                    'index': false,
-                  },
-                );
+                final String pid = '${p['payment_id'] ?? ''}';
+                unawaited((() async {
+                  try {
+                    await backendSend(
+                      'wallet',
+                      'add_address_book',
+                      <String, dynamic>{
+                        'address': addr,
+                        'payment_id': pid,
+                        'name': '${ab['name'] ?? ''}',
+                        'description': '${ab['description'] ?? ''}',
+                        'starred': false,
+                        'index': false,
+                      },
+                    );
+                  } catch (e, st) {
+                    debugPrint(
+                        '[DesktopNative] add_address_book after transfer: $e\n$st');
+                  }
+                })());
               }
             }
           } else {

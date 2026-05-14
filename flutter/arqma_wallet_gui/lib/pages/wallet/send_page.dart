@@ -297,6 +297,11 @@ class _SendPageState extends State<SendPage> {
     store.setTxStatus(
         <String, dynamic>{'code': 0, 'message': '', 'sending': true});
     await AppLoading.show();
+    // Native `transfer_split` blocks this isolate until Rust returns — yield so the
+    // loading overlay and spinner can paint at least one frame before the long FFI call.
+    if (mounted) {
+      await WidgetsBinding.instance.endOfFrame;
+    }
     await api.send('wallet', 'transfer', copy);
     AppLoading.hide();
     store.setTxStatus(
