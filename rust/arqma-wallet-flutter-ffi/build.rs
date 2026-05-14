@@ -138,8 +138,17 @@ fn linux_wallet_ffi_static_hybrid_cdylib_args() {
     } else {
         linux_hybrid_static_dep_libs()
     };
-    for lib in linux_libs {
-        emit(&format!("-l{lib}"));
+    match &vendor {
+        Some(libdir) => {
+            for stem in linux_libs {
+                emit_depends_vendor_lib(&emit, libdir, stem);
+            }
+        }
+        None => {
+            for stem in linux_libs {
+                emit(&format!("-l{stem}"));
+            }
+        }
     }
     emit("-Wl,--end-group");
 
@@ -193,8 +202,17 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     } else {
         macos_hybrid_static_dep_libs()
     };
-    for lib in mac_libs {
-        emit(&format!("-l{lib}"));
+    match &vendor {
+        Some(libdir) => {
+            for stem in mac_libs {
+                emit_depends_vendor_lib(&emit, libdir, stem);
+            }
+        }
+        None => {
+            for stem in mac_libs {
+                emit(&format!("-l{stem}"));
+            }
+        }
     }
 
     // `arqma-wallet2-api` on macOS links `wallet_merged` + `lmdb` only; merged already folds epee /
@@ -342,6 +360,46 @@ fn mingw_windows_system_libs() -> &'static [&'static str] {
 
 fn path_for_ld(p: &Path) -> String {
     p.display().to_string().replace('\\', "/")
+}
+
+/// Candidate static `.a` names under `contrib/depends/.../lib` for a `-l` stem (order matters).
+fn depends_vendor_archive_paths(libdir: &Path, stem: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    match stem {
+        "ssl" => out.push(libdir.join("libssl.a")),
+        "crypto" => out.push(libdir.join("libcrypto.a")),
+        s if s.starts_with("boost_") => {
+            out.push(libdir.join(format!("lib{s}.a")));
+            out.push(libdir.join(format!("lib{s}-mt.a")));
+        }
+        "hidapi-libusb" => {
+            out.push(libdir.join("libhidapi-libusb.a"));
+            out.push(libdir.join("libhidapi-hidraw.a"));
+            out.push(libdir.join("libhidapi.a"));
+        }
+        "hidapi" => {
+            out.push(libdir.join("libhidapi.a"));
+            out.push(libdir.join("libhidapi-libusb.a"));
+            out.push(libdir.join("libhidapi-hidraw.a"));
+        }
+        _ => out.push(libdir.join(format!("lib{stem}.a"))),
+    }
+    out
+}
+
+/// Emit an absolute path to a vendored `.a` so the linker does not fall back to GCC/Homebrew `-l` search paths.
+fn emit_depends_vendor_lib(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
+    for p in depends_vendor_archive_paths(libdir, stem) {
+        if p.is_file() {
+            emit(&path_for_ld(&p));
+            return;
+        }
+    }
+    println!(
+        "cargo:warning=arqma-wallet-flutter-ffi: contrib/depends has no static archive for `{stem}` under {}",
+        libdir.display()
+    );
+    emit(&format!("-l{stem}"));
 }
 
 fn arqma_upstream_root() -> PathBuf {

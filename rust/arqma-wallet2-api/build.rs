@@ -240,7 +240,16 @@ fn configure_wallet2_linking_macos(upstream_path: &Path) {
 
     let bp = brew_prefix();
     println!("cargo:rustc-link-arg=-Wl,-search_paths_first,-headerpad_max_install_names");
-    if !wallet_ffi_depends_vendor_paths_suppressed() {
+    if wallet_ffi_depends_vendor_paths_suppressed() {
+        // Boost/OpenSSL/etc. come from `contrib/depends` via explicit `.a` paths in `arqma-wallet-flutter-ffi`;
+        // keep Homebrew search only for ICU (often not folded into the vendored set).
+        for rel in ["opt/icu4c/lib", "opt/icu4c@78/lib"] {
+            let p = bp.join(rel);
+            if p.is_dir() {
+                println!("cargo:rustc-link-search=native={}", p.display());
+            }
+        }
+    } else {
         for rel in [
             "lib",
             "opt/openssl@3/lib",
