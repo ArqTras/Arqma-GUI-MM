@@ -2,6 +2,8 @@
 # Copy dynamic libraries required by libarqma_wallet_flutter_ffi.so into bundle/lib/
 # (ICU, zlib, readline/tinfo, …) so the tarball works on distros without the same SONAMEs
 # as the build host (e.g. missing libicuuc.so.74).
+# Also adds relative symlinks in the bundle root (next to Arqma-Wallet) so loaders that
+# search $ORIGIN (exe dir) still find the same SONAMEs.
 #
 # Usage: ./tool/bundle_linux_ffi_runtime_libs.sh <path-to-linux-release-bundle>
 # Example: ./tool/bundle_linux_ffi_runtime_libs.sh build/linux/x64/release/bundle
@@ -57,6 +59,21 @@ fi
 
 for dep in "${DEPS[@]}"; do
   copy_dep "$dep"
+done
+
+# Symlink each bundled NEEDED library next to the app binary (same SONAME as under lib/).
+for dep in "${DEPS[@]}"; do
+  [[ -f "$dep" ]] || continue
+  base="$(basename "$dep")"
+  if is_core_system_lib "$base"; then
+    continue
+  fi
+  bundled="${LIBDIR}/${base}"
+  if [[ ! -f "$bundled" ]]; then
+    continue
+  fi
+  ln -sfn "lib/${base}" "${B}/${base}"
+  echo "[bundle_linux_ffi_runtime_libs] symlink ${base} -> lib/${base} (bundle root)"
 done
 
 if ldd "$SO" 2>/dev/null | grep -q 'not found'; then
