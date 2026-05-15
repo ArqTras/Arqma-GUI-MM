@@ -1,3 +1,4 @@
 #!/usr/bin/env sh
 set -e
-npm test
+# --runInBand: avoid flaky Jest worker segfault on Windows during pre-push.
+npm test -- --runInBand
