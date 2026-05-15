@@ -14,7 +14,7 @@ fn newest_subdir(root: &Path) -> Option<PathBuf> {
 fn msvc_sdk_include_dirs() -> Vec<PathBuf> {
     #[cfg(not(target_os = "windows"))]
     {
-        return Vec::new();
+        Vec::new()
     }
     #[cfg(target_os = "windows")]
     {

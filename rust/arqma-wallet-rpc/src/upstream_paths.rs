@@ -113,12 +113,7 @@ pub fn resolve_arqma_executable(
     if let Some(p) = find_in_path(win, unix) {
         return Some(p);
     }
-    for p in extra_candidates {
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    None
+    extra_candidates.into_iter().find(|p| p.is_file())
 }
 
 /// See [`resolve_arqma_executable`].

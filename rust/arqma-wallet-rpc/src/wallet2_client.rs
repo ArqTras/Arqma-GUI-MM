@@ -1180,7 +1180,7 @@ impl Wallet2ApiClient {
                     .unwrap_or(empty);
                 let transfers: Vec<Value> = match transfer_type {
                     "unavailable" => Vec::new(),
-                    "available" | "all" | _ => in_rows,
+                    _ => in_rows,
                 };
                 Ok(json!({ "result": { "transfers": transfers } }))
             }

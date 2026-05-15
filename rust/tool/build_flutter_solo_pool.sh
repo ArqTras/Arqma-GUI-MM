@@ -79,15 +79,15 @@ case "$(uname -s)" in
 esac
 
 # macOS (and some runners): PATH may resolve `rustc` to rustup-init shims → `cc`/`cxx` see invalid `rustc -vV`.
-# Point at the real binary from the repo-pinned toolchain when rustup is available.
+# Pin the real rustc via `rustup which --toolchain …` (portable); `rustup toolchain path` is absent on some rustup versions.
 if command -v rustup >/dev/null 2>&1 && [[ -f "${REPO}/rust-toolchain.toml" ]]; then
   TC="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "${REPO}/rust-toolchain.toml" | head -1)"
   if [[ -n "${TC}" ]]; then
-    TP="$(rustup toolchain path "$TC" 2>/dev/null || true)"
-    if [[ -n "${TP}" && -x "${TP}/bin/rustc" ]]; then
-      export RUSTC="${TP}/bin/rustc"
+    RUSTC_BIN="$(rustup which --toolchain "$TC" rustc 2>/dev/null || true)"
+    if [[ -n "${RUSTC_BIN}" && -x "${RUSTC_BIN}" ]]; then
+      export RUSTC="${RUSTC_BIN}"
       export CARGO_BUILD_RUSTC="${RUSTC}"
-      export PATH="${TP}/bin:${PATH}"
+      export PATH="$(dirname "${RUSTC_BIN}"):${PATH}"
     fi
   fi
 fi

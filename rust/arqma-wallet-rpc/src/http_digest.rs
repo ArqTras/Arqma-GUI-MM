@@ -1,6 +1,5 @@
 //! MD5 digest auth (qop) — same contract as upstream `arqma-wallet-rpc` over HTTP.
 
-use md5;
 use rand::Rng;
 use std::collections::HashMap;
 

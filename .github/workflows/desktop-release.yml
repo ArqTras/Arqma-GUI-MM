@@ -175,10 +175,11 @@ jobs:
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
           TC="${{ steps.pinned.outputs.rust_toolchain }}"
-          TP="$(rustup toolchain path "$TC")"
-          export RUSTC="$TP/bin/rustc"
+          # Portable pinned rustc (CI rustup lacks `rustup toolchain path` on some versions).
+          RUSTC_BIN="$(rustup which --toolchain "$TC" rustc)"
+          export RUSTC="$RUSTC_BIN"
           export CARGO_BUILD_RUSTC="$RUSTC"
-          export PATH="$TP/bin:${PATH}"
+          export PATH="$(dirname "$RUSTC_BIN"):${PATH}"
           cargo build -p arqma-wallet-flutter-ffi --release
 
       - name: cargo build — arqma_flutter_solo_pool (release)
@@ -327,10 +328,11 @@ jobs:
         run: |
           set -eu
           TC="${{ steps.pinned.outputs.rust_toolchain }}"
-          TP="$(rustup toolchain path "$TC")"
-          export RUSTC="$TP/bin/rustc"
+          # Portable pinned rustc (CI rustup lacks `rustup toolchain path` on some versions).
+          RUSTC_BIN="$(rustup which --toolchain "$TC" rustc)"
+          export RUSTC="$RUSTC_BIN"
           export CARGO_BUILD_RUSTC="$RUSTC"
-          export PATH="$TP/bin:${PATH}"
+          export PATH="$(dirname "$RUSTC_BIN"):${PATH}"
           cargo build -p arqma-wallet-flutter-ffi --release
 
       - name: cargo build — arqma_flutter_solo_pool (release)

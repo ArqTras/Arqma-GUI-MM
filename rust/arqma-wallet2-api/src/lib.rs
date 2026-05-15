@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_arguments)] // wallet2 / cxx FFI mirrors upstream APIs with many parameters.
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
