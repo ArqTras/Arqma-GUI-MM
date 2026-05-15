@@ -27,6 +27,23 @@ if (-not $SkipArqmaCMake) {
     }
 }
 
+$distDir = Join-Path $rustRoot "tauri-app\dist"
+$index = Join-Path $distDir "index.html"
+if (-not (Test-Path $index)) {
+    New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+    @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Arqma-Wallet</title>
+</head>
+<body></body>
+</html>
+"@ | Set-Content -Encoding utf8 -Path $index
+    Write-Host "Created minimal $index for headless solo-pool build"
+}
+
 Push-Location $rustRoot
 try {
     cargo build -p arqma-wallet --release --bin arqma_flutter_solo_pool --target x86_64-pc-windows-gnu

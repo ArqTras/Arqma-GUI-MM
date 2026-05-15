@@ -120,6 +120,8 @@ jobs:
             pkg-config \
             clang \
             libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
             liblzma-dev \
             libboost-all-dev \
             libssl-dev \

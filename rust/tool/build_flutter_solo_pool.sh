@@ -55,6 +55,8 @@ if [[ "${SKIP_UPSTREAM}" -eq 0 ]]; then
   esac
 fi
 
+bash "${REPO}/build/ci/ensure-tauri-dist-stub.sh" "${REPO}"
+
 cd "${ROOT}"
 CARGO_ARGS=(build -p arqma-wallet --release --bin arqma_flutter_solo_pool)
 case "$(uname -s)" in
