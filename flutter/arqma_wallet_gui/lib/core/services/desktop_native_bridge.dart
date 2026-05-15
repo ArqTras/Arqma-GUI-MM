@@ -210,8 +210,14 @@ final class DesktopNativeBridge implements NativeBridge {
   bool _whFetchTxPending = false;
   bool _walletXferBusy = false;
 
+  /// Newest `height` field from the last successful `set_wallet_transactions` emit.
+  int _whLastEmittedTxMaxHeight = 0;
+
   /// Limits `get_transfers` rate while [inScanRhythm] — height advances every tick during sync.
   DateTime? _walletXferScanThrottleUntil;
+
+  /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
+  DateTime? _walletXferTipCatchUpThrottleUntil;
 
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
@@ -275,6 +281,15 @@ final class DesktopNativeBridge implements NativeBridge {
       debugPrint(
         '[DesktopNative] arqma_flutter_solo_pool not found (cargo build in rust/tauri-app/src-tauri or set ARQMA_FLUTTER_SOLO_POOL)',
       );
+      _showNotification(
+        'negative',
+        'Solo pool sidecar not found — build arqma_flutter_solo_pool or set ARQMA_FLUTTER_SOLO_POOL',
+        12000,
+      );
+      _emit(<String, dynamic>{
+        'event': 'set_pool_data',
+        'data': <String, dynamic>{'status': -1},
+      });
       return;
     }
     final ArqmaPaths paths = ArqmaPaths.defaultForPlatform();
@@ -1663,6 +1678,20 @@ final class DesktopNativeBridge implements NativeBridge {
     return out;
   }
 
+  static int _maxTxHeightFromList(List<dynamic> list) {
+    int maxH = 0;
+    for (final Object? x in list) {
+      if (x is! Map) {
+        continue;
+      }
+      final int h = int.tryParse('${x['height'] ?? 0}') ?? 0;
+      if (h > maxH) {
+        maxH = h;
+      }
+    }
+    return maxH;
+  }
+
   Future<void> _walletXferHeavy(
       String walletNameAtStart, int curH, int daysWindowBlocks) async {
     if (_walletXferBusy) {
@@ -1707,6 +1736,7 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       final List<dynamic> list =
           _mergeWalletRpcTransfersList(Map<String, dynamic>.from(res));
+      _whLastEmittedTxMaxHeight = _maxTxHeightFromList(list);
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
         'data': <String, dynamic>{'tx_list': list},
@@ -1891,10 +1921,25 @@ final class DesktopNativeBridge implements NativeBridge {
         xferDuringScan = true;
       }
     }
+    // Footer can sit at daemon tip while the last `get_transfers` snapshot is days behind
+    // (flat `newH == h0`, no balance change). Re-poll until tx max height catches up.
+    bool txListBehindTip = false;
+    if (!inScanRhythm &&
+        newH > 0 &&
+        _whLastEmittedTxMaxHeight > 0 &&
+        newH - _whLastEmittedTxMaxHeight > 64) {
+      if (_walletXferTipCatchUpThrottleUntil == null ||
+          !now.isBefore(_walletXferTipCatchUpThrottleUntil!)) {
+        txListBehindTip = true;
+        _walletXferTipCatchUpThrottleUntil =
+            now.add(const Duration(seconds: 90));
+      }
+    }
     final bool xferTrigger = _whFetchTxPending ||
         hasBalanceChange ||
         (!inScanRhythm && newH != h0) ||
-        xferDuringScan;
+        xferDuringScan ||
+        txListBehindTip;
     // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
     // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
@@ -1934,6 +1979,7 @@ final class DesktopNativeBridge implements NativeBridge {
       },
     });
     if (clearTransactions) {
+      _whLastEmittedTxMaxHeight = 0;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
         'data': <String, dynamic>{'tx_list': <dynamic>[]},
@@ -2446,6 +2492,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       },
     });
+    _whLastEmittedTxMaxHeight = 0;
     _emit(<String, dynamic>{
       'event': 'set_wallet_transactions',
       'data': <String, dynamic>{'tx_list': <dynamic>[]},

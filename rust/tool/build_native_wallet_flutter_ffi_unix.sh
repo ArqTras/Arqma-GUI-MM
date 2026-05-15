@@ -27,3 +27,5 @@ esac
 
 cargo build -p arqma-wallet-flutter-ffi --release
 echo "OK: native wallet FFI library under target/release/"
+
+bash "$(dirname "$0")/build_flutter_solo_pool.sh" --skip-upstream

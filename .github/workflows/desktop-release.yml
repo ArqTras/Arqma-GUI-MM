@@ -175,6 +175,13 @@ jobs:
           # Match macOS job: use pinned toolchain explicitly (avoids broken or shadowed `cargo` on PATH).
           rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
 
+      - name: cargo build — arqma_flutter_solo_pool (release)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x rust/tool/build_flutter_solo_pool.sh
+          bash rust/tool/build_flutter_solo_pool.sh --skip-upstream
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -209,6 +216,8 @@ jobs:
 
       - name: Verify Linux bundle (parity with Windows verify step)
         working-directory: ${{ github.workspace }}
+        env:
+          FAIL_IF_NO_SOLO_POOL: "1"
         run: bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh
 
       - name: Tar bundle
@@ -314,6 +323,13 @@ jobs:
           # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.
           rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
 
+      - name: cargo build — arqma_flutter_solo_pool (release)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x rust/tool/build_flutter_solo_pool.sh
+          bash rust/tool/build_flutter_solo_pool.sh --skip-upstream
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -340,7 +356,10 @@ jobs:
             || { echo "::error::missing native wallet FFI dylib in $app"; exit 1; }
           test -f "$app/Contents/Resources/bin/arqmad" \
             || { echo "::error::missing bundled arqmad (fetch + copy-to-tauri-bins before flutter build)"; exit 1; }
+          test -f "$app/Contents/Resources/bin/arqma_flutter_solo_pool" \
+            || { echo "::error::missing bundled arqma_flutter_solo_pool (rust/tool/build_flutter_solo_pool.sh)"; exit 1; }
           chmod +x "$app/Contents/Resources/bin/arqmad" || true
+          chmod +x "$app/Contents/Resources/bin/arqma_flutter_solo_pool" || true
           echo "macOS bundle verify OK"
 
       - uses: actions/upload-artifact@v6
@@ -462,6 +481,15 @@ jobs:
           $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
           cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu
 
+      - name: cargo build — arqma_flutter_solo_pool (Windows GNU)
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          & rust/tool/build_flutter_solo_pool.ps1 -MsysRoot $root -SkipArqmaCMake
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -541,7 +569,7 @@ jobs:
           }
           $verify = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1"
           if (-not (Test-Path $verify)) { throw "missing verify script: $verify (commit flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1)" }
-          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad
+          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad -FailIfNoSoloPool
 
       - name: Zip Release layout
         shell: pwsh

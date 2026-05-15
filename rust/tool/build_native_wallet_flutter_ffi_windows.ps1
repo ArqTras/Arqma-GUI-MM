@@ -49,6 +49,9 @@ $dll = Join-Path $rustRoot "target\x86_64-pc-windows-gnu\release\arqma_wallet_fl
 if (-not (Test-Path $dll)) { throw "Missing $dll" }
 Write-Host "OK: $dll"
 
+$soloPs1 = Join-Path $PSScriptRoot "build_flutter_solo_pool.ps1"
+& $soloPs1 -MsysRoot $MsysRoot -SkipArqmaCMake
+
 if (-not $SkipFlutter) {
     $flutterBat = $null
     foreach ($c in @(

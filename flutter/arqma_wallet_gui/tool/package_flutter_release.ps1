@@ -11,6 +11,7 @@
 
 param(
     [switch]$BuildNativeWalletFfi,
+    [switch]$BuildSoloPool,
     [string]$MsysRoot = "C:\msys64",
     [switch]$SkipCopyToTauriBins,
     [switch]$SkipBundleVerify,
@@ -84,10 +85,15 @@ $repoRoot = Split-Path (Split-Path $GuiRoot -Parent) -Parent
 $rustDllGnu = Join-Path $repoRoot "rust\target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll"
 $rustDllMsvc = Join-Path $repoRoot "rust\target\release\arqma_wallet_flutter_ffi.dll"
 
+$soloBin = Join-Path $repoRoot "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
 if ($BuildNativeWalletFfi) {
     $ffiPs1 = Join-Path $repoRoot "rust\tool\build_native_wallet_flutter_ffi_windows.ps1"
     if (-not (Test-Path $ffiPs1)) { Write-Error "Missing $ffiPs1" }
     & $ffiPs1 -MsysRoot $MsysRoot -SkipFlutter
+} elseif ($BuildSoloPool -or -not (Test-Path $soloBin)) {
+    $soloPs1 = Join-Path $repoRoot "rust\tool\build_flutter_solo_pool.ps1"
+    if (-not (Test-Path $soloPs1)) { Write-Error "Missing $soloPs1" }
+    & $soloPs1 -MsysRoot $MsysRoot
 } elseif (-not (Test-Path $rustDllGnu) -and -not (Test-Path $rustDllMsvc)) {
     Write-Warning (
         "Native wallet FFI (arqma_wallet_flutter_ffi.dll) not found under rust/target. " +
@@ -164,7 +170,7 @@ foreach ($merged in @(
 }
 
 if (-not $SkipBundleVerify) {
-    & (Join-Path $PSScriptRoot "verify_windows_bundle.ps1") -ReleaseDir $releaseDir
+    & (Join-Path $PSScriptRoot "verify_windows_bundle.ps1") -ReleaseDir $releaseDir -FailIfNoArqmad -FailIfNoSoloPool
 }
 
 $zipName = "Arqma-Wallet-Flutter-$versionSafe-windows-x64.zip"

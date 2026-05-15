@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 fn main() {
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
@@ -77,8 +79,10 @@ fn mingw_wallet2_native_libs_cdylib_args() {
         // Same crate also builds `[[bin]]`; `rustc-cdylib-link-arg` does not apply to the exe link.
         println!("cargo:rustc-link-arg={}", flag);
     };
+    emit_mingw_upstream_aux_archives(&emit);
     // Keep static deps that are only referenced from other `.a` members (e.g. OpenSSL from epee).
     emit("-Wl,--no-as-needed");
+    emit("-Wl,--allow-multiple-definition");
 
     emit("-Wl,--start-group");
     // MSYS2 Boost ≥1.86: `boost_system` is header-only — no `libboost_system-mt` (linker: cannot find -lboost_system-mt).
@@ -98,6 +102,8 @@ fn mingw_wallet2_native_libs_cdylib_args() {
         "sodium",
         "hidapi",
         "unbound",
+        "readline",
+        "history",
     ] {
         emit(&format!("-l{}", lib));
     }
@@ -116,7 +122,54 @@ fn mingw_wallet2_native_libs_cdylib_args() {
     // Stack trace in merged wallet uses libunwind; RandomX JIT members must survive `-Wl,--gc-sections`.
     emit("-lunwind");
     emit("-lstdc++");
+    // LMDB on MinGW Windows uses `_aligned_malloc` / `wcscpy` from the MSVC CRT import table.
+    emit("-lmingw32");
+    emit("-lmsvcrt");
     emit("-Wl,--no-gc-sections");
+}
+
+fn path_for_ld(p: &Path) -> String {
+    p.display().to_string().replace('\\', "/")
+}
+
+fn arqma_upstream_root() -> PathBuf {
+    std::env::var("ARQMA_WALLET2_UPSTREAM_DIR")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"))
+                .join("../../arqma-rpc-upstream")
+        })
+}
+
+/// Same aux archives as `arqma-wallet-flutter-ffi/build.rs` (epee, easylogging, cryptonote_basic, lmdb).
+fn emit_mingw_upstream_aux_archives(emit: &dyn Fn(&str)) {
+    let upstream = arqma_upstream_root();
+    for sub in [
+        "build-mingw",
+        "build/ci-depends-release",
+        "build/ci-native-release",
+        "build",
+    ] {
+        let root = upstream.join(sub);
+        let epee = root.join("contrib/epee/src/libepee.a");
+        let elog = root.join("external/easylogging++/libeasylogging.a");
+        let cn = root.join("src/cryptonote_basic/libcryptonote_format_utils_basic.a");
+        let lmdb = root.join("src/lmdb/liblmdb/liblmdb.a");
+        if epee.is_file() && elog.is_file() && cn.is_file() && lmdb.is_file() {
+            emit("-Wl,--whole-archive");
+            emit(&path_for_ld(&epee));
+            emit(&path_for_ld(&elog));
+            emit(&path_for_ld(&cn));
+            emit(&path_for_ld(&lmdb));
+            emit("-Wl,--no-whole-archive");
+            return;
+        }
+    }
+    println!(
+        "cargo:warning=arqma-wallet: upstream aux archives (epee/easylogging/cryptonote/lmdb) not found — GNU wallet / solo pool link may fail"
+    );
 }
 
 fn mingw_tools_bin_from_env() -> Option<String> {

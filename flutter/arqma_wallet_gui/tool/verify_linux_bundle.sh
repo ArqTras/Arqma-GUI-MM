@@ -2,11 +2,13 @@
 # Verify Flutter Linux release bundle (GTK binary, engine .so, FFI, assets, arqmad).
 # Usage: ./tool/verify_linux_bundle.sh [path-to-bundle]
 # Env: FAIL_IF_NO_ARQMAD=0 to warn only when bin/arqmad is missing (default: 1 = fail).
+#      FAIL_IF_NO_SOLO_POOL=0 to warn only when bin/arqma_flutter_solo_pool is missing (default: 1 = fail).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUI_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 B="${1:-${GUI_ROOT}/build/linux/x64/release/bundle}"
 FAIL_IF_NO_ARQMAD="${FAIL_IF_NO_ARQMAD:-1}"
+FAIL_IF_NO_SOLO_POOL="${FAIL_IF_NO_SOLO_POOL:-1}"
 
 if [[ ! -d "$B" ]]; then
   echo "::error::bundle verify: not a directory: $B" >&2
@@ -32,6 +34,16 @@ req "${B}/data/flutter_assets/AssetManifest.bin"
 if [[ ! -f "${B}/bin/arqmad" ]]; then
   msg="bundle verify: missing bin/arqmad (CMake install from rust/tauri-app/src-tauri/bin/)"
   if [[ "${FAIL_IF_NO_ARQMAD}" == "1" ]]; then
+    echo "::error::${msg}" >&2
+    failed=1
+  else
+    echo "::warning::${msg}" >&2
+  fi
+fi
+
+if [[ ! -f "${B}/bin/arqma_flutter_solo_pool" ]]; then
+  msg="bundle verify: missing bin/arqma_flutter_solo_pool (build: bash rust/tool/build_flutter_solo_pool.sh)"
+  if [[ "${FAIL_IF_NO_SOLO_POOL}" == "1" ]]; then
     echo "::error::${msg}" >&2
     failed=1
   else
