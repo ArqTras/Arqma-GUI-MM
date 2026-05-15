@@ -197,6 +197,10 @@ struct JobState {
     blob: String,
     /// Full `blocktemplate_blob` (optional; not sent to miner — used if we later rebuild blocks for `submit_block`).
     template_blob: String,
+    /// Byte offset into decoded `blocktemplate_blob` where the 4-byte Stratum nonce is written (`get_block_template`).
+    reserved_offset: u64,
+    /// `reserve_size` from `get_block_template` (informational; nonce patch uses 4 bytes at `reserved_offset`).
+    reserve_size: u64,
     target: String,
     height: u64,
     difficulty: u64,
@@ -557,6 +561,36 @@ fn blocktemplate_blob_ok(blob: &str) -> bool {
     }
     // Ensure the daemon value is truly decodable hex, not only [0-9a-f] shaped text.
     hex::decode(blob).is_ok()
+}
+
+/// Patch the 4-byte Stratum `nonce` (8 hex chars, same byte order as in `blockhashing_blob`) into the full
+/// `blocktemplate_blob` at `reserved_offset`, then re-encode hex for `submit_block`.
+/// XMRig does not send `blob` on `submit` — this path relays solo-found blocks to `arqmad`.
+fn assemble_block_blob_for_submit(
+    template_hex: &str,
+    reserved_offset: u64,
+    nonce_hex: &str,
+) -> Result<String, String> {
+    if template_hex.is_empty() {
+        return Err("empty blocktemplate_blob".into());
+    }
+    if !is_hex_8(nonce_hex) {
+        return Err("nonce must be 8 hex chars".into());
+    }
+    let mut bytes = hex::decode(template_hex).map_err(|_| "blocktemplate_blob hex decode failed".to_string())?;
+    let off = reserved_offset as usize;
+    let nonce_bytes = hex::decode(nonce_hex).map_err(|_| "nonce hex decode failed".to_string())?;
+    if nonce_bytes.len() != 4 {
+        return Err("nonce must decode to 4 bytes".into());
+    }
+    if off + 4 > bytes.len() {
+        return Err(format!(
+            "reserved_offset+4 out of range: off={off} len={}",
+            bytes.len()
+        ));
+    }
+    bytes[off..off + 4].copy_from_slice(&nonce_bytes);
+    Ok(hex::encode(bytes))
 }
 
 fn blocktemplate_reserved_offset_ok(
@@ -968,6 +1002,8 @@ async fn refresh_job(
     j.id = id;
     j.blob = blob;
     j.template_blob = template_full;
+    j.reserved_offset = reserved_offset;
+    j.reserve_size = reserve_size;
     j.target = difficulty_to_target_hex(difficulty);
     j.height = height;
     j.difficulty = difficulty;
@@ -1890,30 +1926,81 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                           }
                         }
                       }
-                      // Optional fast-path: if miner submits full candidate block blob, try relay to daemon.
-                      let maybe_blob = params.get("blob").and_then(|v| v.as_str()).unwrap_or("");
-                      if !maybe_blob.is_empty() {
-                        if let Ok(sb) = daemon_post(&http2, &daemon2.0, daemon2.1, "submit_block", 0, &json!([maybe_blob])).await {
-                          if sb.get("error").is_none() {
-                            let worker_name = {
-                              let w = workers2.lock().await;
-                              w.get(&my_session_id).map(|ws| ws.miner.clone()).unwrap_or_else(|| "worker".to_string())
-                            };
-                            let total_round = round_hashes2.swap(0, Ordering::Relaxed);
-                            let mut bl = blocks2.lock().await;
-                            bl.push(json!({
-                              "status": 0,
-                              "hash": result_hash,
-                              "height": current.height,
-                              "timeFound": now_ms(),
-                              "miner": worker_name,
-                              "reward": -1,
-                              "diff": current.difficulty,
-                              "hashes": total_round
-                            }));
-                            if bl.len() > 100 {
-                              let keep_from = bl.len().saturating_sub(100);
-                              bl.drain(0..keep_from);
+                      // When PoW meets **network** difficulty, relay block to `arqmad`.
+                      // XMRig `submit` carries `nonce` + `result` only — assemble full `blocktemplate_blob` here.
+                      // If the miner sends `blob` (non-standard), use it when it also meets network target.
+                      let maybe_blob_param = params.get("blob").and_then(|v| v.as_str()).unwrap_or("");
+                      let hits_network =
+                        current.difficulty > 0 && passes_compact_target(result_hash, &current.target);
+                      if hits_network {
+                        let block_hex: Option<String> = if !maybe_blob_param.is_empty() {
+                          Some(maybe_blob_param.to_string())
+                        } else if !current.template_blob.is_empty() {
+                          match assemble_block_blob_for_submit(
+                            &current.template_blob,
+                            current.reserved_offset,
+                            nonce,
+                          ) {
+                            Ok(h) => Some(h),
+                            Err(e) => {
+                              solo_pool_log(&format!(
+                                "submit_block: assemble from template failed: {e} height={} job={}",
+                                current.height, current.id
+                              ));
+                              None
+                            }
+                          }
+                        } else {
+                          solo_pool_log(&format!(
+                            "submit_block: skip — no miner `blob` and empty template_blob height={}",
+                            current.height
+                          ));
+                          None
+                        };
+                        if let Some(hx) = block_hex {
+                          if let Ok(sb) = daemon_post(
+                            &http2,
+                            &daemon2.0,
+                            daemon2.1,
+                            "submit_block",
+                            0,
+                            &json!([hx]),
+                          )
+                          .await
+                          {
+                            if sb.get("error").is_none() {
+                              let worker_name = {
+                                let w = workers2.lock().await;
+                                w.get(&my_session_id)
+                                  .map(|ws| ws.miner.clone())
+                                  .unwrap_or_else(|| "worker".to_string())
+                              };
+                              let total_round = round_hashes2.swap(0, Ordering::Relaxed);
+                              let mut bl = blocks2.lock().await;
+                              bl.push(json!({
+                                "status": 0,
+                                "hash": result_hash,
+                                "height": current.height,
+                                "timeFound": now_ms(),
+                                "miner": worker_name,
+                                "reward": -1,
+                                "diff": current.difficulty,
+                                "hashes": total_round
+                              }));
+                              if bl.len() > 100 {
+                                let keep_from = bl.len().saturating_sub(100);
+                                bl.drain(0..keep_from);
+                              }
+                              solo_pool_log(&format!(
+                                "submit_block: accepted height={} miner={worker_name}",
+                                current.height
+                              ));
+                            } else {
+                              solo_pool_log(&format!(
+                                "submit_block: daemon RPC error height={} err={}",
+                                current.height,
+                                sb.get("error").unwrap_or(&Value::Null)
+                              ));
                             }
                           }
                         }
