@@ -78,9 +78,19 @@ case "$(uname -s)" in
     ;;
 esac
 
-# GitHub macOS runners occasionally shadow `rustc` (broken `rustc -vV`); clear if set.
-unset RUSTC 2>/dev/null || true
-unset CARGO_BUILD_RUSTC 2>/dev/null || true
+# macOS (and some runners): PATH may resolve `rustc` to rustup-init shims → `cc`/`cxx` see invalid `rustc -vV`.
+# Point at the real binary from the repo-pinned toolchain when rustup is available.
+if command -v rustup >/dev/null 2>&1 && [[ -f "${REPO}/rust-toolchain.toml" ]]; then
+  TC="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "${REPO}/rust-toolchain.toml" | head -1)"
+  if [[ -n "${TC}" ]]; then
+    TP="$(rustup toolchain path "$TC" 2>/dev/null || true)"
+    if [[ -n "${TP}" && -x "${TP}/bin/rustc" ]]; then
+      export RUSTC="${TP}/bin/rustc"
+      export CARGO_BUILD_RUSTC="${RUSTC}"
+      export PATH="${TP}/bin:${PATH}"
+    fi
+  fi
+fi
 
 cargo "${CARGO_ARGS[@]}"
 

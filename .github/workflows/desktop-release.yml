@@ -174,8 +174,12 @@ jobs:
         run: |
           set -eu
           export PATH="${HOME}/.cargo/bin:${PATH}"
-          # Match macOS job: use pinned toolchain explicitly (avoids broken or shadowed `cargo` on PATH).
-          rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
+          TC="${{ steps.pinned.outputs.rust_toolchain }}"
+          TP="$(rustup toolchain path "$TC")"
+          export RUSTC="$TP/bin/rustc"
+          export CARGO_BUILD_RUSTC="$RUSTC"
+          export PATH="$TP/bin:${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
 
       - name: cargo build — arqma_flutter_solo_pool (release)
         working-directory: ${{ github.workspace }}
@@ -322,9 +326,12 @@ jobs:
         working-directory: rust
         run: |
           set -eu
-          unset RUSTC
-          unset CARGO_BUILD_RUSTC
-          rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
+          TC="${{ steps.pinned.outputs.rust_toolchain }}"
+          TP="$(rustup toolchain path "$TC")"
+          export RUSTC="$TP/bin/rustc"
+          export CARGO_BUILD_RUSTC="$RUSTC"
+          export PATH="$TP/bin:${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
 
       - name: cargo build — arqma_flutter_solo_pool (release)
         working-directory: ${{ github.workspace }}
