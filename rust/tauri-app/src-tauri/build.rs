@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
@@ -10,11 +11,31 @@ fn main() {
     // apply on the artifact crate here so rust-lld can coalesce duplicates (same as BFD `-z muldefs`).
     if target_os == "linux" {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
-        // `rustc-link-arg` runs too early vs `#[link] whole-archive` deps from `arqma-wallet2-api`;
-        // rust-lld keeps `--as-needed` and drops `-lboost_*` before `wallet_merged` is seen (CI:
-        // undefined `boost::filesystem::detail::*`). Bin-only link args append after crate inputs.
-        for bin in ["arqma-wallet", "arqma_flutter_solo_pool"] {
-            linux_wallet2_native_follow_link_args_for_bin(bin);
+        println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_STATIC_HYBRID");
+        println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_DEPENDS_LIB_DIR");
+
+        let upstream = arqma_upstream_root();
+        if static_hybrid_enabled() {
+            if let Some(ref libdir) = depends_vendor_lib_dir(&upstream) {
+                println!(
+                    "cargo:rustc-link-search=native={}",
+                    path_for_ld(libdir)
+                );
+                println!(
+                    "cargo:warning=arqma-wallet: Linux binaries link PIC static deps from {}",
+                    libdir.display()
+                );
+                linux_emit_static_hybrid_bins(libdir);
+            } else {
+                for bin in ["arqma-wallet", "arqma_flutter_solo_pool"] {
+                    linux_emit_distro_dynamic_follow_for_bin(bin);
+                }
+            }
+        } else {
+            // Distro dynamic libs (dev / no contrib/depends): append after crate link via rustc-link-arg-bin.
+            for bin in ["arqma-wallet", "arqma_flutter_solo_pool"] {
+                linux_emit_distro_dynamic_follow_for_bin(bin);
+            }
         }
     }
 
@@ -79,7 +100,7 @@ fn main() {
     }
 }
 
-fn linux_wallet2_native_follow_link_args_for_bin(bin: &str) {
+fn linux_emit_distro_dynamic_follow_for_bin(bin: &str) {
     let emit = |flag: &str| println!("cargo:rustc-link-arg-bin={bin}={flag}", bin = bin);
     emit("-Wl,--no-as-needed");
     emit("-Wl,--start-group");
@@ -231,4 +252,238 @@ fn mingw_tools_bin_from_env() -> Option<String> {
                 .join("x86_64-w64-mingw32-gcc.exe")
                 .is_file()
         })
+}
+
+// --- Linux static-hybrid (contrib/depends PIC .a), mirrors `arqma-wallet-flutter-ffi/build.rs` ---
+
+fn static_hybrid_enabled() -> bool {
+    std::env::var("ARQMA_WALLET_FFI_STATIC_HYBRID")
+        .map(|v| matches!(v.trim(), "1" | "true" | "TRUE" | "yes" | "YES"))
+        .unwrap_or(false)
+}
+
+fn depends_host_triple_linux() -> Option<&'static str> {
+    let os = std::env::var("CARGO_CFG_TARGET_OS").ok()?;
+    let arch = std::env::var("CARGO_CFG_TARGET_ARCH").ok()?;
+    match (os.as_str(), arch.as_str()) {
+        ("linux", "x86_64") => Some("x86_64-unknown-linux-gnu"),
+        _ => None,
+    }
+}
+
+fn depends_vendor_lib_dir(upstream: &Path) -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("ARQMA_WALLET_FFI_DEPENDS_LIB_DIR") {
+        let pb = PathBuf::from(p.trim());
+        if pb.is_dir() {
+            return Some(pb);
+        }
+    }
+    let host = depends_host_triple_linux()?;
+    let lib = upstream.join("contrib/depends").join(host).join("lib");
+    if !lib.is_dir() {
+        return None;
+    }
+    if lib.join("libssl.a").is_file() || lib.join("libzmq.a").is_file() {
+        return Some(lib);
+    }
+    None
+}
+
+fn depends_vendor_archive_paths(libdir: &Path, stem: &str) -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    match stem {
+        "ssl" => out.push(libdir.join("libssl.a")),
+        "crypto" => out.push(libdir.join("libcrypto.a")),
+        s if s.starts_with("boost_") => {
+            out.push(libdir.join(format!("lib{s}.a")));
+            out.push(libdir.join(format!("lib{s}-mt.a")));
+        }
+        "hidapi-libusb" => {
+            out.push(libdir.join("libhidapi-libusb.a"));
+            out.push(libdir.join("libhidapi-hidraw.a"));
+            out.push(libdir.join("libhidapi.a"));
+        }
+        _ => out.push(libdir.join(format!("lib{stem}.a"))),
+    }
+    out
+}
+
+fn depends_vendor_archive_fuzzy_boost(libdir: &Path, stem: &str) -> Option<PathBuf> {
+    if !stem.starts_with("boost_") {
+        return None;
+    }
+    let prefix = format!("lib{stem}");
+    let mut hits: Vec<PathBuf> = fs::read_dir(libdir)
+        .ok()?
+        .filter_map(|e| e.ok())
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && p.extension().and_then(|x| x.to_str()) == Some("a")
+                && p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| {
+                        if !n.starts_with(&prefix) {
+                            return false;
+                        }
+                        let tail = &n[prefix.len()..];
+                        tail.is_empty() || tail.starts_with('-') || tail.starts_with('.')
+                    })
+                    .unwrap_or(false)
+        })
+        .collect();
+    hits.sort();
+    hits.into_iter().next()
+}
+
+fn emit_depends_vendor_lib(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
+    for p in depends_vendor_archive_paths(libdir, stem) {
+        if p.is_file() {
+            emit(&path_for_ld(&p));
+            return;
+        }
+    }
+    if let Some(p) = depends_vendor_archive_fuzzy_boost(libdir, stem) {
+        emit(&path_for_ld(&p));
+        return;
+    }
+    println!(
+        "cargo:warning=arqma-wallet: contrib/depends has no static archive for `{stem}` under {}",
+        libdir.display()
+    );
+    emit(&format!("-l{stem}"));
+}
+
+fn depends_vendor_icu_static_triple(libdir: &Path) -> Option<(PathBuf, PathBuf, PathBuf)> {
+    let data = libdir.join("libicudata.a");
+    let i18n = libdir.join("libicui18n.a");
+    let uc = libdir.join("libicuuc.a");
+    if data.is_file() && i18n.is_file() && uc.is_file() {
+        Some((data, i18n, uc))
+    } else {
+        None
+    }
+}
+
+fn emit_depends_icu_static_if_present(emit: &dyn Fn(&str), libdir: &Path) {
+    if let Some((data, i18n, uc)) = depends_vendor_icu_static_triple(libdir) {
+        println!(
+            "cargo:warning=arqma-wallet: linking static ICU from {}",
+            libdir.display()
+        );
+        emit(&path_for_ld(&data));
+        emit(&path_for_ld(&i18n));
+        emit(&path_for_ld(&uc));
+    }
+}
+
+fn emit_upstream_aux_archives_linux(emit: &dyn Fn(&str)) {
+    let upstream = arqma_upstream_root();
+    for sub in [
+        "build/ci-depends-release",
+        "build-mingw",
+        "build/ci-native-release",
+        "build",
+    ] {
+        let root = upstream.join(sub);
+        let epee = root.join("contrib/epee/src/libepee.a");
+        let elog = root.join("external/easylogging++/libeasylogging.a");
+        let cn = root.join("src/cryptonote_basic/libcryptonote_format_utils_basic.a");
+        let lmdb = root.join("src/lmdb/liblmdb/liblmdb.a");
+        if epee.is_file() && elog.is_file() && cn.is_file() && lmdb.is_file() {
+            emit("-Wl,--whole-archive");
+            emit(&path_for_ld(&epee));
+            emit(&path_for_ld(&elog));
+            emit(&path_for_ld(&cn));
+            emit(&path_for_ld(&lmdb));
+            emit("-Wl,--no-whole-archive");
+            return;
+        }
+    }
+    println!(
+        "cargo:warning=arqma-wallet: upstream aux archives (epee/easylogging/cryptonote/lmdb) not found — Linux static-hybrid link may fail"
+    );
+}
+
+fn upstream_librandomx_a_path_linux() -> Option<PathBuf> {
+    let upstream = arqma_upstream_root();
+    for sub in [
+        "build/ci-depends-release",
+        "build-mingw",
+        "build/ci-native-release",
+        "build",
+    ] {
+        let lib = upstream.join(sub).join("external/randomarq/librandomx.a");
+        if lib.is_file() {
+            return Some(lib);
+        }
+    }
+    None
+}
+
+/// Same order as `linux_hybrid_full_static_dep_libs` in `arqma-wallet-flutter-ffi/build.rs`.
+const LINUX_HYBRID_FULL_STATIC_DEP_LIBS: &[&str] = &[
+    "hidapi-libusb",
+    "usb-1.0",
+    "boost_program_options",
+    "boost_thread",
+    "boost_container",
+    "boost_date_time",
+    "unbound",
+    "boost_filesystem",
+    "boost_atomic",
+    "boost_chrono",
+    "ssl",
+    "crypto",
+    "readline",
+    "boost_serialization",
+    "boost_regex",
+    "boost_locale",
+    "zmq",
+    "sodium",
+];
+
+fn linux_emit_static_hybrid_bins(libdir: &Path) {
+    let emit = |flag: &str| {
+        for name in ["arqma-wallet", "arqma_flutter_solo_pool"] {
+            println!("cargo:rustc-link-arg-bin={}={}", name, flag);
+        }
+    };
+
+    emit_upstream_aux_archives_linux(&emit);
+
+    emit("-Wl,-Bdynamic");
+    emit("-lstdc++");
+
+    emit("-Wl,-Bstatic");
+    emit("-static-libgcc");
+
+    emit("-Wl,--no-as-needed");
+    emit("-Wl,--start-group");
+    for stem in LINUX_HYBRID_FULL_STATIC_DEP_LIBS {
+        emit_depends_vendor_lib(&emit, libdir, stem);
+    }
+    emit_depends_icu_static_if_present(&emit, libdir);
+    emit("-Wl,--end-group");
+
+    if let Some(rx) = upstream_librandomx_a_path_linux() {
+        emit(&path_for_ld(&rx));
+    }
+
+    emit("-Wl,-Bdynamic");
+
+    if depends_vendor_icu_static_triple(libdir).is_none() {
+        for lib in ["icuuc", "icui18n", "icudata"] {
+            emit(&format!("-l{lib}"));
+        }
+    }
+
+    emit("-lz");
+    emit("-ldl");
+    emit("-lpthread");
+    emit("-lm");
+    emit("-lresolv");
+    emit("-ltinfo");
+    emit("-Wl,-z,origin");
+    emit("-Wl,-rpath,$ORIGIN");
 }

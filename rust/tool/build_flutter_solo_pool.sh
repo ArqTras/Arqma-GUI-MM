@@ -61,15 +61,26 @@ cd "${ROOT}"
 CARGO_ARGS=(build -p arqma-wallet --release --bin arqma_flutter_solo_pool)
 case "$(uname -s)" in
   Linux)
-    # rust-lld + `--as-needed` can omit distro `-lboost_*` before refs from whole-archive `wallet_merged`
-    # appear → undefined `boost::filesystem::detail::*` on CI. GNU BFD ld keeps classical ordering.
-    export RUSTFLAGS="${RUSTFLAGS:-} -Clink-arg=-fuse-ld=bfd"
+    # Match `arqma-wallet-flutter-ffi` on CI: link PIC static Boost/OpenSSL/… from `contrib/depends`
+    # (same symbols as `libwallet_merged.a`). Distro `-lboost_*` can be a different Boost → undefined refs.
+    DEP_LIB="${ARQMA_WALLET2_UPSTREAM_DIR:-${ROOT}/arqma-rpc-upstream}/contrib/depends/x86_64-unknown-linux-gnu/lib"
+    if [[ -d "$DEP_LIB" ]] && compgen -G "${DEP_LIB}/libboost"*.a >/dev/null 2>&1; then
+      export ARQMA_WALLET_FFI_STATIC_HYBRID=1
+      export ARQMA_WALLET_FFI_USE_DEPENDS=1
+    else
+      # Dev machines without `make depends`: distro dynamic libs + GNU BFD (rust-lld drops Boost too early).
+      export RUSTFLAGS="${RUSTFLAGS:-} -Clink-arg=-fuse-ld=bfd"
+    fi
     ;;
   MINGW* | MSYS* | CYGWIN*)
     export CARGO_PROFILE_RELEASE_LTO="${CARGO_PROFILE_RELEASE_LTO:-thin}"
     CARGO_ARGS+=(--target x86_64-pc-windows-gnu)
     ;;
 esac
+
+# GitHub macOS runners occasionally shadow `rustc` (broken `rustc -vV`); clear if set.
+unset RUSTC 2>/dev/null || true
+unset CARGO_BUILD_RUSTC 2>/dev/null || true
 
 cargo "${CARGO_ARGS[@]}"
 

@@ -322,7 +322,8 @@ jobs:
         working-directory: rust
         run: |
           set -eu
-          # `cargo` on PATH can be shadowed or broken on macOS runners; `rustup run` uses the pinned toolchain.
+          unset RUSTC
+          unset CARGO_BUILD_RUSTC
           rustup run "${{ steps.pinned.outputs.rust_toolchain }}" cargo build -p arqma-wallet-flutter-ffi --release
 
       - name: cargo build — arqma_flutter_solo_pool (release)
