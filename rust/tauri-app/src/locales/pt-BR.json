@@ -679,7 +679,7 @@
             "pool_desync_hint": "O daemon não está totalmente sincronizado; a mineração solo pode atrasar até a rede alcançar.",
             "system_clock_error_hint": "O relógio do sistema pode estar errado (diferença > 15 min do explorer).",
             "vardiff_section": "Configurações da pool",
-            "vardiff_caption": "VarDiff está sempre ativo. Visa um intervalo estável entre shares aceitos. Reduza o salto máximo para mudanças mais suaves.",
+            "vardiff_caption": "VarDiff está sempre ativo. Mistura o espaçamento dos shares com a taxa recente de trabalho (estilo MoneroOcean) para subir ou descer a dificuldade suavemente; os padrões servem para RandomARQ. Salto máximo menor = ajustes mais suaves.",
             "vardiff_restart_prompt": "Configurações VarDiff salvas. Reinicie a carteira para o Solo Pool aplicar os novos valores.",
             "vardiff_start_diff": "Dificuldade inicial (novas sessões)",
             "vardiff_min": "Dificuldade mínima",

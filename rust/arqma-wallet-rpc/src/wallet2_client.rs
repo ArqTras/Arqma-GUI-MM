@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use arqma_wallet2_api::{NetworkKind, Wallet2OpenConfig, Wallet2Session};
 
 use crate::error::WalletRpcError;
+use crate::rpc_method_aliases::canonical_wallet_rpc_method;
 use crate::traits::WalletJsonRpc;
 
 #[derive(Clone, Debug)]
@@ -29,15 +30,34 @@ impl Wallet2ApiConfig {
     }
 }
 
-/// Minimal JSON-RPC compatibility adapter over native `wallet2_api` session.
+/// JSON-RPC compatibility layer over in-process `Wallet2Session` (headers + `libwallet_merged`
+/// from **[arqtras/arqma](https://github.com/arqtras/arqma) `pospow`** — same `wallet2_api` surface
+/// as the legacy `arqma-wallet-rpc` subprocess, without duplicating the full upstream RPC catalog).
 ///
-/// Current scope intentionally covers the methods used by close/open/heartbeat:
-/// - `getheight`
-/// - `getbalance`
-/// - `store`
-/// - `close_wallet`
+/// Implemented for **Flutter / Tauri** call sites today:
+/// `open_wallet`, `close_wallet` / `stop_wallet`, `create_wallet`, `restore_deterministic_wallet`,
+/// `generate_from_keys`, `getheight`, `getbalance`, `get_address`, `get_transfers`, `get_address_book`,
+/// `add_address_book`, `delete_address_book`, `query_key`, `set_tx_notes`, `get_transfer_by_txid`,
+/// `get_address_index` (primary address only), `get_tx_notes` (empty notes; no read API in `wallet2_api`),
+/// `get_payments` / `get_bulk_payments` (empty lists), `auto_refresh` / `set_daemon` / `set_log_level` /
+/// `set_log_categories` / `start_mining` / `stop_mining` (no-op `{}`), `sweep_dust` / `sweep_unmixable`
+/// (explicit JSON-RPC error — use subprocess RPC or GUI `sweep_all`),
+/// `change_wallet_password`, `export_key_images`, `import_key_images`, `stake`, `sweep_all`,
+/// `transfer` / `transfer_split`, `relay_tx`, `validate_address`, `get_accounts`, `create_address`,
+/// `store`, `rescan_blockchain`, `rescan_spent`, `refresh`, `can_request_stake_unlock`,
+/// `request_stake_unlock`, `register_service_node`, `incoming_transfers`, `get_version`, `get_languages`.
 ///
-/// Other methods return transport error until fully mapped.
+/// Notes vs upstream `arqma-wallet-rpc`:
+/// - **Transfers**: `transfer_split` maps to native `createTransaction` + `exportPendingRelaySlices` /
+///   `relayTxFromMetadataHex` when those symbols exist in `wallet2_api.h` (see `arqma-wallet2-api/build.rs`).
+/// - **`register_service_node` / stake unlock helpers**: may return JSON-RPC `error` payloads from the
+///   native stub until a `wallet2_api` hook exists; callers must check the `error` field, not assume `{}`.
+/// - **`rescan_blockchain` `hard`**: GUI may send `hard: true`; `wallet2_api::Wallet` only exposes
+///   `rescanBlockchain()` — the flag is accepted but not forwarded separately.
+/// - **`getbalance` `per_subaddress` / `num_unspent_outputs`**: synthesized for RPC parity; `num_unspent_outputs`
+///   is a conservative gate (`1` when `unlocked_balance > 0`, else `0`) because `wallet2_api` does not expose
+///   per-output counts on this path. Prefer `incoming_transfers` when an accurate list is required.
+/// - **Alternate method names** (e.g. `get_balance` → `getbalance`): see [`crate::rpc_method_aliases`].
 #[derive(Clone)]
 pub struct Wallet2ApiClient {
     cfg: Arc<Wallet2ApiConfig>,
@@ -106,15 +126,56 @@ impl Wallet2ApiClient {
                     .store(b.balance, Ordering::Release);
                 self.unlocked_stale_cache
                     .store(b.unlocked_balance, Ordering::Release);
-                Ok(
-                    json!({ "result": { "balance": b.balance, "unlocked_balance": b.unlocked_balance } }),
-                )
+                let addr = s
+                    .address()
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                if let Ok(mut c) = self.address_stale_cache.lock() {
+                    *c = addr.clone();
+                }
+                // `arqma-wallet-rpc` / Electron parity: `per_subaddress` + `num_unspent_outputs` are used
+                // by sweep helpers when `incoming_transfers` is unavailable. Native `wallet2_api` does not
+                // expose per-output counts here; use a conservative `num_unspent_outputs` gate (see docs).
+                let num_unspent_outputs = if b.unlocked_balance > 0 { 1u64 } else { 0u64 };
+                Ok(json!({
+                    "result": {
+                        "balance": b.balance,
+                        "unlocked_balance": b.unlocked_balance,
+                        "multisig_import_needed": false,
+                        "per_subaddress": [{
+                            "account_index": 0u64,
+                            "address_index": 0u64,
+                            "address": addr,
+                            "balance": b.balance,
+                            "unlocked_balance": b.unlocked_balance,
+                            "num_unspent_outputs": num_unspent_outputs,
+                            "blocks_to_unlock": 0u64
+                        }]
+                    }
+                }))
             }
             Err(_) => {
                 let balance = self.balance_stale_cache.load(Ordering::Acquire);
                 let unlocked = self.unlocked_stale_cache.load(Ordering::Acquire);
+                let addr = match self.address_stale_cache.lock() {
+                    Ok(g) => g.clone(),
+                    Err(e) => e.into_inner().clone(),
+                };
+                let num_unspent_outputs = if unlocked > 0 { 1u64 } else { 0u64 };
                 Ok(json!({
-                    "result": { "balance": balance, "unlocked_balance": unlocked }
+                    "result": {
+                        "balance": balance,
+                        "unlocked_balance": unlocked,
+                        "multisig_import_needed": false,
+                        "per_subaddress": [{
+                            "account_index": 0u64,
+                            "address_index": 0u64,
+                            "address": addr,
+                            "balance": balance,
+                            "unlocked_balance": unlocked,
+                            "num_unspent_outputs": num_unspent_outputs,
+                            "blocks_to_unlock": 0u64
+                        }]
+                    }
                 }))
             }
         }
@@ -132,14 +193,37 @@ impl Wallet2ApiClient {
                 if let Ok(mut c) = self.address_stale_cache.lock() {
                     *c = addr.clone();
                 }
-                Ok(json!({ "result": { "address": addr } }))
+                // Upstream `COMMAND_RPC_GET_ADDRESS` shape: deprecated top-level `address` plus
+                // `addresses[]` (`address`, `label`, `address_index`, `used`) — see `pospow`
+                // `wallet_rpc_server_commands_defs.h`.
+                Ok(json!({
+                    "result": {
+                        "address": addr.clone(),
+                        "addresses": [{
+                            "address": addr,
+                            "label": "",
+                            "address_index": 0u32,
+                            "used": true
+                        }]
+                    }
+                }))
             }
             Err(_) => {
                 let addr = match self.address_stale_cache.lock() {
                     Ok(g) => g.clone(),
                     Err(e) => e.into_inner().clone(),
                 };
-                Ok(json!({ "result": { "address": addr } }))
+                Ok(json!({
+                    "result": {
+                        "address": addr.clone(),
+                        "addresses": [{
+                            "address": addr,
+                            "label": "",
+                            "address_index": 0u32,
+                            "used": true
+                        }]
+                    }
+                }))
             }
         }
     }
@@ -250,6 +334,7 @@ impl Wallet2ApiClient {
     }
 
     pub async fn call_json(&self, method: &str, _params: &Value) -> Result<Value, WalletRpcError> {
+        let method = canonical_wallet_rpc_method(method);
         match method {
             "rescan_blockchain" => {
                 // Do **not** zero `height_stale_cache` here: `rescan_blockchain` holds `inner` for the whole job,
@@ -274,6 +359,19 @@ impl Wallet2ApiClient {
                     if !ok {
                         return Err(WalletRpcError::Transport(
                             "wallet2: rescan_spent unsupported".to_string(),
+                        ));
+                    }
+                    Ok(())
+                });
+            }
+            "refresh" => {
+                return self.spawn_wallet_background_job("refresh", |s| {
+                    let ok = s
+                        .refresh()
+                        .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                    if !ok {
+                        return Err(WalletRpcError::Transport(
+                            "wallet2: refresh returned false".to_string(),
                         ));
                     }
                     Ok(())
@@ -495,27 +593,31 @@ impl Wallet2ApiClient {
                 Ok(json!({ "result": {} }))
             }
             "query_key" => {
-                let key_type = _params
+                let key_type_raw = _params
                     .get("key_type")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
+                let key_type = match key_type_raw {
+                    "seed" => "mnemonic",
+                    other => other,
+                };
                 let s = g.as_ref().ok_or_else(|| {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
                 let key = match key_type {
-          "mnemonic" => s.seed(),
-          "spend_key" => s.secret_spend_key(),
-          "view_key" => s.secret_view_key(),
-          other => {
-            return Ok(json!({
-              "error": {
-                "code": -32001,
-                "message": format!("wallet2 backend: query_key `{other}` not implemented")
-              }
-            }));
-          }
-        }
-        .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                    "mnemonic" => s.seed(),
+                    "spend_key" => s.secret_spend_key(),
+                    "view_key" => s.secret_view_key(),
+                    other => {
+                        return Ok(json!({
+                          "error": {
+                            "code": -32601,
+                            "message": format!("query_key: unsupported key_type `{other}`")
+                          }
+                        }));
+                    }
+                }
+                .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 Ok(json!({ "result": { "key": key } }))
             }
             "get_address_book" => {
@@ -606,6 +708,55 @@ impl Wallet2ApiClient {
                     Ok(unsupported(method))
                 }
             }
+            "get_address_index" => {
+                let addr = _params
+                    .get("address")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| {
+                        WalletRpcError::Transport(
+                            "wallet2 get_address_index: missing address".to_string(),
+                        )
+                    })?;
+                let s = g.as_ref().ok_or_else(|| {
+                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
+                })?;
+                let primary = s
+                    .address()
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                if primary != addr {
+                    return Ok(json!({
+                        "error": {
+                            "code": -2,
+                            "message": "Requested address not found in this wallet"
+                        }
+                    }));
+                }
+                Ok(json!({ "result": { "index": { "major": 0u32, "minor": 0u32 } } }))
+            }
+            "get_tx_notes" => {
+                let txids = _params
+                    .get("txids")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| {
+                        WalletRpcError::Transport(
+                            "wallet2 get_tx_notes: missing txids".to_string(),
+                        )
+                    })?;
+                let notes: Vec<String> = txids.iter().map(|_| String::new()).collect();
+                Ok(json!({ "result": { "notes": notes } }))
+            }
+            "get_payments" => Ok(json!({ "result": { "payments": [] }})),
+            "get_bulk_payments" => Ok(json!({ "result": { "payments": [] }})),
+            "auto_refresh" | "set_daemon" | "set_log_level" | "set_log_categories" | "start_mining"
+            | "stop_mining" => Ok(json!({ "result": {} })),
+            "sweep_dust" | "sweep_unmixable" => Ok(json!({
+                "error": {
+                    "code": -32601,
+                    "message": "sweep_dust / sweep_unmixable are not implemented on the native wallet2 bridge; use `arqma-wallet-rpc` subprocess mode or `sweep_all` from the GUI."
+                }
+            })),
             "get_transfer_by_txid" => {
                 let txid = _params
                     .get("txid")
@@ -627,10 +778,12 @@ impl Wallet2ApiClient {
             "change_wallet_password" => {
                 let new_password = _params
                     .get("new_password")
+                    .or_else(|| _params.get("password"))
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| {
                         WalletRpcError::Transport(
-                            "wallet2 change_wallet_password: missing new_password".to_string(),
+                            "wallet2 change_wallet_password: missing new_password (or password)"
+                                .to_string(),
                         )
                     })?;
                 let s = g.as_mut().ok_or_else(|| {
@@ -741,9 +894,15 @@ impl Wallet2ApiClient {
                 Ok(json!({ "result": parsed }))
             }
             "relay_tx" => {
-                let hex = _params.get("hex").and_then(|v| v.as_str()).ok_or_else(|| {
-                    WalletRpcError::Transport("wallet2 relay_tx: missing hex".to_string())
-                })?;
+                let hex = _params
+                    .get("hex")
+                    .or_else(|| _params.get("tx_metadata"))
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| {
+                        WalletRpcError::Transport("wallet2 relay_tx: missing hex".to_string())
+                    })?;
                 let s = g.as_mut().ok_or_else(|| {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
@@ -865,10 +1024,15 @@ impl Wallet2ApiClient {
                 let s = g.as_mut().ok_or_else(|| {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
-                let _ = s
+                let raw = s
                     .register_service_node_json(register_service_node_str)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
-                Ok(json!({ "result": {} }))
+                let parsed: Value = serde_json::from_str(&raw)
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                if parsed.get("error").is_some() {
+                    return Ok(parsed);
+                }
+                Ok(json!({ "result": parsed }))
             }
             "transfer_split" => {
                 let dst = _params
@@ -903,6 +1067,11 @@ impl Wallet2ApiClient {
                             .or_else(|| v.as_i64().filter(|i| *i >= 0).map(|i| i as u64))
                     })
                     .unwrap_or(0) as u32;
+                let payment_id = _params
+                    .get("payment_id")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .unwrap_or("");
                 let do_not_relay = _params
                     .get("do_not_relay")
                     .and_then(|v| v.as_bool())
@@ -911,7 +1080,13 @@ impl Wallet2ApiClient {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
                 let raw = s
-                    .transfer_split_prepare_json(address, amount, priority, do_not_relay)
+                    .transfer_split_prepare_json(
+                        address,
+                        payment_id,
+                        amount,
+                        priority,
+                        do_not_relay,
+                    )
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 let parsed = serde_json::from_str::<Value>(&raw)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
@@ -951,6 +1126,11 @@ impl Wallet2ApiClient {
                             .or_else(|| v.as_i64().filter(|i| *i >= 0).map(|i| i as u64))
                     })
                     .unwrap_or(0) as u32;
+                let payment_id = _params
+                    .get("payment_id")
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .unwrap_or("");
                 let do_not_relay = _params
                     .get("do_not_relay")
                     .and_then(|v| v.as_bool())
@@ -959,12 +1139,60 @@ impl Wallet2ApiClient {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
                 let raw = s
-                    .transfer_split_prepare_json(address, amount, priority, do_not_relay)
+                    .transfer_split_prepare_json(
+                        address,
+                        payment_id,
+                        amount,
+                        priority,
+                        do_not_relay,
+                    )
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 let parsed = serde_json::from_str::<Value>(&raw)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 Ok(json!({ "result": parsed }))
             }
+            "incoming_transfers" => {
+                let transfer_type = _params
+                    .get("transfer_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("all");
+                let s = g.as_ref().ok_or_else(|| {
+                    WalletRpcError::Transport("wallet2: no wallet session".to_string())
+                })?;
+                let raw = s
+                    .get_transfers_json(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        0,
+                        u64::MAX,
+                    )
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                let parsed: Value = serde_json::from_str(&raw)
+                    .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                let empty: Vec<Value> = Vec::new();
+                let in_rows = parsed
+                    .get("in")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or(empty);
+                let transfers: Vec<Value> = match transfer_type {
+                    "unavailable" => Vec::new(),
+                    "available" | "all" | _ => in_rows,
+                };
+                Ok(json!({ "result": { "transfers": transfers } }))
+            }
+            "get_version" => Ok(json!({
+                "result": {
+                    "version": 0,
+                    "release": true,
+                    "tag": "native-wallet2-ffi",
+                    "bridge_crate": env!("CARGO_PKG_NAME"),
+                    "bridge_version": env!("CARGO_PKG_VERSION"),
+                }
+            })),
             "get_languages" => Ok(json!({ "result": { "languages": ["English"] } })),
             "store" => {
                 let s = g.as_mut().ok_or_else(|| {
@@ -1001,8 +1229,11 @@ fn resolve_wallet_path(wallet_dir: &str, filename: &str) -> String {
 fn unsupported(method: &str) -> Value {
     json!({
       "error": {
-        "code": -32001,
-        "message": format!("wallet2 backend: method `{method}` is not implemented yet")
+        "code": -32601,
+        "message": format!(
+            "Method not found or not implemented on native wallet2 bridge: `{method}`. \
+For the full upstream `arqma-wallet-rpc` command set, run the wallet RPC subprocess (HTTP digest) mode."
+        )
       }
     })
 }

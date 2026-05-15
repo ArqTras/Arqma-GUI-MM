@@ -451,7 +451,7 @@
             "miner_timeout_seconds": "Miner idle timeout (seconds)",
             "blocks_table": "Blocks",
             "vardiff_section": "Pool settings",
-            "vardiff_caption": "VarDiff is always active. It targets a steady interval between accepted shares. Lower max jump for gentler changes.",
+            "vardiff_caption": "VarDiff is always active. It blends share spacing with recent work rate (MoneroOcean-style) so difficulty can move up or down smoothly; defaults suit RandomARQ. Lower max jump for gentler steps.",
             "vardiff_restart_prompt": "VarDiff settings were saved. Restart the wallet so the solo pool can apply the new values.",
             "vardiff_start_diff": "Starting difficulty (new sessions)",
             "vardiff_min": "Minimum difficulty",

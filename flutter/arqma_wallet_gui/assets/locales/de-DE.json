@@ -715,7 +715,7 @@
             "status_not_ready": "Nicht bereit",
             "status_error": "Fehler",
             "vardiff_section": "Pool-Einstellungen",
-            "vardiff_caption": "VarDiff ist immer aktiv. Es zielt auf ein gleichmäßiges Intervall zwischen akzeptierten Shares. Geringere max. Sprünge für sanftere Änderungen.",
+            "vardiff_caption": "VarDiff ist immer aktiv. Es kombiniert Share-Abstände mit der aktuellen Arbeit (MoneroOcean-ähnlich), damit sich die Schwierigkeit sanft erhöhen oder senken lässt; die Standardwerte passen zu RandomARQ. Kleinere maximale Sprünge bedeuten schonendere Anpassungen.",
             "vardiff_restart_prompt": "VarDiff-Einstellungen gespeichert. Starten Sie die Wallet neu, damit der Solo Pool die neuen Werte anwendet.",
             "vardiff_start_diff": "Startschwierigkeit (neue Sitzungen)",
             "vardiff_min": "Mindestschwierigkeit",

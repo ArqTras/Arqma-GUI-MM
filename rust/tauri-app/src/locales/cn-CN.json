@@ -679,7 +679,7 @@
             "pool_desync_hint": "守护进程尚未完全同步；在链追上之前，单独挖矿可能会延迟。",
             "system_clock_error_hint": "系统时钟可能有误（与网络浏览器相差超过 15 分钟）。",
             "vardiff_section": "矿池设置",
-            "vardiff_caption": "VarDiff 始终生效。目标是稳定接受份额之间的间隔。降低最大跃迁以使变化更平缓。",
+            "vardiff_caption": "VarDiff 始终启用。它将份额间隔与近期工作量（MoneroOcean 风格）结合，使难度能平滑上下调整；默认值适合 RandomARQ。降低最大跃迁可使变化更温和。",
             "vardiff_restart_prompt": "已保存 VarDiff 设置。请重启钱包以便 Solo Pool 应用新值。",
             "vardiff_start_diff": "起始难度（新会话）",
             "vardiff_min": "最小难度",

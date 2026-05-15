@@ -66,6 +66,19 @@ node scripts/with-rust-target.mjs tauri build
 
 If the build fails on **missing `wallet2_api.h`**, fix **`ARQMA_WALLET2_UPSTREAM_DIR`** or clone upstream into **`rust/arqma-rpc-upstream`** (section 1).
 
+## 4. Native JSON-RPC adapter (`rust/arqma-wallet-rpc`)
+
+Flutter and Tauri do not talk to a separate **`arqma-wallet-rpc`** process by default. The **`Wallet2ApiClient`** in **`arqma-wallet-rpc`** exposes the same JSON-RPC **method names** the GUI already uses, backed by **`Wallet2Session`** (C++ **`wallet2_api`** from **`arqtras/arqma`** **`pospow`**). Optional HTTP digest mode (`http-digest` feature + subprocess) still targets real **`arqma-wallet-rpc`** for migration.
+
+Behavioral notes:
+
+- **Transfers**: `transfer_split` / `transfer` use native `createTransaction` + `exportPendingRelaySlices` + `relay_tx` + `relayTxFromMetadataHex` when those APIs exist in your headers and merged library (see **`arqma-wallet2-api/build.rs`**). Always rebuild **`wallet_merged`** from the **same** Arqma commit as **`wallet2_api.h`**.
+- **`refresh`**: forwarded to **`Wallet::refresh()`** on a background worker (same pattern as **`rescan_spent`**).
+- **`register_service_node` / stake unlock RPCs**: until **`wallet2_api`** exposes them, the C++ bridge may return a JSON body with an **`error`** field; the Rust adapter passes that through as a JSON-RPC error instead of reporting success.
+- **`getbalance`**: includes **`per_subaddress`** and **`num_unspent_outputs`** for RPC shape parity. On the native bridge, **`num_unspent_outputs`** is a conservative gate (`1` when **`unlocked_balance > 0`**, else `0`) because `wallet2_api` does not expose per-coin counts on this path; use **`incoming_transfers`** when you need an output list.
+- **`incoming_transfers` / `get_version`**: implemented on the Rust adapter; **`incoming_transfers`** maps to the native history **`in`** bucket (see `Wallet2ApiClient`).
+- **Alternate JSON-RPC method names** (e.g. `get_balance` → `getbalance`): see **`arqma-wallet-rpc/src/rpc_method_aliases.rs`**.
+
 ## Windows MinGW (`x86_64-pc-windows-gnu`)
 
 **Windows only:** `npm run ci:tauri:native:windows-gnu` runs **`scripts/run-windows-gnu-tauri-ci.mjs`**, which exits with a hint on Linux/macOS — on those platforms use **`npm run ci:tauri:native`** (same as **`npm run ci:tauri`**).

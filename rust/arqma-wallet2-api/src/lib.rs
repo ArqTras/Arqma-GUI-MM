@@ -289,6 +289,10 @@ impl Wallet2Session {
         self.inner.rescan_spent()
     }
 
+    pub fn refresh(&mut self) -> Wallet2Result<bool> {
+        self.inner.refresh()
+    }
+
     pub fn import_key_images(&self, filename: &str) -> Wallet2Result<bool> {
         self.inner.import_key_images(filename)
     }
@@ -338,12 +342,13 @@ impl Wallet2Session {
     pub fn transfer_split_prepare_json(
         &mut self,
         address: &str,
+        payment_id: &str,
         amount: u64,
         priority: u32,
         do_not_relay: bool,
     ) -> Wallet2Result<String> {
         self.inner
-            .transfer_split_prepare_json(address, amount, priority, do_not_relay)
+            .transfer_split_prepare_json(address, payment_id, amount, priority, do_not_relay)
     }
 
     #[allow(clippy::too_many_arguments)]

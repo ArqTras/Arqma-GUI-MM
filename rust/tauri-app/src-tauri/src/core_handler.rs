@@ -358,12 +358,12 @@ fn normalize_pool_var_diff(pool: Value) -> Value {
     let start = vd
         .get("startDiff")
         .and_then(|v| v.as_u64())
-        .unwrap_or(150_000)
+        .unwrap_or(50_000)
         .clamp(1000, 100_000_000);
     let mut min_d = vd
         .get("minDiff")
         .and_then(|v| v.as_u64())
-        .unwrap_or(150_000)
+        .unwrap_or(25_000)
         .clamp(1, 100_000_000);
     let mut max_d = vd
         .get("maxDiff")
@@ -377,23 +377,28 @@ fn normalize_pool_var_diff(pool: Value) -> Value {
     let target = vd
         .get("targetTime")
         .and_then(|v| v.as_u64())
-        .unwrap_or(20)
+        .unwrap_or(45)
         .clamp(5, 600);
     let retarget = vd
         .get("retargetTime")
         .and_then(|v| v.as_u64())
-        .unwrap_or(30)
+        .unwrap_or(45)
         .clamp(1, 3600);
     let variance = vd
         .get("variancePercent")
         .and_then(|v| v.as_u64())
-        .unwrap_or(25)
+        .unwrap_or(30)
         .clamp(1, 95);
     let jump = vd
         .get("maxJump")
         .and_then(|v| v.as_u64())
-        .unwrap_or(200)
+        .unwrap_or(150)
         .clamp(1, 10_000);
+    let sep = vd
+        .get("fixedDiffSeparator")
+        .and_then(|v| v.as_str())
+        .unwrap_or(".")
+        .to_string();
     merge_json(
         &pool,
         &json!({
@@ -405,7 +410,8 @@ fn normalize_pool_var_diff(pool: Value) -> Value {
             "targetTime": target,
             "retargetTime": retarget,
             "variancePercent": variance,
-            "maxJump": jump
+            "maxJump": jump,
+            "fixedDiffSeparator": sep
           }
         }),
     )

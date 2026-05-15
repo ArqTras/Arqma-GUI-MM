@@ -136,6 +136,23 @@ describe("validateAddress", () => {
     // ASSERT
     expect(spy).toHaveBeenCalledWith("set_valid_address", { address, valid: true, nettype: "mainnet" })
   })
+  it("should map numeric wallet-ffi nettype 0 to mainnet for set_valid_address", async () => {
+    const address = "Tw1AXwU3z9kjMc5z21PaZ6HfQAJXmJbpWC6rdQtW7jw3Agp4t47UokKKTVkcXUTjYo4wtfu9nY87v1uJhKEpEpJv2DdeqLpwj"
+    walletRPC.sendRPC = jest.fn(() => {
+      return Promise.resolve({
+        result: {
+          integrated: false,
+          nettype: 0,
+          openalias_address: "",
+          subaddress: false,
+          valid: true
+        }
+      })
+    })
+    const spy = jest.spyOn(walletRPC, "sendGateway")
+    await walletRPC.validateAddress(address)
+    expect(spy).toHaveBeenCalledWith("set_valid_address", { address, valid: true, nettype: "mainnet" })
+  })
   it("should invoke sendGateway `set_valid_address` with invalid, when rpc returns error", async () => {
     // ARRANGE
     const address = "Tw1AXwU3z9kjMc5z21PaZ6HfQAJXmJbpWC6rdQtW7jw3Agp4t47UokKKTVkcXUTjYo4wtfu9nY87v1uJhKEpEpJv2DdeqLpwj"

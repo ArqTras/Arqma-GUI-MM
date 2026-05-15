@@ -719,7 +719,7 @@
             "miner_timeout_seconds": "Tamat masa tunggu miner tidak aktif (saat)",
             "blocks_table": "Blok",
             "vardiff_section": "Tetapan kolam",
-            "vardiff_caption": "VarDiff sentiasa aktif. Mensasarkan selang stabil antara share diterima. Kurangkan lompatan maks untuk perubahan lebih lembut.",
+            "vardiff_caption": "VarDiff sentiasa aktif. Ia menggabungkan jarak antara share dengan kadar kerja terkini (gaya MoneroOcean) supaya kesukaran boleh naik atau turun dengan lancar; lalai sesuai untuk RandomARQ. Kurangkan lompatan maks untuk langkah yang lebih lembut.",
             "vardiff_restart_prompt": "Tetapan VarDiff disimpan. Mulakan semula dompet supaya Solo Pool menggunakan nilai baharu.",
             "vardiff_start_diff": "Kesukaran permulaan (sesi baharu)",
             "vardiff_min": "Kesukaran minimum",

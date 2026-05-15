@@ -1,13 +1,16 @@
 //! Arqma wallet RPC integration for the desktop GUI.
 //!
-//! Upstream wallet logic lives in C++ (`github.com/arqma/arqma`, e.g. `src/wallet/wallet_rpc_server.cpp`).
-//! This crate defines the **contract** the Tauri shell should use so we can swap:
-//! - today: subprocess `arqma-wallet-rpc` + HTTP digest ([`WalletRpcClient`] with feature **`http-digest`**),
-//! - later: linked native code (FFI) or another transport.
+//! The **default** path is the statically linked **`wallet2_api`** stack (`arqma-wallet2-api` → C++), exposed
+//! through [`Wallet2ApiClient`] with JSON-RPC method names compatible with **`arqma-wallet-rpc`** from
+//! **[arqtras/arqma](https://github.com/arqtras/arqma) `pospow`** (same headers / `libwallet_merged` on
+//! **Windows, Linux, and macOS** — see `rust/docs/NATIVE_WALLET2.md`).
 //!
-//! See repository root `docs/WALLET_RUST_PORT.md`.
+//! Optional **`http-digest`** feature: subprocess `arqma-wallet-rpc` + HTTP digest for full upstream RPC.
+//!
+//! See `rust/docs/NATIVE_WALLET2.md` and `docs/WALLET_RUST_PORT.md`.
 
 mod error;
+mod rpc_method_aliases;
 mod traits;
 mod upstream_paths;
 

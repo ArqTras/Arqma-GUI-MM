@@ -78,6 +78,7 @@ mod ffi {
         ) -> Result<()>;
         fn wallet2_rescan_blockchain(bridge: Pin<&mut Wallet2Bridge>) -> Result<bool>;
         fn wallet2_rescan_spent(bridge: Pin<&mut Wallet2Bridge>) -> Result<bool>;
+        fn wallet2_refresh(bridge: Pin<&mut Wallet2Bridge>) -> Result<bool>;
         fn wallet2_import_key_images(bridge: &Wallet2Bridge, filename: &CxxString) -> Result<bool>;
         fn wallet2_stake_prepare_json(
             bridge: Pin<&mut Wallet2Bridge>,
@@ -108,6 +109,7 @@ mod ffi {
         fn wallet2_transfer_split_prepare_json(
             bridge: Pin<&mut Wallet2Bridge>,
             address: &CxxString,
+            payment_id: &CxxString,
             amount: u64,
             priority: u32,
             do_not_relay: bool,
@@ -345,6 +347,12 @@ impl NativeWallet2Session {
             .map_err(|e| Wallet2Error::OperationFailed(e.to_string()))
     }
 
+    pub fn refresh(&mut self) -> Wallet2Result<bool> {
+        let mut b = self.bridge.pin_mut();
+        ffi::wallet2_refresh(b.as_mut())
+            .map_err(|e| Wallet2Error::OperationFailed(e.to_string()))
+    }
+
     pub fn import_key_images(&self, filename: &str) -> Wallet2Result<bool> {
         let_cxx_string!(f = filename);
         ffi::wallet2_import_key_images(&self.bridge, &f)
@@ -411,14 +419,23 @@ impl NativeWallet2Session {
     pub fn transfer_split_prepare_json(
         &mut self,
         address: &str,
+        payment_id: &str,
         amount: u64,
         priority: u32,
         do_not_relay: bool,
     ) -> Wallet2Result<String> {
         let_cxx_string!(a = address);
+        let_cxx_string!(pid = payment_id);
         let mut b = self.bridge.pin_mut();
-        ffi::wallet2_transfer_split_prepare_json(b.as_mut(), &a, amount, priority, do_not_relay)
-            .map_err(|e| Wallet2Error::OperationFailed(e.to_string()))
+        ffi::wallet2_transfer_split_prepare_json(
+            b.as_mut(),
+            &a,
+            &pid,
+            amount,
+            priority,
+            do_not_relay,
+        )
+        .map_err(|e| Wallet2Error::OperationFailed(e.to_string()))
     }
 
     pub fn get_transfers_json(

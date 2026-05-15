@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "rust/cxx.h"
 
@@ -17,6 +18,11 @@ struct Wallet2Bridge {
   Monero::WalletManagerBase* manager = nullptr;
   Monero::Wallet* wallet = nullptr;
   std::unordered_map<std::string, Monero::PendingTransaction*> pending_by_metadata;
+  /// Last `exportPendingRelaySlices` / `do_not_relay` prepare — kept until `relay_tx` matches a slice
+  /// hex, then submitted via `PendingTransaction::commit` (avoids fragile `relayTxFromMetadataHex`
+  /// round-trip for multi-slice transfers).
+  Monero::PendingTransaction* pending_relay_bundle = nullptr;
+  std::vector<std::string> pending_relay_bundle_hexes;
   ~Wallet2Bridge();
 };
 
@@ -74,6 +80,8 @@ void wallet2_create_wallet(
 );
 bool wallet2_rescan_blockchain(Wallet2Bridge& bridge);
 bool wallet2_rescan_spent(Wallet2Bridge& bridge);
+/// Synchronous refresh (matches `arqma-wallet-rpc` `refresh`): pull new blocks / txs from the daemon.
+bool wallet2_refresh(Wallet2Bridge& bridge);
 bool wallet2_import_key_images(const Wallet2Bridge& bridge, const std::string& filename);
 rust::String wallet2_stake_prepare_json(
   Wallet2Bridge& bridge,
@@ -92,6 +100,7 @@ rust::String wallet2_validate_address_json(const Wallet2Bridge& bridge, const st
 rust::String wallet2_transfer_split_prepare_json(
   Wallet2Bridge& bridge,
   const std::string& address,
+  const std::string& payment_id,
   std::uint64_t amount,
   std::uint32_t priority,
   bool do_not_relay

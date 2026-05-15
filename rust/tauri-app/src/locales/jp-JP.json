@@ -679,7 +679,7 @@
             "pool_desync_hint": "デーモンが完全同期していません。チェーンが追いつくまでソロマイニングが遅れることがあります。",
             "system_clock_error_hint": "システム時計が不正確な可能性があります（エクスプローラーと15分以上ずれ）。",
             "vardiff_section": "プール設定",
-            "vardiff_caption": "VarDiff は常に有効です。受理シェア間の安定した間隔を狙います。最大ジャンプを下げると変化が穏やかになります。",
+            "vardiff_caption": "VarDiffは常に有効です。シェア間隔と直近の作業レート（MoneroOcean系）を組み合わせ、難易度を上下に滑らかに調整します。既定値はRandomARQ向けです。最大ジャンプを下げると変化がより穏やかになります。",
             "vardiff_restart_prompt": "VarDiff 設定を保存しました。ソロプールに新しい値を適用するにはウォレットを再起動してください。",
             "vardiff_start_diff": "開始難易度（新規セッション）",
             "vardiff_min": "最小難易度",

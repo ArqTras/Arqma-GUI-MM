@@ -11,7 +11,7 @@ export default {
       pool: {
         server: { enabled: false, bindIP: "", bindPort: 3333 },
         mining: { address: "", enableBlockRefreshInterval: false, blockRefreshInterval: 5, minerTimeout: 900 },
-        varDiff: { enabled: true, startDiff: 150000, minDiff: 150000, maxDiff: 10000000, targetTime: 20, retargetTime: 30, variancePercent: 25, maxJump: 200, fixedDiffSeparator: "." }
+        varDiff: { enabled: true, startDiff: 50000, minDiff: 25000, maxDiff: 10000000, targetTime: 45, retargetTime: 45, variancePercent: 30, maxJump: 150, fixedDiffSeparator: "." }
       }
     },
     pending_config: {},

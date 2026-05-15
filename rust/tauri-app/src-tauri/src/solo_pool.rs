@@ -806,6 +806,17 @@ fn build_hashrate_graph(ws: &WorkerState, now: i64, bucket_ms: i64, buckets: i64
     Value::Object(out)
 }
 
+fn abs_diff_u64(a: u64, b: u64) -> u64 {
+    if a >= b {
+        a - b
+    } else {
+        b - a
+    }
+}
+
+/// VarDiff: interval-based retarget (share spacing) blended with a **MoneroOcean-style** estimate
+/// `sum(share_difficulty) * targetTime / windowSeconds` over recent `share_events`, so low-hashrate
+/// miners still move toward a difficulty where a block (network target) remains possible given RandomARQ latency.
 fn maybe_retarget(
     ws: &mut WorkerState,
     now: i64,
@@ -817,30 +828,75 @@ fn maybe_retarget(
     max_diff: u64,
     max_jump_percent: u64,
 ) -> bool {
-    if !var_enabled || ws.share_times_ms.len() < 4 {
+    // Need at least two inter-share samples (nodejs-pool often uses longer history; we stay lighter).
+    if !var_enabled || ws.share_times_ms.len() < 2 {
         return false;
     }
     let retarget_ms = (retarget_time_s as i64).saturating_mul(1000);
     if retarget_ms > 0 && now.saturating_sub(ws.last_retarget_ms) < retarget_ms {
         return false;
     }
-    // Use only the most recent share intervals. Older entries may reflect a *lower* vardiff (short dt);
-    // mixing them in the average makes avg_ms look too small and retarget *only* upward (XMRig sees diff climb with rare accepts when too high).
-    let n = ws.share_times_ms.len().min(8);
-    let slice = &ws.share_times_ms[ws.share_times_ms.len() - n..];
-    let avg_ms = slice.iter().copied().sum::<i64>() / (n as i64);
+    // Recent spacing between accepted shares (ms).
+    let n_time = ws.share_times_ms.len().min(12);
+    let slice_time = &ws.share_times_ms[ws.share_times_ms.len() - n_time..];
+    let mut avg_ms = slice_time.iter().copied().sum::<i64>() / (n_time as i64);
     if avg_ms <= 0 {
         return false;
     }
+    // Avoid explosive upward jumps when a single very fast share arrives after a long silence.
+    avg_ms = avg_ms.max(300);
     let target_ms = (target_time_s as i64) * 1000;
     let variance_ms = (target_ms * variance_percent as i64) / 100;
     let min_target = target_ms - variance_ms;
     let max_target = target_ms + variance_ms;
-    if avg_ms >= min_target && avg_ms <= max_target {
-        return false;
+    let in_variance_band = avg_ms >= min_target && avg_ms <= max_target;
+
+    // Rate-based implied difficulty (similar to `miner.hashes * targetTime / period` in MoneroOcean).
+    const RATE_WINDOW_MS: i64 = 120_000;
+    let mut sum_d: u64 = 0;
+    let mut t_min = i64::MAX;
+    let mut t_max = i64::MIN;
+    for (ts, d) in &ws.share_events {
+        if now.saturating_sub(*ts) <= RATE_WINDOW_MS {
+            sum_d = sum_d.saturating_add(*d);
+            t_min = t_min.min(*ts);
+            t_max = t_max.max(*ts);
+        }
     }
+    let span_ms = (t_max.saturating_sub(t_min)).max(1000);
+    let diff_from_rate = if sum_d > 0 && ws.share_events.len() >= 2 {
+        ((sum_d as f64) * (target_time_s as f64) / (span_ms as f64 / 1000.0)) as u64
+    } else {
+        0
+    };
+
+    let raw_interval = ((ws.difficulty as f64) * (target_ms as f64) / (avg_ms as f64)) as u64;
+    let raw = if diff_from_rate > 0 {
+        let a = diff_from_rate.max(1) as f64;
+        let b = raw_interval.max(1) as f64;
+        // Geometric mean: agree with both spacing and aggregate work rate (stable for rx/arq).
+        ((a * b).sqrt()) as u64
+    } else {
+        raw_interval
+    };
+
+    if in_variance_band {
+        // In the OK time band: only retarget if the rate-based view disagrees materially (stale difficulty).
+        if diff_from_rate == 0 || ws.difficulty == 0 {
+            ws.last_retarget_ms = now;
+            return false;
+        }
+        let drift_permille = (abs_diff_u64(diff_from_rate, ws.difficulty) as u128)
+            .saturating_mul(1000)
+            / ws.difficulty.max(1) as u128;
+        // ~18% minimum change (same order as MoneroOcean `setNewDiff` 0.2 ratio) to limit thrashing.
+        if drift_permille < 180 {
+            ws.last_retarget_ms = now;
+            return false;
+        }
+    }
+
     let prev = ws.difficulty;
-    let raw = ((ws.difficulty as f64) * (target_ms as f64) / (avg_ms as f64)) as u64;
     // `100 - maxJump` on u64 underflows for jump>100, which breaks downward retargets.
     let jump = max_jump_percent.max(1).min(1_000_000);
     let d = ws.difficulty;
@@ -853,16 +909,39 @@ fn maybe_retarget(
     let max_step = (d as u128).saturating_mul(max_mul).saturating_div(100) as u64;
     let lo = min_step.max(min_diff);
     let hi = max_step.min(max_diff);
-    if lo <= hi {
-        ws.difficulty = raw.clamp(lo, hi);
+    let mut next = if lo <= hi {
+        raw.clamp(lo, hi)
     } else {
-        // No overlap with per-step window (mis-tuned or large minDiff vs current); use raw within pool bounds
-        ws.difficulty = raw.clamp(min_diff, max_diff);
+        raw.clamp(min_diff, max_diff)
+    };
+
+    // Allow faster drops when shares are *very* slow (solo UX); still respect min_diff / jump floor.
+    if avg_ms > max_target.saturating_mul(3) {
+        let aggressive = ((d as f64) * (target_ms as f64) / (avg_ms as f64)) as u64;
+        next = next.min(aggressive).max(min_diff);
+        if lo <= hi {
+            next = next.clamp(lo, hi);
+        } else {
+            next = next.clamp(min_diff, max_diff);
+        }
     }
-    let changed = ws.difficulty != prev;
+
+    // Final deadband outside the variance band: skip microscopic nudges.
+    if !in_variance_band && prev > 0 {
+        let delta_pm = (abs_diff_u64(next, prev) as u128).saturating_mul(1000) / prev as u128;
+        if delta_pm < 120 {
+            ws.last_retarget_ms = now;
+            return false;
+        }
+    }
+
+    let changed = next != prev;
     if changed {
+        ws.difficulty = next;
         ws.last_retarget_ms = now;
         ws.share_times_ms.clear();
+    } else {
+        ws.last_retarget_ms = now;
     }
     changed
 }
@@ -1064,7 +1143,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("startDiff"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(150_000)
+        .unwrap_or(50_000)
         .clamp(1000, 100_000_000);
     let var_retarget_time_s = st
         .config_data
@@ -1072,28 +1151,28 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("retargetTime"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(30);
+        .unwrap_or(45);
     let var_target_time_s = st
         .config_data
         .get("pool")
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("targetTime"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(20);
+        .unwrap_or(45);
     let var_variance_percent = st
         .config_data
         .get("pool")
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("variancePercent"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(25);
+        .unwrap_or(30);
     let var_min_diff = st
         .config_data
         .get("pool")
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("minDiff"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(150_000);
+        .unwrap_or(25_000);
     let var_max_diff = st
         .config_data
         .get("pool")
@@ -1107,7 +1186,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("maxJump"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(200);
+        .unwrap_or(150);
     let miner_timeout_ms = st
         .config_data
         .get("pool")

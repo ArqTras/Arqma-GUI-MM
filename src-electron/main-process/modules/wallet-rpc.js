@@ -25,6 +25,33 @@ const axios = require("axios")
 const { Observable, Subject, fromEvent } = require("rxjs")
 const Decimal = require("decimal.js")
 
+/** `validate_address` from wallet-ffi returns `nettype` as 0/1/2 enum; config uses `mainnet` / `testnet` / `stagenet`. */
+function netTypeStringFromValidateAddressResult (result) {
+  if (!result || typeof result !== "object") {
+    return ""
+  }
+  const raw = result.nettype ?? result.net_type
+  if (typeof raw === "string") {
+    const t = raw.trim().toLowerCase()
+    if (t === "mainnet" || t === "testnet" || t === "stagenet") {
+      return t
+    }
+    const n = parseInt(t, 10)
+    if (!Number.isNaN(n)) {
+      if (n === 0) return "mainnet"
+      if (n === 1) return "testnet"
+      if (n === 2) return "stagenet"
+    }
+    return ""
+  }
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    if (raw === 0) return "mainnet"
+    if (raw === 1) return "testnet"
+    if (raw === 2) return "stagenet"
+  }
+  return ""
+}
+
 export class WalletRPC {
   constructor (backend) {
     this.subscriber = null
@@ -724,7 +751,8 @@ export class WalletRPC {
         return
       }
 
-      const { valid, nettype } = data.result
+      const { valid } = data.result
+      const nettype = netTypeStringFromValidateAddressResult(data.result)
 
       const netMatches = this.net_type === nettype
       const isValid = valid && netMatches

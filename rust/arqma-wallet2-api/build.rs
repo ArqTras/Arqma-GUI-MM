@@ -97,15 +97,18 @@ fn main() {
         );
     }
 
-    // `wallet2_api.h` on older Arqma (e.g. pospow) may declare only part of the slice-relay API
-    // (e.g. `relayTxFromMetadataHex` on `Wallet`) while `PendingTransaction` still lacks
-    // `destinationAmountsPerSlice` — compiling with `ARQMA_WALLET2_HAS_SLICE_RELAY` then fails on
-    // Linux CI. Enable the slice path only when the header advertises the full surface we call from
-    // `wallet2_api_wrapper.cpp`; otherwise use file-based unsigned export + `submitTransaction`.
+    // `exportPendingRelaySlices` + `relayTxFromMetadataHex` use the same portable_binary `pending_tx`
+    // encoding. That is **not** the same as `PendingTransaction::commit(filename, true)` file bytes
+    // used by the legacy hex export path — relay would always fail to deserialize without export.
+    //
+    // `destinationAmountsPerSlice` on `PendingTransaction` is optional UI metadata only; do not gate
+    // the export path on it (Arqma headers may omit the symbol while export/relay still exist).
     let header_text = std::fs::read_to_string(&header).unwrap_or_default();
-    let has_slice_relay = header_text.contains("exportPendingRelaySlices")
-        && header_text.contains("relayTxFromMetadataHex")
-        && header_text.contains("destinationAmountsPerSlice");
+    let has_relay_from_hex = header_text.contains("relayTxFromMetadataHex");
+    let has_export_pending_relay = header_text.contains("exportPendingRelaySlices")
+        && has_relay_from_hex;
+    let has_destination_amounts_per_slice = header_text.contains("destinationAmountsPerSlice");
+    let has_slice_relay = has_export_pending_relay && has_destination_amounts_per_slice;
 
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_UPSTREAM_DIR");
     println!("cargo:rerun-if-changed=src/native.rs");
@@ -132,8 +135,14 @@ fn main() {
             b.compiler(compiler);
         }
     }
+    if has_export_pending_relay {
+        b.define("ARQMA_WALLET2_HAS_EXPORT_PENDING_RELAY", "1");
+    }
     if has_slice_relay {
         b.define("ARQMA_WALLET2_HAS_SLICE_RELAY", "1");
+    }
+    if has_relay_from_hex {
+        b.define("ARQMA_WALLET2_HAS_RELAY_FROM_HEX", "1");
     }
     b.file("src/wallet2_api_wrapper.cpp")
         .include("src")

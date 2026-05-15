@@ -719,7 +719,7 @@
             "miner_timeout_seconds": "Tempo limite ocioso do minerador (segundos)",
             "blocks_table": "Blocos",
             "vardiff_section": "Configurações da pool",
-            "vardiff_caption": "VarDiff está sempre ativo. Visa um intervalo estável entre shares aceitos. Reduza o salto máximo para mudanças mais suaves.",
+            "vardiff_caption": "VarDiff está sempre ativo. Mistura o espaçamento dos shares com a taxa recente de trabalho (estilo MoneroOcean) para subir ou descer a dificuldade suavemente; os padrões servem para RandomARQ. Salto máximo menor = ajustes mais suaves.",
             "vardiff_restart_prompt": "Configurações VarDiff salvas. Reinicie a carteira para o Solo Pool aplicar os novos valores.",
             "vardiff_start_diff": "Dificuldade inicial (novas sessões)",
             "vardiff_min": "Dificuldade mínima",

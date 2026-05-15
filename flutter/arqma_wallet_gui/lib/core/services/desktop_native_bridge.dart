@@ -22,6 +22,7 @@ import '../desktop/desktop_coin_price.dart';
 import '../desktop/desktop_old_gui_wallets.dart';
 import '../desktop/desktop_restore_height.dart';
 import '../desktop/desktop_stake_pools.dart';
+import '../desktop/desktop_wallet_address_list.dart';
 import '../desktop/wallet_json_rpc.dart';
 import '../desktop/wallet_list_fs.dart';
 import '../desktop/wallet_password_pbkdf2.dart';
@@ -146,6 +147,35 @@ String _walletFfiCreateRestoreHint() {
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
   }
   return 'Wallet backend is not running (`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`, or embed the FFI library).';
+}
+
+/// Native `validate_address` returns `nettype` as a Monero enum **int**; `app.config.app.net_type` uses
+/// `mainnet` / `testnet` / `stagenet` strings — map so `_emitSetValidAddress` does not mark valid addresses invalid.
+String _desktopWalletRpcNettypeForConfig(Object? raw) {
+  if (raw == null) {
+    return '';
+  }
+  if (raw is int) {
+    switch (raw) {
+      case 0:
+        return 'mainnet';
+      case 1:
+        return 'testnet';
+      case 2:
+        return 'stagenet';
+      default:
+        return '';
+    }
+  }
+  if (raw is num) {
+    return _desktopWalletRpcNettypeForConfig(raw.toInt());
+  }
+  final String s = '$raw'.trim().toLowerCase();
+  final int? n = int.tryParse(s);
+  if (n != null) {
+    return _desktopWalletRpcNettypeForConfig(n);
+  }
+  return s;
 }
 
 /// Desktop (macOS/Linux/Windows): load GUI `config.json` under [ArqmaPaths.configDir], scan wallet dir like Tauri,
@@ -711,8 +741,8 @@ final class DesktopNativeBridge implements NativeBridge {
       return x.clamp(lo, hi);
     }
 
-    int start = clampU(vd['startDiff'], 150000, 1000, 100000000);
-    int minD = clampU(vd['minDiff'], 150000, 1, 100000000);
+    int start = clampU(vd['startDiff'], 50000, 1000, 100000000);
+    int minD = clampU(vd['minDiff'], 25000, 1, 100000000);
     int maxD = clampU(vd['maxDiff'], 10000000, 1, 100000000);
     if (minD > maxD) {
       final int t = minD;
@@ -720,10 +750,11 @@ final class DesktopNativeBridge implements NativeBridge {
       maxD = t;
     }
     start = start.clamp(minD, maxD);
-    final int target = clampU(vd['targetTime'], 20, 5, 600);
-    final int retarget = clampU(vd['retargetTime'], 30, 1, 3600);
-    final int variance = clampU(vd['variancePercent'], 25, 1, 95);
-    final int jump = clampU(vd['maxJump'], 200, 1, 10000);
+    final int target = clampU(vd['targetTime'], 45, 5, 600);
+    final int retarget = clampU(vd['retargetTime'], 45, 1, 3600);
+    final int variance = clampU(vd['variancePercent'], 30, 1, 95);
+    final int jump = clampU(vd['maxJump'], 150, 1, 10000);
+    final String sep = '${vd['fixedDiffSeparator'] ?? '.'}';
     final Map<String, dynamic> merged = Map<String, dynamic>.from(pool);
     merged['varDiff'] = <String, dynamic>{
       'enabled': true,
@@ -734,6 +765,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'retargetTime': retarget,
       'variancePercent': variance,
       'maxJump': jump,
+      'fixedDiffSeparator': sep,
     };
     return merged;
   }
@@ -1681,6 +1713,9 @@ final class DesktopNativeBridge implements NativeBridge {
       });
       emittedOk = true;
       _whFetchTxPending = false;
+      if (_openedWalletDisplayName == walletNameAtStart) {
+        await _emitWalletAddressListFromRpc(w);
+      }
       // A slow `get_transfers` can finish after the wallet height has advanced several
       // ticks (footer updates from `getheight` while this call was in flight). The RPC
       // snapshot may omit rows for blocks scanned only after [curH]. Without a follow-up
@@ -1697,6 +1732,31 @@ final class DesktopNativeBridge implements NativeBridge {
       if (!emittedOk && walletNameAtStart == _openedWalletDisplayName) {
         _whFetchTxPending = true;
       }
+    }
+  }
+
+  /// `wallet_heartbeat` parity: populate Receive tab (`set_wallet_address_list`) from RPC.
+  Future<void> _emitWalletAddressListFromRpc(ArqmaWalletRpcSession w) async {
+    try {
+      final Map<String, dynamic>? ga = await w
+          .call('get_address', <String, dynamic>{'account_index': 0})
+          .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      final Map<String, dynamic>? gb = await w
+          .call('getbalance', <String, dynamic>{'account_index': 0})
+          .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      final Map<String, dynamic>? built =
+          buildWalletAddressListFromRpc(ga, gb);
+      if (built == null) {
+        return;
+      }
+      final Map<String, dynamic> topped =
+          await topUpUnusedWalletAddresses(w, built);
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_address_list',
+        'data': topped,
+      });
+    } catch (e, st) {
+      debugPrint('[DesktopNative] set_wallet_address_list: $e\n$st');
     }
   }
 
@@ -2390,6 +2450,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_wallet_transactions',
       'data': <String, dynamic>{'tx_list': <dynamic>[]},
     });
+    unawaited(_emitWalletAddressListFromRpc(w));
     _whStoredHeight = openedHeight;
     _whStoredBalance = bal;
     _whStoredUnlocked = unl;
@@ -2440,6 +2501,27 @@ final class DesktopNativeBridge implements NativeBridge {
       'transfer_suggest_sweep_all': anyUnder1000,
       if (partArqStrs.isNotEmpty) 'transfer_split_part_amounts_arq': partArqStrs,
     };
+  }
+
+  /// Relay payloads must match native `pending_by_metadata` keys (trimmed multisig metadata).
+  String _relayTxMetadataFromRpcItem(Object? item) {
+    if (item == null) {
+      return '';
+    }
+    if (item is String) {
+      return item.trim();
+    }
+    if (item is Map) {
+      final Object? ah = item['as_hex'];
+      if (ah is String && ah.trim().isNotEmpty) {
+        return ah.trim();
+      }
+      final Object? hx = item['hex'];
+      if (hx is String && hx.trim().isNotEmpty) {
+        return hx.trim();
+      }
+    }
+    return '$item'.trim();
   }
 
   String _walletRpcErrCapitalized(Object? err) {
@@ -2503,14 +2585,7 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     final String note = '${p['note'] ?? ''}';
     for (final Object? item in list) {
-      String hex;
-      if (item is String) {
-        hex = item;
-      } else if (item is Map && item['as_hex'] is String) {
-        hex = item['as_hex'] as String;
-      } else {
-        hex = '$item';
-      }
+      final String hex = _relayTxMetadataFromRpcItem(item);
       if (hex.isEmpty) {
         continue;
       }
@@ -2541,7 +2616,7 @@ final class DesktopNativeBridge implements NativeBridge {
     final String? txh0 =
         txHashes != null && txHashes.isNotEmpty ? '${txHashes[0]}' : null;
     for (final Object? item in list) {
-      String h = item is String ? item : '$item';
+      final String h = _relayTxMetadataFromRpcItem(item);
       if (h.isEmpty) {
         continue;
       }
@@ -2565,7 +2640,7 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     final Object? h = res['tx_metadata'];
-    String hex = h is String ? h : '$h';
+    final String hex = _relayTxMetadataFromRpcItem(h);
     if (hex.isEmpty) {
       return;
     }
@@ -2624,7 +2699,7 @@ final class DesktopNativeBridge implements NativeBridge {
         .where((Map<String, dynamic> m) => m['kind'] == 'transfer_split')
         .toList();
     for (final Map<String, dynamic> t in items) {
-      final String hex = '${t['tx_metadata'] ?? ''}';
+      final String hex = '${t['tx_metadata'] ?? ''}'.trim();
       final Map<String, dynamic>? rr =
           await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
@@ -2633,7 +2708,22 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       final Object? res = rr?['result'];
       if (res is Map) {
-        final String? txh = res['tx_hash'] as String?;
+        final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
+        if (rm['relay_committed_all_pending_slices'] == true) {
+          final String? txh = rm['tx_hash'] as String?;
+          final String note = '${t['note'] ?? ''}';
+          if (txh != null && txh.isNotEmpty && note.isNotEmpty) {
+            await w.call(
+              'set_tx_notes',
+              <String, dynamic>{
+                'txids': <String>[txh],
+                'notes': <String>[note],
+              },
+            );
+          }
+          break;
+        }
+        final String? txh = rm['tx_hash'] as String?;
         final String note = '${t['note'] ?? ''}';
         if (txh != null && txh.isNotEmpty && note.isNotEmpty) {
           await w.call(
@@ -2679,7 +2769,7 @@ final class DesktopNativeBridge implements NativeBridge {
         .where((Map<String, dynamic> m) => m['kind'] == 'stake')
         .toList();
     for (final Map<String, dynamic> t in items) {
-      final String hex = '${t['tx_metadata'] ?? ''}';
+      final String hex = '${t['tx_metadata'] ?? ''}'.trim();
       final Map<String, dynamic>? rr =
           await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
@@ -2696,6 +2786,33 @@ final class DesktopNativeBridge implements NativeBridge {
         _pendingTxRelay
             .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
         return;
+      }
+      final Object? resEarly = rr?['result'];
+      if (resEarly is Map &&
+          Map<String, dynamic>.from(resEarly)['relay_committed_all_pending_slices'] ==
+              true) {
+        final int? amt = t['amount'] as int?;
+        final String? snk = t['service_node_key'] as String?;
+        if (amt != null && snk != null && snk.isNotEmpty) {
+          final double a = amt / _arqCoinUnits;
+          _showNotification(
+            'positive',
+            'Staked ${a.toStringAsFixed(5)} ARQ to: $snk',
+            3000,
+          );
+        }
+        final Map<String, dynamic> rm = Map<String, dynamic>.from(resEarly);
+        final String? txh = rm['tx_hash'] as String?;
+        if (snk != null && snk.isNotEmpty && txh != null && txh.isNotEmpty) {
+          await w.call(
+            'set_tx_notes',
+            <String, dynamic>{
+              'txids': <String>[txh],
+              'notes': <String>['Service Node: $snk'],
+            },
+          );
+        }
+        break;
       }
       final int? amt = t['amount'] as int?;
       final String? snk = t['service_node_key'] as String?;
@@ -2738,11 +2855,17 @@ final class DesktopNativeBridge implements NativeBridge {
         .where((Map<String, dynamic> m) => m['kind'] == 'sweepAll')
         .toList();
     for (final Map<String, dynamic> t in items) {
-      final String hex = '${t['tx_metadata'] ?? ''}';
+      final String hex = '${t['tx_metadata'] ?? ''}'.trim();
       final Map<String, dynamic>? rr =
           await w.call('relay_tx', <String, dynamic>{'hex': hex});
       if (!walletJsonRpcNoError(rr)) {
         err = _walletRpcErrCapitalized(rr?['error']);
+        break;
+      }
+      final Object? resSweep = rr?['result'];
+      if (resSweep is Map &&
+          Map<String, dynamic>.from(resSweep)['relay_committed_all_pending_slices'] ==
+              true) {
         break;
       }
     }
@@ -2853,7 +2976,8 @@ final class DesktopNativeBridge implements NativeBridge {
         }
         final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
         final bool fieldValid = rm['valid'] == true || rm['integrated'] == true;
-        final String rpcNet = '${rm['nettype'] ?? rm['net_type'] ?? ''}';
+        final String rpcNet =
+            _desktopWalletRpcNettypeForConfig(rm['nettype'] ?? rm['net_type']);
         _emitSetValidAddress(
             address: addr, rpcFieldValid: fieldValid, rpcNettype: rpcNet);
         return <String, dynamic>{};

@@ -451,7 +451,7 @@
             "miner_timeout_seconds": "Limit bezczynności minera (sekundy)",
             "blocks_table": "Bloki",
             "vardiff_section": "Ustawienia puli",
-            "vardiff_caption": "VarDiff jest zawsze włączony. Utrzymuje sensowny odstęp między share’ami. Mniejszy maks. skok = łagodniejsze zmiany trudności.",
+            "vardiff_caption": "VarDiff jest zawsze włączony. Łączy odstępy między share’ami z ostatnim tempem pracy (jak w poolach typu MoneroOcean), żeby trudność szła w górę i w dół; domyślne wartości są pod RandomARQ. Mniejszy maks. skok = łagodniejsze kroki.",
             "vardiff_restart_prompt": "Zapisano ustawienia VarDiff. Uruchom portfel ponownie, aby solo pool zastosował nowe wartości.",
             "vardiff_start_diff": "Trudność startowa (nowe sesje)",
             "vardiff_min": "Minimalna trudność",

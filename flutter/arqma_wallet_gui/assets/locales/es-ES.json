@@ -719,7 +719,7 @@
             "miner_timeout_seconds": "Tiempo de espera inactivo del minero (segundos)",
             "blocks_table": "Bloques",
             "vardiff_section": "Ajustes del pool",
-            "vardiff_caption": "VarDiff siempre está activo. Busca un intervalo estable entre shares aceptados. Reduzca el salto máximo para cambios más suaves.",
+            "vardiff_caption": "VarDiff siempre está activo. Combina el intervalo entre shares con el ritmo de trabajo reciente (estilo MoneroOcean) para subir o bajar la dificultad con suavidad; los valores por defecto encajan con RandomARQ. Un salto máximo menor implica ajustes más suaves.",
             "vardiff_restart_prompt": "Ajustes VarDiff guardados. Reinicie el monedero para que el Solo Pool aplique los nuevos valores.",
             "vardiff_start_diff": "Dificultad inicial (nuevas sesiones)",
             "vardiff_min": "Dificultad mínima",

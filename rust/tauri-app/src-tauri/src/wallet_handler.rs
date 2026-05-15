@@ -2180,6 +2180,43 @@ fn wallet_password_matches(st: &WalletBackendState, password: &str) -> bool {
     got == want
 }
 
+/// `wallet2_validate_address_json` emits `nettype` as a Monero network enum **integer** (0=mainnet, 1=testnet, 2=stagenet).
+/// Config and UI use string `net_type` — normalize here so `set_valid_address` matches Electron / Flutter desktop.
+fn nettype_string_from_validate_address_result(res: &Value) -> String {
+    if let Some(s) = res
+        .get("nettype")
+        .and_then(|v| v.as_str())
+        .or_else(|| res.get("net_type").and_then(|v| v.as_str()))
+    {
+        let t = s.trim();
+        if t.eq_ignore_ascii_case("mainnet")
+            || t.eq_ignore_ascii_case("testnet")
+            || t.eq_ignore_ascii_case("stagenet")
+        {
+            return t.to_ascii_lowercase();
+        }
+        if let Ok(n) = t.parse::<i64>() {
+            return match n {
+                0 => "mainnet".to_string(),
+                1 => "testnet".to_string(),
+                2 => "stagenet".to_string(),
+                _ => String::new(),
+            };
+        }
+        return String::new();
+    }
+    let n = res
+        .get("nettype")
+        .and_then(|v| v.as_i64())
+        .or_else(|| res.get("net_type").and_then(|v| v.as_i64()));
+    match n {
+        Some(0) => "mainnet".to_string(),
+        Some(1) => "testnet".to_string(),
+        Some(2) => "stagenet".to_string(),
+        _ => String::new(),
+    }
+}
+
 /// Electron `wallet-rpc.js::validateAddress` → `set_valid_address` (incl. `net_type` vs result `nettype`).
 fn emit_validate_address_from_rpc_result(
     app: &AppHandle,
@@ -2197,11 +2234,7 @@ fn emit_validate_address_from_rpc_result(
         return Ok(());
     };
     let valid = res.get("valid").and_then(|v| v.as_bool()).unwrap_or(false);
-    let nettype = res
-        .get("nettype")
-        .and_then(|v| v.as_str())
-        .or_else(|| res.get("net_type").and_then(|v| v.as_str()))
-        .unwrap_or("");
+    let nettype = nettype_string_from_validate_address_result(res);
     let app_net = st
         .config_data
         .get("app")
@@ -2269,12 +2302,18 @@ fn map_transfer_split_params(p: &Value) -> Result<Value, String> {
                 .map(|i| i.max(0) as u64)
         })
         .unwrap_or(0);
+    let payment_id = p
+        .get("payment_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim();
     Ok(json!({
       "destinations": [{ "amount": atoms, "address": address }],
       "priority": priority,
       "ring_size": 16,
       "do_not_relay": true,
-      "get_tx_metadata": true
+      "get_tx_metadata": true,
+      "payment_id": payment_id
     }))
 }
 
