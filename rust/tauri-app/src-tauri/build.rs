@@ -10,6 +10,10 @@ fn main() {
     // apply on the artifact crate here so rust-lld can coalesce duplicates (same as BFD `-z muldefs`).
     if target_os == "linux" {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
+        // `arqma-wallet2-api` emits `rustc-link-lib=dylib` for Boost et al.; with `rust-lld` those can
+        // be ordered before `libwallet_merged.a`, then `--as-needed` drops Boost object files needed
+        // by the merged archive (CI: undefined `boost::filesystem::detail::*`). Re-pull system libs here.
+        linux_wallet2_native_follow_link_args();
     }
 
     // `#[link]` for MSYS2 libs does not reach the final `cdylib` link line (no `-lboost_*` emitted).
@@ -71,6 +75,40 @@ fn main() {
             }
         }
     }
+}
+
+fn linux_wallet2_native_follow_link_args() {
+    let emit = |flag: &str| println!("cargo:rustc-link-arg={}", flag);
+    emit("-Wl,--no-as-needed");
+    emit("-Wl,--start-group");
+    for lib in [
+        "hidapi-libusb",
+        "boost_program_options",
+        "boost_thread",
+        "boost_container",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "ssl",
+        "crypto",
+        "readline",
+        "boost_serialization",
+        "boost_regex",
+        "boost_locale",
+        "zmq",
+        "sodium",
+        "icuuc",
+        "icui18n",
+        "icudata",
+        "z",
+        "dl",
+        "pthread",
+    ] {
+        emit(&format!("-l{}", lib));
+    }
+    emit("-Wl,--end-group");
 }
 
 fn mingw_wallet2_native_libs_cdylib_args() {

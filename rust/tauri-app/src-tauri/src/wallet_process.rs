@@ -89,16 +89,6 @@ fn send_windows_soft_stop(child: &Child) {
         .status();
 }
 
-#[cfg(windows)]
-pub fn force_kill_wallet_rpc_process_tree() {
-    let _ = std::process::Command::new("taskkill")
-        .args(["/IM", "arqma-wallet-rpc.exe", "/T", "/F"])
-        .status();
-}
-
-#[cfg(not(windows))]
-pub fn force_kill_wallet_rpc_process_tree() {}
-
 /// Reqwest timeout for local `arqma-wallet-rpc` (`store` during scan can exceed generic HTTP client 120s).
 pub(crate) fn wallet_rpc_http_timeout_secs() -> u64 {
     std::env::var("ARQMA_WALLET_RPC_HTTP_TIMEOUT_SECS")
