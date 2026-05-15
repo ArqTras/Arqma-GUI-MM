@@ -10,10 +10,12 @@ fn main() {
     // apply on the artifact crate here so rust-lld can coalesce duplicates (same as BFD `-z muldefs`).
     if target_os == "linux" {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
-        // `arqma-wallet2-api` emits `rustc-link-lib=dylib` for Boost et al.; with `rust-lld` those can
-        // be ordered before `libwallet_merged.a`, then `--as-needed` drops Boost object files needed
-        // by the merged archive (CI: undefined `boost::filesystem::detail::*`). Re-pull system libs here.
-        linux_wallet2_native_follow_link_args();
+        // `rustc-link-arg` runs too early vs `#[link] whole-archive` deps from `arqma-wallet2-api`;
+        // rust-lld keeps `--as-needed` and drops `-lboost_*` before `wallet_merged` is seen (CI:
+        // undefined `boost::filesystem::detail::*`). Bin-only link args append after crate inputs.
+        for bin in ["arqma-wallet", "arqma_flutter_solo_pool"] {
+            linux_wallet2_native_follow_link_args_for_bin(bin);
+        }
     }
 
     // `#[link]` for MSYS2 libs does not reach the final `cdylib` link line (no `-lboost_*` emitted).
@@ -77,8 +79,8 @@ fn main() {
     }
 }
 
-fn linux_wallet2_native_follow_link_args() {
-    let emit = |flag: &str| println!("cargo:rustc-link-arg={}", flag);
+fn linux_wallet2_native_follow_link_args_for_bin(bin: &str) {
+    let emit = |flag: &str| println!("cargo:rustc-link-arg-bin={bin}={flag}", bin = bin);
     emit("-Wl,--no-as-needed");
     emit("-Wl,--start-group");
     for lib in [

@@ -60,6 +60,11 @@ bash "${REPO}/build/ci/ensure-tauri-dist-stub.sh" "${REPO}"
 cd "${ROOT}"
 CARGO_ARGS=(build -p arqma-wallet --release --bin arqma_flutter_solo_pool)
 case "$(uname -s)" in
+  Linux)
+    # rust-lld + `--as-needed` can omit distro `-lboost_*` before refs from whole-archive `wallet_merged`
+    # appear → undefined `boost::filesystem::detail::*` on CI. GNU BFD ld keeps classical ordering.
+    export RUSTFLAGS="${RUSTFLAGS:-} -Clink-arg=-fuse-ld=bfd"
+    ;;
   MINGW* | MSYS* | CYGWIN*)
     export CARGO_PROFILE_RELEASE_LTO="${CARGO_PROFILE_RELEASE_LTO:-thin}"
     CARGO_ARGS+=(--target x86_64-pc-windows-gnu)
