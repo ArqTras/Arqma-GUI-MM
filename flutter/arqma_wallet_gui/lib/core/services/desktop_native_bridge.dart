@@ -22,6 +22,7 @@ import '../desktop/desktop_coin_price.dart';
 import '../desktop/desktop_old_gui_wallets.dart';
 import '../desktop/desktop_restore_height.dart';
 import '../desktop/desktop_stake_pools.dart';
+import '../desktop/desktop_wallet_address_book.dart';
 import '../desktop/desktop_wallet_address_list.dart';
 import '../desktop/wallet_json_rpc.dart';
 import '../desktop/wallet_list_fs.dart';
@@ -221,6 +222,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
+
+  /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
+  bool _whAddressBookPending = false;
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -1765,6 +1769,23 @@ final class DesktopNativeBridge implements NativeBridge {
     }
   }
 
+  /// Tauri `fetch_address_book_map` → `set_wallet_address_book`.
+  Future<void> _emitWalletAddressBookFromRpc(ArqmaWalletRpcSession w) async {
+    try {
+      final Map<String, dynamic>? r = await w
+          .call('get_address_book', <String, dynamic>{})
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+      final Map<String, dynamic> built = buildWalletAddressBookFromRpc(r);
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_address_book',
+        'data': built,
+      });
+      _whAddressBookPending = false;
+    } catch (e, st) {
+      debugPrint('[DesktopNative] set_wallet_address_book: $e\n$st');
+    }
+  }
+
   /// `wallet_heartbeat` parity: populate Receive tab (`set_wallet_address_list`) from RPC.
   Future<void> _emitWalletAddressListFromRpc(ArqmaWalletRpcSession w) async {
     try {
@@ -1954,6 +1975,9 @@ final class DesktopNativeBridge implements NativeBridge {
             now.add(const Duration(seconds: 45));
       }
       unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
+    }
+    if (_whAddressBookPending && ghOk) {
+      unawaited(_emitWalletAddressBookFromRpc(w));
     }
   }
 
@@ -2498,6 +2522,8 @@ final class DesktopNativeBridge implements NativeBridge {
       'data': <String, dynamic>{'tx_list': <dynamic>[]},
     });
     unawaited(_emitWalletAddressListFromRpc(w));
+    _whAddressBookPending = true;
+    unawaited(_emitWalletAddressBookFromRpc(w));
     _whStoredHeight = openedHeight;
     _whStoredBalance = bal;
     _whStoredUnlocked = unl;
@@ -3077,6 +3103,7 @@ final class DesktopNativeBridge implements NativeBridge {
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
       _walletFullRescanUi = false;
+      _whAddressBookPending = false;
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
         await w.closeWalletSession();
@@ -3389,6 +3416,7 @@ final class DesktopNativeBridge implements NativeBridge {
         return <String, dynamic>{};
       }
       await w.call('store', <String, dynamic>{});
+      await _emitWalletAddressBookFromRpc(w);
       _showNotification(
           'positive', 'Address Book updated with ${p['address'] ?? ''}', 3000);
       return <String, dynamic>{};
@@ -3406,6 +3434,7 @@ final class DesktopNativeBridge implements NativeBridge {
           .call('delete_address_book', <String, dynamic>{'index': idx.toInt()});
       if (walletJsonRpcNoError(r)) {
         await w.call('store', <String, dynamic>{});
+        await _emitWalletAddressBookFromRpc(w);
       }
       return <String, dynamic>{};
     }
