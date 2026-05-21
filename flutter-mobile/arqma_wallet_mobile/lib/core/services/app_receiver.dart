@@ -56,7 +56,19 @@ class AppReceiver {
       'method': 'initialize',
       'message': 'before core init ($source)',
     });
-    await bridge.backendSend('core', 'init', {});
+    try {
+      await bridge
+          .backendSend('core', 'init', {})
+          .timeout(const Duration(seconds: 60));
+    } on TimeoutException {
+      debugPrint('[AppReceiver] core init timed out after 60s');
+      store.setAppData(<String, dynamic>{
+        'status': <String, dynamic>{
+          'code': -1,
+          'message': 'Startup timed out — check network or remote node',
+        },
+      });
+    }
   }
 
   void _showNotification(dynamic data) {

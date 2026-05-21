@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_api.dart';
 import '../core/mobile/mobile_remote_nodes.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
@@ -70,6 +73,13 @@ class MobileRemoteNodePicker extends StatelessWidget {
             onChanged: (String? v) {
               if (v != null) {
                 _selectHost(v);
+                unawaited(
+                  context.read<AppApi>().send(
+                    'core',
+                    'apply_remote_node',
+                    <String, dynamic>{'host': v},
+                  ),
+                );
               }
             },
           );

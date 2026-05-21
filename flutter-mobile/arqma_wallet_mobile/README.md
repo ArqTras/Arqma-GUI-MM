@@ -13,6 +13,7 @@ flutter run -d macos   # or linux / windows / chrome
 ## App name and icons (matches Tauri)
 
 - **Display name:** `Arqma-Wallet` (same as `rust/tauri-app/src-tauri/tauri.conf.json` `productName`).
+- **iOS / Android:** `ios/Runner/Assets.xcassets/AppIcon.appiconset` and `android/app/src/main/res/mipmap-*/ic_launcher.png` — regenerate from `assets/images/arq_logo_with_padding.png` via `tool/generate_app_icons.sh`.
 - **macOS:** `macos/Runner/Configs/AppInfo.xcconfig`, `AppIcon.appiconset` (generated from `rust/tauri-app/public/icon_512x512.png`).
 - **Windows:** `BINARY_NAME` + `Runner.rc` metadata; `windows/runner/resources/app_icon.ico` ← `rust/tauri-app/public/icon.ico`.
 - **Linux:** `BINARY_NAME` + `APPLICATION_ID` in `linux/CMakeLists.txt`; GTK title in `linux/runner/my_application.cc`; window icon loads `assets/branding/app_icon.png` (copy of Tauri `icon_512x512.png`) from the bundled `flutter_assets` tree.

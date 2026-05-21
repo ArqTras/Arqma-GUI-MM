@@ -66,6 +66,30 @@ flutter run -d <device-id>
 
 Open `ios/Runner.xcworkspace` in Xcode for signing, entitlements, and Archive.
 
+### Release packages (GitHub + TestFlight)
+
+From `flutter-mobile/arqma_wallet_mobile` on **macOS** (after FFI build):
+
+```bash
+chmod +x tool/package_mobile_release.sh
+./tool/package_mobile_release.sh
+# or skip Rust rebuild if dylib already exists:
+./tool/package_mobile_release.sh --skip-ffi
+```
+
+Outputs under **`dist/`**:
+
+| File | Use |
+|------|-----|
+| `Arqma-Wallet-Mobile-<version>-ios-testflight.ipa` | TestFlight (needs Apple Distribution cert) |
+| `Arqma-Wallet-Mobile-<version>-ios-development.ipa` | GitHub / registered devices (fallback) |
+| `Arqma-Wallet-Mobile-<version>-ios.xcarchive.zip` | Manual export in Xcode if IPA export fails |
+| `SHA256SUMS.txt` | GitHub Release checksum |
+| `*-ios-manifest.txt` | Build metadata |
+| `TESTFLIGHT.md` | Upload steps |
+
+CI: push tag `5.1.0` or `v5.1.0` → workflow **Mobile release (Flutter iOS)** (requires `contrib/depends` + `wallet_merged` on the runner or a prior local build committed/cached).
+
 `Info.plist` allows HTTP JSON-RPC to remote nodes (`NSAppTransportSecurity`).
 
 ## Android

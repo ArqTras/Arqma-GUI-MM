@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/mobile/mobile_app_config.dart';
 import '../core/services/native_bridge.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../core/theme/arqma_colors.dart';
@@ -67,16 +68,11 @@ class _StatusFooterState extends State<StatusFooter> {
   }
 
   String _statusText(LocaleController loc, GatewayStore store) {
-    final Map<String, dynamic> cfg =
-        store.app['config'] as Map<String, dynamic>? ?? {};
-    // `daemons[null]` yields no RPC entry when `net_type` is missing — match Rust default `mainnet`.
+    final Map<String, dynamic> cfg = effectiveAppConfig(store.app);
     final String net =
         (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic> daemons =
-        cfg['daemons'] as Map<String, dynamic>? ?? {};
-    final Map<String, dynamic> configDaemon =
-        daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
-    final String dtype = configDaemon['type'] as String? ?? 'local';
+    final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
+    final String dtype = configDaemon['type'] as String? ?? 'remote';
     final Map<String, dynamic> info =
         store.daemon['info'] as Map<String, dynamic>? ?? {};
     final int daemonTip = _daemonChainTip(info);
@@ -86,6 +82,17 @@ class _StatusFooterState extends State<StatusFooter> {
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
     if (displayTip == 0) {
+      if (dtype == 'remote') {
+        final bool ok = store.app['remote_daemon_ok'] == true;
+        final String node = remoteNodeLabel(cfg);
+        if (ok) {
+          return loc.tr('components.footer.syncing');
+        }
+        if (node.isNotEmpty) {
+          return 'Connecting to $node…';
+        }
+        return loc.tr('pages.init.connecting_to_backend');
+      }
       return '';
     }
     final int tipGap = displayTip > 0
@@ -136,15 +143,12 @@ class _StatusFooterState extends State<StatusFooter> {
 
     final Map<String, dynamic> app = store.app;
     final String wb = '${app['wallet_backend'] ?? 'pending'}';
-    final Map<String, dynamic> cfg =
-        app['config'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> cfg = effectiveAppConfig(app);
     final String net =
         (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic> daemons =
-        cfg['daemons'] as Map<String, dynamic>? ?? {};
-    final Map<String, dynamic> configDaemon =
-        daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
-    final String dtype = configDaemon['type'] as String? ?? 'local';
+    final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
+    final String dtype = configDaemon['type'] as String? ?? 'remote';
+    final String nodeLabel = remoteNodeLabel(cfg);
 
     final Map<String, dynamic> info =
         store.daemon['info'] as Map<String, dynamic>? ?? {};
@@ -306,9 +310,12 @@ class _StatusFooterState extends State<StatusFooter> {
                           ? '${loc.tr('components.footer.daemon')}: $dh / $daemonTip (${daemonPct.toStringAsFixed(1)}%)'
                           : '${loc.tr('components.footer.daemon')}: $dh / —',
                     ),
-                  if (dtype != 'local')
+                  if (dtype != 'local' && nodeLabel.isNotEmpty)
                     Text(
-                        '${loc.tr('components.footer.remote')}: ${info['height']}'),
+                      daemonTip > 0
+                          ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${info['height'] ?? '—'}'
+                          : '${loc.tr('components.footer.remote')}: $nodeLabel',
+                    ),
                   Text(walletLine),
                 ],
               ),

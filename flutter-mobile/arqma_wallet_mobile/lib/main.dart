@@ -20,6 +20,7 @@ import 'core/theme/arqma_theme.dart';
 import 'i18n/locale_controller.dart';
 import 'router/app_router.dart';
 import 'store/gateway_store.dart';
+import 'widgets/mobile_splash_screen.dart';
 
 void _configureAppErrorPresentation() {
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -38,29 +39,54 @@ void _configureAppErrorPresentation() {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final WidgetsBinding binding = WidgetsFlutterBinding.ensureInitialized();
   _configureAppErrorPresentation();
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('[FlutterError] ${details.exceptionAsString()}');
+  };
+  binding.scheduleWarmUpFrame();
+  // Simple MaterialApp paints on iOS 26; swapping to router in setState caused a black screen.
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: buildArqmaTheme(),
+      home: const MobileSplashScreen(),
+    ),
+  );
+  unawaited(_launchFullWalletApp());
+}
 
+/// Replaces the splash [MaterialApp] with the router shell (second [runApp] — iOS-safe).
+Future<void> _launchFullWalletApp() async {
   final LocaleController locale = LocaleController();
-  await locale.loadSaved();
+  try {
+    await locale.loadSaved().timeout(const Duration(seconds: 12));
+  } catch (e, st) {
+    debugPrint('[ArqmaWallet] locale load: $e\n$st');
+    try {
+      await locale.setLocale('en-US');
+    } catch (e2, st2) {
+      debugPrint('[ArqmaWallet] locale fallback: $e2\n$st2');
+    }
+  }
   _configureTimeago(locale.locale);
 
   final GatewayStore store = GatewayStore();
-  // Mobile: [MobileNativeBridge] — remote daemon + wallet FFI (no local `arqmad` / solo pool).
-  // `ARQMA_FLUTTER_USE_STUB=1` forces in-memory stub.
-  final NativeBridge bridge = await resolveAppNativeBridge();
-
-  late final GoRouter router;
-  router = createAppRouter(store);
-
+  NativeBridge bridge;
+  try {
+    bridge = await resolveAppNativeBridge().timeout(const Duration(seconds: 15));
+  } catch (e, st) {
+    debugPrint('[ArqmaWallet] bridge: $e\n$st');
+    bridge = StubNativeBridge();
+  }
+  final GoRouter router = createAppRouter(store);
   final AppReceiver receiver = AppReceiver(
     bridge: bridge,
     store: store,
     router: router,
     locale: locale,
   );
-  await receiver.start();
-
   runApp(
     ArqmaWalletApp(
       store: store,
@@ -70,6 +96,7 @@ Future<void> main() async {
       locale: locale,
     ),
   );
+  unawaited(receiver.start());
 }
 
 void _configureTimeago(String normalizedLocale) {
@@ -272,6 +299,13 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
             title: 'Arqma Wallet',
             debugShowCheckedModeBanner: false,
             theme: buildArqmaTheme(),
+            // Same warm dark as iOS LaunchScreen / window — avoids a black flash before first frame.
+            builder: (BuildContext context, Widget? child) {
+              return ColoredBox(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             routerConfig: widget.router,
             scaffoldMessengerKey: appScaffoldMessengerKey,
             locale: _flutterLocaleFromTag(loc.locale),

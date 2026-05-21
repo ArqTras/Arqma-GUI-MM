@@ -222,6 +222,7 @@ final class WalletNativeFfi {
       out.add('$dir/libarqma_wallet_flutter_ffi.so');
     } else if (Platform.isIOS) {
       out.add('$dir/Frameworks/libarqma_wallet_flutter_ffi.dylib');
+      out.add('libarqma_wallet_flutter_ffi.dylib');
       out.add('libarqma_wallet_flutter_ffi.framework/libarqma_wallet_flutter_ffi');
       out.add('@executable_path/Frameworks/libarqma_wallet_flutter_ffi.dylib');
     } else if (Platform.isWindows) {

@@ -135,6 +135,7 @@ name = "arqma-wallet-flutter-ffi"
 version = "5.1.0"
 dependencies = [
  "arqma-wallet-rpc",
+ "cc",
  "serde_json",
  "tokio",
 ]

@@ -102,6 +102,11 @@ String _walletFfiMissedStartHint() {
         '`flutter build windows --release` (see `rust/tool/build_native_wallet_flutter_ffi_windows.ps1`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL. $rpc';
   }
+  if (Platform.isIOS) {
+    return 'Missing iOS `libarqma_wallet_flutter_ffi.dylib` (must be built for `aarch64-apple-ios`, '
+        'not macOS). Run `bash rust/tool/build_mobile_wallet_ffi_ios.sh` then `flutter build ios`. '
+        'Mobile does not ship `arqma-wallet-rpc`.';
+  }
   if (Platform.isMacOS) {
     return 'Missing `libarqma_wallet_flutter_ffi.dylib` in the app bundle (e.g. `Arqma-Wallet.app/Contents/Frameworks/`). '
         'Build: `bash rust/tool/build_wallet_flutter_ffi.sh`, then `flutter build macos --release`. '
@@ -121,6 +126,12 @@ String _walletFfiBackendOfflineHint() {
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
+  if (Platform.isIOS) {
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in `Runner.app/Frameworks/`, '
+        'not subprocess `arqma-wallet-rpc`). '
+        'Build: `bash rust/tool/build_mobile_wallet_ffi_ios.sh`, then `flutter run`. '
+        'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom dylib path.';
+  }
   if (Platform.isMacOS) {
     return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib`, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
@@ -138,6 +149,10 @@ String _walletFfiCreateRestoreHint() {
   if (Platform.isWindows) {
     return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/` next to the exe, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
+  }
+  if (Platform.isIOS) {
+    return 'Wallet FFI for iOS is missing, wrong platform (macOS dylib), or not code-signed for this device. '
+        'Build: `bash rust/tool/build_mobile_wallet_ffi_ios.sh`, then `flutter build ios --release` and reinstall.';
   }
   if (Platform.isMacOS) {
     return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in the `.app`, or '
@@ -911,6 +926,7 @@ final class MobileNativeBridge implements NativeBridge {
         final String before = jsonEncode(cfg0);
         final Map<String, dynamic> mergedSave =
             deepMergeMaps(cfg0, params) as Map<String, dynamic>;
+        enforceMobileRemoteOnlyConfig(mergedSave);
         final Map<String, dynamic> outSave = _finalizeConfigForDiskWrite(
             paths, mergedSave,
             stripPoolLegacy: false);
@@ -921,15 +937,49 @@ final class MobileNativeBridge implements NativeBridge {
           'event': 'set_app_data',
           'data': <String, dynamic>{
             'config': _runtimeConfig,
-            'pending_config': _runtimeConfig
+            'pending_config': _runtimeConfig,
+            'selected_node': _selectedNodeString(_runtimeConfig!),
           },
         });
         if (jsonEncode(_runtimeConfig) != before) {
-          _emit(<String, dynamic>{
-            'event': 'settings_changed_reboot',
-            'data': <String, dynamic>{}
-          });
+          await _restartAfterConfigInit();
         }
+        return true;
+      case 'apply_remote_node':
+        final String host = '${params['host'] ?? ''}'.trim();
+        if (host.isEmpty || !isAllowedMobileRemoteHost(host)) {
+          return false;
+        }
+        final Map<String, dynamic> mergedRemote =
+            Map<String, dynamic>.from(cfg0);
+        enforceMobileRemoteOnlyConfig(mergedRemote);
+        final String net =
+            (mergedRemote['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+        final Map<String, dynamic> daemons = Map<String, dynamic>.from(
+            mergedRemote['daemons'] as Map? ?? <String, dynamic>{});
+        final Map<String, dynamic> entry = Map<String, dynamic>.from(
+            daemons[net] as Map? ?? <String, dynamic>{});
+        entry['type'] = 'remote';
+        entry['remote_host'] = host;
+        entry['remote_port'] = kArqmaMainnetRemotePort;
+        daemons[net] = entry;
+        mergedRemote['daemons'] = daemons;
+        final Map<String, dynamic> outRemote = _finalizeConfigForDiskWrite(
+            paths, mergedRemote,
+            stripPoolLegacy: false);
+        _setRuntimeConfig(outRemote);
+        await File(paths.configPath).writeAsString(
+            const JsonEncoder.withIndent('  ').convert(_runtimeConfig));
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{
+            'config': _runtimeConfig,
+            'pending_config': _runtimeConfig,
+            'selected_node': _selectedNodeString(_runtimeConfig!),
+            'remote_daemon_ok': false,
+          },
+        });
+        await _restartAfterConfigInit();
         return true;
       case 'save_config_init':
         await _maybePushMainnetRemote(paths, params);
@@ -1174,14 +1224,39 @@ final class MobileNativeBridge implements NativeBridge {
         'status': <String, dynamic>{'code': 3}
       },
     });
-    // Unblock `/` → `/wallet-select` while local `arqmad` may still be binding JSON-RPC (spawn wait
-    // can take up to 120s). `code: 3` alone keeps the splash screen until the final `code: 0`.
-    _emit(<String, dynamic>{
-      'event': 'set_app_data',
-      'data': <String, dynamic>{
-        'status': <String, dynamic>{'code': 0},
-      },
-    });
+
+    if (daemonType == 'remote') {
+      final bool remotePicked = await ensureReachableMobileRemoteInConfig(configData);
+      if (!remotePicked) {
+        _showNotification(
+          'negative',
+          'Could not reach node1.arqma.com or node2.arqma.com (port 19994). Check network.',
+          8000,
+        );
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': -1}
+          },
+        });
+        await _bestEffortWalletRpcAfterFailure(configData);
+        return;
+      }
+      try {
+        await writeGuiConfigFile(paths, configData);
+      } catch (e) {
+        debugPrint('[MobileNative] write config after remote pick: $e');
+      }
+      final String selected = _selectedNodeString(configData);
+      _emit(<String, dynamic>{
+        'event': 'set_app_data',
+        'data': <String, dynamic>{
+          'config': configData,
+          'pending_config': configData,
+          'selected_node': selected,
+        },
+      });
+    }
 
     final DaemonReachableResult reach = await checkDaemonReachable(configData);
     if (reach == DaemonReachableResult.netMismatch) {
@@ -1209,19 +1284,41 @@ final class MobileNativeBridge implements NativeBridge {
       return;
     }
 
-    final String ver = await arqmadVersionProbeStr();
-    if (ver != 'unknown') {
-      _emit(<String, dynamic>{
-        'event': 'set_app_data',
-        'data': <String, dynamic>{
-          'status': <String, dynamic>{'code': 4, 'message': ver},
-        },
-      });
-    } else {
-      // Tauri also falls back to remote when `arqmad --version` fails, but on sandboxed macOS
-      // `Process.run(..., --version)` often fails even when `arqmad` can be spawned — and flipping
-      // `local` / `local_remote` → `remote` produces a misleading "Remote daemon can not be reached".
-      if (daemonType == 'remote') {
+    // Remote verified — fetch height once (mobile: skip arqmad --version and duplicate probes).
+    final ({String host, int port})? epEarly = daemonRpcHostPort(configData);
+    if (epEarly != null) {
+      final Map<String, dynamic>? rEarly =
+          await DaemonJsonRpc.getInfo(
+        epEarly.host,
+        epEarly.port,
+        connectTimeout: const Duration(seconds: 4),
+        requestTimeout: const Duration(seconds: 12),
+      );
+      final Map<String, dynamic>? infoEarly =
+          DaemonJsonRpc.getInfoPayload(rEarly);
+      if (infoEarly != null) {
+        _applyDaemonInfo(configData, infoEarly);
+      }
+    }
+
+    _emit(<String, dynamic>{
+      'event': 'set_app_data',
+      'data': <String, dynamic>{
+        'status': <String, dynamic>{'code': 0},
+        if (daemonType == 'remote') 'remote_daemon_ok': true,
+      },
+    });
+
+    if (!Platform.isIOS && !Platform.isAndroid) {
+      final String ver = await arqmadVersionProbeStr();
+      if (ver != 'unknown') {
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{'code': 4, 'message': ver},
+          },
+        });
+      } else if (daemonType == 'remote') {
         await setCurrentNetDaemonTypeRemoteAndPersist(paths, configData);
         _setRuntimeConfig(configData);
         _emit(<String, dynamic>{
@@ -1232,11 +1329,6 @@ final class MobileNativeBridge implements NativeBridge {
             'pending_config': configData,
           },
         });
-      } else {
-        debugPrint(
-          '[MobileNative] arqmad --version returned unknown; keeping daemon type "$daemonType" '
-          '(skip remote fallback — try local spawn)',
-        );
       }
     }
 
@@ -1246,34 +1338,7 @@ final class MobileNativeBridge implements NativeBridge {
     );
     final String daemonTypeNow = '${daemonEntryNow['type'] ?? 'remote'}';
 
-    if (daemonTypeNow == 'remote') {
-      final String? rh = daemonEntryNow['remote_host'] as String?;
-      final int? rp = (daemonEntryNow['remote_port'] as num?)?.toInt();
-      if (rh == null || rp == null) {
-        _showNotification(
-            'negative', 'Remote daemon: missing host/port in configuration');
-        _emit(<String, dynamic>{
-          'event': 'set_app_data',
-          'data': <String, dynamic>{
-            'status': <String, dynamic>{'code': -1}
-          },
-        });
-        await _bestEffortWalletRpcAfterFailure(configData);
-        return;
-      }
-      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(rh, rp);
-      if (DaemonJsonRpc.getInfoPayload(r) == null) {
-        _showNotification('negative', 'Remote daemon can not be reached');
-        _emit(<String, dynamic>{
-          'event': 'set_app_data',
-          'data': <String, dynamic>{
-            'status': <String, dynamic>{'code': -1}
-          },
-        });
-        await _bestEffortWalletRpcAfterFailure(configData);
-        return;
-      }
-    } else {
+    if (daemonTypeNow != 'remote') {
       _showNotification('negative',
           'Local daemon is not available on mobile — select a remote node (node1–node4.arqma.com).');
       enforceMobileRemoteOnlyConfig(configData);
@@ -1287,16 +1352,6 @@ final class MobileNativeBridge implements NativeBridge {
       });
       await _bestEffortWalletRpcAfterFailure(configData);
       return;
-    }
-
-    final ({String host, int port})? ep = daemonRpcHostPort(configData);
-    if (ep != null) {
-      final Map<String, dynamic>? r =
-          await DaemonJsonRpc.getInfo(ep.host, ep.port);
-      final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
-      if (info != null) {
-        _applyDaemonInfo(configData, info);
-      }
     }
 
     _emit(<String, dynamic>{
@@ -1323,21 +1378,61 @@ final class MobileNativeBridge implements NativeBridge {
     _startHeartbeat(configData);
 
     if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
-      _walletRpc = await ArqmaWalletRpcSession.tryStart(configData);
-      if (_walletRpc == null) {
-        _showNotification(
-          'warning',
-          'Native wallet FFI did not start (${ArqmaWalletRpcSession.lastNativeStartupDiagnosis.trim().isNotEmpty ? ArqmaWalletRpcSession.lastNativeStartupDiagnosis : _walletFfiMissedStartHint()})',
-          16000,
-        );
+      // Mobile: start wallet FFI after remote daemon is up (background — not on splash).
+      if (Platform.isIOS || Platform.isAndroid) {
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{'wallet_backend': 'pending'},
+        });
+        unawaited(_ensureWalletRpcStarted());
+      } else {
+        _walletRpc = await ArqmaWalletRpcSession.tryStart(configData);
+        if (_walletRpc == null) {
+          _showNotification(
+            'warning',
+            'Native wallet FFI did not start (${ArqmaWalletRpcSession.lastNativeStartupDiagnosis.trim().isNotEmpty ? ArqmaWalletRpcSession.lastNativeStartupDiagnosis : _walletFfiMissedStartHint()})',
+            16000,
+          );
+        }
+        _emitWalletBackendState();
       }
-      _emitWalletBackendState();
     } else {
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{'wallet_backend': 'off'},
       });
     }
+  }
+
+  /// Lazy wallet FFI on iOS/Android (started on first open wallet, not during splash).
+  Future<bool> _ensureWalletRpcStarted() async {
+    if (_walletRpc != null) {
+      return true;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg == null) {
+      return false;
+    }
+    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {
+      return false;
+    }
+    try {
+      _walletRpc = await ArqmaWalletRpcSession.tryStart(cfg);
+    } catch (e, st) {
+      debugPrint('[MobileNative] ensureWalletRpc tryStart: $e\n$st');
+      _walletRpc = null;
+    }
+    if (_walletRpc == null) {
+      _showNotification(
+        'warning',
+        'Native wallet FFI did not start (${ArqmaWalletRpcSession.lastNativeStartupDiagnosis.trim().isNotEmpty ? ArqmaWalletRpcSession.lastNativeStartupDiagnosis : _walletFfiMissedStartHint()})',
+        16000,
+      );
+      _emitWalletBackendState();
+      return false;
+    }
+    _emitWalletBackendState();
+    return true;
   }
 
   void _emitWalletBackendState() {
@@ -1363,6 +1458,14 @@ final class MobileNativeBridge implements NativeBridge {
         'event': 'set_app_data',
         'data': <String, dynamic>{'wallet_backend': 'off'},
       });
+      return;
+    }
+    if (Platform.isIOS || Platform.isAndroid) {
+      _emit(<String, dynamic>{
+        'event': 'set_app_data',
+        'data': <String, dynamic>{'wallet_backend': 'pending'},
+      });
+      unawaited(_ensureWalletRpcStarted());
       return;
     }
     try {
@@ -1461,7 +1564,12 @@ final class MobileNativeBridge implements NativeBridge {
         await DaemonJsonRpc.getInfo(ep.host, ep.port);
     // Tauri `daemon_heartbeat`: only auto-restart local child on **transport** failure, not JSON-RPC errors.
     if (r == null) {
-      if (daemonTyp != 'remote') {
+      if (daemonTyp == 'remote') {
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{'remote_daemon_ok': false},
+        });
+      } else {
         await _restartLocalDaemonIfExited(cfg, net);
       }
       return;
@@ -1469,6 +1577,12 @@ final class MobileNativeBridge implements NativeBridge {
     final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
     if (info != null) {
       _applyDaemonInfo(cfg, info);
+      if (daemonTyp == 'remote') {
+        _emit(<String, dynamic>{
+          'event': 'set_app_data',
+          'data': <String, dynamic>{'remote_daemon_ok': true},
+        });
+      }
     }
   }
 
@@ -2120,8 +2234,7 @@ final class MobileNativeBridge implements NativeBridge {
   Future<dynamic> _openWalletDesktop(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
-    final ArqmaWalletRpcSession? w = _walletRpc;
-    if (w == null) {
+    if (_walletRpc == null && !await _ensureWalletRpcStarted()) {
       _traceWalletOpen('abort: wallet RPC null', sw: sw);
       _showNotification(
         'negative',
@@ -2135,6 +2248,10 @@ final class MobileNativeBridge implements NativeBridge {
           'message': 'Wallet RPC unavailable'
         },
       });
+      return <String, dynamic>{};
+    }
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w == null) {
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
@@ -3741,14 +3858,17 @@ final class MobileNativeBridge implements NativeBridge {
 
   Future<dynamic> _walletCreateRestoreImport(
       String method, Object? data) async {
-    final ArqmaWalletRpcSession? w = _walletRpc;
     final Map<String, dynamic>? cfg = _runtimeConfig;
-    if (w == null || cfg == null) {
+    if (cfg == null || !await _ensureWalletRpcStarted()) {
       _showNotification(
         'negative',
         _walletFfiCreateRestoreHint(),
         8000,
       );
+      return <String, dynamic>{};
+    }
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w == null) {
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
@@ -3815,15 +3935,30 @@ final class MobileNativeBridge implements NativeBridge {
       final String seed = _normalizeRestoreSeed('${p['seed'] ?? ''}');
       final String name = '${p['name'] ?? ''}';
       final String password = '${p['password'] ?? ''}';
-      final Map<String, dynamic>? r = await w.call(
-        'restore_deterministic_wallet',
-        <String, dynamic>{
-          'filename': name,
-          'password': password,
-          'seed': seed,
-          'restore_height': rh,
-        },
-      );
+      Map<String, dynamic>? r;
+      try {
+        r = await w.call(
+          'restore_deterministic_wallet',
+          <String, dynamic>{
+            'filename': name,
+            'password': password,
+            'seed': seed,
+            'restore_height': rh,
+          },
+        );
+      } catch (e, st) {
+        debugPrint('[MobileNative] restore_wallet native: $e\n$st');
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': _walletFfiCreateRestoreHint(),
+            },
+          },
+        });
+        return <String, dynamic>{};
+      }
       if (!walletJsonRpcNoError(r)) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',

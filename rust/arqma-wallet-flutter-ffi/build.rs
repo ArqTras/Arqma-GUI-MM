@@ -30,6 +30,10 @@ fn main() {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
     }
 
+    if target_os == "ios" {
+        compile_ios_clear_cache_stub();
+    }
+
     if target_os == "windows" && target_env == "gnu" {
         mingw_wallet2_native_libs_cdylib_args();
     } else if target_os == "linux" && static_hybrid_enabled() {
@@ -42,7 +46,30 @@ fn main() {
             "cargo:warning=arqma-wallet-flutter-ffi: ARQMA_WALLET_FFI_STATIC_HYBRID=1 (macOS static-hybrid)"
         );
         macos_wallet_ffi_static_hybrid_cdylib_args();
+    } else if target_os == "ios" && static_hybrid_enabled() {
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: ARQMA_WALLET_FFI_STATIC_HYBRID=1 (iOS static-hybrid)"
+        );
+        ios_wallet_ffi_static_hybrid_cdylib_args();
     }
+}
+
+fn compile_ios_clear_cache_stub() {
+    let sdk = std::process::Command::new("xcrun")
+        .args(["--sdk", "iphoneos", "--show-sdk-path"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    let mut build = cc::Build::new();
+    build.cpp(true).file("ios_stubs/clear_cache.cpp");
+    build.flag("-arch").flag("arm64");
+    build.flag("-miphoneos-version-min=13.0");
+    if !sdk.is_empty() {
+        build.flag(format!("-isysroot{sdk}"));
+    }
+    build.compile("arqma_ios_clear_cache");
 }
 
 fn static_hybrid_enabled() -> bool {
@@ -251,6 +278,77 @@ fn macos_wallet_ffi_static_hybrid_cdylib_args() {
     println!("cargo:rustc-link-lib=framework=CoreFoundation");
 }
 
+fn ios_wallet_ffi_static_hybrid_cdylib_args() {
+    let emit = |flag: &str| println!("cargo:rustc-cdylib-link-arg={flag}");
+
+    let upstream = arqma_upstream_root();
+    let vendor = depends_vendor_lib_dir(&upstream);
+    if let Some(ref libdir) = vendor {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            libdir.display().to_string().replace('\\', "/")
+        );
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: iOS static-hybrid uses contrib/depends ({})",
+            libdir.display()
+        );
+    }
+
+    emit("-miphoneos-version-min=13.0");
+    emit_upstream_aux_archives(&emit);
+    emit_ios_wallet_aux_archives(&emit);
+
+    // OpenSSL: libssl depends on libcrypto — link crypto before ssl when force-loading.
+    let ios_libs: &[&str] = &[
+        "boost_program_options",
+        "boost_thread",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "crypto",
+        "ssl",
+        "boost_serialization",
+        "boost_regex",
+        "zmq",
+        "sodium",
+    ];
+    match &vendor {
+        Some(libdir) => {
+            for stem in ios_libs {
+                emit_depends_vendor_lib_force_load(&emit, libdir, stem);
+            }
+            emit_depends_icu_static_if_present(&emit, libdir);
+        }
+        None => {
+            for stem in ios_libs {
+                emit(&format!("-l{stem}"));
+            }
+        }
+    }
+
+    if vendor
+        .as_ref()
+        .and_then(|d| depends_vendor_icu_static_triple(d))
+        .is_none()
+    {
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: ICU static libs not in contrib/depends for iOS — run build/ci/build-icu-static-into-depends.sh if boost_locale symbols are missing"
+        );
+    }
+    emit("-lz");
+    for fw in [
+        "Security",
+        "Foundation",
+        "SystemConfiguration",
+        "CFNetwork",
+        "UIKit",
+    ] {
+        println!("cargo:rustc-link-lib=framework={fw}");
+    }
+}
+
 fn mingw_wallet_dep_libs() -> &'static [&'static str] {
     &[
         "boost_atomic-mt",
@@ -338,6 +436,25 @@ fn macos_hybrid_full_static_dep_libs() -> &'static [&'static str] {
         "boost_serialization",
         "boost_regex",
         "boost_locale",
+        "zmq",
+        "sodium",
+    ]
+}
+
+/// iOS `contrib/depends`: no HID/readline; boost_locale/container omitted (no ICU in depends yet).
+fn ios_hybrid_full_static_dep_libs() -> &'static [&'static str] {
+    &[
+        "boost_program_options",
+        "boost_thread",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "ssl",
+        "crypto",
+        "boost_serialization",
+        "boost_regex",
         "zmq",
         "sodium",
     ]
@@ -461,6 +578,27 @@ fn depends_vendor_archive_fuzzy_boost(libdir: &Path, stem: &str) -> Option<PathB
     hits.into_iter().next()
 }
 
+/// iOS: `-dead_strip` on the cdylib can drop needed objects from vendored `.a` unless force-loaded.
+fn emit_depends_vendor_lib_force_load(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
+    for p in depends_vendor_archive_paths(libdir, stem) {
+        if p.is_file() {
+            emit("-Wl,-force_load");
+            emit(&path_for_ld(&p));
+            return;
+        }
+    }
+    if let Some(p) = depends_vendor_archive_fuzzy_boost(libdir, stem) {
+        emit("-Wl,-force_load");
+        emit(&path_for_ld(&p));
+        return;
+    }
+    println!(
+        "cargo:warning=arqma-wallet-flutter-ffi: contrib/depends has no static archive for `{stem}` under {}",
+        libdir.display()
+    );
+    emit(&format!("-l{stem}"));
+}
+
 /// Emit an absolute path to a vendored `.a` so the linker does not fall back to GCC/Homebrew `-l` search paths.
 fn emit_depends_vendor_lib(emit: &dyn Fn(&str), libdir: &Path, stem: &str) {
     for p in depends_vendor_archive_paths(libdir, stem) {
@@ -499,6 +637,7 @@ fn depends_host_triple() -> Option<&'static str> {
         ("linux", "x86_64") => Some("x86_64-unknown-linux-gnu"),
         ("macos", "aarch64") => Some("aarch64-apple-darwin"),
         ("macos", "x86_64") => Some("x86_64-apple-darwin"),
+        ("ios", "aarch64") => Some("aarch64-apple-ios"),
         _ => None,
     }
 }
@@ -522,9 +661,43 @@ fn depends_vendor_lib_dir(upstream: &Path) -> Option<PathBuf> {
     None
 }
 
+fn emit_ios_wallet_aux_archives(emit: &dyn Fn(&str)) {
+    let upstream = arqma_upstream_root();
+    for sub in ["build-ios-depends-device", "build-ios-device"] {
+        let root = upstream.join(sub);
+        // `wallet_merged` already contains cryptonote_format_utils_basic objects; force-loading
+        // the standalone `.a` causes Apple ld duplicate-symbol errors.
+        let archives = [
+            root.join("external/randomarq/librandomx.a"),
+            root.join("contrib/epee/src/libepee.a"),
+            root.join("external/easylogging++/libeasylogging.a"),
+            root.join("src/lmdb/liblmdb/liblmdb.a"),
+        ];
+        let mut any = false;
+        for path in archives {
+            if path.is_file() {
+                emit("-Wl,-force_load");
+                emit(&path_for_ld(&path));
+                any = true;
+            }
+        }
+        if any {
+            return;
+        }
+    }
+    println!(
+        "cargo:warning=arqma-wallet-flutter-ffi: iOS wallet aux archives not found under build-ios-depends-device"
+    );
+}
+
 fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
-    let macos = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default() == "macos";
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let macos = target_os == "macos";
+    // iOS `wallet_merged` from `build-ios-depends-device` already folds epee/lmdb/etc.
+    if target_os == "ios" {
+        return;
+    }
     // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
     for sub in [
         "build/ci-depends-release",

@@ -10,6 +10,7 @@ import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../widgets/address_identicon.dart';
 import '../../widgets/app_loading.dart';
+import '../../widgets/mobile_remote_connection_banner.dart';
 import '../../core/theme/arqma_colors.dart';
 
 /// Parity with `pages/wallet-select/index.vue`.
@@ -224,6 +225,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const MobileRemoteConnectionBanner(),
         // `app.status.code == -1`: core startup failed (paths, daemon reachability, or similar). Same idea as
         // Tauri when the user must revisit the welcome flow — `/welcome` lets them fix dirs and node.
         if (appCode == -1)

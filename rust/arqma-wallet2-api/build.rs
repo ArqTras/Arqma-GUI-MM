@@ -162,6 +162,8 @@ fn main() {
         configure_wallet2_linking_macos(&upstream_path);
     } else if target_os == "linux" {
         configure_wallet2_linking_linux(&upstream_path);
+    } else if target_os == "ios" {
+        configure_wallet2_linking_ios(&upstream_path);
     }
 }
 
@@ -174,12 +176,67 @@ fn wallet_ffi_static_hybrid() -> bool {
 }
 
 fn find_wallet_merged_dir(upstream: &Path) -> Option<PathBuf> {
-    for root in [upstream.join("build"), upstream.join("build-mingw")] {
+    for root in [
+        upstream.join("build-ios-device"),
+        upstream.join("build-ios-sim"),
+        upstream.join("build"),
+        upstream.join("build-mingw"),
+    ] {
         if let Some(p) = find_wallet_merged_under(&root) {
             return Some(p);
         }
     }
     None
+}
+
+/// iOS: search path for `libwallet_merged.a` only (fat archive; no Homebrew dylibs).
+fn configure_wallet2_linking_ios(upstream_path: &Path) {
+    let lib_dir = std::env::var("ARQMA_WALLET2_LIB_DIR")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| find_wallet_merged_dir(upstream_path));
+
+    let Some(lib_dir) = lib_dir else {
+        println!(
+            "cargo:warning=arqma-wallet2-api (iOS): build `wallet_merged` for iOS (rust/tool/build_ios_wallet_merged.sh) or set ARQMA_WALLET2_LIB_DIR."
+        );
+        return;
+    };
+
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    let depends_lib = upstream_path.join("contrib/depends/aarch64-apple-ios/lib");
+    if depends_lib.is_dir() {
+        println!("cargo:rustc-link-search=native={}", depends_lib.display());
+    }
+    if let Ok(extra) = std::env::var("ARQMA_WALLET_FFI_DEPENDS_LIB_DIR") {
+        if !extra.trim().is_empty() {
+            println!("cargo:rustc-link-search=native={}", extra.trim());
+        }
+    }
+    if let Some(cmake_binary) = lib_dir.parent().and_then(|p| p.parent()) {
+        for d in [
+            "contrib/epee/src",
+            "external/easylogging++",
+            "external/randomarq",
+            "src/lmdb/liblmdb",
+            "src/cryptonote_basic",
+        ] {
+            let p = cmake_binary.join(d);
+            if p.is_dir() {
+                println!("cargo:rustc-link-search=native={}", p.display());
+            }
+        }
+    }
+    for fw in [
+        "Security",
+        "Foundation",
+        "SystemConfiguration",
+        "CFNetwork",
+        "UIKit",
+    ] {
+        println!("cargo:rustc-link-lib=framework={fw}");
+    }
 }
 
 fn find_wallet_merged_under(root: &Path) -> Option<PathBuf> {

@@ -1,3 +1,22 @@
+# Flutter release file naming (desktop + mobile)
+
+## Mobile (iOS — `flutter-mobile/arqma_wallet_mobile`)
+
+| Artifact | Filename pattern |
+|----------|------------------|
+| TestFlight / App Store IPA | `Arqma-Wallet-Mobile-{slug}-ios.ipa` |
+| Checksums | `SHA256SUMS.txt` |
+| Build manifest | `Arqma-Wallet-Mobile-{slug}-ios-manifest.txt` |
+| Upload guide | `TESTFLIGHT.md` |
+
+`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.0` from `5.1.0+1`).
+
+**Build:** `./tool/package_mobile_release.sh` (macOS + Xcode + Apple Developer signing).
+
+**Bundle ID:** `com.arqma.arqmaWalletMobile` — display name **Arqma Wallet Mobile**.
+
+---
+
 # Flutter desktop release file naming
 
 ## Version embedded in filenames

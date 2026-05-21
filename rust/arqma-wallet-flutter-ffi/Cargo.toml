@@ -7,6 +7,9 @@ repository.workspace = true
 description = "C ABI for Flutter desktop: native wallet2 (arqma-wallet2-api) JSON-RPC surface without arqma-wallet-rpc subprocess."
 build = "build.rs"
 
+[build-dependencies]
+cc = "1"
+
 [lib]
 name = "arqma_wallet_flutter_ffi"
 crate-type = ["cdylib", "rlib"]

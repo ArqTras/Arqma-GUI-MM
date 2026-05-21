@@ -68,6 +68,29 @@ case "${HOST}" in
     export CXXFLAGS="-fPIC ${CXXFLAGS:-}"
     ./runConfigureICU MacOSX/GCC "${COMMON_OPTS[@]}"
     ;;
+  *apple-ios)
+    IOS_SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+    NATIVE_PREFIX="${WORKDIR}/icu-native-install"
+    NATIVE_BUILD="${WORKDIR}/icu-native-build"
+    mkdir -p "${NATIVE_BUILD}"
+    (
+      cd "${NATIVE_BUILD}"
+      "${ICU_SRC_ROOT}/source/configure" \
+        --prefix="${NATIVE_PREFIX}" \
+        --disable-shared --enable-static \
+        --with-data-packaging=static \
+        --disable-tests --disable-samples --disable-extras --disable-layoutex
+      make -j"$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+      make install
+    )
+    export CC="$(xcrun --sdk iphoneos --find clang)"
+    export CXX="$(xcrun --sdk iphoneos --find clang++)"
+    export CFLAGS="-fPIC -arch arm64 -isysroot${IOS_SDK} -miphoneos-version-min=13.0"
+    export CXXFLAGS="${CFLAGS}"
+    export LDFLAGS="-arch arm64 -isysroot${IOS_SDK} -miphoneos-version-min=13.0"
+    ./configure --host=aarch64-apple-ios --disable-dyload --disable-tools \
+      --with-cross-build="${NATIVE_PREFIX}" "${COMMON_OPTS[@]}"
+    ;;
   *)
     echo "error: unsupported depends host for ICU build: ${HOST}" >&2
     exit 1
