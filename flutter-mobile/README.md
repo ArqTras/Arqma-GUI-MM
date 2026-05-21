@@ -48,6 +48,14 @@ UI-only without FFI: `ARQMA_FLUTTER_USE_STUB=1 flutter run`
 
 ## iOS app build
 
+Use Homebrew CocoaPods (system `/usr/local/bin/pod` 1.11.x often fails with `LoadError: ffi`):
+
+```bash
+export PATH="/opt/homebrew/bin:$PATH"
+```
+
+Requires the **iOS platform** matching your Xcode (install via **Xcode → Settings → Components** if `flutter build ios` reports e.g. `iOS 26.5 is not installed`).
+
 ```bash
 cd flutter-mobile/arqma_wallet_mobile
 flutter pub get
