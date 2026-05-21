@@ -61,6 +61,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Arqma Wallet needs access to your photo library so you can choose wallet backup files and QR images when importing or restoring accounts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Arqma Wallet can save QR codes or exported wallet images to your photo library when you choose to.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Arqma Wallet uses the camera to scan QR codes for receiving Arqma and to capture documents during wallet import.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

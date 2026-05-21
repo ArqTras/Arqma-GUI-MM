@@ -183,12 +183,25 @@ final class ArqmaWalletRpcSession {
           ffi.reset();
         }
       } else {
-        lastNativeStartupDiagnosis =
-            'Could not load `arqma_wallet_flutter_ffi` native library. '
-            '${WalletNativeFfi.lastLoadFailureDetail.isNotEmpty ? "(${WalletNativeFfi.lastLoadFailureDetail}). " : ""}'
-            'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
-            'or set `$kArqmaFlutterWalletFfiEnv` to full path to DLL. '
-            'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
+        final String detail = WalletNativeFfi.lastLoadFailureDetail.trim();
+        final String detailSuffix =
+            detail.isNotEmpty ? ' ($detail). ' : ' ';
+        if (!kIsWeb && Platform.isIOS) {
+          lastNativeStartupDiagnosis =
+              'Could not load `libarqma_wallet_flutter_ffi.framework` from Runner.app/Frameworks.$detailSuffix'
+              'Rebuild with `bash rust/tool/build_mobile_wallet_ffi_ios.sh` then `flutter build ipa`. '
+              'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to the framework binary.';
+        } else if (!kIsWeb && Platform.isAndroid) {
+          lastNativeStartupDiagnosis =
+              'Could not load Android wallet FFI library.$detailSuffix'
+              'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to `.so`.';
+        } else {
+          lastNativeStartupDiagnosis =
+              'Could not load `arqma_wallet_flutter_ffi` native library.$detailSuffix'
+              'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
+              'or set `$kArqmaFlutterWalletFfiEnv` to full path to DLL. '
+              'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
+        }
         debugPrint(
             '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
             'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'mobile_remote_nodes.dart';
 import '../desktop/arqma_paths.dart';
 
@@ -114,6 +116,57 @@ Map<String, dynamic> buildMobileDefaultsOnly(ArqmaPaths paths) {
     'wallet': full['wallet'],
     'pool': full['pool'],
   };
+}
+
+/// On iOS/Android, keep storage under the app sandbox (Documents). Desktop paths or `~`
+/// from imported `config.json` cannot be created on device.
+bool enforceMobileStoragePaths(
+  Map<String, dynamic> config,
+  ArqmaPaths paths,
+) {
+  if (!Platform.isIOS && !Platform.isAndroid) {
+    return false;
+  }
+  final String docsRoot = File(paths.configDir).parent.path;
+  final Map<String, dynamic> app =
+      Map<String, dynamic>.from(config['app'] as Map? ?? <String, dynamic>{});
+  String dataDir = expandArqUserPath('${app['data_dir'] ?? ''}'.trim());
+  String walletDir = expandArqUserPath('${app['wallet_data_dir'] ?? ''}'.trim());
+
+  bool underSandbox(String p) {
+    if (p.isEmpty) {
+      return false;
+    }
+    final String norm = p.replaceAll(r'\', '/');
+    final String root = docsRoot.replaceAll(r'\', '/');
+    return norm == root || norm.startsWith('$root/');
+  }
+
+  bool writable(String p) {
+    try {
+      Directory(p).createSync(recursive: true);
+      final File probe = File('$p${Platform.pathSeparator}.arqma_write_probe');
+      probe.writeAsStringSync('ok');
+      probe.deleteSync();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool changed = false;
+  if (!underSandbox(dataDir) || !writable(dataDir)) {
+    dataDir = paths.configDir;
+    changed = true;
+  }
+  if (!underSandbox(walletDir) || !writable(walletDir)) {
+    walletDir = paths.walletDir;
+    changed = true;
+  }
+  app['data_dir'] = dataDir;
+  app['wallet_data_dir'] = walletDir;
+  config['app'] = app;
+  return changed;
 }
 
 /// Force mainnet remote node and strip local / local_remote daemon modes.

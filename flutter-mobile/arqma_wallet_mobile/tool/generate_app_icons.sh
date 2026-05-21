@@ -14,11 +14,31 @@ if [[ ! -f "$SRC" ]]; then
   exit 1
 fi
 
+# App Store rejects icons with alpha (90717). Flatten onto Arqma scaffold #0E0C09.
+flatten_no_alpha() {
+  local f="$1"
+  local py="${ROOT}/tool/.venv-screenshots/bin/python3"
+  if [[ ! -x "$py" ]]; then
+    python3 -m venv "${ROOT}/tool/.venv-screenshots"
+    "${ROOT}/tool/.venv-screenshots/bin/pip" install -q Pillow
+  fi
+  "$py" - "$f" <<'PY'
+import sys
+from PIL import Image
+path = sys.argv[1]
+img = Image.open(path).convert("RGBA")
+bg = Image.new("RGB", img.size, (14, 12, 9))
+bg.paste(img, mask=img.split()[3])
+bg.save(path, format="PNG", optimize=True)
+PY
+}
+
 resize() {
   local out="$1"
   local px="$2"
   mkdir -p "$(dirname "$out")"
   sips -z "$px" "$px" "$SRC" --out "$out" >/dev/null
+  flatten_no_alpha "$out"
 }
 
 echo "Source: $SRC"

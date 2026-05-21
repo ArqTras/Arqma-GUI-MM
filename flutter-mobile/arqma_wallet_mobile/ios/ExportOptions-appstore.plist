@@ -6,13 +6,15 @@
 	<string>app-store-connect</string>
 	<key>teamID</key>
 	<string>75L2UT4BNN</string>
+	<!-- false: embedded libarqma_wallet_flutter_ffi.dylib and Flutter objective_c.framework ship without dSYMs -->
 	<key>uploadSymbols</key>
-	<true/>
+	<false/>
 	<key>compileBitcode</key>
 	<false/>
 	<key>signingStyle</key>
 	<string>automatic</string>
 	<key>destination</key>
-	<string>export</string>
+	<string>upload</string>
+	<!-- Use ExportOptions-appstore-export.plist for local IPA only (destination=export). -->
 </dict>
 </plist>

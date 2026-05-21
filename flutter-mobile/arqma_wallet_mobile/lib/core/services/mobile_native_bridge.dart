@@ -64,6 +64,9 @@ Map<String, dynamic> _finalizeConfigForDiskWrite(
       validateConfigAgainstDefaults(m, buildMobileDefaultsOnly(paths));
   final Map<String, dynamic> norm = normalizeConfigStoragePaths(validated);
   stripTrustedDaemonFromConfig(norm);
+  if (Platform.isIOS || Platform.isAndroid) {
+    enforceMobileStoragePaths(norm, paths);
+  }
   return norm;
 }
 
@@ -103,7 +106,7 @@ String _walletFfiMissedStartHint() {
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL. $rpc';
   }
   if (Platform.isIOS) {
-    return 'Missing iOS `libarqma_wallet_flutter_ffi.dylib` (must be built for `aarch64-apple-ios`, '
+    return 'Missing iOS `libarqma_wallet_flutter_ffi.framework` (must be built for `aarch64-apple-ios`, '
         'not macOS). Run `bash rust/tool/build_mobile_wallet_ffi_ios.sh` then `flutter build ios`. '
         'Mobile does not ship `arqma-wallet-rpc`.';
   }
@@ -127,7 +130,7 @@ String _walletFfiBackendOfflineHint() {
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
   if (Platform.isIOS) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in `Runner.app/Frameworks/`, '
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.framework` in `Runner.app/Frameworks/`, '
         'not subprocess `arqma-wallet-rpc`). '
         'Build: `bash rust/tool/build_mobile_wallet_ffi_ios.sh`, then `flutter run`. '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom dylib path.';
@@ -1126,6 +1129,7 @@ final class MobileNativeBridge implements NativeBridge {
 
     stripLegacyUniformPoolOption(configData);
     enforceMobileRemoteOnlyConfig(configData);
+    final bool storageRemapped = enforceMobileStoragePaths(configData, paths);
     await mergePoolBindIpIfNeeded(configData);
     mergeWalletRpcBindPort19999(configData);
     await applyScanAndFastestRemote(configData, remotes);
@@ -1146,8 +1150,16 @@ final class MobileNativeBridge implements NativeBridge {
     }
 
     _setRuntimeConfig(configData);
+    final Map<String, dynamic> cfg = _runtimeConfig!;
+    if (storageRemapped) {
+      try {
+        await writeGuiConfigFile(paths, cfg);
+      } catch (e) {
+        debugPrint('[MobileNative] rewrite config.json after storage remap: $e');
+      }
+    }
 
-    final Object? ethObj = configData['ethereum'];
+    final Object? ethObj = cfg['ethereum'];
     if (ethObj is Map) {
       _emit(<String, dynamic>{
         'event': 'set_ethereum_data',
@@ -1155,17 +1167,17 @@ final class MobileNativeBridge implements NativeBridge {
       });
     }
 
-    final String selected = _selectedNodeString(configData);
+    final String selected = _selectedNodeString(cfg);
     _emit(<String, dynamic>{
       'event': 'set_app_data',
       'data': <String, dynamic>{
-        'config': configData,
-        'pending_config': configData,
+        'config': cfg,
+        'pending_config': cfg,
         'selected_node': selected,
       },
     });
 
-    final bool poolOn = poolServerEnabled(configData);
+    final bool poolOn = poolServerEnabled(cfg);
     _emit(<String, dynamic>{
       'event': 'set_pool_data',
       'data': <String, dynamic>{
@@ -1179,24 +1191,24 @@ final class MobileNativeBridge implements NativeBridge {
     // Otherwise first-time users with valid paths in config never get directories created and
     // local `arqmad` never starts ("paths not found").
     try {
-      _ensureDatadirLayout(configData);
+      _ensureDatadirLayout(cfg);
     } catch (e) {
       debugPrint('[MobileNative] ensure_datadir_layout failed: $e');
-      _showNotification(
-        'negative',
-        'Could not create data or wallet directories. Check paths and permissions '
-            '(on sandboxed macOS use folders you can write to, or set paths via Select Location).',
-      );
+      final String hint = (Platform.isIOS || Platform.isAndroid)
+          ? 'Could not create app data folders under Documents. Try Initial setup or reinstall.'
+          : 'Could not create data or wallet directories. Check paths and permissions '
+              '(on sandboxed macOS use folders you can write to, or set paths via Select Location).';
+      _showNotification('negative', hint);
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{
           'status': <String, dynamic>{'code': -1}
         },
       });
-      await _bestEffortWalletRpcAfterFailure(configData);
+      await _bestEffortWalletRpcAfterFailure(cfg);
       return;
     }
-    if (!_requiredDirsExist(configData)) {
+    if (!_requiredDirsExist(cfg)) {
       _showNotification(
         'negative',
         'Data Storage path or Wallet Storage path is missing or not accessible after create attempt.',
@@ -1207,14 +1219,14 @@ final class MobileNativeBridge implements NativeBridge {
           'status': <String, dynamic>{'code': -1}
         },
       });
-      await _bestEffortWalletRpcAfterFailure(configData);
+      await _bestEffortWalletRpcAfterFailure(cfg);
       return;
     }
 
     final String net =
-        (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     Map<String, dynamic> daemonEntry = Map<String, dynamic>.from(
-        (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
+        (cfg['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
             <String, dynamic>{});
     String daemonType = '${daemonEntry['type'] ?? 'remote'}';
 
@@ -1226,7 +1238,7 @@ final class MobileNativeBridge implements NativeBridge {
     });
 
     if (daemonType == 'remote') {
-      final bool remotePicked = await ensureReachableMobileRemoteInConfig(configData);
+      final bool remotePicked = await ensureReachableMobileRemoteInConfig(cfg);
       if (!remotePicked) {
         _showNotification(
           'negative',
@@ -1239,26 +1251,26 @@ final class MobileNativeBridge implements NativeBridge {
             'status': <String, dynamic>{'code': -1}
           },
         });
-        await _bestEffortWalletRpcAfterFailure(configData);
+        await _bestEffortWalletRpcAfterFailure(cfg);
         return;
       }
       try {
-        await writeGuiConfigFile(paths, configData);
+        await writeGuiConfigFile(paths, cfg);
       } catch (e) {
         debugPrint('[MobileNative] write config after remote pick: $e');
       }
-      final String selected = _selectedNodeString(configData);
+      final String selected = _selectedNodeString(cfg);
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{
-          'config': configData,
-          'pending_config': configData,
+          'config': cfg,
+          'pending_config': cfg,
           'selected_node': selected,
         },
       });
     }
 
-    final DaemonReachableResult reach = await checkDaemonReachable(configData);
+    final DaemonReachableResult reach = await checkDaemonReachable(cfg);
     if (reach == DaemonReachableResult.netMismatch) {
       _showNotification(
           'negative', 'Error: Remote node is using a different nettype');
@@ -1268,7 +1280,7 @@ final class MobileNativeBridge implements NativeBridge {
           'status': <String, dynamic>{'code': -1}
         },
       });
-      await _bestEffortWalletRpcAfterFailure(configData);
+      await _bestEffortWalletRpcAfterFailure(cfg);
       return;
     }
     if (reach == DaemonReachableResult.inaccessible) {
@@ -1280,12 +1292,12 @@ final class MobileNativeBridge implements NativeBridge {
           'status': <String, dynamic>{'code': -1}
         },
       });
-      await _bestEffortWalletRpcAfterFailure(configData);
+      await _bestEffortWalletRpcAfterFailure(cfg);
       return;
     }
 
     // Remote verified — fetch height once (mobile: skip arqmad --version and duplicate probes).
-    final ({String host, int port})? epEarly = daemonRpcHostPort(configData);
+    final ({String host, int port})? epEarly = daemonRpcHostPort(cfg);
     if (epEarly != null) {
       final Map<String, dynamic>? rEarly =
           await DaemonJsonRpc.getInfo(
@@ -1297,7 +1309,7 @@ final class MobileNativeBridge implements NativeBridge {
       final Map<String, dynamic>? infoEarly =
           DaemonJsonRpc.getInfoPayload(rEarly);
       if (infoEarly != null) {
-        _applyDaemonInfo(configData, infoEarly);
+        _applyDaemonInfo(cfg, infoEarly);
       }
     }
 
@@ -1319,21 +1331,21 @@ final class MobileNativeBridge implements NativeBridge {
           },
         });
       } else if (daemonType == 'remote') {
-        await setCurrentNetDaemonTypeRemoteAndPersist(paths, configData);
-        _setRuntimeConfig(configData);
+        await setCurrentNetDaemonTypeRemoteAndPersist(paths, cfg);
+        _setRuntimeConfig(cfg);
         _emit(<String, dynamic>{
           'event': 'set_app_data',
           'data': <String, dynamic>{
             'status': <String, dynamic>{'code': 5},
-            'config': configData,
-            'pending_config': configData,
+            'config': cfg,
+            'pending_config': cfg,
           },
         });
       }
     }
 
     final Map<String, dynamic> daemonEntryNow = Map<String, dynamic>.from(
-      (configData['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
+      (cfg['daemons'] as Map? ?? <String, dynamic>{})[net] as Map? ??
           <String, dynamic>{},
     );
     final String daemonTypeNow = '${daemonEntryNow['type'] ?? 'remote'}';
@@ -1341,16 +1353,16 @@ final class MobileNativeBridge implements NativeBridge {
     if (daemonTypeNow != 'remote') {
       _showNotification('negative',
           'Local daemon is not available on mobile — select a remote node (node1–node4.arqma.com).');
-      enforceMobileRemoteOnlyConfig(configData);
-      await writeGuiConfigFile(paths, configData);
-      _setRuntimeConfig(configData);
+      enforceMobileRemoteOnlyConfig(cfg);
+      await writeGuiConfigFile(paths, cfg);
+      _setRuntimeConfig(cfg);
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{
           'status': <String, dynamic>{'code': -1}
         },
       });
-      await _bestEffortWalletRpcAfterFailure(configData);
+      await _bestEffortWalletRpcAfterFailure(cfg);
       return;
     }
 
@@ -1374,8 +1386,8 @@ final class MobileNativeBridge implements NativeBridge {
       },
     });
 
-    await _syncSoloPoolSidecar(configData);
-    _startHeartbeat(configData);
+    await _syncSoloPoolSidecar(cfg);
+    _startHeartbeat(cfg);
 
     if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
       // Mobile: start wallet FFI after remote daemon is up (background — not on splash).
@@ -1386,7 +1398,7 @@ final class MobileNativeBridge implements NativeBridge {
         });
         unawaited(_ensureWalletRpcStarted());
       } else {
-        _walletRpc = await ArqmaWalletRpcSession.tryStart(configData);
+        _walletRpc = await ArqmaWalletRpcSession.tryStart(cfg);
         if (_walletRpc == null) {
           _showNotification(
             'warning',
@@ -2208,8 +2220,10 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   void _ensureDatadirLayout(Map<String, dynamic> configData) {
+    final Map<String, dynamic> normalized =
+        normalizeConfigStoragePaths(configData);
     final Map<String, dynamic> app = Map<String, dynamic>.from(
-        configData['app'] as Map? ?? <String, dynamic>{});
+        normalized['app'] as Map? ?? <String, dynamic>{});
     final String? wdir = app['wallet_data_dir'] as String?;
     final String? dataDir = app['data_dir'] as String?;
     final String net = app['net_type'] as String? ?? 'mainnet';

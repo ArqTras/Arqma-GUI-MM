@@ -175,6 +175,15 @@ final class WalletNativeFfi {
         if (path.isEmpty) {
           continue;
         }
+        if (Platform.isIOS &&
+            !path.startsWith('@') &&
+            !File(path).existsSync()) {
+          final String line = '$path: file not found in app bundle';
+          errors.add(line);
+          lastLoadFailureDetail = line;
+          debugPrint('[WalletNativeFfi] skip (missing): $path');
+          continue;
+        }
         tried.add(path);
         try {
           final DynamicLibrary lib = DynamicLibrary.open(path);
@@ -221,10 +230,12 @@ final class WalletNativeFfi {
       out.add('$dir/lib/libarqma_wallet_flutter_ffi.so');
       out.add('$dir/libarqma_wallet_flutter_ffi.so');
     } else if (Platform.isIOS) {
+      // App Store build embeds FFI as a framework (not a loose dylib in Frameworks/).
+      out.add(
+          '$dir/Frameworks/libarqma_wallet_flutter_ffi.framework/libarqma_wallet_flutter_ffi');
       out.add('$dir/Frameworks/libarqma_wallet_flutter_ffi.dylib');
-      out.add('libarqma_wallet_flutter_ffi.dylib');
       out.add('libarqma_wallet_flutter_ffi.framework/libarqma_wallet_flutter_ffi');
-      out.add('@executable_path/Frameworks/libarqma_wallet_flutter_ffi.dylib');
+      out.add('libarqma_wallet_flutter_ffi.dylib');
     } else if (Platform.isWindows) {
       out.add('$dir${Platform.pathSeparator}arqma_wallet_flutter_ffi.dll');
       out.add(

@@ -77,7 +77,7 @@ echo "==> Flutter pub get"
 flutter pub get
 
 EXPORT_METHOD="${ARQMA_IOS_EXPORT_METHOD:-app-store}"
-EXPORT_PLIST="${MOBILE_ROOT}/ios/ExportOptions-appstore.plist"
+EXPORT_PLIST="${MOBILE_ROOT}/ios/ExportOptions-appstore-export.plist"
 IPA_SUFFIX="testflight"
 if [[ "${EXPORT_METHOD}" == "development" ]]; then
   EXPORT_PLIST="${MOBILE_ROOT}/ios/ExportOptions-development.plist"
@@ -98,6 +98,8 @@ XCARCHIVE="$(find "${ARCHIVE_DIR}" -maxdepth 1 -name '*.xcarchive' -print -quit 
 XCARCHIVE_ZIP="${DIST}/${BASE}-ios.xcarchive.zip"
 
 if [[ -n "${XCARCHIVE}" && -d "${XCARCHIVE}" ]]; then
+  echo "==> Attach dSYMs for embedded FFI + objective_c.framework"
+  bash "${MOBILE_ROOT}/tool/attach_ios_archive_dsyms.sh" "${XCARCHIVE}"
   echo "==> Zip xcarchive (manual TestFlight export in Xcode if IPA export failed)"
   rm -f "${XCARCHIVE_ZIP}"
   (cd "$(dirname "${XCARCHIVE}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${XCARCHIVE}")" "${XCARCHIVE_ZIP}")
@@ -134,14 +136,20 @@ cp -f "${BUILT_IPA}" "${IPA_OUT}"
 FFI_CHECK="$(mktemp -d)"
 unzip -q -o "${IPA_OUT}" -d "${FFI_CHECK}"
 PAYLOAD="$(find "${FFI_CHECK}/Payload" -maxdepth 1 -name '*.app' -print -quit)"
-FFI_IN_IPA="${PAYLOAD}/Frameworks/libarqma_wallet_flutter_ffi.dylib"
-if [[ ! -f "${FFI_IN_IPA}" ]]; then
-  echo "error: IPA missing libarqma_wallet_flutter_ffi.dylib — wallet will not work on device" >&2
+FFI_FRAMEWORK="${PAYLOAD}/Frameworks/libarqma_wallet_flutter_ffi.framework/libarqma_wallet_flutter_ffi"
+FFI_LOOSE="${PAYLOAD}/Frameworks/libarqma_wallet_flutter_ffi.dylib"
+if [[ -f "${FFI_LOOSE}" ]]; then
+  echo "error: IPA has loose libarqma_wallet_flutter_ffi.dylib in Frameworks/ (ITMS-90426) — must be a .framework bundle" >&2
   rm -rf "${FFI_CHECK}"
   exit 1
 fi
-codesign --verify --verbose=2 "${FFI_IN_IPA}" >/dev/null 2>&1 || {
-  echo "error: FFI dylib in IPA is not validly signed" >&2
+if [[ ! -f "${FFI_FRAMEWORK}" ]]; then
+  echo "error: IPA missing libarqma_wallet_flutter_ffi.framework — wallet will not work on device" >&2
+  rm -rf "${FFI_CHECK}"
+  exit 1
+fi
+codesign --verify --verbose=2 "${PAYLOAD}/Frameworks/libarqma_wallet_flutter_ffi.framework" >/dev/null 2>&1 || {
+  echo "error: FFI framework in IPA is not validly signed" >&2
   rm -rf "${FFI_CHECK}"
   exit 1
 }
@@ -196,6 +204,10 @@ ARQMA_IOS_EXPORT_METHOD=app-store ./tool/package_mobile_release.sh --skip-ffi
 \`\`\`
 
 Or open \`*-ios.xcarchive.zip\` (unzip), then Xcode → **Distribute App** → App Store Connect.
+
+**Icons:** App Store requires opaque 1024×1024 icon (no alpha). Regenerate: \`./tool/generate_app_icons.sh\`.
+
+**dSYM warnings** for \`libarqma_wallet_flutter_ffi.dylib\` / \`objective_c.framework\`: export uses \`uploadSymbols=false\` (embedded Rust/Flutter binaries without Apple dSYMs).
 
 ## Upload IPA (TestFlight)
 
