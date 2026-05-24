@@ -58,8 +58,44 @@ mod force_wallet_static {
     extern "C" {}
 }
 
+// Android NDK ld supports `muldefs` + `--whole-archive` like Linux; do not assume a fat `wallet_merged`
+// (release 1.0.0 x86_64 prebuilts were linked without folded epee).
+#[cfg(target_os = "android")]
+mod force_wallet_static {
+    #![allow(dead_code)]
+    #[link(
+        name = "wallet_merged",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(name = "epee", kind = "static", modifiers = "+bundle,+whole-archive")]
+    extern "C" {}
+    #[link(
+        name = "easylogging",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(
+        name = "randomx",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+    #[link(name = "lmdb", kind = "static", modifiers = "+bundle,+whole-archive")]
+    extern "C" {}
+    #[link(
+        name = "cryptonote_format_utils_basic",
+        kind = "static",
+        modifiers = "+bundle,+whole-archive"
+    )]
+    extern "C" {}
+}
+
 #[cfg(all(
     not(target_os = "macos"),
+    not(target_os = "android"),
     not(target_os = "linux"),
     not(target_os = "ios"),
     not(all(target_os = "windows", target_env = "gnu"))

@@ -160,7 +160,7 @@ fn main() {
         configure_wallet2_linking(&upstream_path, &target_env);
     } else if target_os == "macos" {
         configure_wallet2_linking_macos(&upstream_path);
-    } else if target_os == "linux" {
+    } else if target_os == "linux" || target_os == "android" {
         configure_wallet2_linking_linux(&upstream_path);
     } else if target_os == "ios" {
         configure_wallet2_linking_ios(&upstream_path);
@@ -177,8 +177,12 @@ fn wallet_ffi_static_hybrid() -> bool {
 
 fn find_wallet_merged_dir(upstream: &Path) -> Option<PathBuf> {
     for root in [
+        upstream.join("build/ci-depends-release"),
         upstream.join("build-ios-device"),
         upstream.join("build-ios-sim"),
+        upstream.join("build-android-depends-aarch64-linux-android"),
+        upstream.join("build-android-depends-x86_64-linux-android"),
+        upstream.join("build-android-depends-armv7-linux-androideabi"),
         upstream.join("build"),
         upstream.join("build-mingw"),
     ] {

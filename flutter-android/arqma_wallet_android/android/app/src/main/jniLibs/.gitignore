@@ -1,0 +1,2 @@
+# Copied locally by tool/copy_android_wallet_ffi.ps1 (prebuilt or rust/target); do not commit.
+*.so

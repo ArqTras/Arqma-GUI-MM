@@ -45,6 +45,9 @@ package-lock.json
 # Arqma core for native wallet2 (CI clones to workspace; do not commit)
 /rust/arqma-rpc-upstream/
 
+# Prebuilt wallet FFI from GitHub Releases (build/ci/fetch-arqma-wallet-ffi-release.ps1)
+.prebuilt/
+
 # Rust workspace (Tauri, core, daemon)
 /rust/target
 /rust/**/target

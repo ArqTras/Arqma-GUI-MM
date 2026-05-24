@@ -26,7 +26,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_STATIC_HYBRID");
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET_FFI_DEPENDS_LIB_DIR");
 
-    if target_os == "linux" {
+    if target_os == "linux" || target_os == "android" {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
     }
 
@@ -51,7 +51,71 @@ fn main() {
             "cargo:warning=arqma-wallet-flutter-ffi: ARQMA_WALLET_FFI_STATIC_HYBRID=1 (iOS static-hybrid)"
         );
         ios_wallet_ffi_static_hybrid_cdylib_args();
+    } else if target_os == "android" && static_hybrid_enabled() {
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: ARQMA_WALLET_FFI_STATIC_HYBRID=1 (Android static-hybrid)"
+        );
+        android_wallet_ffi_static_hybrid_cdylib_args();
     }
+}
+
+fn android_wallet_ffi_static_hybrid_cdylib_args() {
+    let emit = |flag: &str| println!("cargo:rustc-cdylib-link-arg={flag}");
+
+    let upstream = arqma_upstream_root();
+    let vendor = depends_vendor_lib_dir(&upstream);
+    if let Some(ref libdir) = vendor {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            libdir.display().to_string().replace('\\', "/")
+        );
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: Android static-hybrid uses contrib/depends ({})",
+            libdir.display()
+        );
+    }
+
+    emit("-Wl,--no-as-needed");
+    emit_upstream_aux_archives(&emit);
+    emit("-Wl,-Bdynamic");
+    emit("-lc++_shared");
+
+    emit("-Wl,-Bstatic");
+    emit("-static-libgcc");
+    emit("-Wl,--start-group");
+    let android_libs: &[&str] = &[
+        "boost_program_options",
+        "boost_thread",
+        "boost_date_time",
+        "unbound",
+        "boost_filesystem",
+        "boost_atomic",
+        "boost_chrono",
+        "ssl",
+        "crypto",
+        "boost_serialization",
+        "boost_regex",
+        "zmq",
+        "sodium",
+    ];
+    match &vendor {
+        Some(libdir) => {
+            for stem in android_libs {
+                emit_depends_vendor_lib(&emit, libdir, stem);
+            }
+        }
+        None => {
+            for stem in android_libs {
+                emit(&format!("-l{stem}"));
+            }
+        }
+    }
+    emit("-Wl,--end-group");
+
+    emit("-Wl,-Bdynamic");
+    emit("-ldl");
+    emit("-llog");
+    emit("-lm");
 }
 
 fn compile_ios_clear_cache_stub() {
@@ -638,6 +702,9 @@ fn depends_host_triple() -> Option<&'static str> {
         ("macos", "aarch64") => Some("aarch64-apple-darwin"),
         ("macos", "x86_64") => Some("x86_64-apple-darwin"),
         ("ios", "aarch64") => Some("aarch64-apple-ios"),
+        ("android", "aarch64") => Some("aarch64-linux-android"),
+        ("android", "x86_64") => Some("x86_64-linux-android"),
+        ("android", "arm") => Some("armv7-linux-androideabi"),
         _ => None,
     }
 }
@@ -694,17 +761,24 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let macos = target_os == "macos";
-    // iOS `wallet_merged` from `build-ios-depends-device` already folds epee/lmdb/etc.
     if target_os == "ios" {
         return;
     }
-    // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
-    for sub in [
+    // CI macOS/Linux use `build/ci-native-release`; Android uses build-android-depends-*; MinGW uses build-mingw.
+    let mut subs = vec![
         "build/ci-depends-release",
         "build-mingw",
         "build/ci-native-release",
         "build",
-    ] {
+    ];
+    if target_os == "android" {
+        subs = vec![
+            "build-android-depends-aarch64-linux-android",
+            "build-android-depends-x86_64-linux-android",
+            "build-android-depends-armv7-linux-androideabi",
+        ];
+    }
+    for sub in subs {
         let root = upstream.join(sub);
         let epee = root.join("contrib/epee/src/libepee.a");
         let elog = root.join("external/easylogging++/libeasylogging.a");
@@ -733,8 +807,14 @@ fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
 }
 
 fn upstream_librandomx_a_path() -> Option<PathBuf> {
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os == "android" || target_os == "ios" {
+        return None;
+    }
     let upstream = arqma_upstream_root();
     for sub in [
+        "build-android-depends-aarch64-linux-android",
+        "build-android-depends-x86_64-linux-android",
         "build/ci-depends-release",
         "build-mingw",
         "build/ci-native-release",

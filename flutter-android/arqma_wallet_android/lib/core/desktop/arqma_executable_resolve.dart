@@ -1,0 +1,254 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+
+/// Same resolution order as [arqma_wallet_rpc::upstream_paths::resolve_arqma_executable]
+/// plus bundle-style paths from [native_bin::bundled_exe_candidates] (without Tauri `resource_dir`).
+enum ArqmaExecutableKind {
+  walletRpc,
+  daemon,
+  flutterSoloPool,
+}
+
+String _exeWin(ArqmaExecutableKind k) {
+  return switch (k) {
+    ArqmaExecutableKind.daemon => 'arqmad.exe',
+    ArqmaExecutableKind.flutterSoloPool => 'arqma_flutter_solo_pool.exe',
+    ArqmaExecutableKind.walletRpc => 'arqma-wallet-rpc.exe',
+  };
+}
+
+String _exeUnix(ArqmaExecutableKind k) {
+  return switch (k) {
+    ArqmaExecutableKind.daemon => 'arqmad',
+    ArqmaExecutableKind.flutterSoloPool => 'arqma_flutter_solo_pool',
+    ArqmaExecutableKind.walletRpc => 'arqma-wallet-rpc',
+  };
+}
+
+String _pickExeName(ArqmaExecutableKind k) =>
+    Platform.isWindows ? _exeWin(k) : _exeUnix(k);
+
+String? _directEnvPath(ArqmaExecutableKind k) {
+  final String? v = switch (k) {
+    ArqmaExecutableKind.daemon => Platform.environment['ARQMA_DAEMON'],
+    ArqmaExecutableKind.flutterSoloPool =>
+      Platform.environment['ARQMA_FLUTTER_SOLO_POOL'],
+    ArqmaExecutableKind.walletRpc => Platform.environment['ARQMA_WALLET_RPC'],
+  };
+  if (v == null || v.trim().isEmpty) {
+    return null;
+  }
+  final String p = v.trim();
+  return File(p).existsSync() ? p : null;
+}
+
+/// Tauri [`native_bin::bundled_exe_candidates`]: `resource_dir/bin/<name>` first, then `<exe_dir>/bin/<name>`.
+///
+/// Flutter build copies the same `src-tauri/bin` tree into:
+/// - **macOS:** `…/Arqma-Wallet.app/Contents/Resources/bin/`
+/// - **Windows / Linux bundle:** `<executable_dir>/bin/` (CMake `install` parity)
+String? _tauriStyleBundledExecutable(ArqmaExecutableKind kind) {
+  final String name = _pickExeName(kind);
+  final String sep = Platform.pathSeparator;
+  try {
+    final String exePath = Platform.resolvedExecutable;
+    final Directory exeParent = File(exePath).parent;
+    if (Platform.isMacOS && exeParent.path.endsWith('$sep' 'MacOS')) {
+      final String resourcesBin = '${exeParent.parent.path}$sep'
+          'Resources$sep'
+          'bin$sep$name';
+      if (File(resourcesBin).existsSync()) {
+        return resourcesBin;
+      }
+    }
+    final String beside = '${exeParent.path}$sep'
+        'bin$sep$name';
+    if (File(beside).existsSync()) {
+      return beside;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+/// When the macOS/Linux bundle has no `arqmad` under `Resources/bin/` yet, still resolve the
+/// checkout copy by walking parents of [Platform.resolvedExecutable] (works for `flutter run`
+/// when [Directory.current] is not the repo root — e.g. launched from Finder).
+String? _exeInSrcTauriBinNearResolvedExecutable(ArqmaExecutableKind kind) {
+  final String sep = Platform.pathSeparator;
+  final String name = _pickExeName(kind);
+  try {
+    Directory dir = File(Platform.resolvedExecutable).parent;
+    for (int i = 0; i < 18; i++) {
+      final String p = <String>[
+        dir.path,
+        'rust',
+        'tauri-app',
+        'src-tauri',
+        'bin',
+        name,
+      ].join(sep);
+      if (File(p).existsSync()) {
+        return p;
+      }
+      final Directory parent = dir.parent;
+      if (parent.path == dir.path) {
+        break;
+      }
+      dir = parent;
+    }
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+/// If [root] already ends with `bin`, use it; else `<root>/bin` (same as Rust `bin_subdir`).
+String _binSubdir(String root) {
+  final String t = root.trim();
+  if (t.isEmpty) {
+    return t;
+  }
+  final String sep = Platform.pathSeparator;
+  final List<String> parts =
+      t.split(sep).where((String s) => s.isNotEmpty).toList();
+  if (parts.isNotEmpty && parts.last.toLowerCase() == 'bin') {
+    return t;
+  }
+  return '$t${sep}bin';
+}
+
+String? _exeInBinRoot(String root, ArqmaExecutableKind k) {
+  final String binDir = _binSubdir(root);
+  if (binDir.isEmpty) {
+    return null;
+  }
+  final String name = _pickExeName(k);
+  final String p = '$binDir${Platform.pathSeparator}$name';
+  return File(p).existsSync() ? p : null;
+}
+
+String? _findInPath(ArqmaExecutableKind k) {
+  final String name = _pickExeName(k);
+  final String? pathVar = Platform.environment['PATH'];
+  if (pathVar == null || pathVar.isEmpty) {
+    return null;
+  }
+  final String sep = Platform.isWindows ? ';' : ':';
+  for (final String dir in pathVar.split(sep)) {
+    final String d = dir.trim();
+    if (d.isEmpty) {
+      continue;
+    }
+    final String p = '$d${Platform.pathSeparator}$name';
+    if (File(p).existsSync()) {
+      return p;
+    }
+  }
+  return null;
+}
+
+/// Extra search paths aligned with `native_bin::bundled_exe_candidates` (no Tauri `resource_dir`).
+List<String> _bundledStyleCandidates(ArqmaExecutableKind k) {
+  final String name = _pickExeName(k);
+  final String sep = Platform.pathSeparator;
+  final List<String> out = <String>[];
+
+  void addIf(String path) {
+    if (path.isNotEmpty && File(path).existsSync()) {
+      out.add(path);
+    }
+  }
+
+  void addTargetBuildIf(String root) {
+    if (k != ArqmaExecutableKind.flutterSoloPool) {
+      return;
+    }
+    addIf(<String>[
+      root,
+      'rust',
+      'tauri-app',
+      'src-tauri',
+      'target',
+      'debug',
+      name
+    ].join(sep));
+    addIf(<String>[
+      root,
+      'rust',
+      'tauri-app',
+      'src-tauri',
+      'target',
+      'release',
+      name
+    ].join(sep));
+  }
+
+  // `env!("CARGO_MANIFEST_DIR")/bin` — fixed repo layout from repo root / cwd walk.
+  Directory cur = Directory.current;
+  for (int i = 0; i < 12; i++) {
+    addIf(<String>[cur.path, 'rust', 'tauri-app', 'src-tauri', 'bin', name]
+        .join(sep));
+    addIf(<String>[cur.path, 'src-tauri', 'bin', name].join(sep));
+    addTargetBuildIf(cur.path);
+    if (cur.parent.path == cur.path) {
+      break;
+    }
+    cur = cur.parent;
+  }
+
+  addIf(<String>['bin', name].join(sep));
+  addIf(<String>['binaries', name].join(sep));
+
+  final String exe = Platform.resolvedExecutable;
+  final String exeDir = File(exe).parent.path;
+  addIf('$exeDir${sep}bin$sep$name');
+  addIf('$exeDir$sep$name');
+  final String parent = File(exe).parent.parent.path;
+  addIf('$parent${sep}bin$sep$name');
+
+  return out;
+}
+
+/// Resolve `arqmad` or `arqma-wallet-rpc` like the Tauri shell (`upstream_paths` + bundle candidates).
+String? resolveArqmaExecutable(ArqmaExecutableKind kind) {
+  final String? direct = _directEnvPath(kind);
+  if (direct != null) {
+    return direct;
+  }
+  final String? bundled = _tauriStyleBundledExecutable(kind);
+  if (bundled != null) {
+    return bundled;
+  }
+  final String? nearCheckout = _exeInSrcTauriBinNearResolvedExecutable(kind);
+  if (nearCheckout != null) {
+    return nearCheckout;
+  }
+  final String? build = Platform.environment['ARQMA_BUILD_DIR'];
+  if (build != null && build.isNotEmpty) {
+    final String? p = _exeInBinRoot(build, kind);
+    if (p != null) {
+      return p;
+    }
+  }
+  final String? prefix = Platform.environment['ARQMA_INSTALL_PREFIX'];
+  if (prefix != null && prefix.isNotEmpty) {
+    final String? p = _exeInBinRoot(prefix, kind);
+    if (p != null) {
+      return p;
+    }
+  }
+  final String? pathHit = _findInPath(kind);
+  if (pathHit != null) {
+    return pathHit;
+  }
+  for (final String c in _bundledStyleCandidates(kind)) {
+    if (File(c).existsSync()) {
+      return c;
+    }
+  }
+  debugPrint('[ArqmaExe] not found: ${kind.name} (${_pickExeName(kind)})');
+  return null;
+}
