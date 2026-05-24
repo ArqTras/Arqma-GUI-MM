@@ -1,0 +1,137 @@
+# Android release: APK (sideload) + AAB (Play Store) using prebuilt FFI from ArqTras/FFI.
+# Attaches to GitHub Release tag 5.1.0 / v5.1.0 (workflow_dispatch or tag push).
+name: Android release (Flutter)
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref or release tag to build (e.g. 5.1.0 or v5.1.0)"
+        required: true
+        default: "5.1.0"
+        type: string
+      ffi_version:
+        description: "ArqTras/FFI release tag for prebuilt wallet FFI"
+        required: true
+        default: "1.0.0"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ANDROID_DIR: flutter-android/arqma_wallet_android
+  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || '1.0.0' }}
+
+jobs:
+  flutter-android:
+    name: Android APK + AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      slug: ${{ steps.pubver.outputs.slug }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Pubspec semver (release filenames)
+        id: pubver
+        working-directory: ${{ env.ANDROID_DIR }}
+        run: |
+          set -eu
+          v=$(grep -E '^version:' pubspec.yaml | head -1 | sed 's/version:[[:space:]]*//')
+          slug="${v%%+*}"
+          echo "full=${v}" >> "$GITHUB_OUTPUT"
+          echo "slug=${slug}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Normalize shell scripts (LF)
+        run: |
+          find build/ci flutter-android/arqma_wallet_android/tool -name '*.sh' -print0 \
+            | xargs -0 sed -i 's/\r$//'
+          chmod +x build/ci/*.sh flutter-android/arqma_wallet_android/tool/*.sh
+
+      - name: Package Android release (FFI prebuilt + APK + AAB)
+        env:
+          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
+        run: bash build/ci/package-flutter-android-release.sh
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arqma-wallet-android-${{ steps.pubver.outputs.slug }}
+          path: |
+            ${{ env.ANDROID_DIR }}/dist/Arqma-Wallet-Android-${{ steps.pubver.outputs.slug }}.apk
+            ${{ env.ANDROID_DIR }}/dist/Arqma-Wallet-Android-${{ steps.pubver.outputs.slug }}.aab
+            ${{ env.ANDROID_DIR }}/dist/SHA256SUMS-android-${{ steps.pubver.outputs.slug }}.txt
+            ${{ env.ANDROID_DIR }}/dist/Arqma-Wallet-Android-${{ steps.pubver.outputs.slug }}-manifest.txt
+          if-no-files-found: error
+
+  github-release:
+    name: Attach to GitHub Release
+    needs: [flutter-android]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            t="${{ github.event.inputs.ref }}"
+          else
+            t="${GITHUB_REF_NAME}"
+          fi
+          t="${t#v}"
+          echo "name=${t}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: arqma-wallet-android-${{ needs.flutter-android.outputs.slug }}
+          path: dist
+
+      - name: List release files
+        run: |
+          set -eu
+          find dist -type f | sort
+          n=$(find dist -type f | wc -l | tr -d ' ')
+          if [ "$n" -lt 2 ]; then
+            echo "::error::Expected APK + AAB in dist/"
+            find dist -type f || true
+            exit 1
+          fi
+
+      - name: Publish / update GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: Arqma Wallet ${{ steps.tag.outputs.name }}
+          generate_release_notes: true
+          overwrite_files: false
+          make_latest: false
+          files: dist/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

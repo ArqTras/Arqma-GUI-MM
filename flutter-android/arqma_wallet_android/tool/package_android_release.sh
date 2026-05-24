@@ -6,18 +6,26 @@ ROOT="$(cd "${APP}/../.." && pwd)"
 cd "${APP}"
 
 if [[ "${ARQMA_SKIP_ANDROID_FFI_COPY:-0}" != "1" ]]; then
-  if [[ -f "${ROOT}/rust/target/aarch64-linux-android/release/libarqma_wallet_flutter_ffi.so" ]]; then
-    bash "${APP}/tool/copy_android_wallet_ffi.sh"
-  else
-    echo "warn: no aarch64 libarqma_wallet_flutter_ffi.so — APK will lack wallet FFI" >&2
-  fi
+  bash "${APP}/tool/copy_android_wallet_ffi.sh"
 fi
+
+VERSION_LINE="$(grep -E '^version:' pubspec.yaml | head -1)"
+VERSION="${VERSION_LINE#version:}"
+VERSION="${VERSION// /}"
+SLUG="${VERSION%%+*}"
 
 flutter pub get
 flutter build apk --release
-OUT="${APP}/build/app/outputs/flutter-apk/app-release.apk"
-if [[ -f "${OUT}" ]]; then
-  mkdir -p "${APP}/dist"
-  cp -f "${OUT}" "${APP}/dist/arqma-wallet-android-$(date -u +%Y%m%d).apk"
-  echo "APK: ${APP}/dist/"
+flutter build appbundle --release
+
+APK="${APP}/build/app/outputs/flutter-apk/app-release.apk"
+AAB="${APP}/build/app/outputs/bundle/release/app-release.aab"
+mkdir -p "${APP}/dist"
+if [[ -f "${APK}" ]]; then
+  cp -f "${APK}" "${APP}/dist/Arqma-Wallet-Android-${SLUG}.apk"
+  echo "APK: ${APP}/dist/Arqma-Wallet-Android-${SLUG}.apk"
+fi
+if [[ -f "${AAB}" ]]; then
+  cp -f "${AAB}" "${APP}/dist/Arqma-Wallet-Android-${SLUG}.aab"
+  echo "AAB: ${APP}/dist/Arqma-Wallet-Android-${SLUG}.aab"
 fi

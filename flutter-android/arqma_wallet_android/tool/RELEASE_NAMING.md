@@ -19,10 +19,16 @@
 
 | Artifact | Filename pattern |
 |----------|------------------|
-| Release APK | `arqma-wallet-android-{YYYYMMDD}.apk` (under `dist/`) |
-| Play / sideload | `app-release.apk` from `flutter build apk --release` |
+| Sideload APK | `Arqma-Wallet-Android-{slug}.apk` (under `dist/`) |
+| Play Store AAB | `Arqma-Wallet-Android-{slug}.aab` |
+| Checksums | `SHA256SUMS-android-{slug}.txt` |
+| Manifest | `Arqma-Wallet-Android-{slug}-manifest.txt` |
 
-**Build:** `./tool/package_android_release.sh` (after `build_mobile_wallet_ffi_android.sh` + `copy_android_wallet_ffi.sh` on Linux/WSL/CI).
+`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.0`).
+
+**Build (local):** `./tool/package_android_release.sh` — uses prebuilt FFI from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases) (`ARQMA_FFI_RELEASE_VERSION`, default `1.0.0`).
+
+**CI:** `.github/workflows/android-release.yml` — `build/ci/package-flutter-android-release.sh`, attaches to GitHub Release `5.1.0` / `v5.1.0`.
 
 **Application ID:** `com.arqma.arqma_wallet_android` — display name **Arqma Wallet**.
 
