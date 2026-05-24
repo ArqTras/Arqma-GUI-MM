@@ -227,7 +227,8 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     if (confirmed != true || !mounted) {
       return;
     }
-    final bool pwdProt = wallet['password_protected'] == true;
+    // Same rule as [_openWallet]: null/missing meta => assume password may be set.
+    final bool pwdProt = wallet['password_protected'] != false;
     String password = '';
     if (pwdProt) {
       final String? entered = await showDialog<String>(
