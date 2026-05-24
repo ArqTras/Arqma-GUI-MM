@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+  "core",
+  "daemon",
+  "arqma-wallet-rpc",
+  "arqma-wallet2-api",
+  "arqma-wallet-flutter-ffi",
+  "tauri-app/src-tauri",
+]
+
+[workspace.package]
+version = "5.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/ArqTras/Arqma-GUI-MM"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+strip = "symbols"
+
+# Faster local "near-release" builds (Tauri/NSIS) — less LTO, more codegen units.
+# Use: `npm run tauri:build:local` in `rust/tauri-app`, or
+# `cargo build -p arqma-wallet --profile local` in `rust/tauri-app/src-tauri`
+[profile.local]
+inherits = "release"
+lto = "thin"
+codegen-units = 16

@@ -1,7 +1,8 @@
 <template>
   <q-layout view="hHh Lpr lFf">
     <q-header
-      class="row justify-between items-center header-border-bottom"
+      class="row justify-between items-center"
+      style="border-bottom: 1px solid white"
     >
       <div class="col-2">
         <div
@@ -209,8 +210,18 @@ export default defineComponent({
     const theme = computed(() => $store.state.gateway.app.config.appearance.theme)
     const info = computed(() => $store.state.gateway.wallet.info)
     const price = computed(() => $store.state.gateway.coin_price)
-    const inactivityTimeout = computed(() => {
-      return ($store.state.gateway.app.config.app.inactivityTimeout * 60000)
+    const soloPoolServerEnabled = computed(() => {
+      return $store.state.gateway.app.config?.pool?.server?.enabled === true
+    })
+    const inactivityTimeoutMinutes = computed(() => {
+      return $store.state.gateway.app.config.app.inactivityTimeout
+    })
+    const inactivityTimeoutMs = computed(() => {
+      const m = inactivityTimeoutMinutes.value
+      if (m === 31) {
+        return soloPoolServerEnabled.value ? 0 : 30 * 60000
+      }
+      return m * 60000
     })
     const is_able_to_send = computed(() => {
       return $store.getters["gateway/isAbleToSend"]
@@ -255,6 +266,9 @@ export default defineComponent({
         clearTimeout(inactivityTimerFn)
         inactivityTimerFn = null
       }
+      if (inactivityTimeoutMinutes.value === 31 && soloPoolServerEnabled.value) {
+        return
+      }
       inactivityTimerFn = setTimeout(() => {
         if (is_able_to_send.value) {
           clearTimeout(inactivityTimerFn)
@@ -268,7 +282,7 @@ export default defineComponent({
         } else {
           resetInactiveTimeoutFn()
         }
-      }, inactivityTimeout.value)
+      }, inactivityTimeoutMs.value)
     }, 300)
 
     const refresh_coin_price = async () => {
@@ -299,8 +313,7 @@ export default defineComponent({
       WalletSettings,
       Formatarqma,
       resetInactiveTimeoutFn,
-      switchWallet,
-      inactivityTimeout
+      switchWallet
     }
   }
 })

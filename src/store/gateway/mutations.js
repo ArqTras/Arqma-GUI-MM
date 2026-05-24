@@ -25,7 +25,32 @@ export const set_wallet_address_book = (state, data) => {
   state.wallet.address_list = objectAssignDeep.noMutate(state.wallet.address_list, data)
 }
 export const set_wallet_info = (state, data) => {
-  state.wallet.info = objectAssignDeep.noMutate(state.wallet.info, data)
+  const patch = { ...data }
+  if (patch.height != null && patch.height !== "") {
+    const incoming = Number(patch.height) || 0
+    const cur = Number(state.wallet.info.height) || 0
+    const sameWallet =
+      patch.name == null ||
+      patch.name === "" ||
+      !state.wallet.info.name ||
+      patch.name === state.wallet.info.name
+    // Same wallet: never lower height from a racing log line vs getheight (footer regression).
+    if (sameWallet && cur > 0 && incoming < cur) {
+      patch.height = cur
+    } else {
+      patch.height = incoming
+    }
+  }
+  if (patch.balance != null && patch.balance !== "") {
+    patch.balance = Number(patch.balance) || 0
+  }
+  if (patch.unlocked_balance != null && patch.unlocked_balance !== "") {
+    patch.unlocked_balance = Number(patch.unlocked_balance) || 0
+  }
+  if (patch.scan_poll_ts != null && patch.scan_poll_ts !== "") {
+    patch.scan_poll_ts = Number(patch.scan_poll_ts) || 0
+  }
+  state.wallet.info = objectAssignDeep.noMutate(state.wallet.info, patch)
 }
 export const set_wallet_secret = (state, data) => {
   state.wallet.secret = data
@@ -50,6 +75,9 @@ export const set_old_gui_import_status = (state, data) => {
 }
 export const set_tx_status = (state, data) => {
   state.tx_status = data
+}
+export const set_sweep_all_progress = (state, data) => {
+  state.sweep_all_progress = data
 }
 export const set_snode_status = (state, data) => {
   state.service_node_status = data

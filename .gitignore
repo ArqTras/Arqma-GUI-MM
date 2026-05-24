@@ -26,6 +26,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # Editor directories and files
+.cursor/
 .idea
 *.suo
 *.ntvs*
@@ -38,3 +39,20 @@ package-lock.json
 # .notenv
 /downloads
 .sdk-comm
+
+# Optional local clone of github.com/arqma/arqma (see scripts/checkout-arqma.*)
+/vendor/arqma/
+# Arqma core for native wallet2 (CI clones to workspace; do not commit)
+/rust/arqma-rpc-upstream/
+
+# Prebuilt wallet FFI from GitHub Releases (build/ci/fetch-arqma-wallet-ffi-release.ps1)
+.prebuilt/
+
+# Rust workspace (Tauri, core, daemon)
+/rust/target
+/rust/**/target
+/rust/tauri-app/node_modules
+/rust/tauri-app/dist
+/rust/tauri-app/src-tauri/bin/*.exe
+/rust/tauri-app/src-tauri/bin/arqmad
+/rust/tauri-app/src-tauri/bin/arqma-wallet-rpc

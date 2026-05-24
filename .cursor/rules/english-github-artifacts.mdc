@@ -1,0 +1,10 @@
+---
+description: English for all GitHub-facing text (commits, PRs, tracked comments)
+alwaysApply: true
+---
+
+# English for GitHub
+
+- **Commit messages** (subject and body): write in **English**, imperative or conventional-commit style as used in this repo.
+- **Pull request titles and descriptions**, release notes, and **comments in files that are committed** (scripts, workflows, `.cursor/rules`, hooks): use **English** only. Do not use Polish or other languages in content intended for GitHub.
+- **Chat with the user** may stay in the user’s language when they prefer it; the exception above applies to **artifacts that land in the repository or on github.com**.

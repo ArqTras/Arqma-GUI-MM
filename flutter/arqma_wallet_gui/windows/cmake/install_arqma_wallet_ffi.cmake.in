@@ -1,0 +1,130 @@
+# Runs at **install** time (flutter build windows ...), not only at CMake configure.
+# Fixes local builds where arqma_wallet_flutter_ffi.dll appears after the first CMake run.
+# Re-globs MinGW bin every install. install(SCRIPT) must not use return().
+
+set(_r "@ARQMA_WALLET_FFI_RUST_ROOT@")
+set(_bundle_debug "@ARQMA_WIN_BUNDLE_DEBUG@")
+set(_bundle_profile "@ARQMA_WIN_BUNDLE_PROFILE@")
+set(_bundle_release "@ARQMA_WIN_BUNDLE_RELEASE@")
+
+set(_dest "")
+if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
+  set(_dest "${_bundle_debug}")
+elseif(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Pp][Rr][Oo][Ff][Ii][Ll][Ee])$")
+  set(_dest "${_bundle_profile}")
+elseif(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Rr][Ee][Ll][Ee][Aa][Ss][Ee])$")
+  set(_dest "${_bundle_release}")
+endif()
+
+set(_dll "")
+if(EXISTS "${_r}/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/target/x86_64-pc-windows-gnu/debug/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/target/x86_64-pc-windows-gnu/debug/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/tauri-app/src-tauri/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/tauri-app/src-tauri/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/tauri-app/src-tauri/target/x86_64-pc-windows-gnu/debug/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/tauri-app/src-tauri/target/x86_64-pc-windows-gnu/debug/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/target/release/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/target/release/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/target/debug/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/target/debug/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/tauri-app/src-tauri/target/release/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/tauri-app/src-tauri/target/release/arqma_wallet_flutter_ffi.dll")
+elseif(EXISTS "${_r}/tauri-app/src-tauri/target/debug/arqma_wallet_flutter_ffi.dll")
+  set(_dll "${_r}/tauri-app/src-tauri/target/debug/arqma_wallet_flutter_ffi.dll")
+endif()
+
+if(_dll STREQUAL "")
+  message(STATUS "install_arqma_wallet_ffi: no arqma_wallet_flutter_ffi.dll under rust targets, skip")
+elseif(_dest STREQUAL "")
+  message(STATUS "install_arqma_wallet_ffi: unknown CMAKE_INSTALL_CONFIG_NAME='${CMAKE_INSTALL_CONFIG_NAME}', skip FFI copy")
+else()
+  # Flat bundle: FFI + MinGW runtime deps next to Arqma-Wallet.exe (same as package_flutter_release.ps1 / CI).
+  set(_root "${_dest}")
+  message(STATUS "install_arqma_wallet_ffi: copy FFI + MinGW deps to ${_root}")
+
+  file(COPY "${_dll}" DESTINATION "${_root}")
+
+  string(FIND "${_dll}" "x86_64-pc-windows-gnu" _gnu)
+  if(_gnu EQUAL -1)
+    message(STATUS "install_arqma_wallet_ffi: non-GNU FFI path, MinGW bundle skipped")
+  else()
+    set(_mbin "")
+    if(DEFINED ENV{ARQMA_MINGW_BIN} AND EXISTS "$ENV{ARQMA_MINGW_BIN}")
+      set(_mbin "$ENV{ARQMA_MINGW_BIN}")
+    elseif(DEFINED ENV{ARQMA_WALLET2_MSYS_ROOT} AND EXISTS "$ENV{ARQMA_WALLET2_MSYS_ROOT}/bin")
+      set(_mbin "$ENV{ARQMA_WALLET2_MSYS_ROOT}/bin")
+    elseif(EXISTS "C:/msys64/mingw64/bin")
+      set(_mbin "C:/msys64/mingw64/bin")
+    endif()
+
+    if(_mbin STREQUAL "")
+      message(WARNING "install_arqma_wallet_ffi: GNU FFI but MinGW bin not found (ARQMA_MINGW_BIN / ARQMA_WALLET2_MSYS_ROOT); Win32 126 risk")
+    else()
+      foreach(_n IN ITEMS libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
+        if(EXISTS "${_mbin}/${_n}")
+          file(COPY "${_mbin}/${_n}" DESTINATION "${_root}")
+        endif()
+      endforeach()
+
+      # Keep in sync with tool/package_flutter_release.ps1 and .github/workflows/desktop-release.yml
+      set(_ffideps "")
+      foreach(_pat IN ITEMS
+          "${_mbin}/libboost_*.dll"
+          "${_mbin}/libcrypto*.dll"
+          "${_mbin}/libssl*.dll"
+          "${_mbin}/libsodium*.dll"
+          "${_mbin}/libhidapi*.dll"
+          "${_mbin}/libunbound*.dll"
+          "${_mbin}/libicu*.dll"
+          "${_mbin}/libldns*.dll"
+          "${_mbin}/libevent*.dll"
+          "${_mbin}/libcares*.dll"
+          "${_mbin}/libexpat*.dll"
+          "${_mbin}/libsqlite3*.dll"
+          "${_mbin}/libgmp*.dll"
+          "${_mbin}/libnghttp*.dll"
+          "${_mbin}/libzstd*.dll"
+          "${_mbin}/zlib1.dll"
+          "${_mbin}/libbz2*.dll"
+          "${_mbin}/liblzma*.dll"
+          "${_mbin}/libxml2*.dll"
+          "${_mbin}/libiconv*.dll"
+          "${_mbin}/libzmq*.dll"
+          "${_mbin}/liblmdb*.dll"
+          "${_mbin}/libunwind*.dll"
+          "${_mbin}/libreadline*.dll"
+          "${_mbin}/libhistory*.dll"
+          "${_mbin}/libtermcap*.dll"
+          "${_mbin}/libncurses*.dll"
+          "${_mbin}/libncursesw*.dll"
+          "${_mbin}/libintl*.dll"
+          "${_mbin}/libffi*.dll"
+          "${_mbin}/libssp*.dll"
+          "${_mbin}/liblz4*.dll"
+          "${_mbin}/libbrotli*.dll"
+          "${_mbin}/libdeflate*.dll"
+          "${_mbin}/libatomic*.dll")
+        file(GLOB _fg LIST_DIRECTORIES false "${_pat}")
+        list(APPEND _ffideps ${_fg})
+      endforeach()
+      list(REMOVE_DUPLICATES _ffideps)
+
+      foreach(_dep ${_ffideps})
+        if(EXISTS "${_dep}")
+          get_filename_component(_depnm "${_dep}" NAME)
+          if(NOT _depnm MATCHES "^libboost_python" AND NOT _depnm MATCHES "^libboost_numpy")
+            file(COPY "${_dep}" DESTINATION "${_root}")
+          endif()
+        endif()
+      endforeach()
+    endif()
+  endif()
+
+  set(_merged "${_r}/arqma-rpc-upstream/build-mingw/src/wallet/libwallet_merged.a")
+  if(EXISTS "${_merged}")
+    file(COPY "${_merged}" DESTINATION "${_root}")
+    message(STATUS "install_arqma_wallet_ffi: copied libwallet_merged.a (optional static bundle)")
+  endif()
+endif()

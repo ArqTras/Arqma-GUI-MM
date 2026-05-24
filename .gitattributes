@@ -1,0 +1,2 @@
+# Line endings: CI runs bash on Linux/macOS; CRLF breaks set and heredocs.
+*.sh text eol=lf

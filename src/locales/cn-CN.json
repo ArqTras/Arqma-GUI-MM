@@ -219,7 +219,7 @@
                 "nodes_staked_to": "质押到的节点：",
                 "nodes_operating": "正在运行的节点：",
                 "filter_by_oracle_nodeid": "按 Arq-Net Trust 节点 ID 筛选",
-                "filter_by_oracle_nodeid_placeholder": "Enter Arq-Net Trust Node ID",
+                "filter_by_oracle_nodeid_placeholder": "输入 Arq-Net 信任节点 ID",
                 "filter_by_operator_address": "按操作员地址筛选",
                 "filter_by_operator_address_placeholder": "",
                 "filter_by_oracle_node_status": "按 Arq-Net Trust 节点状态筛选",
@@ -227,7 +227,14 @@
                 "open": "开放",
                 "closed": "关闭",
                 "operator": "操作员",
-                "contributor": "贡献者"
+                "contributor": "贡献者",
+                "all_description": "显示每个服务节点矿池。",
+                "open_description": "在达到质押要求之前仍接受贡献的矿池。",
+                "closed_description": "已达到质押要求的矿池。",
+                "operator_description": "你的钱包作为运营者的矿池。",
+                "contributor_description": "你的钱包贡献了质押但不是运营者的矿池。",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} 美元)"
             },
             "swap": {
                 "error_occured_check_logs": "发生错误，请检查日志",
@@ -342,7 +349,8 @@
             "language": "语言",
             "syncing": "同步中",
             "scanning": "扫描中",
-            "ready": "准备就绪"
+            "ready": "准备就绪",
+            "blocks_left": "约 {n} 个区块待扫描"
         },
         "mainmenu": {
             "daemon_settings": "守护进程设置",
@@ -364,7 +372,7 @@
         "pool_list_tabular": {
             "no_staked_pools_found": "未找到质押池",
             "operator": "运营商",
-            "oracle_node_id": "Arq-Net Trust Node",
+            "oracle_node_id": "Arq-Net 信任节点",
             "stakers": "质押者",
             "notreceived": "未收到",
             "operator_fee": "运营商费用",
@@ -381,7 +389,7 @@
             "equity": "权益: ",
             "add_operator_to_addressbook": "将运营商添加到地址簿",
             "confirm_amount_to_stake": "确认质押金额",
-            "oracle_id": "Arq-Net Trust Node ID:",
+            "oracle_id": "Arq-Net 信任节点 ID：",
             "max_amount": "最大金额: ",
             "min_amount": "最小金额: ",
             "amount": "金额",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "注销 Arq-Net Trust 节点",
             "deregister_service_node_message": "您要注销吗？",
             "deregister_service_node_ok_label": "注销",
-            "deregister_service_node_cancel_label": "取消"
+            "deregister_service_node_cancel_label": "取消",
+            "fiat_usd_approx": "(≈ {amount} 美元)"
         },
         "receive_item": {
             "show_qr_code": "显示二维码",
@@ -428,6 +437,8 @@
             "debug_log_levels": "调试钱包的日志级别",
             "transactions_to_display": "显示多少天的交易",
             "inactivity_timeout": "非活动超时",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "上次取值：启用 Solo Pool（单独挖矿）时不因无操作而注销。若 Solo Pool 关闭，则此位置使用 30 分钟。",
             "days": " 天",
             "minutes": " 分钟",
             "advanced_options": "高级选项",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "取消",
             "sweep_all_sweeping_all": "正在清理所有",
             "sweep_all_calculating_label": "正在计算费用......",
+            "sweep_all_progress_outputs_counted": "找到 {count} 笔可花费的转入。",
+            "sweep_all_progress_building": "正在构建归集交易（{count} 个输出）。已用时约 {elapsed} 秒…",
             "copy_private_key_message": "复制私钥时出错",
             "copy": "复制",
             "write_text_message": "请小心发送私钥，因为它们控制着您的资金。",

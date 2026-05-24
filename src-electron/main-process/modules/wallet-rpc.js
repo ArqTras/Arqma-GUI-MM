@@ -25,12 +25,41 @@ const axios = require("axios")
 const { Observable, Subject, fromEvent } = require("rxjs")
 const Decimal = require("decimal.js")
 
+/** `validate_address` from wallet-ffi returns `nettype` as 0/1/2 enum; config uses `mainnet` / `testnet` / `stagenet`. */
+function netTypeStringFromValidateAddressResult (result) {
+  if (!result || typeof result !== "object") {
+    return ""
+  }
+  const raw = result.nettype ?? result.net_type
+  if (typeof raw === "string") {
+    const t = raw.trim().toLowerCase()
+    if (t === "mainnet" || t === "testnet" || t === "stagenet") {
+      return t
+    }
+    const n = parseInt(t, 10)
+    if (!Number.isNaN(n)) {
+      if (n === 0) return "mainnet"
+      if (n === 1) return "testnet"
+      if (n === 2) return "stagenet"
+    }
+    return ""
+  }
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    if (raw === 0) return "mainnet"
+    if (raw === 1) return "testnet"
+    if (raw === 2) return "stagenet"
+  }
+  return ""
+}
+
 export class WalletRPC {
   constructor (backend) {
     this.subscriber = null
     this.heightEmitter = null
     this.timeout = 5000
     this.twoMinuteTimeout = 120000 // 120 seconds
+    /** `store` during chain scan can exceed `this.timeout`; aborting risks torn wallet files on disk. */
+    this.storeFlushTimeoutMs = 180000
     this.stakeAcquisition = null
     this.isQuitting = false
     this.tx_metadata_list = []
@@ -108,7 +137,8 @@ export class WalletRPC {
         auth.slice(128, 32) // password salt
       ]
 
-      const logLevel = options.wallet.log_level !== undefined ? options.wallet.log_level : 1
+      // Min 1: level 0 hides scan progress lines in the wallet-rpc log (same as Tauri `wallet_process`).
+      const logLevel = Math.max(1, Number(options.wallet.log_level !== undefined ? options.wallet.log_level : 1) || 1)
       const args = [
         "--rpc-login",
         this.auth[0] + ":" + this.auth[1],
@@ -721,7 +751,8 @@ export class WalletRPC {
         return
       }
 
-      const { valid, nettype } = data.result
+      const { valid } = data.result
+      const nettype = netTypeStringFromValidateAddressResult(data.result)
 
       const netMatches = this.net_type === nettype
       const isValid = valid && netMatches
@@ -1294,7 +1325,7 @@ export class WalletRPC {
           }
         }
       }
-      // Zawsze wysyłaj set_wallet_info gdy mamy height, żeby stopka pokazywała postęp skanowania
+      // Always emit set_wallet_info when we have height so the footer shows scan progress
       if (info.height !== undefined || hasBalanceChange) {
         this.sendGateway("set_wallet_info", info)
         this.sendGateway("reset_wallet_status", {
@@ -1669,11 +1700,62 @@ export class WalletRPC {
             get_tx_hex: true
           }
 
-          data = await this.sendRPC(rpc_endpoint, params, this.twoMinuteTimeout)
-          if (data.hasOwnProperty("error")) {
-            reply.message = `${data.error.message
-              .charAt(0)
-              .toUpperCase()}${data.error.message.slice(1)}`
+          let outputCount = 0
+          try {
+            const inc = await this.sendRPC("incoming_transfers", {
+              transfer_type: "available",
+              account_index: 0
+            })
+            if (!inc.error && inc.result && Array.isArray(inc.result.transfers)) {
+              outputCount = inc.result.transfers.length
+            } else {
+              const gb = await this.sendRPC("getbalance", { account_index: 0 })
+              if (gb.result && Array.isArray(gb.result.per_subaddress)) {
+                outputCount = gb.result.per_subaddress.reduce(
+                  (sum, row) => sum + (row.num_unspent_outputs || 0),
+                  0
+                )
+              }
+            }
+          } catch (e) {
+            logger.warn(`wallet sweepAll output count: ${e.stack || e}`)
+          }
+          this.sendGateway("sweep_all_progress", {
+            origin,
+            stage: "outputs_counted",
+            total: outputCount
+          })
+          this.sendGateway("sweep_all_progress", {
+            origin,
+            stage: "building_tx",
+            total: outputCount,
+            wait_round: 0
+          })
+          let waitRound = 0
+          const tickMs = 3000
+          const tickId = setInterval(() => {
+            waitRound += 1
+            this.sendGateway("sweep_all_progress", {
+              origin,
+              stage: "building_tx",
+              total: outputCount,
+              wait_round: waitRound
+            })
+          }, tickMs)
+          let sweepData
+          try {
+            sweepData = await this.sendRPC(rpc_endpoint, params, this.twoMinuteTimeout)
+          } finally {
+            clearInterval(tickId)
+            this.sendGateway("sweep_all_progress", null)
+          }
+          data = sweepData
+          if (!data || data.hasOwnProperty("error")) {
+            reply.message = data && data.error
+              ? `${data.error.message
+                .charAt(0)
+                .toUpperCase()}${data.error.message.slice(1)}`
+              : "Internal error"
           } else {
             let message = "sweep_all_rpc_success_message"
             if (do_not_relay) {
@@ -3396,7 +3478,7 @@ export class WalletRPC {
   async saveWallet () {
     logger.info("wallet  saveWallet")
     try {
-      await this.sendRPC("store", {}, this.timeout)
+      await this.sendRPC("store", {}, this.storeFlushTimeoutMs)
     } catch (error) {
       logger.error(`wallet saveWallet ${error.stack || error}`)
     }
@@ -3421,7 +3503,7 @@ export class WalletRPC {
       )
     }
     try {
-      await this.sendRPC("close_wallet", {}, this.timeout)
+      await this.sendRPC("close_wallet", {}, this.storeFlushTimeoutMs)
     } catch (error) {
       logger.error(`wallet closeWallet ${error.stack || error}`)
     } finally {

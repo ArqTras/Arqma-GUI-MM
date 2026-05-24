@@ -227,7 +227,14 @@
                 "open": "Відкриті",
                 "closed": "Закриті",
                 "operator": "Оператор",
-                "contributor": "вкладник"
+                "contributor": "вкладник",
+                "all_description": "Показати кожен пул сервіс-вузла.",
+                "open_description": "Пули, що ще приймають внесок до досягнення вимоги стейкінгу.",
+                "closed_description": "Пули, що виконали вимогу стейкінгу.",
+                "operator_description": "Пули, де ваш гаманець — оператор.",
+                "contributor_description": "Пули, де ваш гаманець застейкав, але ви не оператор.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Сталася помилка перевірки журналів",
@@ -342,7 +349,8 @@
             "language": "Мова",
             "syncing": "Синхронізація",
             "scanning": "Сканування",
-            "ready": "Готовий"
+            "ready": "Готовий",
+            "blocks_left": "≈{n} блоків до сканування"
         },
         "mainmenu": {
             "daemon_settings": "Налаштування Демона",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "Видалити вузол Oracle",
             "deregister_service_node_message": "Бажаєте видалити вузол?",
             "deregister_service_node_ok_label": "Видалити",
-            "deregister_service_node_cancel_label": "СКАСУВАТИ"
+            "deregister_service_node_cancel_label": "СКАСУВАТИ",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Показати QR-код",
@@ -428,6 +437,8 @@
             "debug_log_levels": "Рівні журналу для налагодження гаманця",
             "transactions_to_display": "Скільки днів транзакцій для відображення",
             "inactivity_timeout": "Тайм-аут бездіяльності",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Останнє значення: без виходу через неактивність при увімкненому Solo Pool. Якщо solo pool вимкнено — 30 хвилин.",
             "days": "Днів",
             "minutes": " хвилини",
             "advanced_options": "Розширені опції",
@@ -573,7 +584,7 @@
             "register_service_node_message_two": "<p>2. дотримуйтеся вказівок, наданих демоном, щоб створити &nbsp;<b>prepare_registration</b>&nbsp;вихід</p>",
             "register_service_node_message_three": "<p>3. Скопіюйте &nbsp;<b>prepare_registration</b>&nbsp; із консолі демона та вставте нижче</p>",
             "service_node_command": "Команди сервісного вузла",
-            "service_node_command_placeholder": "register_service_node ...",
+            "service_node_command_placeholder": "register_service_node …",
             "sweep_all_fee": "З'єднати Усі комісії",
             "sweep_all_rpc_success_message": "З'єднати вхідні дані. Успішно відправлено",
             "sweep_all_inputs": "З'єднати вхідні дані.",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "СКАСУВАТИ",
             "sweep_all_sweeping_all": "З'єднати дрібні транзакції",
             "sweep_all_calculating_label": "Розраховую комісію......",
+            "sweep_all_progress_outputs_counted": "Знайдено {count} витратних вхідних переказів.",
+            "sweep_all_progress_building": "Формування транзакції sweep ({count} виходів). Минуло ~{elapsed} с…",
             "copy_private_key_message": "Помилка копіювання приватного ключа",
             "copy": "Копіювати",
             "write_text_message": "Будьте обережні, кому ви надсилаєте свої особисті ключі, оскільки вони контролюють ваші кошти.",
@@ -632,7 +645,7 @@
                 "transactions": "Транзакції",
                 "send": "Надіслати",
                 "receive": "Отримати",
-                "wxeq": "Swaps",
+                "wxeq": "Свапи",
                 "staking_pools": "Стейкінг-пули",
                 "address_book": "Адресна книга",
                 "wallet_inactivityMessage": "Ви були виведені з системи через бездіяльність."

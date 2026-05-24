@@ -227,7 +227,14 @@
                 "open": "مفتوح",
                 "closed": "مغلق",
                 "operator": "المشغل",
-                "contributor": "المساهم"
+                "contributor": "المساهم",
+                "all_description": "عرض كل مجمع عقد الخدمة.",
+                "open_description": "المجمعات التي لا تزال تقبل المساهمات قبل بلوغ متطلب الاستيكينغ.",
+                "closed_description": "المجمعات التي حققت متطلب الاستيكينغ.",
+                "operator_description": "المجمعات التي تكون فيها محفظتك المشغّل.",
+                "contributor_description": "المجمعات التي ساهمت فيها محفظتك بالStake لكنك لست المشغّل.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "حدث خطأ، تحقق من السجلات",
@@ -342,7 +349,8 @@
             "language": "اللغة",
             "syncing": "جاري المزامنة",
             "scanning": "جاري المسح",
-            "ready": "جاهز"
+            "ready": "جاهز",
+            "blocks_left": "≈{n} بلوك متبقٍ"
         },
         "mainmenu": {
             "daemon_settings": "إعدادات الواجهة الخلفية",
@@ -364,7 +372,7 @@
         "pool_list_tabular": {
             "no_staked_pools_found": "لم يتم العثور على أحواض مستثمرة",
             "operator": "المشغل",
-            "oracle_node_id": "Arq-Net Trust Node",
+            "oracle_node_id": "عقدة ثقة Arq-Net",
             "stakers": "المستثمرون ",
             "notreceived": "لم يتم الاستلام",
             "operator_fee": "رسوم المشغل",
@@ -381,7 +389,7 @@
             "equity": "حقوق الملكية ",
             "add_operator_to_addressbook": "إضافة مشغل إلى دفتر العناوين",
             "confirm_amount_to_stake": "تأكيد المبلغ للاستثمار",
-            "oracle_id": "Arq-Net Trust Node ID:",
+            "oracle_id": "معرّف عقدة ثقة Arq-Net:",
             "max_amount": "أقصى مبلغ: ",
             "min_amount": "أقل مبلغ: ",
             "amount": "المبلغ",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "إلغاء تسجيل عقدة Arq-Net Trust",
             "deregister_service_node_message": "هل تريد إلغاء التسجيل؟",
             "deregister_service_node_ok_label": "إلغاء التسجيل",
-            "deregister_service_node_cancel_label": "إلغاء"
+            "deregister_service_node_cancel_label": "إلغاء",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "عرض رمز الاستجابة السريعة",
@@ -428,6 +437,8 @@
             "debug_log_levels": "مستويات السجل لتصحيح أخطاء المحفظة",
             "transactions_to_display": "عدد أيام المعاملات التي سيتم عرضها",
             "inactivity_timeout": "مهلة عدم النشاط",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "القيمة الأخيرة: لا تسجيل خروج لعدم النشاط عند تفعيل Solo Pool (التعدين الفردي). إذا كان Solo Pool متوقفًا، يستخدم هذا الموضع 30 دقيقة.",
             "days": " أيام",
             "minutes": " دقائق",
             "advanced_options": "خيارات متقدمة",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "إلغاء",
             "sweep_all_sweeping_all": "تجميع الكل",
             "sweep_all_calculating_label": "يتم حساب الرسوم......",
+            "sweep_all_progress_outputs_counted": "تم العثور على {count} من التحويلات الواردة القابلة للإنفاق.",
+            "sweep_all_progress_building": "جارٍ بناء معاملة التجميع ({count} مخرجات). مضى ~{elapsed} ث…",
             "copy_private_key_message": "خطأ في نسخ المفتاح الخاص",
             "copy": "نسخ",
             "write_text_message": "كن حذرًا لمن ترسل مفاتيحك الخاصة لأنهم يتحكمون في أموالك.",
@@ -623,8 +636,7 @@
                 "wallet_import_legacy": "استيراد الحساب من واجهة المستخدم القديمة",
                 "wallet_import_old_gui": "استيراد الحساب من واجهة المستخدم القديمة",
                 "wallet_created": "تم إنشاء/استعادة الحساب",
-                "wallet_select": "إكويليبرينيا",
-                "wallet_inactivityMessage": "لقد تم تسجيل خروجك بسبب عدم النشاط."
+                "wallet_select": "إكويليبرينيا"
             }
         },
         "wallet": {
@@ -635,7 +647,8 @@
                 "receive": "استلام",
                 "wxeq": "المبادلات",
                 "staking_pools": "برك التخزين",
-                "address_book": "دفتر العناوين"
+                "address_book": "دفتر العناوين",
+                "wallet_inactivityMessage": "لقد تم تسجيل خروجك بسبب عدم النشاط."
             }
         }
     },

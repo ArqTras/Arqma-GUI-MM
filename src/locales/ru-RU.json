@@ -138,7 +138,7 @@
             "created": {
                 "copy_address": "Копировать адрес",
                 "copy_address_message": "Будьте осторожны, кому вы отправляете свои приватные ключи, так как они контролируют ваши средства.",
-                "copy_address_ok_label": "OK",
+                "copy_address_ok_label": "ОК",
                 "address_copied": "адрес скопирован в буфер обмена",
                 "seed_words": "Слова мнемонической фразы",
                 "save_to_secure_location": "Пожалуйста, скопируйте и сохраните их в безопасном месте!",
@@ -152,7 +152,7 @@
                 "wallet": "Кошелек",
                 "error_copying_private_key": "Ошибка копирования приватного ключа",
                 "private_key_warning_message": "Будьте осторожны, кому вы отправляете свои приватные ключи, так как они контролируют ваши средства.",
-                "private_key_warning_ok_label": "OK",
+                "private_key_warning_ok_label": "ОК",
                 "private_key_copied_message": " скопирован в буфер обмена"
             }
         },
@@ -163,7 +163,7 @@
                 "address_book_is_empty": "Адресная книга пуста",
                 "payment_id_message": "С этим адресом связан ID платежа.\nОбязательно скопируйте ID платежа отдельно.",
                 "payment_id_title": "Копировать адрес",
-                "payment_id_ok_label": "OK",
+                "payment_id_ok_label": "ОК",
                 "payment_id_notify_message": "Адрес скопирован в буфер обмена",
                 "show_details": "Показать детали",
                 "send_to_address": "Отправить на этот адрес",
@@ -203,7 +203,7 @@
                 "show_password_confirmation_message": "Хотите отправить транзакцию? Комиссия будет показана на следующей странице перед отправкой транзакции.",
                 "show_password_confirmation_ok_label": "Проверить комиссию",
                 "tx_status_title": "Подтвердить комиссию",
-                "tx_status_ok_label": "OK",
+                "tx_status_ok_label": "ОК",
                 "tx_status_cancel_label": "ОТМЕНА"
             },
             "staking_pools": {
@@ -227,7 +227,14 @@
                 "open": "Открыт",
                 "closed": "Закрыт",
                 "operator": "Оператор",
-                "contributor": "Участник"
+                "contributor": "Участник",
+                "all_description": "Показать каждый пул сервис-ноды.",
+                "open_description": "Пулы, всё ещё принимающие вклад до выполнения требования стейкинга.",
+                "closed_description": "Пулы, выполнившие требование стейкинга.",
+                "operator_description": "Пулы, где ваш кошелёк — оператор.",
+                "contributor_description": "Пулы, где ваш кошелёк внёс стейк, но вы не оператор.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Произошла ошибка, проверьте логи",
@@ -250,7 +257,7 @@
                 "processing": "Обработка",
                 "tx_status_title": "Подтвердить комиссию",
                 "tx_status_message": "",
-                "tx_status_ok_label": "OK",
+                "tx_status_ok_label": "ОК",
                 "tx_status_cancel_label": "ОТМЕНА",
                 "tx_status_relay_transfer_message": "",
                 "tx_status_relay_transfer_cancel_message": "Транзакция отменена",
@@ -330,7 +337,7 @@
             "copy_address": "Копировать адрес",
             "payment_id": "ID платежа:",
             "copy_address_message": "С этим адресом связан ID платежа.\nОбязательно скопируйте ID платежа отдельно.",
-            "copy_address_ok_label": "OK",
+            "copy_address_ok_label": "ОК",
             "copy_address_ok_message": "Адрес скопирован в буфер обмена"
         },
         "footer": {
@@ -342,7 +349,8 @@
             "language": "Язык",
             "syncing": "синхронизация",
             "scanning": "сканирование",
-            "ready": "готов"
+            "ready": "готов",
+            "blocks_left": "≈{n} блоков в очереди сканирования"
         },
         "mainmenu": {
             "daemon_settings": "Настройки демона",
@@ -350,7 +358,7 @@
             "exit_wallet": "Выйти из кошелька Arqma",
             "language_support": "Языковая поддержка",
             "switch_account": "Переключить аккаунт",
-            "switch_account_ok_label": "OK",
+            "switch_account_ok_label": "ОК",
             "switch_account_cancel_label": "ОТМЕНА",
             "confirm_close": "Вы уверены, что хотите выйти?"
         },
@@ -390,7 +398,7 @@
             "all": "все",
             "not_joined": "Не присоединен",
             "tx_status_title": "Подтвердить комиссию",
-            "tx_status_ok_label": "OK",
+            "tx_status_ok_label": "ОК",
             "tx_status_cancel_label": "ОТМЕНА",
             "invalid_stake_amount": "Недействительная сумма стейка",
             "show_password_confirmation_title": "Стейк",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "Дерегистрировать узел Arq-Net Trust",
             "deregister_service_node_message": "Хотите дерегистрировать?",
             "deregister_service_node_ok_label": "Дерегистрировать",
-            "deregister_service_node_cancel_label": "ОТМЕНА"
+            "deregister_service_node_cancel_label": "ОТМЕНА",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Показать QR-код",
@@ -428,6 +437,8 @@
             "debug_log_levels": "Уровни логирования для отладки кошелька",
             "transactions_to_display": "Сколько дней транзакций отображать",
             "inactivity_timeout": "Таймаут неактивности",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Последнее значение: без выхода по неактивности при включённом Solo Pool. Если solo pool выключен, используется 30 минут.",
             "days": " дней",
             "minutes": " минут",
             "advanced_options": "Расширенные опции",
@@ -573,13 +584,13 @@
             "register_service_node_message_two": "<p>2. следуйте указаниям демона для создания вывода &nbsp;<b>prepare_registration</b></p>",
             "register_service_node_message_three": "<p>3. Скопируйте вывод &nbsp;<b>prepare_registration</b>&nbsp; из консоли демона и вставьте ниже</p>",
             "service_node_command": "Команда сервисного узла",
-            "service_node_command_placeholder": "register_service_node ...",
+            "service_node_command_placeholder": "register_service_node …",
             "sweep_all_fee": "Комиссия за сметание всех",
             "sweep_all_rpc_success_message": "Сметание всех успешно отправлено",
             "sweep_all_inputs": "Сметает кошелек для консолидации входов.",
             "sweep_all_proceed_label": "СМЕСТИ ВСЕ",
             "sweep_all_proceed": "Продолжить со сметанием всех?",
-            "sweep_all_ok_label": "OK",
+            "sweep_all_ok_label": "ОК",
             "sweep_all_cancel_label": "ОТМЕНА",
             "sweep_all_no_unlocked_balance": "Нет разблокированного баланса",
             "sweep_all_consolidate_inputs": "Сметание консолидирует входы.",
@@ -587,10 +598,12 @@
             "sweep_all_consolidate_cancel_label": "ОТМЕНА",
             "sweep_all_sweeping_all": "Сметание всех",
             "sweep_all_calculating_label": "Расчет комиссий......",
+            "sweep_all_progress_outputs_counted": "Найдено расходуемых входящих переводов: {count}.",
+            "sweep_all_progress_building": "Формирование транзакции sweep ({count} выходов). Прошло ~{elapsed} с…",
             "copy_private_key_message": "Ошибка копирования приватного ключа",
             "copy": "Копировать",
             "write_text_message": "Будьте осторожны, кому вы отправляете свои приватные ключи, так как они контролируют ваши средства.",
-            "write_text_ok_label": "OK",
+            "write_text_ok_label": "ОК",
             "write_text_ok_message": "скопировано в буфер обмена",
             "show_password_confirmation_message": "Хотите просмотреть ваши приватные ключи?",
             "show_password_confirmation_ok_label": "ПОКАЗАТЬ",

@@ -1,8 +1,8 @@
 {
   "name": "arqma-wallet",
-  "version": "4.0.2",
-  "description": "Modern Electron Wallet for Arqma",
-  "productName": "Arqma-Electron-Wallet",
+  "version": "5.1.0",
+  "description": "Arqma Wallet — desktop (Electron + Tauri).",
+  "productName": "Arqma Wallet",
   "repository": {
     "type": "git",
     "url": "https://github.com/ArqTras/Arqma-GUI-MM.git"
@@ -21,7 +21,8 @@
     "build-windows": "quasar build -m electron -T win32 -A x64",
     "build-armv7": "quasar build -m electron -T linux -A armv7l",
     "build-armv8": "quasar build -m electron -T linux -A arm64",
-    "lint": "eslint --ext .js,.vue ./",
+    "lint": "eslint --ext .js,.vue ./src ./src-electron ./build",
+    "test": "jest --passWithNoTests",
     "prepare": "husky"
   },
   "dependencies": {

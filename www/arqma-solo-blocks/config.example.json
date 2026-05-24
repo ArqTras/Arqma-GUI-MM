@@ -1,0 +1,16 @@
+{
+  "daemon_url": "http://127.0.0.1:39994",
+  "listen_host": "0.0.0.0",
+  "listen_port": 9177,
+  "start_height": 0,
+  "scan_batch_heights": 120,
+  "poll_interval_seconds": 30,
+  "block_target_seconds": 120,
+  "confirmation_depth": 60,
+  "explorer_block_url_template": "https://explorer.arqma.com/#/block/{height}",
+  "solo_fingerprint_kind": "ryo-derived",
+  "solo_fixed_extra_len": 36,
+  "solo_marker_high": 2,
+  "solo_marker_low": 1,
+  "_comment": "If no blocks appear, inspect get_block JSON for mined_tx.extra hex and tune solo_marker_* / length in config (see README)."
+}

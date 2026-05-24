@@ -1,0 +1,112 @@
+# Mobile release: iOS IPA for GitHub Releases + TestFlight (macOS runner, Apple codesign required).
+# Tag push: 5.1.0 or v5.1.0 (semver from flutter-mobile/arqma_wallet_mobile/pubspec.yaml before `+`).
+name: Mobile release (Flutter iOS)
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build (tag recommended)"
+        required: true
+        default: "5.1.0"
+        type: string
+      skip_ffi:
+        description: "Skip Rust FFI rebuild (use cached workspace artifacts)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MOBILE_DIR: flutter-mobile/arqma_wallet_mobile
+  ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
+
+jobs:
+  flutter-ios-ipa:
+    name: iOS IPA (TestFlight / GitHub)
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          submodules: recursive
+
+      - name: Install Rust iOS targets
+        run: |
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: CocoaPods
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH"
+          cd "${{ env.MOBILE_DIR }}/ios"
+          pod install
+
+      - name: Build iOS wallet FFI
+        if: ${{ github.event.inputs.skip_ffi != 'true' }}
+        env:
+          ARQMA_SKIP_IOS_DEPENDS: "1"
+          ARQMA_SKIP_IOS_WALLET_MERGED: "1"
+        run: |
+          export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:$PATH"
+          bash rust/tool/build_mobile_wallet_ffi_ios.sh
+
+      - name: Package IPA
+        env:
+          ARQMA_SKIP_IOS_DEPENDS: "1"
+          ARQMA_SKIP_IOS_WALLET_MERGED: "1"
+        run: |
+          export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:$PATH"
+          chmod +x "${{ env.MOBILE_DIR }}/tool/package_mobile_release.sh"
+          ARGS=()
+          if [ "${{ github.event.inputs.skip_ffi }}" = "true" ]; then
+            ARGS+=(--skip-ffi)
+          fi
+          bash "${{ env.MOBILE_DIR }}/tool/package_mobile_release.sh" "${ARGS[@]}"
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: arqma-wallet-mobile-ios
+          path: |
+            ${{ env.MOBILE_DIR }}/dist/*-ios-*.ipa
+            ${{ env.MOBILE_DIR }}/dist/*.xcarchive.zip
+            ${{ env.MOBILE_DIR }}/dist/SHA256SUMS.txt
+            ${{ env.MOBILE_DIR }}/dist/*-manifest.txt
+            ${{ env.MOBILE_DIR }}/dist/TESTFLIGHT.md
+          if-no-files-found: error
+
+  github-release:
+    name: Attach to GitHub Release
+    needs: [flutter-ios-ipa]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: arqma-wallet-mobile-ios
+          path: dist
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

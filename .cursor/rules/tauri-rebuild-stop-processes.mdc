@@ -1,0 +1,12 @@
+---
+description: Stop dev processes before Tauri/Rust rebuilds in this repo
+alwaysApply: true
+---
+
+# Tauri / Rust — stop dev processes before rebuild
+
+Before running **`cargo build` / `cargo check` / `npm run tauri:*`** in `rust/tauri-app`, or when the user asks to rebuild the Tauri app:
+
+1. Stop processes tied to this repo (Vite, `tauri dev`, `arqma-wallet`, `arqma-wallet-rpc` under `rust/target/debug`) to avoid file locks and stale ports.
+2. Prefer **`npm run kill:dev`** from `rust/tauri-app` (or equivalent `pkill` with workspace paths).
+3. **`npm run tauri:dev`** and **`tauri:build`** already invoke `kill:dev` at the start — do not duplicate unnecessarily.

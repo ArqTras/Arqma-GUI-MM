@@ -1,0 +1,60 @@
+[package]
+name = "arqma-wallet"
+version.workspace = true
+description = "Arqma-Wallet — Tauri desktop shell (Rust)"
+authors = ["Arqma"]
+build = "build.rs"
+edition.workspace = true
+license.workspace = true
+rust-version = "1.70"
+default-run = "arqma-wallet"
+
+# Native `wallet2_api` (C++/FFI) is always linked via `arqma-wallet-rpc` → `arqma-wallet2-api`.
+# Requires Arqma core checkout + build; see `rust/docs/NATIVE_WALLET2.md`.
+
+[lib]
+name = "arqma_wallet_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "arqma-wallet"
+path = "src/main.rs"
+
+[[bin]]
+name = "arqma_flutter_solo_pool"
+path = "src/bin/arqma_flutter_solo_pool.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.0", default-features = true, features = [
+  "tray-icon",
+  "image-png",
+  "custom-protocol",
+] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.40.0", features = ["time", "rt", "rt-multi-thread", "macros", "signal"] }
+async-trait = "0.1"
+arqma-wallet-rpc = { path = "../../arqma-wallet-rpc", features = ["http-digest"] }
+arqma-wallet-core = { path = "../../core" }
+arboard = "3.4.0"
+rfd = "0.15.0"
+open = "5.3.0"
+reqwest = { version = "0.12.12", default-features = false, features = [
+  "json",
+  "rustls-tls",
+  "blocking",
+] }
+md5 = "0.7.0"
+base64 = "0.22.1"
+rand = "0.8.5"
+hex = "0.4.3"
+hmac = "0.12.1"
+pbkdf2 = "0.12.2"
+sha2 = "0.10.8"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+regex = "1.11.1"
+

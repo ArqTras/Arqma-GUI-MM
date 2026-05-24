@@ -127,7 +127,7 @@
                 "confirm_password": "Passwort bestätigen",
                 "create_account": "Konto erstellen",
                 "enter_an_account_name": "Geben Sie einen Kontonamen ein",
-                "passwords_do_not_match": "Passwords do no match",
+                "passwords_do_not_match": "Passwörter stimmen nicht überein",
                 "confirm_no_password_message": "Sind Sie sicher, dass Sie ein Konto ohne Passwort erstellen möchten?",
                 "confirm_no_password_title": "Kein Passwort festgelegt",
                 "confirm_no_password_ok_label": "JA",
@@ -152,7 +152,7 @@
                 "wallet": "Brieftasche",
                 "error_copying_private_key": "Fehler beim Kopieren des privaten Schlüssels",
                 "private_key_warning_message": "Seien Sie vorsichtig, an wen Sie Ihre privaten Schlüssel senden, da sie Ihr Geld kontrollieren.",
-                "private_key_warning_JA_label": "JA",
+                "private_key_warning_ok_label": "OK",
                 "private_key_copied_message": " In die Zwischenablage kopiert"
             }
         },
@@ -222,12 +222,19 @@
                 "filter_by_oracle_nodeid_placeholder": "Arq-Net Trust Node ID eingeben",
                 "filter_by_operator_address": "Filtern nach Betreiberadresse",
                 "filter_by_operator_address_placeholder": "",
-                "filter_by_oracle_node_status": "Filter by Arq-Net Trust Node Status",
+                "filter_by_oracle_node_status": "Nach Arq-Net Trust Node-Status filtern",
                 "all": "Alle",
                 "open": "Offen",
                 "closed": "Geschlossen",
-                "operator": "Operator",
-                "contributor": "Mitwirkender"
+                "operator": "Betreiber",
+                "contributor": "Mitwirkender",
+                "all_description": "Jeden Service-Node-Pool anzeigen.",
+                "open_description": "Pools, die noch Beiträge annehmen, bevor die Staking-Anforderung erreicht ist.",
+                "closed_description": "Pools, die ihre Staking-Anforderung erfüllt haben.",
+                "operator_description": "Pools, bei denen Ihre Wallet der Betreiber ist.",
+                "contributor_description": "Pools, in denen Ihre Wallet gestakt hat, aber Sie nicht der Betreiber sind.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Beim Überprüfen der Protokolle ist ein Fehler aufgetreten",
@@ -320,7 +327,7 @@
             "unlocked_balance": "Freigeschaltetes Guthaben",
             "number_of_unspent_outputs": "Anzahl der nicht ausgegebenen Outputs",
             "recent_incoming_tx_to_this_address": "Letzte eingehende Transaktionen an diese Adresse",
-            "copy_qr_code": "Copy QR code",
+            "copy_qr_code": "QR-Code kopieren",
             "save_qr_code": "QR-Code in Datei speichern",
             "close": "Schließen",
             "copied_qr_code_to_clipboard": "QR-Code in die Zwischenablage kopiert",
@@ -342,7 +349,8 @@
             "language": "Sprache",
             "syncing": "zeitlich übereinstimmend",
             "scanning": "Abtastung",
-            "ready": "fertig"
+            "ready": "fertig",
+            "blocks_left": "≈{n} Blöcke zu scannen"
         },
         "mainmenu": {
             "daemon_settings": "Daemon-Einstellungen",
@@ -363,7 +371,7 @@
         },
         "pool_list_tabular": {
             "no_staked_pools_found": "Keine gestakten Pools gefunden",
-            "operator": "Operator",
+            "operator": "Betreiber",
             "oracle_node_id": "Arq-Net Trust Node",
             "stakers": "Streikenden",
             "notreceived": "Nicht empfangen",
@@ -381,7 +389,7 @@
             "equity": "Eigenkapital",
             "add_operator_to_addressbook": "Hinzufügen eines Operators zum Adressbuch",
             "confirm_amount_to_stake": "BESTÄTIGEN SIE DEN BETRAG FÜR DEN EINSATZ",
-            "oracle_id": "Arq-Net Trust Node ID:",
+            "oracle_id": "Arq-Net Trust Node-ID:",
             "max_amount": "Maximale Menge: ",
             "min_amount": "Mindestbetrag: ",
             "amount": "Menge",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "Arq-Net Trust Node abmelden",
             "deregister_service_node_message": "Möchten Sie die Abmeldung durchführen?",
             "deregister_service_node_ok_label": "Abmelden",
-            "deregister_service_node_cancel_label": "ABBRECHEN"
+            "deregister_service_node_cancel_label": "ABBRECHEN",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "QR-Code anzeigen",
@@ -428,6 +437,8 @@
             "debug_log_levels": "Protokollebenen für das Debuggen der Brieftasche",
             "transactions_to_display": "Wie viele Tage an Transaktionen sollen angezeigt werden?",
             "inactivity_timeout": "Inaktivitätszeitüberschreitung",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Letzter Wert: kein Abmelden bei Inaktivität, wenn Solo Pool (Solo-Mining) aktiv ist. Ist der Solo Pool aus, gilt hier 30 Minuten.",
             "days": " Tage",
             "minutes": " Minuten",
             "advanced_options": "Erweiterte Optionen",
@@ -449,7 +460,7 @@
             "daemon_p2p_port": "Daemon P2P-Anschluss",
             "daemon_zmq_port": "Daemon ZMQ-Anschluss",
             "internal_wallet_port": "Interner Wallet-Port",
-            "wallet_rpc_port": "Wallet RPC Port",
+            "wallet_rpc_port": "Wallet-RPC-Port",
             "choose_a_network": "Netz",
             "choose_a_network_helper": "Wählen Sie ein Netzwerk",
             "enabled": "Ermöglichte",
@@ -573,8 +584,8 @@
             "register_service_node_message_two": "<p>2. Befolgen Sie die Anweisungen des Daemons, um eine &nbsp;<b>prepare_registration</b>&nbsp;Ausgabe zu erzeugen</p>",
             "register_service_node_message_three": "<p>3. Kopieren Sie&nbsp;<b>prepare_registration</b>&nbsp;Ausgabe von der Daemon-Konsole und fügen Sie sie unten ein</p>",
             "service_node_command": "Befehl 'Dienstknoten'",
-            "service_node_command_placeholder": "register_service_node ...",
-            "sweep_all_fee": "Sweep All Fee",
+            "service_node_command_placeholder": "register_service_node …",
+            "sweep_all_fee": "Gebühr für Sweep All",
             "sweep_all_rpc_success_message": "Sweep All erfolgreich gesendet",
             "sweep_all_inputs": "Sweeps Wallet, um Eingaben zu konsolidieren.",
             "sweep_all_proceed_label": "SWEEP ALLE",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "ABBRECHEN",
             "sweep_all_sweeping_all": "Alle fegen",
             "sweep_all_calculating_label": "Berechnung der Gebühren......",
+            "sweep_all_progress_outputs_counted": "Es wurden {count} ausgebenbare eingehende Überweisung(en) gefunden.",
+            "sweep_all_progress_building": "Sweep-Transaktion wird erstellt ({count} Outputs). Verstrichen ~{elapsed}s…",
             "copy_private_key_message": "Fehler beim Kopieren des privaten Schlüssels",
             "copy": "Kopieren",
             "write_text_message": "Seien Sie vorsichtig, an wen Sie Ihre privaten Schlüssel senden, da sie Ihr Geld kontrollieren.",
@@ -608,7 +621,7 @@
             "show_delete_account_password_confirmation_ok_label": "LÖSCHEN",
             "invalid_service_node_command": "Bitte geben Sie den Befehl zur Registrierung des Serviceknotens ein",
             "show_register_service_node_password_confirmation_title": "Serviceknoten registrieren",
-            "show_register_service_node_password_confirmation_message": "Do you want to register the service node?",
+            "show_register_service_node_password_confirmation_message": "Möchten Sie den Service Node registrieren?",
             "show_register_service_node_password_confirmation_ok_label": "Möchten Sie den Serviceknoten registrieren?",
             "service_node_registering_message": "Einschreibend..."
         }

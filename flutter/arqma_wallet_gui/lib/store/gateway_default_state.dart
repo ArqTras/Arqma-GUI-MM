@@ -1,0 +1,185 @@
+/// Initial `gateway` store tree — parity with `store/gateway/state.js`
+/// (functions in filters are omitted; filters use `index` / `label` only in Flutter).
+Map<String, dynamic> defaultGatewayState() {
+  return {
+    'notifier': <String, dynamic>{'save': false},
+    'app': {
+      'status': {'code': 1, 'message': null},
+      'defaults': <String, dynamic>{},
+      'config': {
+        'appearance': {'theme': 'dark'},
+        'pool': {
+          'server': {
+            'enabled': false,
+            'bindIP': '',
+            'bindPort': 3333,
+          },
+          'mining': {
+            'address': '',
+            'enableBlockRefreshInterval': false,
+            'blockRefreshInterval': 5,
+            'minerTimeout': 900,
+          },
+          'varDiff': {
+            'enabled': true,
+            'startDiff': 50000,
+            'minDiff': 25000,
+            'maxDiff': 10000000,
+            'targetTime': 45,
+            'retargetTime': 45,
+            'variancePercent': 30,
+            'maxJump': 150,
+            'fixedDiffSeparator': '.',
+          },
+        },
+        // Chain key for `daemons[net]` / `daemonRpcHostPort` — not the same as top-level `app.net_type`.
+        'app': {'net_type': 'mainnet'},
+        'daemons': {
+          'mainnet': {'type': 'remote'},
+        },
+      },
+      'pending_config': {
+        'app': {'daysOfTransactions': 1},
+      },
+      'selected_node': '',
+      'scan': false,
+      'remotes': <dynamic>[],
+      'net_type': 'local',
+
+      /// Desktop bridge: `pending` → `ffi` | `subprocess` | `none` | `off` after wallet RPC session start.
+      'wallet_backend': 'pending',
+      'promptForPassword': true,
+      'loggingLevel': 'info',
+      'daysOfTransactions': 1,
+      'inactivityTimeout': 5,
+    },
+    'ethereum': <String, dynamic>{
+      'ethereum_network_index': 0,
+      'networks': <dynamic>[
+        <String, dynamic>{'code': 'eth', 'name': 'Ethereum', 'symbol': 'ETH'},
+      ],
+    },
+    'wallets': {
+      'list': <dynamic>[],
+      'legacy': <dynamic>[],
+      'directories': <dynamic>[],
+    },
+    'old_gui_import_status': {'code': 1, 'failed_wallets': <dynamic>[]},
+    'wallet': {
+      'status': {'code': 1, 'message': null},
+      'info': {
+        'name': '',
+        'address': '',
+        'height': 0,
+        'balance': 0,
+        'unlocked_balance': 0,
+        'view_only': false,
+        'scan_poll_ts': 0,
+      },
+      'secret': {'mnemonic': '', 'view_key': '', 'spend_key': ''},
+      'transactions': {'tx_list': <dynamic>[]},
+      'address_list': {
+        'primary': <dynamic>[],
+        'used': <dynamic>[],
+        'unused': <dynamic>[],
+        'address_book': <dynamic>[],
+        'address_book_starred': <dynamic>[],
+      },
+    },
+    'pools': {
+      'operator_pools': <dynamic>[],
+      'nonoperator_pools': <dynamic>[],
+      'staker': {
+        'stake': <String, dynamic>{
+          'burnt_xeq': 0,
+          'total_staked': 0,
+          'staked_nodes': 0,
+          'num_operating': 0,
+          'total_contributed': 0,
+          'active_pool_count': 0,
+        },
+      },
+    },
+    'pool': {
+      'status': 0,
+      'desynced': false,
+      'system_clock_error': false,
+      'stats': {
+        'currentEffort': 0,
+        'roundHashes': 0,
+        'blockTime': 0,
+        'blocksFound': 0,
+        'averageEffort': 0,
+        'networkHashrate': 0,
+        'diff': 0,
+        'height': 0,
+      },
+      'blocks': <dynamic>[],
+      'workers': <dynamic>[
+        {
+          'miner': 'all',
+          'active': true,
+          'lastShare': 0,
+          'hashes': 0,
+          'hashrate_5min': 0,
+          'hashrate_1hr': 0,
+          'hashrate_6hr': 0,
+          'hashrate_24hr': 0,
+          'hashrate_graph': <String, dynamic>{},
+        },
+      ],
+    },
+    'tx_status': {'code': 0, 'message': '', 'sending': false},
+    'sweep_all_progress': null,
+    'service_node_status': {
+      'stake': {'code': 0, 'message': '', 'sending': false},
+      'registration': {'code': 0, 'message': '', 'sending': false},
+      'unlock': {'code': 0, 'message': '', 'sending': false},
+    },
+    'daemon': {
+      'info': {
+        'alt_blocks_count': 0,
+        'cumulative_difficulty': 0,
+        'difficulty': 0,
+        'grey_peerlist_size': 0,
+        'height': 0,
+        'height_without_bootstrap': 0,
+        'incoming_connections_count': 0,
+        'is_ready_daemon_rpc': false,
+        'is_ready': false,
+        'outgoing_connections_count': 0,
+        'status': 'OK',
+        'target': 240,
+        'target_height': 0,
+        'testnet': false,
+        'top_block_hash': null,
+        'tx_count': 0,
+        'tx_pool_size': 0,
+        'white_peerlist_size': 0,
+      },
+      'connections': <dynamic>[],
+      'bans': <dynamic>[],
+      'tx_pool_backlog': <dynamic>[],
+      'selected_node': '',
+    },
+    'daemon_version': '',
+    'coin_price': 0,
+    'pools_filter': {
+      'index': 1,
+      'label': 'pages.wallet.staking_pools.open',
+      'description': 'pages.wallet.staking_pools.open_description',
+    },
+    'node_id_filter': {'index': 3, 'label': 'Transaction', 'value': ''},
+    'operator_id_filter': {'index': 4, 'label': 'Operator', 'value': ''},
+    'transactions_filter': {
+      'index': 0,
+      'label': 'pages.wallet.txhistory.all',
+    },
+    'transaction_id_filter': {'index': 7, 'label': 'Transaction', 'value': ''},
+    'conversion_data': {'sats': 0, 'currentPrice': 0.0},
+    'signature_data': <dynamic>[],
+    'processing_signature_data': <dynamic>[
+      '0x3e02c9705010cb004c3c83cdc38a0f59f3a4bf5d5d0a9fc316b04a998c03f9a86e63f8bed9d441a0efd0a1ac9ac97891fe35a4f211fff9729c094dcf3d279c411c',
+    ],
+  };
+}

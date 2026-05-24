@@ -1,10 +1,13 @@
-# Desktop release: Flutter (zip / DMG / tar.gz / AppImage / Inno Setup) + Tauri (bundled installers),
-# then **one** GitHub Release with all assets. Aligns with pubspec `5.1.0+1` → tag `5.1.0` or `v5.1.0`.
+# Desktop release: Flutter Linux + macOS + Windows (archives / AppImage / DMG / Inno), then **one** GitHub Release.
+# Fast `flutter analyze` on Linux/Windows/macOS runners: `.github/workflows/flutter-verify.yml`.
+# Artifact names use pubspec semver before `+` (e.g. 5.1.0+1 → 5.1.0), matching release tag `5.1.0` or `v5.1.0`.
 #
-# Before first public release: `gh repo edit <owner>/<repo> --visibility public`
-# After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or
-# `gh repo edit <owner>/<repo> --visibility private`
-name: Desktop release (Flutter + Tauri)
+# Before CI on a **private** org repo (minute limits): set public — locally `gh repo edit … --visibility public`,
+# or run *Desktop release (Flutter)* via `workflow_dispatch` with `make_repo_public=true` and secret
+# `ARQMA_REPO_VISIBILITY_PAT` (PAT must allow `repo` / admin for visibility).
+# After **platform builds** finish (success or failure), job `repo-private-after-release` sets the
+# repo private when `ARQMA_REPO_VISIBILITY_PAT` is set; otherwise see `build/ci/github-repo-visibility-for-release.sh`.
+name: Desktop release (Flutter)
 
 on:
   push:
@@ -18,6 +21,11 @@ on:
         required: true
         default: "5.1.0"
         type: string
+      make_repo_public:
+        description: "If true, set repository public before builds (requires ARQMA_REPO_VISIBILITY_PAT)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -28,114 +36,48 @@ concurrency:
 
 env:
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
+  ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
+  ARQMA_UPSTREAM_REF: pospow
+  # Native wallet_merged: vendored static deps via contrib/depends (Linux/mac). Flutter FFI STATIC_HYBRID then
+  # resolves zmq/Boost/… from contrib/depends/.../lib when that tree exists (see arqma-wallet-flutter-ffi/build.rs).
+  ARQMA_WALLET_FFI_USE_DEPENDS: "1"
 
 jobs:
-  flutter-macos:
-    name: macOS Flutter bundle
-    runs-on: macos-latest
-    timeout-minutes: 120
-    defaults:
-      run:
-        working-directory: flutter/arqma_wallet_gui
+  # Single entry job so platform jobs do not run while optional "public first" is pending; skipped steps are OK.
+  ci-bootstrap:
+    name: CI bootstrap (optional repo public)
+    runs-on: ubuntu-latest
+    permissions: {}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
-
-      - name: Pubspec version slug (release artifacts)
-        id: pubver
-        working-directory: ${{ github.workspace }}
-        run: |
-          LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
-          echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
-          echo "VersionSafe=${SAFE}"
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: flutter-release-macos
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - name: macOS — Homebrew (Arqma / wallet FFI)
-        working-directory: ${{ github.workspace }}
-        run: |
-          brew install cmake pkg-config boost openssl libsodium zeromq unbound readline hidapi icu4c lmdb xz 2>/dev/null || true
-
-      - name: Make CI scripts executable
-        working-directory: ${{ github.workspace }}
-        run: chmod +x build/ci/*.sh || true
-
-      - name: Clone Arqma upstream (pospow)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/clone-arqma.sh
+      - name: Optionally set repository public
         env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
-
-      - name: Build Arqma wallet_merged (macOS)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-macos.sh
-
-      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-copy.sh
-
-      - name: cargo build — arqma-wallet-flutter-ffi (release)
-        working-directory: rust
-        run: cargo build -p arqma-wallet-flutter-ffi --release
-
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - run: flutter pub get
-
-      - name: Build macOS
-        run: flutter build macos --release
-
-      - name: Ensure wallet FFI dylib in macOS app bundle
-        working-directory: ${{ github.workspace }}
+          GH_TOKEN: ${{ secrets.ARQMA_REPO_VISIBILITY_PAT }}
+          EVENT_NAME: ${{ github.event_name }}
+          MAKE_PUBLIC: ${{ github.event.inputs.make_repo_public }}
         run: |
           set -eu
-          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
-          FW="${APP}/Contents/Frameworks"
-          DY="${FW}/libarqma_wallet_flutter_ffi.dylib"
-          if test -f "$DY"; then echo "FFI dylib already present: $DY"; exit 0; fi
-          mkdir -p "$FW"
-          SRC="${GITHUB_WORKSPACE}/rust/target/release/libarqma_wallet_flutter_ffi.dylib"
-          test -f "$SRC" || { echo "::error::missing $SRC (cargo build arqma-wallet-flutter-ffi)"; exit 1; }
-          cp -f "$SRC" "$DY"
-          echo "Copied FFI dylib -> $DY"
+          if [ "${EVENT_NAME}" != "workflow_dispatch" ]; then
+            echo "Not workflow_dispatch — skip visibility change."
+            exit 0
+          fi
+          if [ "${MAKE_PUBLIC:-false}" != "true" ]; then
+            echo "make_repo_public not true — skip."
+            exit 0
+          fi
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::make_repo_public requires secret ARQMA_REPO_VISIBILITY_PAT (admin on repo)"
+            exit 1
+          fi
+          gh api -X PATCH "repos/${{ github.repository }}" -f visibility=public
+          gh repo view "${{ github.repository }}" --json visibility,isPrivate
 
-      - name: Zip app bundle
-        run: |
-          cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip"
-
-      - name: DMG (macOS)
-        working-directory: ${{ github.workspace }}
-        run: |
-          set -eu
-          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
-          test -d "$APP"
-          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
-          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
-          path: |
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg
-          retention-days: 30
-
+  # Linux: clone + contrib/depends + CMake toolchain → libwallet_merged.a (Rust FFI) only. arqmad is never built here;
+  # it is fetched from arqma/arqma GitHub Releases (fetch-arqmad-github-release.sh), same policy as macOS.
   flutter-linux:
     name: Linux Flutter bundle
+    needs: [ci-bootstrap]
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -144,21 +86,28 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
-      - name: Pubspec version slug (release artifacts)
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
         id: pubver
         working-directory: ${{ github.workspace }}
         run: |
           LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
+          SAFE="${LINE%%+*}"
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
+
+      - name: Pinned Flutter / Rust versions (repo files)
+        id: pinned
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/gh-read-pin-versions.sh
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.pinned.outputs.rust_toolchain }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
           key: flutter-release-linux
-
-      - uses: dtolnay/rust-toolchain@stable
 
       - name: Linux — dependencies (Arqma + Flutter desktop)
         run: |
@@ -171,6 +120,8 @@ jobs:
             pkg-config \
             clang \
             libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
             liblzma-dev \
             libboost-all-dev \
             libssl-dev \
@@ -189,30 +140,59 @@ jobs:
 
       - name: Make CI scripts executable
         working-directory: ${{ github.workspace }}
-        run: chmod +x build/ci/*.sh || true
+        run: |
+          chmod +x build/ci/*.sh || true
+          chmod +x flutter/arqma_wallet_gui/tool/*.sh 2>/dev/null || true
 
-      - name: Clone Arqma upstream (pospow)
+      - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
+
+      - name: Cache Arqma contrib/depends (vendored static deps)
+        uses: actions/cache@v4
+        with:
+          path: rust/arqma-rpc-upstream/contrib/depends
+          key: ${{ runner.os }}-arqma-depends-v1-${{ hashFiles('build/ci/build-arqma-wallet-ffi-deps.sh', 'build/ci/install-arqma-depends-linux.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-arqma-depends-v1-
 
       - name: Build Arqma wallet_merged (Linux)
         working-directory: ${{ github.workspace }}
         run: bash build/ci/build-arqma-linux.sh
 
-      - name: Build Arqma daemon (arqmad) and copy to Tauri bin
+      - name: Fetch Arqmad from arqma/arqma GitHub Release (Linux)
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-arqma-daemon-copy.sh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/fetch-arqmad-github-release.sh
 
       - name: cargo build — arqma-wallet-flutter-ffi (release)
         working-directory: rust
-        run: cargo build -p arqma-wallet-flutter-ffi --release
+        env:
+          # Full static-hybrid when contrib/depends is present (PIC); build.rs falls back to dylib zmq/unbound otherwise.
+          ARQMA_WALLET_FFI_STATIC_HYBRID: "1"
+        run: |
+          set -eu
+          export PATH="${HOME}/.cargo/bin:${PATH}"
+          TC="${{ steps.pinned.outputs.rust_toolchain }}"
+          # Portable pinned rustc (CI rustup lacks `rustup toolchain path` on some versions).
+          RUSTC_BIN="$(rustup which --toolchain "$TC" rustc)"
+          export RUSTC="$RUSTC_BIN"
+          export CARGO_BUILD_RUSTC="$RUSTC"
+          export PATH="$(dirname "$RUSTC_BIN"):${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
+
+      - name: cargo build — arqma_flutter_solo_pool (release)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x rust/tool/build_flutter_solo_pool.sh
+          bash rust/tool/build_flutter_solo_pool.sh --skip-upstream
 
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
           cache: true
 
       - run: flutter pub get
@@ -232,6 +212,20 @@ jobs:
           test -f "$SRC" || { echo "::error::missing $SRC"; exit 1; }
           cp -f "$SRC" "$lib"
           echo "Copied FFI .so -> $lib"
+
+      - name: Bundle Linux wallet FFI runtime libs (ICU, zlib, …)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh
+          bash flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh \
+            "flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
+
+      - name: Verify Linux bundle (parity with Windows verify step)
+        working-directory: ${{ github.workspace }}
+        env:
+          FAIL_IF_NO_SOLO_POOL: "1"
+        run: bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh
 
       - name: Tar bundle
         working-directory: ${{ github.workspace }}
@@ -258,8 +252,139 @@ jobs:
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-x86_64.AppImage
           retention-days: 30
 
+  # macOS: same split as Linux — upstream build = wallet_merged for FFI; arqmad from GitHub Releases.
+  flutter-macos:
+    name: macOS Flutter bundle
+    needs: [ci-bootstrap]
+    runs-on: macos-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: flutter/arqma_wallet_gui
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
+        id: pubver
+        working-directory: ${{ github.workspace }}
+        run: |
+          LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
+          SAFE="${LINE%%+*}"
+          echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
+          echo "VersionSafe=${SAFE}"
+
+      - name: Pinned Flutter / Rust versions (repo files)
+        id: pinned
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/gh-read-pin-versions.sh
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.pinned.outputs.rust_toolchain }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: flutter-release-macos
+
+      - name: macOS — Homebrew dependencies (Arqma + Flutter desktop)
+        run: |
+          brew update
+          brew install cmake ninja pkg-config boost openssl@3 libsodium zeromq hidapi readline unbound lmdb icu4c ccache || true
+
+      - name: Make CI scripts executable
+        working-directory: ${{ github.workspace }}
+        run: chmod +x build/ci/*.sh || true
+
+      - name: Clone Arqma upstream (wallet_merged / native FFI — not arqmad)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/clone-arqma.sh
+
+      - name: Cache Arqma contrib/depends (vendored static deps)
+        uses: actions/cache@v4
+        with:
+          path: rust/arqma-rpc-upstream/contrib/depends
+          key: ${{ runner.os }}-arqma-depends-v1-${{ hashFiles('build/ci/build-arqma-wallet-ffi-deps.sh', 'build/ci/install-arqma-depends-linux.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-arqma-depends-v1-
+
+      - name: Build Arqma wallet_merged (macOS)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-arqma-macos.sh
+
+      - name: Fetch Arqmad from arqma/arqma GitHub Release (macOS)
+        working-directory: ${{ github.workspace }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/fetch-arqmad-github-release.sh
+
+      # Omit ARQMA_WALLET_FFI_STATIC_HYBRID on macOS: contrib/depends often lacks static boost_container /
+      # boost_locale for aarch64-apple-darwin, and emit_depends_vendor_lib then falls back to `-l…` which
+      # Apple ld cannot resolve (see failed link: library 'boost_container' not found). Linux keeps full hybrid.
+      - name: cargo build — arqma-wallet-flutter-ffi (release)
+        working-directory: rust
+        run: |
+          set -eu
+          TC="${{ steps.pinned.outputs.rust_toolchain }}"
+          # Portable pinned rustc (CI rustup lacks `rustup toolchain path` on some versions).
+          RUSTC_BIN="$(rustup which --toolchain "$TC" rustc)"
+          export RUSTC="$RUSTC_BIN"
+          export CARGO_BUILD_RUSTC="$RUSTC"
+          export PATH="$(dirname "$RUSTC_BIN"):${PATH}"
+          cargo build -p arqma-wallet-flutter-ffi --release
+
+      - name: cargo build — arqma_flutter_solo_pool (release)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x rust/tool/build_flutter_solo_pool.sh
+          bash rust/tool/build_flutter_solo_pool.sh --skip-upstream
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build + package macOS (zip + DMG)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          chmod +x flutter/arqma_wallet_gui/tool/package_flutter_release.sh
+          (cd flutter/arqma_wallet_gui && ./tool/package_flutter_release.sh macos)
+          ls -la flutter/arqma_wallet_gui/dist/
+
+      - name: Verify macOS bundle (native FFI dylib + arqmad in .app)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          app="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
+          test -d "$app"
+          test -f "$app/Contents/Frameworks/libarqma_wallet_flutter_ffi.dylib" \
+            || { echo "::error::missing native wallet FFI dylib in $app"; exit 1; }
+          test -f "$app/Contents/Resources/bin/arqmad" \
+            || { echo "::error::missing bundled arqmad (fetch + copy-to-tauri-bins before flutter build)"; exit 1; }
+          test -f "$app/Contents/Resources/bin/arqma_flutter_solo_pool" \
+            || { echo "::error::missing bundled arqma_flutter_solo_pool (rust/tool/build_flutter_solo_pool.sh)"; exit 1; }
+          chmod +x "$app/Contents/Resources/bin/arqmad" || true
+          chmod +x "$app/Contents/Resources/bin/arqma_flutter_solo_pool" || true
+          echo "macOS bundle verify OK"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
+          path: |
+            flutter/arqma_wallet_gui/dist/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip
+            flutter/arqma_wallet_gui/dist/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg
+          retention-days: 30
+
   flutter-windows:
     name: Windows Flutter bundle
+    needs: [ci-bootstrap]
     runs-on: windows-latest
     timeout-minutes: 180
     defaults:
@@ -270,23 +395,31 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
 
-      - name: Pubspec version slug (release artifacts)
+      - name: Pubspec semver for release filenames (matches tag, e.g. 5.1.0)
         id: pubver
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
           $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
-          $safe = $line -replace '\+', '-'
+          $safe = $line -replace '\+.*', ''
           "safe=$safe" >> $env:GITHUB_OUTPUT
           Write-Host "VersionSafe=$safe"
+
+      - name: Pinned Flutter / Rust versions (repo files)
+        id: pinned
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/gh-read-pin-versions.sh
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.pinned.outputs.rust_toolchain }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
           key: flutter-release-windows
-
-      - uses: dtolnay/rust-toolchain@stable
 
       - name: Rust GNU target (Windows)
         run: rustup target add x86_64-pc-windows-gnu
@@ -307,6 +440,7 @@ jobs:
             mingw-w64-x86_64-zeromq
             mingw-w64-x86_64-hidapi
             mingw-w64-x86_64-readline
+            mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-unbound
             mingw-w64-x86_64-lmdb
             mingw-w64-x86_64-icu
@@ -325,13 +459,10 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
-      - name: Clone Arqma upstream (pospow)
+      - name: Clone Arqma upstream (wallet_merged sources)
         shell: bash
         working-directory: ${{ github.workspace }}
         run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
 
       - name: Build Arqma wallet_merged (Windows MinGW)
         shell: msys2 {0}
@@ -362,9 +493,19 @@ jobs:
           $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
           cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu
 
+      - name: cargo build — arqma_flutter_solo_pool (Windows GNU)
+        working-directory: ${{ github.workspace }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          & rust/tool/build_flutter_solo_pool.ps1 -MsysRoot $root -SkipArqmaCMake
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ steps.pinned.outputs.flutter_version }}
           cache: true
 
       - run: flutter pub get
@@ -374,7 +515,7 @@ jobs:
           ARQMA_WALLET2_MSYS_ROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
         run: flutter build windows --release
 
-      - name: Ensure wallet FFI DLL and MinGW runtime under Release/lib
+      - name: Ensure wallet FFI DLL, MinGW runtime, and merged static lib in Release (flat layout)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
@@ -384,9 +525,7 @@ jobs:
           $mingwBin = Join-Path $root "mingw64\bin"
           $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
           if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $lib = Join-Path $rel "lib"
-          New-Item -Force -ItemType Directory -Path $lib | Out-Null
-          $dll = Join-Path $lib "arqma_wallet_flutter_ffi.dll"
+          $dll = Join-Path $rel "arqma_wallet_flutter_ffi.dll"
           if (-not (Test-Path $dll)) {
             $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
             if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
@@ -398,8 +537,8 @@ jobs:
           foreach ($n in @('libgcc_s_seh-1.dll','libstdc++-6.dll','libwinpthread-1.dll')) {
             $src = Join-Path $mingwBin $n
             if (-not (Test-Path $src)) { Write-Host "::warning::missing MinGW runtime: $src"; continue }
-            Copy-Item -Force $src $lib
-            Write-Host "Copied $n -> $lib"
+            Copy-Item -Force $src $rel
+            Write-Host "Copied $n -> $rel"
           }
           # Match flutter/arqma_wallet_gui/windows/cmake/install_arqma_wallet_ffi.cmake.in
           $patterns = @(
@@ -414,7 +553,14 @@ jobs:
           foreach ($pat in $patterns) {
             Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
-              ForEach-Object { Copy-Item -Force $_.FullName $lib; Write-Host "Copied $($_.Name) -> $lib" }
+              ForEach-Object { Copy-Item -Force $_.FullName $rel; Write-Host "Copied $($_.Name) -> $rel" }
+          }
+          $merged = "rust/arqma-rpc-upstream/build-mingw/src/wallet/libwallet_merged.a"
+          if (Test-Path $merged) {
+            Copy-Item -Force $merged $rel
+            Write-Host "Copied libwallet_merged.a -> $rel"
+          } else {
+            Write-Host "::warning::optional static lib not found (local rebuilds): $merged"
           }
 
       - name: Sync daemon into Flutter Release + verify bundle (local script parity)
@@ -435,7 +581,7 @@ jobs:
           }
           $verify = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1"
           if (-not (Test-Path $verify)) { throw "missing verify script: $verify (commit flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1)" }
-          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad
+          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad -FailIfNoSoloPool
 
       - name: Zip Release layout
         shell: pwsh
@@ -460,7 +606,7 @@ jobs:
           if (-not (Test-Path $rel)) { throw "missing $rel" }
           $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
           $ver = $line -replace '\+.*',''
-          $safe = $line -replace '\+', '-'
+          $safe = $line -replace '\+.*', ''
           $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
           & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$ver" "/DVersionSafe=$safe" "/DSrcRelease=$rel"
@@ -476,206 +622,9 @@ jobs:
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-windows-x64-Setup.exe
           retention-days: 30
 
-  tauri:
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
-
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 180
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "24"
-
-      - name: Cache Cargo (workspace)
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Rust GNU target (Windows native wallet2)
-        if: matrix.os == 'windows-latest'
-        run: rustup target add x86_64-pc-windows-gnu
-
-      - name: MSYS2 / MinGW64 (Windows, Arqma native libs)
-        id: msys2
-        if: matrix.os == 'windows-latest'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-boost
-            mingw-w64-x86_64-openssl
-            mingw-w64-x86_64-libsodium
-            mingw-w64-x86_64-zeromq
-            mingw-w64-x86_64-hidapi
-            mingw-w64-x86_64-readline
-            mingw-w64-x86_64-unbound
-            mingw-w64-x86_64-lmdb
-            mingw-w64-x86_64-icu
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libunwind
-            git
-
-      # setup-node updates PATH for pwsh/cmd, but MSYS2 bash starts with a minimal PATH — export the
-      # resolved Node directory so build-arqma-mingw.sh can prepend it before `node` (patch scripts).
-      - name: Export Node directory for MSYS2 (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $dir = Split-Path -Parent (Get-Command node).Source
-          Add-Content -Path $env:GITHUB_ENV -Value "ARQMA_CI_WINDOWS_NODE_DIR=$dir"
-
-      - name: Linux — dependencies (Tauri WebKit + Arqma build)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            build-essential \
-            curl \
-            cmake \
-            pkg-config \
-            libboost-all-dev \
-            libssl-dev \
-            libzmq3-dev \
-            libsodium-dev \
-            libhidapi-dev \
-            libunbound-dev \
-            liblzma-dev \
-            libreadline-dev \
-            liblmdb-dev \
-            libusb-1.0-0-dev \
-            libudev-dev \
-            libicu-dev
-
-      - name: macOS — Homebrew (Arqma build)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install cmake pkg-config boost openssl libsodium zeromq unbound readline hidapi icu4c lmdb xz 2>/dev/null || true
-
-      - name: Make CI scripts executable
-        run: chmod +x build/ci/*.sh || true
-
-      - name: Clone Arqma upstream (pospow)
-        run: bash build/ci/clone-arqma.sh
-        env:
-          ARQMA_UPSTREAM_REPO: https://github.com/arqtras/arqma.git
-          ARQMA_UPSTREAM_REF: pospow
-
-      - name: Build Arqma wallet_merged (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: bash build/ci/build-arqma-linux.sh
-
-      - name: Build Arqma wallet_merged (macOS)
-        if: matrix.os == 'macos-latest'
-        run: bash build/ci/build-arqma-macos.sh
-
-      - name: Build Arqma wallet_merged (Windows MinGW)
-        if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
-        run: |
-          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
-          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
-
-      - name: Download Arqma binaries (daemon / wallet-rpc)
-        run: node ./build/download-binaries.js
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract archive (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          tar -xvf "${{ github.workspace }}/downloads/latest.gz" --directory "${{ github.workspace }}"
-          ls -la "${{ github.workspace }}/bin" || true
-
-      - name: Extract archive (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\bin" | Out-Null
-          tar -xvf "${{ github.workspace }}\downloads\latest.zip" -C "${{ github.workspace }}\bin" arqmad.exe
-          Get-ChildItem "${{ github.workspace }}\bin"
-
-      - name: Extract archive (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          mkdir -p bin
-          unzip -o downloads/latest.zip -d bin
-          ls -la bin
-
-      - name: Copy binaries into src-tauri/bin
-        run: node build/copy-to-tauri-bins.js
-
-      - name: npm install + Vite + Tauri (Linux / macOS)
-        if: matrix.os != 'windows-latest'
-        working-directory: rust/tauri-app
-        run: |
-          npm install
-          npm run ci:tauri
-        env:
-          ARQMA_WALLET2_UPSTREAM_DIR: ${{ env.ARQMA_WALLET2_UPSTREAM_DIR }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: npm install + Vite + Tauri (Windows, GNU target)
-        if: matrix.os == 'windows-latest'
-        working-directory: rust/tauri-app
-        shell: pwsh
-        run: |
-          # MSYS2 may ship `node` in mingw64\bin — if it appears before GitHub-hosted Node,
-          # @tauri-apps/cli loads the wrong native addon. Force PATH: Node (setup-node) first, then MinGW.
-          $root = "${{ steps.msys2.outputs.msys2-location }}"
-          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
-          $nodeDir = Split-Path -Parent (Get-Command node).Source
-          $env:Path = "$nodeDir;$root\mingw64\bin;$root\usr\bin;" + $env:Path
-          $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
-          $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
-          $env:ARQMA_WALLET2_UPSTREAM_DIR = "${{ github.workspace }}\rust\arqma-rpc-upstream"
-          npm install
-          npm run ci:tauri:native:windows-gnu
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Tauri bundle artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: Tauri-bundle-${{ matrix.os }}
-          path: |
-            rust/target/release/bundle/**/*.AppImage
-            rust/target/release/bundle/**/*.deb
-            rust/target/release/bundle/**/*.snap
-            rust/target/release/bundle/**/Arqma Wallet*.exe
-            rust/target/release/bundle/**/*.msi
-            rust/target/release/bundle/**/*.dmg
-            rust/target/release/bundle/**/*.app.tar.gz
-            rust/target/x86_64-pc-windows-gnu/release/bundle/**/Arqma Wallet*.exe
-            rust/target/x86_64-pc-windows-gnu/release/bundle/**/*.msi
-            rust/target/x86_64-pc-windows-gnu/release/bundle/**/*.nsis.zip
-          if-no-files-found: ignore
-
   publish-release:
-    name: GitHub Release (Flutter + Tauri)
-    needs: [flutter-macos, flutter-linux, flutter-windows, tauri]
+    name: GitHub Release (Flutter)
+    needs: [ci-bootstrap, flutter-linux, flutter-macos, flutter-windows]
     if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
@@ -698,10 +647,9 @@ jobs:
           set -eu
           mkdir -p upload
           find artifacts -type f \( \
-            -name '*.zip' -o -name '*.tar.gz' -o -name '*.dmg' \
-            -o -name '*.AppImage' -o -name 'Arqma-Wallet-Flutter-*-windows-x64-Setup.exe' \
-            -o -name '*.deb' -o -name '*.snap' -o -name '*.msi' \
-            -o -name '*.exe' -o -name '*.nsis.zip' \
+            -name 'Arqma-Wallet-Flutter-*.zip' -o -name 'Arqma-Wallet-Flutter-*.tar.gz' \
+            -o -name 'Arqma-Wallet-Flutter-*.dmg' -o -name 'Arqma-Wallet-Flutter-*.AppImage' \
+            -o -name 'Arqma-Wallet-Flutter-*-windows-x64-Setup.exe' \
             \) -exec cp -f {} upload/ \;
           ls -la upload/
           n=$(find upload -type f | wc -l | tr -d ' ')
@@ -725,8 +673,13 @@ jobs:
 
   repo-private-after-release:
     name: Repository private (optional PAT)
-    needs: publish-release
-    if: github.event_name == 'push' && github.ref_type == 'tag'
+    # Run after all desktop builds finish — even if `publish-release` failed or was skipped — so the
+    # repo returns to private per release procedure (same intent as `build/ci/github-repo-visibility-for-release.sh`).
+    needs: [ci-bootstrap, flutter-linux, flutter-macos, flutter-windows]
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref_type == 'tag'))
     runs-on: ubuntu-latest
     permissions: {}
     steps:

@@ -1,7 +1,7 @@
 {
     "pages": {
         "quit": {
-            "closing": "Closing..."
+            "closing": "Cerrando..."
         },
         "welcome": {
             "step_one": "Bienvenido",
@@ -227,7 +227,14 @@
                 "open": "Abierto",
                 "closed": "Cerrado",
                 "operator": "Operador",
-                "contributor": "Contribuyente"
+                "contributor": "Contribuyente",
+                "all_description": "Mostrar cada pool de nodo de servicio.",
+                "open_description": "Pools que aún aceptan contribuciones antes de alcanzar el requisito de staking.",
+                "closed_description": "Pools que han cumplido el requisito de staking.",
+                "operator_description": "Pools donde su monedero es el operador.",
+                "contributor_description": "Pools donde su monedero aportó stake pero usted no es el operador.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Ocurrió un error, revisa los registros",
@@ -316,7 +323,7 @@
             "used": "usado",
             "not_used": "no usado",
             "this_address": "esta dirección",
-            "balance": "Balance",
+            "balance": "Saldo",
             "unlocked_balance": "Balance desbloqueado",
             "number_of_unspent_outputs": "Número de salidas no gastadas",
             "recent_incoming_tx_to_this_address": "Transacciones entrantes recientes a esta dirección",
@@ -342,7 +349,8 @@
             "language": "Idioma",
             "syncing": "sincronizando",
             "scanning": "escaneando",
-            "ready": "listo"
+            "ready": "listo",
+            "blocks_left": "≈{n} bloques a escanear"
         },
         "mainmenu": {
             "daemon_settings": "Configuración del Daemon",
@@ -364,7 +372,7 @@
         "pool_list_tabular": {
             "no_staked_pools_found": "No se encontraron piscinas apostadas",
             "operator": "Operador",
-            "oracle_node_id": "Arq-Net Trust Node",
+            "oracle_node_id": "Nodo de confianza Arq-Net",
             "stakers": "Apostadores",
             "notreceived": "No recibido",
             "operator_fee": "Tarifa del operador",
@@ -381,7 +389,7 @@
             "equity": "Equidad",
             "add_operator_to_addressbook": "Agregar operador al Libro de Direcciones",
             "confirm_amount_to_stake": "CONFIRMAR CANTIDAD A APOSTAR",
-            "oracle_id": "Arq-Net Trust Node ID:",
+            "oracle_id": "ID del nodo de confianza Arq-Net:",
             "max_amount": "Cantidad Máxima: ",
             "min_amount": "Cantidad Mínima: ",
             "amount": "Cantidad",
@@ -404,12 +412,13 @@
             "deregister_service_node_title": "Desregistrar Nodo Arq-Net Trust",
             "deregister_service_node_message": "¿Deseas desregistrar?",
             "deregister_service_node_ok_label": "Desregistrar",
-            "deregister_service_node_cancel_label": "CANCELAR"
+            "deregister_service_node_cancel_label": "CANCELAR",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Mostrar Código QR",
             "copy_address": "Copiar Dirección",
-            "balance": "Balance",
+            "balance": "Saldo",
             "unlocked_balance": "Balance Desbloqueado",
             "unspent_outputs": "Salidas No Gastadas",
             "show_details": "Mostrar Detalles"
@@ -428,6 +437,8 @@
             "debug_log_levels": "Niveles de registro para depurar la billetera",
             "transactions_to_display": "Cuántos días de transacciones mostrar",
             "inactivity_timeout": "Tiempo de espera por inactividad",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Último valor: no hay cierre por inactividad con Solo Pool activado. Si el solo pool está desactivado, esta posición usa 30 minutos.",
             "days": " días",
             "minutes": " minutos",
             "advanced_options": "Opciones Avanzadas",
@@ -470,7 +481,7 @@
             "banned_peers": "Peers Baneados (los baneos se eliminarán si la billetera\nse reinicia)",
             "banned_until": "Baneado hasta",
             "general": "General",
-            "peers": "Peers",
+            "peers": "Pares",
             "peer_details_title": "Detalles del Peer",
             "peer_details_ok_label": "Banear peer",
             "peer_details_cancel_label": "Cerrar",
@@ -573,7 +584,7 @@
             "register_service_node_message_two": "<p>2. siga las instrucciones dadas por el daemon para producir una salida de &nbsp;<b>prepare_registration</b></p>",
             "register_service_node_message_three": "<p>3. Copie la salida de &nbsp;<b>prepare_registration</b>&nbsp; de la consola del daemon y péguela abajo</p>",
             "service_node_command": "Comando de Nodo de Servicio",
-            "service_node_command_placeholder": "register_service_node ...",
+            "service_node_command_placeholder": "register_service_node …",
             "sweep_all_fee": "Tarifa de Consolidar Todo",
             "sweep_all_rpc_success_message": "Consolidar Todo enviado con éxito",
             "sweep_all_inputs": "Consolida la billetera para consolidar entradas.",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "CANCELAR",
             "sweep_all_sweeping_all": "Consolidando Todo",
             "sweep_all_calculating_label": "Calculando tarifas......",
+            "sweep_all_progress_outputs_counted": "Se encontraron {count} transferencia(s) entrante(s) gastable(s).",
+            "sweep_all_progress_building": "Construyendo transacción de barrido ({count} salidas). Transcurrido ~{elapsed}s…",
             "copy_private_key_message": "Error al copiar la clave privada",
             "copy": "Copiar",
             "write_text_message": "Tenga cuidado a quién envía sus claves privadas, ya que controlan sus fondos.",

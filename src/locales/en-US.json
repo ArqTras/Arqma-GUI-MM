@@ -227,7 +227,14 @@
                 "open": "Open",
                 "closed": "Closed",
                 "operator": "Operator",
-                "contributor": "Contributor"
+                "contributor": "Contributor",
+                "all_description": "Show every service node pool.",
+                "open_description": "Pools still accepting contributions before reaching the staking requirement.",
+                "closed_description": "Pools that have met their staking requirement.",
+                "operator_description": "Pools where your wallet is the operator.",
+                "contributor_description": "Pools where your wallet contributed stake but is not the operator.",
+                "arq_spot_price": "ARQ (USD):",
+                "fiat_approx": "(≈ {amount} USD)"
             },
             "swap": {
                 "error_occured_check_logs": "Error occured check logs",
@@ -342,7 +349,8 @@
             "language": "Language",
             "syncing": "syncing",
             "scanning": "scanning",
-            "ready": "ready"
+            "ready": "ready",
+            "blocks_left": "≈{n} blocks to scan"
         },
         "mainmenu": {
             "daemon_settings": "Daemon Settings",
@@ -404,7 +412,8 @@
             "deregister_service_node_title": "Deregister Arq-Net Trust Node",
             "deregister_service_node_message": "Do you want to deregister?",
             "deregister_service_node_ok_label": "Deregister",
-            "deregister_service_node_cancel_label": "CANCEL"
+            "deregister_service_node_cancel_label": "CANCEL",
+            "fiat_usd_approx": "(≈ {amount} USD)"
         },
         "receive_item": {
             "show_qr_code": "Show QR Code",
@@ -428,6 +437,8 @@
             "debug_log_levels": "Log levels for debugging the wallet",
             "transactions_to_display": "How many days of transactions to display",
             "inactivity_timeout": "Inactivity Timeout",
+            "inactivity_timeout_infinity": "∞",
+            "inactivity_timeout_infinity_note": "Last value: no inactivity log-out when Solo Pool (solo mining) is enabled. If the solo pool is off, this position uses 30 minutes.",
             "days": " days",
             "minutes": " minutes",
             "advanced_options": "Advanced Options",
@@ -587,6 +598,8 @@
             "sweep_all_consolidate_cancel_label": "CANCEL",
             "sweep_all_sweeping_all": "Sweeping All",
             "sweep_all_calculating_label": "Calculating fees......",
+            "sweep_all_progress_outputs_counted": "Found {count} spendable incoming transfer(s).",
+            "sweep_all_progress_building": "Building sweep transaction ({count} outputs). Elapsed ~{elapsed}s…",
             "copy_private_key_message": "Error copying private key",
             "copy": "Copy",
             "write_text_message": "Be careful who you send your private keys to as they control your funds.",
