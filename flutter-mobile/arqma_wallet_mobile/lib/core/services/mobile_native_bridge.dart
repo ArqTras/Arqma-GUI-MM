@@ -3654,13 +3654,7 @@ final class MobileNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'delete_wallet') {
-      final Map<String, dynamic> p = _coerceMap(data);
-      final String name = '${p['name'] ?? ''}'.trim();
-      if (name.isNotEmpty && name != _openedWalletDisplayName) {
-        await _walletDeleteByName(p);
-      } else {
-        await _walletDeleteOpen(p);
-      }
+      await _walletDeleteWallet(_coerceMap(data));
       return <String, dynamic>{};
     }
     if (method == 'export_transactions') {
@@ -3845,7 +3839,31 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
-  Future<void> _walletDeleteByName(Map<String, dynamic> p) async {
+  /// Close an open wallet session without requiring a password (best-effort `store`).
+  Future<void> _closeWalletRpcSessionBestEffort() async {
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w == null) {
+      return;
+    }
+    _stopWalletHeartbeat();
+    try {
+      await w.call('store', <String, dynamic>{});
+    } catch (e) {
+      debugPrint('[MobileNative] delete_wallet store (ignored): $e');
+    }
+    _openedWalletDisplayName = '';
+    _walletPasswordHashHex = null;
+    _pendingTxRelay.clear();
+    try {
+      await _walletRpc?.shutdown();
+    } catch (e) {
+      debugPrint('[MobileNative] delete_wallet shutdown (ignored): $e');
+    }
+    _walletRpc = null;
+  }
+
+  /// Delete wallet files from disk. No password — corrupted wallets cannot be opened.
+  Future<void> _walletDeleteWallet(Map<String, dynamic> p) async {
     final Map<String, dynamic>? cfg = _runtimeConfig;
     if (cfg == null) {
       return;
@@ -3854,79 +3872,22 @@ final class MobileNativeBridge implements NativeBridge {
     if (wdir == null) {
       return;
     }
-    final String walletName = '${p['name'] ?? ''}'.trim();
+    final String nameParam = '${p['name'] ?? ''}'.trim();
+    final String walletName =
+        nameParam.isNotEmpty ? nameParam : _openedWalletDisplayName;
     if (walletName.isEmpty) {
       return;
     }
-    final String password = '${p['password'] ?? ''}';
-    if (!await _ensureWalletRpcStarted()) {
-      _showNotification(
-        'negative',
-        _walletFfiCreateRestoreHint(),
-        8000,
-      );
-      return;
-    }
+    final bool deletingOpenWallet =
+        _openedWalletDisplayName == walletName;
+
     _emit(<String, dynamic>{
       'event': 'show_loading',
       'data': <String, dynamic>{'message': 'Deleting wallet'},
     });
-    ArqmaWalletRpcSession? w = _walletRpc;
-    if (w == null) {
-      _emit(<String, dynamic>{
-        'event': 'hide_loading',
-        'data': <String, dynamic>{},
-      });
-      return;
+    if (deletingOpenWallet) {
+      await _closeWalletRpcSessionBestEffort();
     }
-    if (_openedWalletDisplayName.isNotEmpty) {
-      _stopWalletHeartbeat();
-      await w.call('store', <String, dynamic>{});
-      _openedWalletDisplayName = '';
-      _walletPasswordHashHex = null;
-      _pendingTxRelay.clear();
-      await _walletRpc?.shutdown();
-      _walletRpc = null;
-      if (!await _ensureWalletRpcStarted()) {
-        _emit(<String, dynamic>{
-          'event': 'hide_loading',
-          'data': <String, dynamic>{},
-        });
-        _showNotification(
-          'negative',
-          _walletFfiCreateRestoreHint(),
-          8000,
-        );
-        return;
-      }
-      w = _walletRpc;
-      if (w == null) {
-        _emit(<String, dynamic>{
-          'event': 'hide_loading',
-          'data': <String, dynamic>{},
-        });
-        return;
-      }
-    }
-    final Map<String, dynamic>? opened = await w.call(
-      'open_wallet',
-      <String, dynamic>{'filename': walletName, 'password': password},
-    );
-    if (!walletJsonRpcNoError(opened)) {
-      _emit(<String, dynamic>{
-        'event': 'hide_loading',
-        'data': <String, dynamic>{},
-      });
-      _showNotification('negative', 'Invalid password', 3000);
-      return;
-    }
-    _stopWalletHeartbeat();
-    await w.call('store', <String, dynamic>{});
-    _openedWalletDisplayName = '';
-    _walletPasswordHashHex = null;
-    _pendingTxRelay.clear();
-    await _walletRpc?.shutdown();
-    _walletRpc = null;
     _removeWalletFilesOnDisk(wdir, walletName);
     await _emitWalletListAfterDelete(cfg);
     _emit(<String, dynamic>{
@@ -3934,52 +3895,13 @@ final class MobileNativeBridge implements NativeBridge {
       'data': <String, dynamic>{},
     });
     _showNotification('positive', 'Wallet deleted', 3000);
-    await _restartWalletRpcAfterDelete(cfg);
-  }
-
-  Future<void> _walletDeleteOpen(Map<String, dynamic> p) async {
-    final ArqmaWalletRpcSession? w = _walletRpc;
-    final Map<String, dynamic>? cfg = _runtimeConfig;
-    if (w == null || cfg == null) {
-      return;
-    }
-    final String pw = '${p['password'] ?? ''}';
-    if (!_walletPasswordOkForTx(pw)) {
-      _showNotification('negative', 'Invalid password', 3000);
-      return;
-    }
-    final String walletName = _openedWalletDisplayName;
-    if (walletName.isEmpty) {
-      return;
-    }
-    _emit(<String, dynamic>{
-      'event': 'show_loading',
-      'data': <String, dynamic>{'message': 'Deleting wallet'}
-    });
-    _stopWalletHeartbeat();
-    await w.call('store', <String, dynamic>{});
-    _openedWalletDisplayName = '';
-    _walletPasswordHashHex = null;
-    _pendingTxRelay.clear();
-    await _walletRpc?.shutdown();
-    _walletRpc = null;
-    final String? wdir = walletFilesDir(cfg);
-    if (wdir != null) {
-      _removeWalletFilesOnDisk(wdir, walletName);
+    if (deletingOpenWallet) {
       _emit(<String, dynamic>{
-        'event': 'wallet_list',
-        'data': listWalletFiles(wdir)
+        'event': 'return_to_wallet_select',
+        'data': <String, dynamic>{},
       });
+      await _restartWalletRpcAfterDelete(cfg);
     }
-    _emit(<String, dynamic>{
-      'event': 'hide_loading',
-      'data': <String, dynamic>{}
-    });
-    _emit(<String, dynamic>{
-      'event': 'return_to_wallet_select',
-      'data': <String, dynamic>{}
-    });
-    await _restartWalletRpcAfterDelete(cfg);
   }
 
   Future<dynamic> _walletCreateRestoreImport(

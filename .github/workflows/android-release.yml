@@ -10,9 +10,14 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to build (use main or a tag that includes flutter-android/)"
+        description: "Git ref to build (branch or tag to checkout)"
         required: true
         default: "main"
+        type: string
+      release_tag:
+        description: "Existing GitHub Release tag to attach APK/AAB (semver, without v prefix)"
+        required: true
+        default: "5.1.0"
         type: string
       ffi_version:
         description: "ArqTras/FFI release tag for prebuilt wallet FFI"
@@ -114,7 +119,7 @@ jobs:
         run: |
           set -eu
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            t="${{ github.event.inputs.ref }}"
+            t="${{ github.event.inputs.release_tag }}"
           else
             t="${GITHUB_REF_NAME}"
           fi
@@ -137,12 +142,24 @@ jobs:
             exit 1
           fi
 
+      - name: Check if GitHub Release already exists
+        id: release_exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          if gh release view "${{ steps.tag.outputs.name }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish / update GitHub Release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.name }}
           name: Arqma Wallet ${{ steps.tag.outputs.name }}
-          generate_release_notes: true
+          generate_release_notes: ${{ steps.release_exists.outputs.exists != 'true' }}
           overwrite_files: false
           make_latest: false
           files: dist/**/*

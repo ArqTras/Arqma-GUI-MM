@@ -227,24 +227,10 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     if (confirmed != true || !mounted) {
       return;
     }
-    // Same rule as [_openWallet]: null/missing meta => assume password may be set.
-    final bool pwdProt = wallet['password_protected'] != false;
-    String password = '';
-    if (pwdProt) {
-      final String? entered = await showDialog<String>(
-        context: context,
-        builder: (BuildContext _) =>
-            _OpenWalletPasswordDialog(loc: loc),
-      );
-      if (entered == null || !mounted) {
-        return;
-      }
-      password = entered;
-    }
     await api.send(
       'wallet',
       'delete_wallet',
-      <String, dynamic>{'name': name, 'password': password},
+      <String, dynamic>{'name': name},
     );
   }
 

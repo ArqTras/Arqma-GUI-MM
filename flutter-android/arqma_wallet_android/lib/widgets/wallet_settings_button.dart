@@ -425,21 +425,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (ok != true || !mounted) {
       return;
     }
-    final String? password = await PasswordDialogs.showPasswordConfirmation(
-      context: context,
-      api: api,
-      locale: loc,
-      title: loc.tr('components.wallet_settings.delete_account'),
-      noPasswordMessage: loc.tr(
-          'components.wallet_settings.show_delete_account_password_confirmation_message'),
-      okLabel: loc.tr(
-          'components.wallet_settings.show_delete_account_password_confirmation_ok_label'),
-    );
-    if (password == null || !mounted) {
-      return;
-    }
-    await api.send(
-        'wallet', 'delete_wallet', <String, dynamic>{'password': password});
+    await api.send('wallet', 'delete_wallet', <String, dynamic>{});
   }
 
   Future<void> _registerServiceNode() async {
