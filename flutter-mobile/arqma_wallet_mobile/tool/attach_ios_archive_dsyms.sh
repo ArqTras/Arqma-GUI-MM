@@ -15,10 +15,10 @@ fi
 DSYM_DIR="${ARCHIVE}/dSYMs"
 mkdir -p "${DSYM_DIR}"
 
-FFI_DYLIB="${REPO}/rust/target/aarch64-apple-ios/release/libarqma_wallet_flutter_ffi.dylib"
+FFI_VER="${ARQMA_FFI_RELEASE_VERSION:-1.0.0}"
+FFI_DYLIB="${REPO}/.prebuilt/arqma-wallet-ffi/${FFI_VER}/ios/device/libarqma_wallet_flutter_ffi.dylib"
 if [[ ! -f "${FFI_DYLIB}" ]]; then
-  echo "error: missing ${FFI_DYLIB}" >&2
-  exit 1
+  FFI_DYLIB="${REPO}/rust/target/aarch64-apple-ios/release/libarqma_wallet_flutter_ffi.dylib"
 fi
 
 OBJC_BIN="${ARCHIVE}/Products/Applications/Runner.app/Frameworks/objective_c.framework/objective_c"
@@ -45,8 +45,10 @@ make_dsym() {
 FFI_IN_ARCHIVE="${ARCHIVE}/Products/Applications/Runner.app/Frameworks/libarqma_wallet_flutter_ffi.framework/libarqma_wallet_flutter_ffi"
 if [[ -f "${FFI_IN_ARCHIVE}" ]]; then
   make_dsym "${FFI_IN_ARCHIVE}" "libarqma_wallet_flutter_ffi.framework"
-else
+elif [[ -f "${FFI_DYLIB}" ]]; then
   make_dsym "${FFI_DYLIB}" "libarqma_wallet_flutter_ffi.dylib"
+else
+  echo "warning: no FFI binary for dSYM (archive or prebuilt)" >&2
 fi
 if [[ -n "${OBJC_BIN}" ]]; then
   make_dsym "${OBJC_BIN}" "objective_c.framework"

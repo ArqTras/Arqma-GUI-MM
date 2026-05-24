@@ -10,14 +10,8 @@ VERSION_NAME="${VERSION_LINE%%+*}"
 BUILD_NUMBER="${VERSION_LINE#*+}"
 [[ "${BUILD_NUMBER}" == "${VERSION_LINE}" ]] && BUILD_NUMBER="1"
 
-FFI="${REPO}/rust/target/aarch64-apple-ios/release/libarqma_wallet_flutter_ffi.dylib"
-if [[ ! -f "${FFI}" ]]; then
-  echo "error: missing ${FFI} — run rust/tool/build_mobile_wallet_ffi_ios.sh" >&2
-  exit 1
-fi
-
-mkdir -p "${ROOT}/ios/Frameworks"
-cp -f "${FFI}" "${ROOT}/ios/Frameworks/"
+echo "==> Prepare iOS wallet FFI (ArqTras/FFI default)"
+bash "${ROOT}/tool/prepare_ios_wallet_ffi.sh"
 
 echo "==> flutter build ipa ${VERSION_NAME} (${BUILD_NUMBER})"
 cd "${ROOT}"

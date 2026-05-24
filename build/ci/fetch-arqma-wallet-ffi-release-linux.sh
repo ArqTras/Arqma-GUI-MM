@@ -41,6 +41,21 @@ fetch_platform() {
   echo "[fetch-ffi] extracted -> ${dest}"
 }
 
+mirror_ios() {
+  local platform="$1"
+  local dir="${VER_DIR}/${platform}"
+  local app="${ROOT}/flutter-mobile/arqma_wallet_mobile"
+  [[ -d "${app}" ]] || return 0
+  local src="${dir}/device/libarqma_wallet_flutter_ffi.dylib"
+  if [[ ! -f "${src}" ]]; then
+    src="$(find "${dir}" -name 'libarqma_wallet_flutter_ffi.dylib' -type f 2>/dev/null | head -1)"
+  fi
+  [[ -f "${src}" ]] || return 0
+  mkdir -p "${app}/ios/Frameworks"
+  cp -f "${src}" "${app}/ios/Frameworks/"
+  echo "[fetch-ffi] ios/Frameworks/ <- ${src}"
+}
+
 mirror_jni() {
   local platform="$1"
   local dir="${VER_DIR}/${platform}"
@@ -86,6 +101,8 @@ for p in "${_platforms[@]}"; do
   fetch_platform "${p}"
   if [[ "${p}" == android-* ]]; then
     mirror_jni "${p}"
+  elif [[ "${p}" == ios ]]; then
+    mirror_ios "${p}"
   fi
 done
 

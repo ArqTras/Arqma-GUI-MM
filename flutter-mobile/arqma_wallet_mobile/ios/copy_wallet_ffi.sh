@@ -6,6 +6,8 @@ FRAMEWORK_NAME=libarqma_wallet_flutter_ffi.framework
 FRAMEWORK_DIR="${FW}/${FRAMEWORK_NAME}"
 EXEC_NAME=libarqma_wallet_flutter_ffi
 ROOT="${SRCROOT}/../../.."
+VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.0}"
+PREBUILT="${ROOT}/.prebuilt/arqma-wallet-ffi/${VERSION}/ios/device/${EXEC_NAME}.dylib"
 DEVICE="${ROOT}/rust/target/aarch64-apple-ios/release/${EXEC_NAME}.dylib"
 SIM="${ROOT}/rust/target/aarch64-apple-ios-sim/release/${EXEC_NAME}.dylib"
 STAGED="${SRCROOT}/Frameworks/${EXEC_NAME}.dylib"
@@ -56,12 +58,13 @@ install_framework() {
   return 0
 }
 
-for rel in "${DEVICE}" "${SIM}" "${STAGED}"; do
+for rel in "${PREBUILT}" "${STAGED}" "${DEVICE}" "${SIM}"; do
   if install_framework "${rel}"; then
     exit 0
   fi
 done
 
-echo "warning: ${EXEC_NAME}.dylib not found for iOS — build with:"
-echo "  bash rust/tool/build_mobile_wallet_ffi_ios.sh"
+echo "warning: ${EXEC_NAME}.dylib not found for iOS — run:"
+echo "  bash flutter-mobile/arqma_wallet_mobile/tool/prepare_ios_wallet_ffi.sh"
+echo "  (ArqTras/FFI release ARQMA_FFI_RELEASE_VERSION=${VERSION})"
 echo "Wallet create/restore will not work until an iOS dylib is bundled."

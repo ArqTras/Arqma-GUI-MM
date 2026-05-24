@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Build iOS release artifacts for GitHub Releases and TestFlight (App Store Connect).
 #
-# Prerequisites (once per machine / after Rust changes):
-#   bash rust/tool/build_ios_wallet_merged.sh    # or ARQMA_SKIP_IOS_WALLET_MERGED=1 if already built
-#   bash rust/tool/build_mobile_wallet_ffi_ios.sh
+# Prerequisites: ArqTras/FFI iOS prebuilt (default) via tool/prepare_ios_wallet_ffi.sh
+# Optional source build: ARQMA_BUILD_FFI_FROM_SOURCE=1 bash rust/tool/build_mobile_wallet_ffi_ios.sh
 #
 # Usage (from repo root or flutter-mobile/arqma_wallet_mobile):
 #   ./tool/package_mobile_release.sh
@@ -58,20 +57,18 @@ TESTFLIGHT_DOC="${DIST}/TESTFLIGHT.md"
 echo "==> Arqma Wallet Mobile release ${VERSION_LINE} (ios)"
 
 if [[ "${SKIP_FFI}" != "1" ]]; then
-  echo "==> Native wallet FFI (iOS device)"
-  export ARQMA_SKIP_IOS_DEPENDS="${ARQMA_SKIP_IOS_DEPENDS:-1}"
-  export ARQMA_SKIP_IOS_WALLET_MERGED="${ARQMA_SKIP_IOS_WALLET_MERGED:-1}"
-  bash "${REPO_ROOT}/rust/tool/build_mobile_wallet_ffi_ios.sh"
+  echo "==> Native wallet FFI (ArqTras/FFI prebuilt, iOS device)"
+  bash "${MOBILE_ROOT}/tool/prepare_ios_wallet_ffi.sh"
 fi
 
-DEVICE_DYLIB="${REPO_ROOT}/rust/target/aarch64-apple-ios/release/libarqma_wallet_flutter_ffi.dylib"
+DEVICE_DYLIB="${MOBILE_ROOT}/ios/Frameworks/libarqma_wallet_flutter_ffi.dylib"
 if [[ ! -f "${DEVICE_DYLIB}" ]]; then
-  echo "error: missing ${DEVICE_DYLIB} — run rust/tool/build_mobile_wallet_ffi_ios.sh" >&2
+  DEVICE_DYLIB="${REPO_ROOT}/.prebuilt/arqma-wallet-ffi/${ARQMA_FFI_RELEASE_VERSION:-1.0.0}/ios/device/libarqma_wallet_flutter_ffi.dylib"
+fi
+if [[ ! -f "${DEVICE_DYLIB}" ]]; then
+  echo "error: missing iOS FFI — run tool/prepare_ios_wallet_ffi.sh" >&2
   exit 1
 fi
-
-mkdir -p "${MOBILE_ROOT}/ios/Frameworks"
-cp -f "${DEVICE_DYLIB}" "${MOBILE_ROOT}/ios/Frameworks/"
 
 echo "==> Flutter pub get"
 flutter pub get

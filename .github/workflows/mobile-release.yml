@@ -14,8 +14,13 @@ on:
         required: true
         default: "5.1.0"
         type: string
+      ffi_version:
+        description: "ArqTras/FFI release tag for prebuilt wallet FFI"
+        required: false
+        default: "1.0.0"
+        type: string
       skip_ffi:
-        description: "Skip Rust FFI rebuild (use cached workspace artifacts)"
+        description: "Skip FFI fetch (use ios/Frameworks or .prebuilt cache)"
         required: false
         default: false
         type: boolean
@@ -29,6 +34,7 @@ concurrency:
 
 env:
   MOBILE_DIR: flutter-mobile/arqma_wallet_mobile
+  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || '1.0.0' }}
   ARQMA_WALLET2_UPSTREAM_DIR: ${{ github.workspace }}/rust/arqma-rpc-upstream
 
 jobs:
@@ -42,10 +48,6 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
           submodules: recursive
 
-      - name: Install Rust iOS targets
-        run: |
-          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -58,22 +60,23 @@ jobs:
           cd "${{ env.MOBILE_DIR }}/ios"
           pod install
 
-      - name: Build iOS wallet FFI
+      - name: Prepare iOS wallet FFI (ArqTras/FFI)
         if: ${{ github.event.inputs.skip_ffi != 'true' }}
         env:
-          ARQMA_SKIP_IOS_DEPENDS: "1"
-          ARQMA_SKIP_IOS_WALLET_MERGED: "1"
+          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
         run: |
-          export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:$PATH"
-          bash rust/tool/build_mobile_wallet_ffi_ios.sh
+          export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:/opt/homebrew/bin:$PATH"
+          chmod +x build/ci/fetch-arqma-wallet-ffi-release-linux.sh
+          chmod +x "${{ env.MOBILE_DIR }}/tool/prepare_ios_wallet_ffi.sh"
+          bash "${{ env.MOBILE_DIR }}/tool/prepare_ios_wallet_ffi.sh"
 
       - name: Package IPA
         env:
-          ARQMA_SKIP_IOS_DEPENDS: "1"
-          ARQMA_SKIP_IOS_WALLET_MERGED: "1"
+          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
         run: |
-          export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:$PATH"
+          export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:/opt/homebrew/bin:$PATH"
           chmod +x "${{ env.MOBILE_DIR }}/tool/package_mobile_release.sh"
+          chmod +x "${{ env.MOBILE_DIR }}/tool/prepare_ios_wallet_ffi.sh"
           ARGS=()
           if [ "${{ github.event.inputs.skip_ffi }}" = "true" ]; then
             ARGS+=(--skip-ffi)
