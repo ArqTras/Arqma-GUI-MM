@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref or release tag to build (e.g. 5.1.0 or v5.1.0)"
+        description: "Git ref to build (use main or a tag that includes flutter-android/)"
         required: true
-        default: "5.1.0"
+        default: "main"
         type: string
       ffi_version:
         description: "ArqTras/FFI release tag for prebuilt wallet FFI"
@@ -42,6 +42,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Ensure Flutter Android tree
+        run: bash build/ci/ensure-flutter-android-tree.sh
 
       - name: Pubspec semver (release filenames)
         id: pubver
@@ -70,9 +74,10 @@ jobs:
 
       - name: Normalize shell scripts (LF)
         run: |
-          find build/ci flutter-android/arqma_wallet_android/tool -name '*.sh' -print0 \
-            | xargs -0 sed -i 's/\r$//'
-          chmod +x build/ci/*.sh flutter-android/arqma_wallet_android/tool/*.sh
+          find build/ci flutter-android/arqma_wallet_android/tool -name '*.sh' -print0 2>/dev/null \
+            | xargs -0 -r sed -i 's/\r$//'
+          chmod +x build/ci/*.sh build/ci/ensure-flutter-android-tree.sh
+          chmod +x flutter-android/arqma_wallet_android/tool/*.sh 2>/dev/null || true
 
       - name: Package Android release (FFI prebuilt + APK + AAB)
         env:
