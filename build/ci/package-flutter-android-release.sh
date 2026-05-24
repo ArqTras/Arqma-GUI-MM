@@ -19,6 +19,12 @@ bash "${ROOT}/build/ci/fetch-arqma-wallet-ffi-release-linux.sh"
 echo "==> jniLibs (prebuilt + libc++_shared)"
 bash "${APP}/tool/copy_android_wallet_ffi.sh"
 
+GRADLE_PROPS="${APP}/android/gradle.properties"
+if [[ -f "${GRADLE_PROPS}" ]]; then
+  # Windows-only paths in repo break GitHub Actions (ubuntu). JAVA_HOME is set in CI.
+  sed -i '/^org\.gradle\.java\.home=/d' "${GRADLE_PROPS}"
+fi
+
 flutter pub get
 flutter build apk --release
 flutter build appbundle --release

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -132,6 +134,119 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     }
   }
 
+  Future<void> _showWalletDeleteMenu(Map<String, dynamic> wallet) async {
+    final LocaleController loc = context.read<LocaleController>();
+    final String name = '${wallet['name']}';
+    final String deleteLabel =
+        loc.tr('components.wallet_settings.delete_account');
+    final String cancelLabel = loc.tr('composables.cancel');
+
+    final String? action;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      action = await showCupertinoModalPopup<String>(
+        context: context,
+        builder: (BuildContext c) => CupertinoActionSheet(
+          title: Text(name),
+          actions: <Widget>[
+            CupertinoActionSheetAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.pop(c, 'delete'),
+              child: Text(deleteLabel),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(c),
+            child: Text(cancelLabel),
+          ),
+        ),
+      );
+    } else {
+      action = await showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: const Color(0xFF1d1d1d),
+        builder: (BuildContext c) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: ArqmaColors.textPrimary,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.delete_outline, color: Colors.redAccent),
+                title: Text(deleteLabel),
+                onTap: () => Navigator.pop(c, 'delete'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      );
+    }
+    if (action != 'delete' || !mounted) {
+      return;
+    }
+    await _confirmAndDeleteWallet(wallet);
+  }
+
+  Future<void> _confirmAndDeleteWallet(Map<String, dynamic> wallet) async {
+    final LocaleController loc = context.read<LocaleController>();
+    final AppApi api = context.read<AppApi>();
+    final String name = '${wallet['name']}';
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext c) => AlertDialog(
+        backgroundColor: const Color(0xFF1d1d1d),
+        title: Text(loc.tr('components.wallet_settings.delete_account')),
+        content: Text(
+          loc.tr('components.wallet_settings.delete_account_message'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(loc.tr(
+                'components.wallet_settings.delete_account_cancel_label')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(
+              loc.tr('components.wallet_settings.delete_account_ok_label'),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    final bool pwdProt = wallet['password_protected'] == true;
+    String password = '';
+    if (pwdProt) {
+      final String? entered = await showDialog<String>(
+        context: context,
+        builder: (BuildContext _) =>
+            _OpenWalletPasswordDialog(loc: loc),
+      );
+      if (entered == null || !mounted) {
+        return;
+      }
+      password = entered;
+    }
+    await api.send(
+      'wallet',
+      'delete_wallet',
+      <String, dynamic>{'name': name, 'password': password},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
@@ -198,12 +313,15 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
             ),
           ),
           onTap: () => _openWallet(w),
+          onLongPress: () => _showWalletDeleteMenu(w),
           trailing: PopupMenuButton<String>(
             onSelected: (String v) {
               if (v == 'open') {
                 _openWallet(w);
               } else if (v == 'copy') {
                 _copyAddress('${w['address']}');
+              } else if (v == 'delete') {
+                unawaited(_confirmAndDeleteWallet(w));
               }
             },
             itemBuilder: (BuildContext c) => [
@@ -215,6 +333,13 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
                   value: 'copy',
                   child:
                       Text(loc.tr('pages.wallet_select.index.copy_address'))),
+              PopupMenuItem<String>(
+                value: 'delete',
+                child: Text(
+                  loc.tr('components.wallet_settings.delete_account'),
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
+              ),
             ],
           ),
         ),

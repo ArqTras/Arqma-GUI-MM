@@ -79,6 +79,14 @@ jobs:
           chmod +x build/ci/*.sh build/ci/ensure-flutter-android-tree.sh
           chmod +x flutter-android/arqma_wallet_android/tool/*.sh 2>/dev/null || true
 
+      - name: Strip machine-local Gradle Java home (Windows paths break Linux CI)
+        run: |
+          set -eu
+          f="${{ env.ANDROID_DIR }}/android/gradle.properties"
+          if [[ -f "$f" ]]; then
+            sed -i '/^org\.gradle\.java\.home=/d' "$f"
+          fi
+
       - name: Package Android release (FFI prebuilt + APK + AAB)
         env:
           ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
