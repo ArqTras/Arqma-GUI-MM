@@ -21,9 +21,9 @@ on:
         default: "5.1.0"
         type: string
       ffi_version:
-        description: "ArqTras/FFI release tag for prebuilt wallet FFI"
+        description: "ArqTras/FFI release tag for prebuilt wallet FFI (latest = GitHub Latest release)"
         required: true
-        default: "1.0.3"
+        default: "latest"
         type: string
 
 permissions:
@@ -35,7 +35,8 @@ concurrency:
 
 env:
   ANDROID_DIR: flutter-android/arqma_wallet_android
-  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || '1.0.3' }}
+  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || 'latest' }}
+  ARQMA_FFI_REPO: ArqTras/FFI
 
 jobs:
   flutter-android:
@@ -96,6 +97,7 @@ jobs:
       - name: Package Android release (FFI prebuilt + APK + AAB)
         env:
           ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash build/ci/package-flutter-android-release.sh
 
       - name: Upload Android artifacts

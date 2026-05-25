@@ -1,17 +1,17 @@
 # Download prebuilt arqma-wallet-flutter-ffi from GitHub Releases (ArqTras/FFI).
-# Default: tag 1.0.3 — https://github.com/ArqTras/FFI/releases/tag/1.0.3
+# Default: Latest release (resolve-arqma-ffi-release-version.ps1).
 #
 # Usage (repo root):
 #   .\build\ci\fetch-arqma-wallet-ffi-release.ps1
 #   .\build\ci\fetch-arqma-wallet-ffi-release.ps1 -Platforms windows-x86_64-gnu,android-x86_64
-#   $env:ARQMA_FFI_RELEASE_VERSION = "1.0.3"
+#   $env:ARQMA_FFI_RELEASE_VERSION = "1.0.3"   # pin a specific tag
 #   $env:ARQMA_FFI_FORCE = "1"   # re-download
 #
 # Layout: .prebuilt/arqma-wallet-ffi/<version>/<platform>/...
 # Also mirrors into rust/target/... for existing copy_* scripts.
 
 param(
-    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "1.0.3" }),
+    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "latest" }),
     [string]$Repo = "ArqTras/FFI",
     [string[]]$Platforms = @(
         "windows-x86_64-gnu",
@@ -27,6 +27,10 @@ if ($Platforms.Count -eq 1 -and $Platforms[0] -match ",") {
     $Platforms = $Platforms[0] -split "," | ForEach-Object { $_.Trim() }
 }
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+if (-not $Version -or $Version -eq "latest") {
+    $Version = & (Join-Path $PSScriptRoot "resolve-arqma-ffi-release-version.ps1") -Repo $Repo
+}
+Write-Host "[fetch-ffi] ArqTras/FFI release $Version ($Repo)"
 $CacheRoot = Join-Path $Root ".prebuilt\arqma-wallet-ffi"
 $VerDir = Join-Path $CacheRoot $Version
 New-Item -ItemType Directory -Force -Path $VerDir | Out-Null

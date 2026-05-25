@@ -4,7 +4,11 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 $App = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $Lib = "libarqma_wallet_flutter_ffi.so"
-$Version = if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "1.0.3" }
+$Version = if ($env:ARQMA_FFI_RELEASE_VERSION -and $env:ARQMA_FFI_RELEASE_VERSION -ne "latest") {
+    $env:ARQMA_FFI_RELEASE_VERSION
+} else {
+    & (Join-Path $Root "build\ci\resolve-arqma-ffi-release-version.ps1")
+}
 $PrebuiltRoot = Join-Path $Root ".prebuilt\arqma-wallet-ffi\$Version"
 $CppShared = "libc++_shared.so"
 

@@ -1,11 +1,7 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
-# Wallet FFI: prebuilt ArqTras/FFI release 1.0.3 (ARQMA_FFI_RELEASE_VERSION):
-#   macOS:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-macos-arm64-1.0.3.zip
-#   Windows: https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-windows-x86_64-gnu-1.0.3.zip
-#   Linux:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-linux-x86_64-1.0.3.zip
+# Wallet FFI + solo pool: Latest prebuilt from ArqTras/FFI (resolve-arqma-ffi-release-version.*).
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
-# Solo pool: desktop only (Windows, Linux, macOS). arqma_flutter_solo_pool is built in
-# desktop-release CI and bundled under bin/. Android/iOS releases do not include solo pool.
+# Solo pool: desktop only (Windows, Linux, macOS). Android/iOS do not include solo pool.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
 # After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or
@@ -33,7 +29,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARQMA_FFI_RELEASE_VERSION: "1.0.3"
   ARQMA_FFI_REPO: ArqTras/FFI
 
 jobs:
@@ -62,11 +57,21 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
+      - name: Resolve ArqTras/FFI release
+        id: ffi_release
+        working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER=$(bash build/ci/resolve-arqma-ffi-release-version.sh)
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "Using ArqTras/FFI release ${VER}"
+
       - name: Fetch wallet FFI (ArqTras/FFI, macOS)
         working-directory: ${{ github.workspace }}
         env:
-          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
-          ARQMA_FFI_REPO: ${{ env.ARQMA_FFI_REPO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
           ARQMA_FFI_PLATFORMS: macos-arm64
         run: bash build/ci/fetch-arqma-wallet-ffi-release-linux.sh
 
@@ -80,22 +85,13 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.92.0
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: desktop-macos-solo-pool-${{ github.sha }}
-
-      - name: Homebrew deps (wallet_merged / solo pool)
+      - name: Fetch solo pool sidecar (ArqTras/FFI, macOS)
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/brew-install-macos.sh
-
-      - name: Build solo pool sidecar (macOS)
-        working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-flutter-solo-pool-for-desktop.sh macos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
+          ARQMA_SOLO_POOL_PLATFORMS: macos-arm64
+        run: bash build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh
 
       - uses: subosito/flutter-action@v2
         with:
@@ -195,8 +191,8 @@ jobs:
       - name: Fetch wallet FFI (ArqTras/FFI, Linux)
         working-directory: ${{ github.workspace }}
         env:
-          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
-          ARQMA_FFI_REPO: ${{ env.ARQMA_FFI_REPO }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
           ARQMA_FFI_PLATFORMS: linux-x86_64
         run: bash build/ci/fetch-arqma-wallet-ffi-release-linux.sh
 
@@ -210,18 +206,13 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.92.0
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: desktop-linux-solo-pool-${{ github.sha }}
-
-      - name: Build solo pool sidecar (Linux)
+      - name: Fetch solo pool sidecar (ArqTras/FFI, Linux)
         working-directory: ${{ github.workspace }}
-        run: bash build/ci/build-flutter-solo-pool-for-desktop.sh linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
+          ARQMA_SOLO_POOL_PLATFORMS: linux-x86_64
+        run: bash build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh
 
       - uses: subosito/flutter-action@v2
         with:
@@ -303,7 +294,7 @@ jobs:
           "safe=$safe" >> $env:GITHUB_OUTPUT
           Write-Host "VersionSafe=$safe"
 
-      - name: MSYS2 / MinGW64 (Windows — wallet_merged + FFI runtime)
+      - name: MSYS2 / MinGW64 (Windows — Flutter FFI runtime DLLs)
         id: msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -332,23 +323,6 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.92.0
-
-      - run: rustup target add x86_64-pc-windows-gnu
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: desktop-windows-solo-pool-${{ github.sha }}
-
-      - name: Export Node directory for MSYS2
-        shell: pwsh
-        run: |
-          $dir = Split-Path -Parent (Get-Command node).Source
-          Add-Content -Path $env:GITHUB_ENV -Value "ARQMA_CI_WINDOWS_NODE_DIR=$dir"
-
       - name: Normalize shell scripts (LF)
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -356,34 +330,23 @@ jobs:
           find build/ci rust/tool -name '*.sh' -print0 | xargs -0 sed -i 's/\r$//'
           chmod +x build/ci/*.sh rust/tool/*.sh
 
-      - name: Build wallet_merged (MinGW)
-        shell: msys2 {0}
-        run: |
-          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
-          export ARQMA_CI_WINDOWS_NODE_DIR="$(cygpath -u "${ARQMA_CI_WINDOWS_NODE_DIR:-}")"
-          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/clone-arqma.sh"
-          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
-
-      - name: Build solo pool sidecar (Windows)
+      - name: Fetch solo pool sidecar (ArqTras/FFI, Windows)
         shell: pwsh
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
         run: |
-          $ErrorActionPreference = "Stop"
-          $root = "${{ steps.msys2.outputs.msys2-location }}"
-          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
-          $env:Path = "$root\mingw64\bin;$root\usr\bin;" + $env:Path
-          $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
-          $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
-          bash build/ci/ensure-tauri-dist-stub.sh
-          & rust\tool\build_flutter_solo_pool.ps1 -MsysRoot $root -SkipArqmaCMake
+          pwsh -NoProfile -File build/ci/fetch-arqma-wallet-solo-pool-release.ps1 -Platforms windows-x86_64-gnu
           $solo = "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
-          if (-not (Test-Path $solo)) { throw "missing $solo after solo pool build" }
+          if (-not (Test-Path $solo)) { throw "missing $solo after fetch" }
 
       - name: Fetch wallet FFI (ArqTras/FFI, Windows)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         env:
-          ARQMA_FFI_RELEASE_VERSION: ${{ env.ARQMA_FFI_RELEASE_VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_RELEASE_VERSION: latest
         run: |
           pwsh -NoProfile -File build/ci/fetch-arqma-wallet-ffi-release.ps1 `
             -Platforms windows-x86_64-gnu `

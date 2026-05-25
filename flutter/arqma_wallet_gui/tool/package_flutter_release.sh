@@ -39,14 +39,18 @@ fi
 
 REPO_ROOT="$(cd "${GUI_ROOT}/../.." && pwd)"
 
-ensure_solo_pool_bin() {
-  local bin_dir="${REPO_ROOT}/rust/tauri-app/src-tauri/bin"
-  if [[ -f "${bin_dir}/arqma_flutter_solo_pool" ]] || [[ -f "${bin_dir}/arqma_flutter_solo_pool.exe" ]]; then
-    return 0
-  fi
-  echo "Building arqma_flutter_solo_pool (missing in ${bin_dir})..."
-  chmod +x "${REPO_ROOT}/rust/tool/build_flutter_solo_pool.sh" 2>/dev/null || true
-  bash "${REPO_ROOT}/rust/tool/build_flutter_solo_pool.sh"
+ensure_desktop_prebuilts() {
+  local host=""
+  case "$(uname -s)" in
+    Darwin) host="macos" ;;
+    Linux) host="linux" ;;
+    MINGW* | MSYS* | CYGWIN*) host="mingw" ;;
+    *)
+      echo "error: unsupported host for desktop prebuilts" >&2
+      return 1
+      ;;
+  esac
+  bash "${REPO_ROOT}/build/ci/fetch-arqma-desktop-prebuilts.sh" "${host}"
 }
 
 linux_arch_dir() {
@@ -61,7 +65,7 @@ package_macos() {
     echo "error: macOS packaging requires Darwin host" >&2
     exit 1
   fi
-  ensure_solo_pool_bin
+  ensure_desktop_prebuilts
   flutter build macos --release
   local app="build/macos/Build/Products/Release/Arqma-Wallet.app"
   if [[ ! -d "${app}" ]]; then
@@ -91,7 +95,7 @@ package_linux() {
     echo "error: Linux packaging requires Linux host" >&2
     exit 1
   fi
-  ensure_solo_pool_bin
+  ensure_desktop_prebuilts
   flutter build linux --release
   local arch
   arch="$(linux_arch_dir)"

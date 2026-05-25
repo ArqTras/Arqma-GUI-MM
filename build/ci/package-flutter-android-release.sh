@@ -10,10 +10,12 @@ VERSION="${VERSION_LINE#version:}"
 VERSION="${VERSION// /}"
 SLUG="${VERSION%%+*}"
 
-export ARQMA_FFI_RELEASE_VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.3}"
+export ARQMA_FFI_RELEASE_VERSION="${ARQMA_FFI_RELEASE_VERSION:-latest}"
+export ARQMA_FFI_PLATFORMS="${ARQMA_FFI_PLATFORMS:-android-arm64,android-x86_64}"
 export ARQMA_SKIP_ANDROID_FFI_COPY=1
 
-echo "==> Fetch wallet FFI (${ARQMA_FFI_RELEASE_VERSION}) from ArqTras/FFI"
+VER="$(bash "${ROOT}/build/ci/resolve-arqma-ffi-release-version.sh")"
+echo "==> Fetch wallet FFI (ArqTras/FFI ${VER}, Android only) from GitHub Releases"
 bash "${ROOT}/build/ci/fetch-arqma-wallet-ffi-release-linux.sh"
 
 echo "==> jniLibs (prebuilt + libc++_shared)"

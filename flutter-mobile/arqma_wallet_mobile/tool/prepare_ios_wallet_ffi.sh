@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 APP="$(cd "$(dirname "$0")/.." && pwd)"
 LIB="libarqma_wallet_flutter_ffi.dylib"
-VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.1}"
+VERSION="$(bash "${ROOT}/build/ci/resolve-arqma-ffi-release-version.sh")"
 PREBUILT="${ROOT}/.prebuilt/arqma-wallet-ffi/${VERSION}/ios/device/${LIB}"
 STAGED="${APP}/ios/Frameworks/${LIB}"
 export PATH="/Applications/Xcode.app/Contents/Developer/usr/bin:${PATH}"

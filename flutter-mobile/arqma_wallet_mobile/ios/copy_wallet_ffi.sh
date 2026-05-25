@@ -6,7 +6,11 @@ FRAMEWORK_NAME=libarqma_wallet_flutter_ffi.framework
 FRAMEWORK_DIR="${FW}/${FRAMEWORK_NAME}"
 EXEC_NAME=libarqma_wallet_flutter_ffi
 ROOT="${SRCROOT}/../../.."
-VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.1}"
+if [ -z "${ARQMA_FFI_RELEASE_VERSION:-}" ] || [ "${ARQMA_FFI_RELEASE_VERSION}" = "latest" ]; then
+  VERSION="$(bash "${ROOT}/build/ci/resolve-arqma-ffi-release-version.sh")"
+else
+  VERSION="${ARQMA_FFI_RELEASE_VERSION#v}"
+fi
 PREBUILT="${ROOT}/.prebuilt/arqma-wallet-ffi/${VERSION}/ios/device/${EXEC_NAME}.dylib"
 DEVICE="${ROOT}/rust/target/aarch64-apple-ios/release/${EXEC_NAME}.dylib"
 SIM="${ROOT}/rust/target/aarch64-apple-ios-sim/release/${EXEC_NAME}.dylib"

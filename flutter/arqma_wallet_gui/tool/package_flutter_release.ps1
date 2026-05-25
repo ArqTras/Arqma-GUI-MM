@@ -90,11 +90,16 @@ if ($BuildNativeWalletFfi) {
     $ffiPs1 = Join-Path $repoRoot "rust\tool\build_native_wallet_flutter_ffi_windows.ps1"
     if (-not (Test-Path $ffiPs1)) { Write-Error "Missing $ffiPs1" }
     & $ffiPs1 -MsysRoot $MsysRoot -SkipFlutter
-} elseif ($BuildSoloPool -or -not (Test-Path $soloBin)) {
-    $soloPs1 = Join-Path $repoRoot "rust\tool\build_flutter_solo_pool.ps1"
-    if (-not (Test-Path $soloPs1)) { Write-Error "Missing $soloPs1" }
-    & $soloPs1 -MsysRoot $MsysRoot
-} elseif (-not (Test-Path $rustDllGnu) -and -not (Test-Path $rustDllMsvc)) {
+} else {
+    $fetchDesktop = Join-Path $repoRoot "build\ci\fetch-arqma-desktop-prebuilts.ps1"
+    if (-not (Test-Path $fetchDesktop)) { Write-Error "Missing $fetchDesktop" }
+    & $fetchDesktop -MsysRoot $MsysRoot
+    if ($BuildSoloPool) {
+        $fetchSolo = Join-Path $repoRoot "build\ci\fetch-or-build-solo-pool-desktop.ps1"
+        & $fetchSolo -MsysRoot $MsysRoot
+    }
+}
+if (-not $BuildNativeWalletFfi -and -not (Test-Path $rustDllGnu) -and -not (Test-Path $rustDllMsvc)) {
     Write-Warning (
         "Native wallet FFI (arqma_wallet_flutter_ffi.dll) not found under rust/target. " +
         "Build: rust\tool\build_native_wallet_flutter_ffi_windows.ps1 -SkipFlutter " +

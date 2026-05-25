@@ -33,14 +33,14 @@ Tauri packs `rust/tauri-app/src-tauri/bin/` via `tauri.conf.json` → `bundle.re
 
 **Before building Flutter:** place **`arqmad`** in `rust/tauri-app/src-tauri/bin/` — see `rust/tauri-app/src-tauri/bin/README.txt`. From repo root: `node build/copy-to-tauri-bins.js` when `./bin` already has upstream **arqmad**.
 
-**Solo pool (desktop only — not Android/iOS):** build **`arqma_flutter_solo_pool`** into the same `src-tauri/bin/` folder (CMake / Xcode install it into each bundle’s `bin/`). Release packagers and **desktop-release** CI build it automatically; for local dev:
+**Solo pool (desktop only — not Android/iOS):** install **`arqma_flutter_solo_pool`** into the same `src-tauri/bin/` folder (CMake / Xcode install it into each bundle’s `bin/`). **desktop-release** CI and release packagers fetch it from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases) (`arqma-wallet-solo-pool-*` zips); local dev:
 
-| Platform | Build solo pool + install to `src-tauri/bin/` |
-|----------|-----------------------------------------------|
-| **Linux / macOS** | `bash rust/tool/build_flutter_solo_pool.sh` (runs upstream `wallet_merged` unless `--skip-upstream`) |
-| **Windows** | `.\rust\tool\build_flutter_solo_pool.ps1` (MSYS2 MinGW; same chain as native wallet FFI) |
+| Platform | Fetch prebuilt (recommended) | Build from source |
+|----------|------------------------------|-------------------|
+| **Linux / macOS** | `ARQMA_SOLO_POOL_PLATFORMS=linux-x86_64 bash build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh` (or `macos-arm64`) | `bash rust/tool/build_flutter_solo_pool.sh` |
+| **Windows** | `.\build\ci\fetch-arqma-wallet-solo-pool-release.ps1 -Platforms windows-x86_64-gnu` | `.\build\ci\fetch-or-build-solo-pool-desktop.ps1` or `.\rust\tool\build_flutter_solo_pool.ps1` |
 
-Or build **wallet FFI + solo pool** together: `bash rust/tool/build_native_wallet_flutter_ffi_unix.sh` / `.\rust\tool\build_native_wallet_flutter_ffi_windows.ps1 -SkipFlutter`.
+Set `ARQMA_SOLO_POOL_RELEASE_VERSION` only to pin a tag; otherwise the **Latest** [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) release is used (same as wallet FFI). Force local build: `ARQMA_SOLO_POOL_BUILD_FROM_SOURCE=1`.
 
 If the binary is missing at runtime, the GUI shows an error notification and XMRig cannot connect to the Stratum port.
 
@@ -64,7 +64,7 @@ The PowerShell packager aims for a **single extract-and-run** tree (no MSYS2 / M
 
 1. **Daemon:** put **`arqmad.exe`** in the repo **`bin/`** directory (or manually under `rust/tauri-app/src-tauri/bin/`). The script runs **`build/copy-to-tauri-bins.js`** (needs Node on `PATH`) so Tauri’s bin folder matches Tauri/CMake, then copies **`bin/arqmad.exe`** into `build/windows/x64/runner/Release/bin/` for Flutter.
 2. **Native wallet FFI:** `arqma_wallet_flutter_ffi.dll` plus the **MinGW dependency DLLs** are synced into **`Release/`** next to `Arqma-Wallet.exe` (same globs as `windows/cmake/install_arqma_wallet_ffi.cmake.in`; optional `libwallet_merged.a` if built). Legacy `Release/lib/` is still supported by the loader.
-3. **Solo pool:** `package_flutter_release.ps1` builds `arqma_flutter_solo_pool.exe` when missing (`-BuildSoloPool` to force). Bundled under `Release/bin/`.
+3. **Solo pool:** `package_flutter_release.ps1` fetches `arqma_flutter_solo_pool.exe` from ArqTras/FFI when missing (`-BuildSoloPool` forces rebuild from source). Bundled under `Release/bin/`.
 4. **Checks:** `tool/verify_windows_bundle.ps1` validates the Release folder (exe, FFI, assets, **`bin/arqmad.exe`**, **`bin/arqma_flutter_solo_pool.exe`**). CI uses `-FailIfNoArqmad -FailIfNoSoloPool`. Linux: `tool/verify_linux_bundle.sh` with `FAIL_IF_NO_SOLO_POOL=1`.
 
 Installer equivalent: **`build/ci/flutter-windows-installer.iss`** packs the same `Release` folder into a Setup.exe (CI uses Inno Setup).
