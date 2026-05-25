@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Download prebuilt arqma-wallet-flutter-ffi from GitHub Releases (Linux/macOS, no PowerShell).
+# Desktop zips (version 1.0.0): arqma-wallet-ffi-{linux-x86_64|macos-arm64}-{version}.zip
+#   https://github.com/ArqTras/FFI/releases/download/1.0.0/arqma-wallet-ffi-linux-x86_64-1.0.0.zip
+#   https://github.com/ArqTras/FFI/releases/download/1.0.0/arqma-wallet-ffi-macos-arm64-1.0.0.zip
+# Windows: use fetch-arqma-wallet-ffi-release.ps1 (arqma-wallet-ffi-windows-x86_64-gnu-1.0.0.zip).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.0}"

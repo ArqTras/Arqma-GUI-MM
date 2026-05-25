@@ -26,6 +26,18 @@
 
 The **`Arqma-Wallet-Flutter-`** prefix applies to **installers and archives**, not to the process name or Start Menu shortcut target binary name.
 
+## Wallet FFI (desktop CI)
+
+Prebuilt **`arqma-wallet-flutter-ffi`** from [ArqTras/FFI](https://github.com/ArqTras/FFI) tag **`1.0.0`** (see `ARQMA_FFI_RELEASE_VERSION` in workflow):
+
+| OS | Download |
+|----|----------|
+| macOS (arm64) | https://github.com/ArqTras/FFI/releases/download/1.0.0/arqma-wallet-ffi-macos-arm64-1.0.0.zip |
+| Windows (x64 GNU) | https://github.com/ArqTras/FFI/releases/download/1.0.0/arqma-wallet-ffi-windows-x86_64-gnu-1.0.0.zip |
+| Linux (x64) | https://github.com/ArqTras/FFI/releases/download/1.0.0/arqma-wallet-ffi-linux-x86_64-1.0.0.zip |
+
+Fetched by `build/ci/fetch-arqma-wallet-ffi-release-linux.sh` (macOS/Linux) and `fetch-arqma-wallet-ffi-release.ps1` (Windows).
+
 ## Where this is implemented
 
 - CI: `.github/workflows/desktop-release.yml` (**Pubspec semver for release filenames** step, artifact uploads).
