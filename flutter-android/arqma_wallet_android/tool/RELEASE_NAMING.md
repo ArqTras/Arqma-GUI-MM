@@ -26,7 +26,7 @@
 
 `{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.0`).
 
-**Build (local):** `./tool/package_android_release.sh` — uses prebuilt FFI from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases) (`ARQMA_FFI_RELEASE_VERSION`, default `1.0.0`).
+**Build (local):** `./tool/package_android_release.sh` — uses prebuilt FFI from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/tag/1.0.1) (`ARQMA_FFI_RELEASE_VERSION`, default `1.0.1`).
 
 **CI:** `.github/workflows/android-release.yml` — `build/ci/package-flutter-android-release.sh`, attaches to GitHub Release `5.1.0` / `v5.1.0`.
 

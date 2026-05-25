@@ -63,7 +63,7 @@ fi
 
 DEVICE_DYLIB="${MOBILE_ROOT}/ios/Frameworks/libarqma_wallet_flutter_ffi.dylib"
 if [[ ! -f "${DEVICE_DYLIB}" ]]; then
-  DEVICE_DYLIB="${REPO_ROOT}/.prebuilt/arqma-wallet-ffi/${ARQMA_FFI_RELEASE_VERSION:-1.0.0}/ios/device/libarqma_wallet_flutter_ffi.dylib"
+  DEVICE_DYLIB="${REPO_ROOT}/.prebuilt/arqma-wallet-ffi/${ARQMA_FFI_RELEASE_VERSION:-1.0.1}/ios/device/libarqma_wallet_flutter_ffi.dylib"
 fi
 if [[ ! -f "${DEVICE_DYLIB}" ]]; then
   echo "error: missing iOS FFI — run tool/prepare_ios_wallet_ffi.sh" >&2

@@ -15,7 +15,7 @@ fi
 DSYM_DIR="${ARCHIVE}/dSYMs"
 mkdir -p "${DSYM_DIR}"
 
-FFI_VER="${ARQMA_FFI_RELEASE_VERSION:-1.0.0}"
+FFI_VER="${ARQMA_FFI_RELEASE_VERSION:-1.0.1}"
 FFI_DYLIB="${REPO}/.prebuilt/arqma-wallet-ffi/${FFI_VER}/ios/device/libarqma_wallet_flutter_ffi.dylib"
 if [[ ! -f "${FFI_DYLIB}" ]]; then
   FFI_DYLIB="${REPO}/rust/target/aarch64-apple-ios/release/libarqma_wallet_flutter_ffi.dylib"

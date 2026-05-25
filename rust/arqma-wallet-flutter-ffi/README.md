@@ -46,4 +46,4 @@ Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_n
 
 ## CI
 
-GitHub Actions **`.github/workflows/desktop-release.yml`** (Flutter jobs on tag pushes `v*` / semver `*.*.*`) fetches prebuilt FFI from **ArqTras/FFI** (`linux-x86_64`, `macos-arm64`, `windows-x86_64-gnu`) and **`arqmad`** from **arqma/arqma** latest release — no upstream CMake / `cargo build` in CI. See **`build/ci/fetch-arqma-wallet-ffi-release-linux.sh`** and **`fetch-arqma-wallet-ffi-release.ps1`**.
+GitHub Actions **`.github/workflows/desktop-release.yml`** (Flutter jobs on tag pushes `v*` / semver `*.*.*`) fetches prebuilt FFI from **[ArqTras/FFI](https://github.com/ArqTras/FFI/releases/tag/1.0.1)** tag **`1.0.1`** (`linux-x86_64`, `macos-arm64`, `windows-x86_64-gnu`, Android, iOS) and **`arqmad`** from **arqma/arqma** latest release — no upstream CMake / `cargo build` in CI. See **`build/ci/fetch-arqma-wallet-ffi-release-linux.sh`** and **`fetch-arqma-wallet-ffi-release.ps1`**.

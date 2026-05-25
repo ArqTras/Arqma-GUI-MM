@@ -20,9 +20,9 @@ flutter-android/
 
 ## Wallet FFI (prebuilt from GitHub Release)
 
-Prebuilt binaries: [ArqTras/FFI releases](https://github.com/ArqTras/FFI/releases) (default `ARQMA_FFI_RELEASE_VERSION=1.0.0`). **Android x86_64** artifacts from **1.0.0** may fail at runtime (`epee` symbols) — use a newer FFI tag after rebuild, or set `ARQMA_BUILD_FFI_FROM_SOURCE=1` and build with `rust/tool/build_mobile_wallet_ffi_android.sh` (WSL/Linux).
+Prebuilt binaries: [ArqTras/FFI releases](https://github.com/ArqTras/FFI/releases/tag/1.0.1) (default `ARQMA_FFI_RELEASE_VERSION=1.0.1`). Older **1.0.0** Android x86_64 builds may fail at runtime (`epee` symbols); prefer **1.0.1** or set `ARQMA_BUILD_FFI_FROM_SOURCE=1` and build with `rust/tool/build_mobile_wallet_ffi_android.sh` (WSL/Linux).
 
-From repository root (downloads into `.prebuilt/arqma-wallet-ffi/1.0.0/` and copies into `jniLibs`):
+From repository root (downloads into `.prebuilt/arqma-wallet-ffi/1.0.1/` and copies into `jniLibs`):
 
 ```powershell
 .\build\ci\fetch-arqma-wallet-ffi-release.ps1 -Platforms android-arm64,android-x86_64
