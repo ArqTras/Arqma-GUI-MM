@@ -33,7 +33,7 @@ Tauri packs `rust/tauri-app/src-tauri/bin/` via `tauri.conf.json` → `bundle.re
 
 **Before building Flutter:** place **`arqmad`** in `rust/tauri-app/src-tauri/bin/` — see `rust/tauri-app/src-tauri/bin/README.txt`. From repo root: `node build/copy-to-tauri-bins.js` when `./bin` already has upstream **arqmad**.
 
-**Required for Solo Pool (all desktop OS):** build **`arqma_flutter_solo_pool`** into the same `src-tauri/bin/` folder (CMake / Xcode install it into each bundle’s `bin/`). Release packagers and CI build it automatically; for local dev:
+**Solo pool (desktop only — not Android/iOS):** build **`arqma_flutter_solo_pool`** into the same `src-tauri/bin/` folder (CMake / Xcode install it into each bundle’s `bin/`). Release packagers and **desktop-release** CI build it automatically; for local dev:
 
 | Platform | Build solo pool + install to `src-tauri/bin/` |
 |----------|-----------------------------------------------|

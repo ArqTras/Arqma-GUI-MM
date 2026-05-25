@@ -4,7 +4,8 @@
 #   Windows: https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-windows-x86_64-gnu-1.0.3.zip
 #   Linux:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-linux-x86_64-1.0.3.zip
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
-# Solo pool: arqma_flutter_solo_pool built in CI (wallet_merged + cargo) and bundled under bin/ on all desktop OSes.
+# Solo pool: desktop only (Windows, Linux, macOS). arqma_flutter_solo_pool is built in
+# desktop-release CI and bundled under bin/. Android/iOS releases do not include solo pool.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
 # After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or

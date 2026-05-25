@@ -111,7 +111,7 @@ npm run ci:tauri
 
 ## Flutter shell (`flutter/arqma_wallet_gui`)
 
-Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event model as Tauri. See **`flutter/arqma_wallet_gui/README.md`** for `flutter run` and **solo pool** (`arqma_flutter_solo_pool`) build hints.
+Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event model as Tauri. See **`flutter/arqma_wallet_gui/README.md`** for `flutter run` and **solo pool** (`arqma_flutter_solo_pool`) on **desktop only** (Windows, Linux, macOS — not Android/iOS).
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build arqma_flutter_solo_pool into rust/tauri-app/src-tauri/bin/ for Flutter desktop bundles.
-# Requires wallet_merged (build/ci/build-arqma-*.sh) — run before `flutter build`.
+# Build arqma_flutter_solo_pool into rust/tauri-app/src-tauri/bin/ for Flutter **desktop** bundles only.
+# Not used on Android or iOS. Requires wallet_merged (build/ci/build-arqma-*.sh) — run before `flutter build`.
 #
 # Usage:
 #   bash build/ci/build-flutter-solo-pool-for-desktop.sh linux|macos|mingw
