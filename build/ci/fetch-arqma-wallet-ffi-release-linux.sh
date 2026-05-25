@@ -32,7 +32,12 @@ fetch_platform() {
   curl -fsSL -o "${tmp}" "${url}"
   rm -rf "${dest}"
   mkdir -p "${dest}"
-  unzip -q -o "${tmp}" -d "${dest}"
+  if ! unzip -q -o "${tmp}" -d "${dest}" 2>/dev/null; then
+    echo "[fetch-ffi] unzip failed (often PowerShell backslash paths); using python extract"
+    rm -rf "${dest}"
+    mkdir -p "${dest}"
+    python3 "${ROOT}/build/ci/extract_ffi_zip.py" "${tmp}" "${dest}"
+  fi
   local inner="${dest}/${platform}"
   if [[ -d "${inner}" ]]; then
     shopt -s dotglob

@@ -351,6 +351,7 @@ jobs:
 
       - name: Normalize shell scripts (LF)
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           find build/ci rust/tool -name '*.sh' -print0 | xargs -0 sed -i 's/\r$//'
           chmod +x build/ci/*.sh rust/tool/*.sh
