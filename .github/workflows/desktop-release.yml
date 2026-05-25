@@ -91,7 +91,7 @@ jobs:
           if test -f "$DY"; then echo "FFI dylib already present: $DY"; exit 0; fi
           mkdir -p "$FW"
           SRC="${GITHUB_WORKSPACE}/rust/target/release/libarqma_wallet_flutter_ffi.dylib"
-          test -f "$SRC" || { echo "::error::missing $SRC (cargo build arqma-wallet-flutter-ffi)"; exit 1; }
+          test -f "$SRC" || { echo "::error::missing $SRC (fetch ArqTras/FFI prebuilt)"; exit 1; }
           cp -f "$SRC" "$DY"
           echo "Copied FFI dylib -> $DY"
 
@@ -305,7 +305,7 @@ jobs:
           $dll = Join-Path $lib "arqma_wallet_flutter_ffi.dll"
           if (-not (Test-Path $dll)) {
             $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
-            if (-not (Test-Path $src)) { throw "missing FFI build output: $src" }
+            if (-not (Test-Path $src)) { throw "missing FFI prebuilt (ArqTras/FFI): $src" }
             Copy-Item -Force $src $dll
             Write-Host "Copied FFI DLL -> $dll"
           } else {
