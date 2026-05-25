@@ -87,6 +87,28 @@ bool _walletCaughtDaemonTip(int walletHeight, int daemonTip) {
   return walletHeight >= daemonTip;
 }
 
+/// Blocks behind daemon tip before running heavy wallet RPC on Windows (see [_windowsDeferHeavyWalletRpcDuringScan]).
+const int _windowsWalletScanXferDeferBlocks = 64;
+
+/// Windows: in-process FFI calls block the UI isolate; `get_transfers` runs `history::refresh()` in native code
+/// and can freeze footer scan % for a long time. Defer xfer until the wallet height is near the daemon tip.
+bool _windowsDeferHeavyWalletRpcDuringScan({
+  required int walletHeight,
+  required int daemonTip,
+}) {
+  if (kIsWeb || !Platform.isWindows) {
+    return false;
+  }
+  // Daemon footer tip may lag wallet hb by a tick; still avoid balance/xfer that hold `inner`.
+  if (daemonTip <= 0) {
+    return true;
+  }
+  if (walletHeight >= daemonTip) {
+    return false;
+  }
+  return daemonTip - walletHeight > _windowsWalletScanXferDeferBlocks;
+}
+
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
 String _walletFfiMissedStartHint() {
   const String rpc =
@@ -204,6 +226,13 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// Parity with Tauri `wallet_heartbeat` / Electron `wallet-rpc.js` — `getheight` + balance + `get_transfers`.
   Timer? _walletHeartbeat;
+  bool _walletHbInFlight = false;
+  /// Windows: detect wallet height stuck below daemon tip (native refresh needs a kick).
+  int _windowsScanHbLastHeight = -1;
+  int _windowsScanStallTicks = 0;
+  DateTime? _windowsWalletLastRefreshAt;
+  int _windowsScanLastXferHeight = 0;
+  DateTime? _windowsScanLastXferAt;
   int _daemonChainTipHeight = 0;
   int _whStoredHeight = 0;
   int _whStoredBalance = 0;
@@ -1596,6 +1625,11 @@ final class DesktopNativeBridge implements NativeBridge {
     _walletHeartbeat?.cancel();
     _walletHeartbeat = null;
     _walletXferScanThrottleUntil = null;
+    _windowsScanHbLastHeight = -1;
+    _windowsScanStallTicks = 0;
+    _windowsWalletLastRefreshAt = null;
+    _windowsScanLastXferHeight = 0;
+    _windowsScanLastXferAt = null;
   }
 
   /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
@@ -1815,7 +1849,86 @@ final class DesktopNativeBridge implements NativeBridge {
   /// suppress later polls (that froze footer sync %). Heavy `get_transfers` runs via
   /// [unawaited] + [_walletXferBusy]; native FFI serializes concurrent calls.
   Future<void> _walletHeartbeatTick() async {
-    await _walletHeartbeatTickBody();
+    if (_walletHbInFlight) {
+      return;
+    }
+    _walletHbInFlight = true;
+    try {
+      await _walletHeartbeatTickBody();
+    } finally {
+      _walletHbInFlight = false;
+    }
+  }
+
+  /// Windows scan path: emit [set_wallet_info] after `getheight` only so `getbalance` does not hold
+  /// the wallet session mutex and starve later `getheight` polls (stale height in UI).
+  Future<void> _maybeKickWindowsWalletRefresh(
+    ArqmaWalletRpcSession w, {
+    required int walletHeight,
+    required int daemonTip,
+  }) async {
+    if (kIsWeb || !Platform.isWindows || daemonTip <= 0) {
+      return;
+    }
+    if (walletHeight >= daemonTip - _windowsWalletScanXferDeferBlocks) {
+      return;
+    }
+    if (walletHeight == _windowsScanHbLastHeight) {
+      _windowsScanStallTicks++;
+    } else {
+      _windowsScanHbLastHeight = walletHeight;
+      _windowsScanStallTicks = 0;
+    }
+    final DateTime now = DateTime.now();
+    final bool cooldownOk = _windowsWalletLastRefreshAt == null ||
+        now.difference(_windowsWalletLastRefreshAt!) >
+            const Duration(seconds: 45);
+    if (_windowsScanStallTicks < 3 || !cooldownOk) {
+      return;
+    }
+    _windowsScanStallTicks = 0;
+    _windowsWalletLastRefreshAt = now;
+    try {
+      debugPrint(
+        '[DesktopNative] Windows: scan stalled at $walletHeight (daemon $daemonTip), refresh_from_height',
+      );
+      await w.call('refresh', <String, dynamic>{
+        'start_height': walletHeight,
+      }).timeout(const Duration(minutes: 30));
+    } catch (e, st) {
+      debugPrint('[DesktopNative] Windows wallet refresh: $e\n$st');
+    }
+  }
+
+  void _emitWindowsScanHeartbeatInfo({
+    required String name,
+    required int newH,
+    required int daemonTip,
+  }) {
+    if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, daemonTip)) {
+      _walletFullRescanUi = false;
+    }
+    _whStoredHeight = newH;
+    _emit(<String, dynamic>{
+      'event': 'set_wallet_info',
+      'data': <String, dynamic>{
+        'name': name,
+        'height': newH,
+        'balance': _whStoredBalance,
+        'unlocked_balance': _whStoredUnlocked,
+        'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        'full_rescan_ui': _walletFullRescanUi,
+      },
+    });
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_status',
+      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
+    });
+    if (_walletOpenTraceEnabled()) {
+      debugPrint(
+        '[DesktopNative] Windows scan hb: wallet=$newH daemon=$daemonTip',
+      );
+    }
   }
 
   Future<void> _walletHeartbeatTickBody() async {
@@ -1846,6 +1959,54 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     final bool ghOk = gh != null && walletJsonRpcNoError(gh);
 
+    int newH = h0;
+    if (ghOk) {
+      final int? parsed = walletHeightFromGetheight(gh);
+      if (parsed != null) {
+        newH = parsed;
+      }
+    }
+
+    final bool windowsDeferHeavyXfer = _windowsDeferHeavyWalletRpcDuringScan(
+      walletHeight: newH,
+      daemonTip: dh,
+    );
+    if (windowsDeferHeavyXfer) {
+      if (ghOk) {
+        _emitWindowsScanHeartbeatInfo(
+          name: name,
+          newH: newH,
+          daemonTip: dh,
+        );
+        unawaited(_maybeKickWindowsWalletRefresh(
+          w,
+          walletHeight: newH,
+          daemonTip: dh,
+        ));
+        // Periodic xfer during long scan (heavy; may pause UI briefly) so tx history is not empty until tip.
+        final DateTime now = DateTime.now();
+        final int daysWt =
+            (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ??
+                    1)
+                .clamp(1, 365);
+        final int daysWindowBlocks = daysWt * 720;
+        final bool xferCooldown = _windowsScanLastXferAt == null ||
+            now.difference(_windowsScanLastXferAt!) >
+                const Duration(seconds: 180);
+        final bool heightProgress =
+            newH > _windowsScanLastXferHeight + 25000;
+        if (!_walletXferBusy &&
+            xferCooldown &&
+            heightProgress &&
+            ghOk) {
+          _windowsScanLastXferAt = now;
+          _windowsScanLastXferHeight = newH;
+          unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
+        }
+      }
+      return;
+    }
+
     Map<String, dynamic>? ga;
     if (ghOk) {
       try {
@@ -1866,16 +2027,9 @@ final class DesktopNativeBridge implements NativeBridge {
       gb = null;
     }
 
-    int newH = h0;
     int newB = b0;
     int newU = u0;
     bool hasBalanceChange = false;
-    if (ghOk) {
-      final int? parsed = walletHeightFromGetheight(gh);
-      if (parsed != null) {
-        newH = parsed;
-      }
-    }
     if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
       _walletFullRescanUi = false;
     }
@@ -2521,9 +2675,15 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_wallet_transactions',
       'data': <String, dynamic>{'tx_list': <dynamic>[]},
     });
-    unawaited(_emitWalletAddressListFromRpc(w));
+    final bool windowsDeferHeavyOnOpen = _windowsDeferHeavyWalletRpcDuringScan(
+      walletHeight: openedHeight,
+      daemonTip: _daemonChainTipHeight,
+    );
+    if (!windowsDeferHeavyOnOpen) {
+      unawaited(_emitWalletAddressListFromRpc(w));
+      unawaited(_emitWalletAddressBookFromRpc(w));
+    }
     _whAddressBookPending = true;
-    unawaited(_emitWalletAddressBookFromRpc(w));
     _whStoredHeight = openedHeight;
     _whStoredBalance = bal;
     _whStoredUnlocked = unl;

@@ -68,9 +68,12 @@ class DaemonJsonRpc {
     try {
       return jsonDecode(text);
     } on FormatException catch (e) {
-      debugPrint(
-        '[DaemonJsonRpc] $method invalid JSON (${text.length} chars): ${e.message}',
-      );
+      // `get_txpool_backlog` often embeds control bytes; optional for the footer pool widget.
+      if (method != 'get_txpool_backlog') {
+        debugPrint(
+          '[DaemonJsonRpc] $method invalid JSON (${text.length} chars): ${e.message}',
+        );
+      }
       final String stripped =
           text.replaceAll(RegExp(r'[\x00-\x08\x0b\x0c\x0e-\x1f]'), '');
       if (stripped == text) {

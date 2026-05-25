@@ -99,12 +99,14 @@ mod force_wallet_static {
 #[cfg(target_os = "ios")]
 mod force_wallet_static {
     #![allow(dead_code)]
-    // iOS `wallet_merged` is a fat static archive (epee / easylogging / randomx / lmdb inside).
+    // iOS: fold-wallet-merged folds epee/easylogging/randomx; LMDB stays in liblmdb.a (see build-ios).
     #[link(
         name = "wallet_merged",
         kind = "static",
         modifiers = "+bundle,+whole-archive"
     )]
+    extern "C" {}
+    #[link(name = "lmdb", kind = "static", modifiers = "+bundle,+whole-archive")]
     extern "C" {}
 }
 
@@ -286,6 +288,10 @@ impl Wallet2Session {
 
     pub fn refresh(&mut self) -> Wallet2Result<bool> {
         self.inner.refresh()
+    }
+
+    pub fn refresh_from_height(&mut self, start_height: u64) -> Wallet2Result<bool> {
+        self.inner.refresh_from_height(start_height)
     }
 
     pub fn import_key_images(&self, filename: &str) -> Wallet2Result<bool> {
