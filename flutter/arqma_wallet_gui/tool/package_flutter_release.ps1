@@ -1,5 +1,5 @@
 # Build Flutter Windows release and zip the runner output under .\dist\.
-# Self-contained portable layout: exe + data/flutter_assets + FFI DLL + MinGW deps (flat Release/) + bin\arqmad.exe (+ optional solo pool).
+# Self-contained portable layout: exe + data/flutter_assets + FFI DLL + MinGW deps (flat Release/) + bin\arqmad.exe + bin\arqma_flutter_solo_pool.exe.
 #
 #   cd flutter\arqma_wallet_gui
 #   .\tool\package_flutter_release.ps1

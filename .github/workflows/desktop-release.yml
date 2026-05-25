@@ -4,6 +4,7 @@
 #   Windows: https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-windows-x86_64-gnu-1.0.3.zip
 #   Linux:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-linux-x86_64-1.0.3.zip
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
+# Solo pool: arqma_flutter_solo_pool built in CI (wallet_merged + cargo) and bundled under bin/ on all desktop OSes.
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
 # After CI finishes, make private again: set secret `ARQMA_REPO_VISIBILITY_PAT` (repo admin) or
@@ -38,7 +39,7 @@ jobs:
   flutter-macos:
     name: macOS Flutter bundle
     runs-on: macos-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -74,6 +75,27 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash build/ci/fetch-arqmad-github-release.sh
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.92.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: desktop-macos-solo-pool-${{ github.sha }}
+
+      - name: Homebrew deps (wallet_merged / solo pool)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/brew-install-macos.sh
+
+      - name: Build solo pool sidecar (macOS)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-flutter-solo-pool-for-desktop.sh macos
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -97,6 +119,14 @@ jobs:
           test -f "$SRC" || { echo "::error::missing $SRC (fetch ArqTras/FFI prebuilt)"; exit 1; }
           cp -f "$SRC" "$DY"
           echo "Copied FFI dylib -> $DY"
+
+      - name: Sync arqmad + solo pool into macOS bundle + verify
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
+          bash flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh "$APP"
+          bash build/ci/verify-macos-bundle.sh "$APP"
 
       - name: Zip app bundle
         run: |
@@ -123,7 +153,7 @@ jobs:
   flutter-linux:
     name: Linux Flutter bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -141,7 +171,8 @@ jobs:
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
 
-      - name: Linux — dependencies (Flutter desktop)
+      - name: Linux — dependencies (Flutter desktop + wallet_merged)
+        working-directory: ${{ github.workspace }}
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -154,10 +185,11 @@ jobs:
             file \
             desktop-file-utils \
             squashfs-tools
+          bash build/ci/install-arqma-depends-linux.sh
 
       - name: Make CI scripts executable
         working-directory: ${{ github.workspace }}
-        run: chmod +x build/ci/*.sh || true
+        run: chmod +x build/ci/*.sh rust/tool/*.sh || true
 
       - name: Fetch wallet FFI (ArqTras/FFI, Linux)
         working-directory: ${{ github.workspace }}
@@ -172,6 +204,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash build/ci/fetch-arqmad-github-release.sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.92.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: desktop-linux-solo-pool-${{ github.sha }}
+
+      - name: Build solo pool sidecar (Linux)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/build-flutter-solo-pool-for-desktop.sh linux
 
       - uses: subosito/flutter-action@v2
         with:
@@ -195,6 +244,15 @@ jobs:
           test -f "$SRC" || { echo "::error::missing $SRC"; exit 1; }
           cp -f "$SRC" "$lib"
           echo "Copied FFI .so -> $lib"
+
+      - name: Sync arqmad + solo pool into Linux bundle + verify
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -eu
+          b="flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
+          bash flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh "$b"
+          bash flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh "$b"
+          FAIL_IF_NO_SOLO_POOL=1 bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh "$b"
 
       - name: Tar bundle
         working-directory: ${{ github.workspace }}
@@ -224,7 +282,7 @@ jobs:
   flutter-windows:
     name: Windows Flutter bundle
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 240
     defaults:
       run:
         working-directory: flutter/arqma_wallet_gui
@@ -244,13 +302,16 @@ jobs:
           "safe=$safe" >> $env:GITHUB_OUTPUT
           Write-Host "VersionSafe=$safe"
 
-      - name: MSYS2 / MinGW64 (Windows — FFI runtime DLLs only)
+      - name: MSYS2 / MinGW64 (Windows — wallet_merged + FFI runtime)
         id: msys2
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
           install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
             mingw-w64-x86_64-boost
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-libsodium
@@ -263,6 +324,58 @@ jobs:
             mingw-w64-x86_64-icu
             mingw-w64-x86_64-zlib
             mingw-w64-x86_64-libunwind
+            git
+            zip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.92.0
+
+      - run: rustup target add x86_64-pc-windows-gnu
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: desktop-windows-solo-pool-${{ github.sha }}
+
+      - name: Export Node directory for MSYS2
+        shell: pwsh
+        run: |
+          $dir = Split-Path -Parent (Get-Command node).Source
+          Add-Content -Path $env:GITHUB_ENV -Value "ARQMA_CI_WINDOWS_NODE_DIR=$dir"
+
+      - name: Normalize shell scripts (LF)
+        shell: bash
+        run: |
+          find build/ci rust/tool -name '*.sh' -print0 | xargs -0 sed -i 's/\r$//'
+          chmod +x build/ci/*.sh rust/tool/*.sh
+
+      - name: Build wallet_merged (MinGW)
+        shell: msys2 {0}
+        run: |
+          export ARQMA_WALLET2_UPSTREAM_DIR="$(cygpath -u "$GITHUB_WORKSPACE")/rust/arqma-rpc-upstream"
+          export ARQMA_CI_WINDOWS_NODE_DIR="$(cygpath -u "${ARQMA_CI_WINDOWS_NODE_DIR:-}")"
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/clone-arqma.sh"
+          bash "$(cygpath -u "$GITHUB_WORKSPACE")/build/ci/build-arqma-mingw.sh"
+
+      - name: Build solo pool sidecar (Windows)
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
+          $env:Path = "$root\mingw64\bin;$root\usr\bin;" + $env:Path
+          $env:ARQMA_WALLET2_MSYS_ROOT = "$root\mingw64"
+          $env:ARQMA_MINGW_BIN = "$root\mingw64\bin"
+          bash build/ci/ensure-tauri-dist-stub.sh
+          & rust\tool\build_flutter_solo_pool.ps1 -MsysRoot $root -SkipArqmaCMake
+          $solo = "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
+          if (-not (Test-Path $solo)) { throw "missing $solo after solo pool build" }
 
       - name: Fetch wallet FFI (ArqTras/FFI, Windows)
         shell: pwsh
@@ -354,7 +467,7 @@ jobs:
           }
           $verify = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1"
           if (-not (Test-Path $verify)) { throw "missing verify script: $verify (commit flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1)" }
-          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad
+          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad -FailIfNoSoloPool
 
       - name: Zip Release layout
         shell: pwsh

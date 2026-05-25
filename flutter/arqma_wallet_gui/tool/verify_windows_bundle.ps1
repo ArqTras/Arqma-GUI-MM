@@ -1,5 +1,5 @@
-# Verify Flutter Windows Release folder is runnable standalone (exe, engine, FFI, assets, optional arqmad).
-# Usage: .\tool\verify_windows_bundle.ps1 [-ReleaseDir path] [-FailIfNoArqmad]
+# Verify Flutter Windows Release folder is runnable standalone (exe, engine, FFI, assets, arqmad, solo pool).
+# Usage: .\tool\verify_windows_bundle.ps1 [-ReleaseDir path] [-FailIfNoArqmad] [-FailIfNoSoloPool]
 param(
     [string]$ReleaseDir = "",
     [switch]$FailIfNoArqmad,

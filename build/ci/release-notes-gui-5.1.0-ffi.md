@@ -7,6 +7,7 @@ Desktop and mobile bundles built from tag **5.1.0** / `main` with **[ArqTras/FFI
 - **Windows sync:** FFI **1.0.3** fixes wallet scan stalls near checkpoint height (`pauseRefresh` + `refreshAsync` fallback). GUI heartbeat defers heavy RPC during scan and kicks `refresh_from_height` on stall.
 - **UI:** Fix nested `Scrollbar` / `PrimaryScrollController` errors on wallet list and daemon settings.
 - **Daemon RPC:** Quieter probe logging during remote node scan and optional `get_txpool_backlog` JSON quirks.
+- **Solo pool:** Desktop bundles (Windows, Linux, macOS) include **`arqma_flutter_solo_pool`** under `bin/` — Stratum solo mining sidecar.
 
 ### CI
 
