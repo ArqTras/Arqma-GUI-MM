@@ -1,8 +1,8 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
-# Wallet FFI: prebuilt ArqTras/FFI release 1.0.1 (ARQMA_FFI_RELEASE_VERSION):
-#   macOS:   https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-macos-arm64-1.0.1.zip
-#   Windows: https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-windows-x86_64-gnu-1.0.1.zip
-#   Linux:   https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-linux-x86_64-1.0.1.zip
+# Wallet FFI: prebuilt ArqTras/FFI release 1.0.3 (ARQMA_FFI_RELEASE_VERSION):
+#   macOS:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-macos-arm64-1.0.3.zip
+#   Windows: https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-windows-x86_64-gnu-1.0.3.zip
+#   Linux:   https://github.com/ArqTras/FFI/releases/download/1.0.3/arqma-wallet-ffi-linux-x86_64-1.0.3.zip
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
 #
 # Before first public release: `gh repo edit <owner>/<repo> --visibility public`
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ARQMA_FFI_RELEASE_VERSION: "1.0.1"
+  ARQMA_FFI_RELEASE_VERSION: "1.0.3"
   ARQMA_FFI_REPO: ArqTras/FFI
 
 jobs:

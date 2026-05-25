@@ -286,6 +286,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
           const Divider(height: 24, color: ArqmaColors.dividerLine),
           Expanded(
             child: ListView.separated(
+              primary: false,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               itemCount: list.length,
               separatorBuilder: (BuildContext context, int index) =>
@@ -297,6 +298,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         ] else
           Expanded(
             child: ListView(
+              primary: false,
               padding: const EdgeInsets.all(16),
               children: actions
                   .map(

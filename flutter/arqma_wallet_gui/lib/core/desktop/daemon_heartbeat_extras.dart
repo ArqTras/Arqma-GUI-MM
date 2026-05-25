@@ -50,12 +50,30 @@ Future<bool?> explorerClockSkewArqma({required bool testnet}) async {
 Future<Map<String, dynamic>> collectSlowDaemonHeartbeat(
     String host, int port) async {
   final Map<String, dynamic> out = <String, dynamic>{};
-  final Map<String, dynamic>? c1 =
-      await DaemonJsonRpc.post(host, port, 'get_connections');
-  final Map<String, dynamic>? c2 =
-      await DaemonJsonRpc.post(host, port, 'get_bans');
-  final Map<String, dynamic>? c3 =
-      await DaemonJsonRpc.post(host, port, 'get_txpool_backlog');
+  final Map<String, dynamic>? c1 = await DaemonJsonRpc.post(
+    host,
+    port,
+    'get_connections',
+    quiet: true,
+    connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+    requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+  );
+  final Map<String, dynamic>? c2 = await DaemonJsonRpc.post(
+    host,
+    port,
+    'get_bans',
+    quiet: true,
+    connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+    requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+  );
+  final Map<String, dynamic>? c3 = await DaemonJsonRpc.post(
+    host,
+    port,
+    'get_txpool_backlog',
+    quiet: true,
+    connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+    requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+  );
   final Object? con = DaemonJsonRpc.result(c1)?['connections'];
   if (con != null) {
     out['connections'] = con;

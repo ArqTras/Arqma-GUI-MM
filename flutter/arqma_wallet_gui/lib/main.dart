@@ -269,6 +269,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
           return MaterialApp.router(
             title: 'Arqma Wallet',
             debugShowCheckedModeBanner: false,
+            scrollBehavior: const ArqmaScrollBehavior(),
             theme: buildArqmaTheme(),
             routerConfig: widget.router,
             scaffoldMessengerKey: appScaffoldMessengerKey,

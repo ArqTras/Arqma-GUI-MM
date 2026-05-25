@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 APP="$(cd "$(dirname "$0")/.." && pwd)"
 JNILIBS="${APP}/android/app/src/main/jniLibs"
 LIB="libarqma_wallet_flutter_ffi.so"
-VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.1}"
+VERSION="${ARQMA_FFI_RELEASE_VERSION:-1.0.3}"
 PREBUILT_ROOT="${ROOT}/.prebuilt/arqma-wallet-ffi/${VERSION}"
 CPP_SHARED="libc++_shared.so"
 

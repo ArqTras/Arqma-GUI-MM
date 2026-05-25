@@ -45,9 +45,11 @@ Future<String> readHttpResponseBodyUtf8(HttpClientResponse resp) async {
         debugPrint('[DaemonJsonRpc] gzip retry after UTF-8 fail: $e2');
       }
     }
-    debugPrint(
-      '[DaemonJsonRpc] UTF-8 decode len=${bytes.length} (lenient): $e',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '[DaemonJsonRpc] UTF-8 decode len=${bytes.length} (lenient): $e',
+      );
+    }
     return utf8.decode(payload, allowMalformed: true);
   }
 }
@@ -134,6 +136,7 @@ class DaemonJsonRpc {
     Object? params,
     Duration? connectTimeout,
     Duration? requestTimeout,
+    bool quiet = false,
   }) async {
     final Duration ct = connectTimeout ?? defaultDaemonConnectTimeout;
     final Duration rt = requestTimeout ?? defaultDaemonRequestTimeout;
@@ -160,7 +163,9 @@ class DaemonJsonRpc {
         final HttpClientResponse resp = await req.close();
         final String text = await readHttpResponseBodyUtf8(resp);
         if (resp.statusCode != 200) {
-          debugPrint('[DaemonJsonRpc] HTTP ${resp.statusCode} $text');
+          if (!quiet) {
+            debugPrint('[DaemonJsonRpc] HTTP ${resp.statusCode} $text');
+          }
           return null;
         }
         final Object? decoded = _jsonDecodeDaemonBody(method, text);
@@ -179,14 +184,20 @@ class DaemonJsonRpc {
       return await run().timeout(
         rt,
         onTimeout: () {
-          debugPrint(
-            '[DaemonJsonRpc] $method timed out after $rt — tried http://$host:$port/json_rpc',
-          );
+          if (!quiet) {
+            debugPrint(
+              '[DaemonJsonRpc] $method timed out after $rt — tried http://$host:$port/json_rpc',
+            );
+          }
           return null;
         },
       );
     } catch (e, st) {
-      debugPrint('[DaemonJsonRpc] $method failed: $e\n$st');
+      if (quiet) {
+        debugPrint('[DaemonJsonRpc] $method failed: $e');
+      } else {
+        debugPrint('[DaemonJsonRpc] $method failed: $e\n$st');
+      }
       return null;
     } finally {
       client.close(force: true);
@@ -200,6 +211,7 @@ class DaemonJsonRpc {
     int port, {
     Duration? connectTimeout,
     Duration? requestTimeout,
+    bool quiet = false,
   }) async {
     return post(
       host,
@@ -207,6 +219,7 @@ class DaemonJsonRpc {
       'get_info',
       connectTimeout: connectTimeout ?? defaultDaemonConnectTimeout,
       requestTimeout: requestTimeout ?? defaultDaemonRequestTimeout,
+      quiet: quiet,
     );
   }
 

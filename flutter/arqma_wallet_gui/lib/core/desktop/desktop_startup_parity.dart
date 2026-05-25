@@ -130,8 +130,13 @@ Future<({String host, int port})?> pickFastestRemote(
     }
     final Stopwatch sw = Stopwatch()..start();
     try {
-      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(h, p)
-          .timeout(const Duration(milliseconds: 2500));
+      final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(
+        h,
+        p,
+        connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+        requestTimeout: const Duration(milliseconds: 2500),
+        quiet: true,
+      );
       sw.stop();
       if (DaemonJsonRpc.getInfoPayload(r) == null) {
         continue;
@@ -174,6 +179,7 @@ Future<DaemonReachableResult> checkDaemonReachable(
     ep.port,
     connectTimeout: DaemonJsonRpc.probeConnectTimeout,
     requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+    quiet: true,
   );
   final Map<String, dynamic>? info = DaemonJsonRpc.getInfoPayload(r);
   if (info == null) {

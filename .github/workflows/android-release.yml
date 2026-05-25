@@ -23,7 +23,7 @@ on:
       ffi_version:
         description: "ArqTras/FFI release tag for prebuilt wallet FFI"
         required: true
-        default: "1.0.1"
+        default: "1.0.3"
         type: string
 
 permissions:
@@ -35,7 +35,7 @@ concurrency:
 
 env:
   ANDROID_DIR: flutter-android/arqma_wallet_android
-  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || '1.0.1' }}
+  ARQMA_FFI_RELEASE_VERSION: ${{ github.event.inputs.ffi_version || '1.0.3' }}
 
 jobs:
   flutter-android:

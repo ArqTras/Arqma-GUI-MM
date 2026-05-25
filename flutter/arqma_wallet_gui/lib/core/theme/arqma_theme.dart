@@ -2,6 +2,29 @@ import 'package:flutter/material.dart';
 
 import 'arqma_colors.dart';
 
+/// Desktop nested [ListView]s must not inherit [PrimaryScrollController] for implicit
+/// [Scrollbar]s — otherwise drag gestures throw "ScrollController has no ScrollPosition".
+class ArqmaScrollBehavior extends MaterialScrollBehavior {
+  const ArqmaScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    final ScrollController? controller = details.controller;
+    if (controller == null) {
+      return child;
+    }
+    return Scrollbar(
+      controller: controller,
+      thumbVisibility: false,
+      child: child,
+    );
+  }
+}
+
 ThemeData buildArqmaTheme() {
   const Color gold = ArqmaColors.arqmaGreenSolid;
   const Color onGold = Color(0xFF14110A);

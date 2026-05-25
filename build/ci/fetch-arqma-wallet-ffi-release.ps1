@@ -1,17 +1,17 @@
 # Download prebuilt arqma-wallet-flutter-ffi from GitHub Releases (ArqTras/FFI).
-# Default: tag 1.0.1 — https://github.com/ArqTras/FFI/releases/tag/1.0.1
+# Default: tag 1.0.3 — https://github.com/ArqTras/FFI/releases/tag/1.0.3
 #
 # Usage (repo root):
 #   .\build\ci\fetch-arqma-wallet-ffi-release.ps1
 #   .\build\ci\fetch-arqma-wallet-ffi-release.ps1 -Platforms windows-x86_64-gnu,android-x86_64
-#   $env:ARQMA_FFI_RELEASE_VERSION = "1.0.1"
+#   $env:ARQMA_FFI_RELEASE_VERSION = "1.0.3"
 #   $env:ARQMA_FFI_FORCE = "1"   # re-download
 #
 # Layout: .prebuilt/arqma-wallet-ffi/<version>/<platform>/...
 # Also mirrors into rust/target/... for existing copy_* scripts.
 
 param(
-    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "1.0.1" }),
+    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "1.0.3" }),
     [string]$Repo = "ArqTras/FFI",
     [string[]]$Platforms = @(
         "windows-x86_64-gnu",

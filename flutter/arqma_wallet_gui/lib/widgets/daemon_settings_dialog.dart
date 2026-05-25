@@ -26,8 +26,15 @@ class _DaemonSettingsDialog extends StatefulWidget {
 
 class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
   int _tab = 0;
+  final ScrollController _generalScroll = ScrollController();
   final GlobalKey<SettingsGeneralPanelState> _panelKey =
       GlobalKey<SettingsGeneralPanelState>();
+
+  @override
+  void dispose() {
+    _generalScroll.dispose();
+    super.dispose();
+  }
 
   static bool _daemonIsRemote(GatewayStore store) {
     final Map<String, dynamic> cfg = Map<String, dynamic>.from(
@@ -168,12 +175,15 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
                   ? Padding(
                       padding: const EdgeInsets.all(8),
                       child: Scrollbar(
+                        controller: _generalScroll,
                         child: SingleChildScrollView(
+                          controller: _generalScroll,
                           child: SettingsGeneralPanel(key: _panelKey),
                         ),
                       ),
                     )
                   : ListView(
+                      primary: false,
                       padding: const EdgeInsets.all(12),
                       children: [
                         Text(loc.tr('components.settings.peer_list'),
