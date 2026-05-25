@@ -307,6 +307,7 @@ jobs:
             mingw-w64-x86_64-zeromq
             mingw-w64-x86_64-hidapi
             mingw-w64-x86_64-readline
+            mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-unbound
             mingw-w64-x86_64-lmdb
             mingw-w64-x86_64-icu
@@ -528,6 +529,7 @@ jobs:
             mingw-w64-x86_64-zeromq
             mingw-w64-x86_64-hidapi
             mingw-w64-x86_64-readline
+            mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-unbound
             mingw-w64-x86_64-lmdb
             mingw-w64-x86_64-icu
@@ -607,8 +609,42 @@ jobs:
       - name: Extract archive (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          tar -xvf "${{ github.workspace }}/downloads/latest.gz" --directory "${{ github.workspace }}"
-          ls -la "${{ github.workspace }}/bin" || true
+          set -eu
+          root="${{ github.workspace }}"
+          f=""
+          for c in \
+            "$root/downloads/latest.tar.xz" \
+            "$root/downloads/latest.xz" \
+            "$root/downloads/latest.tar.gz" \
+            "$root/downloads/latest.tgz" \
+            "$root/downloads/latest.gz"
+          do
+            if [[ -f "$c" ]]; then f="$c"; break; fi
+          done
+          if [[ -z "$f" ]]; then
+            echo "::error::no downloads/latest archive (tar.xz, tar.gz, tgz, gz)"
+            ls -la "$root/downloads" || true
+            exit 1
+          fi
+          case "$f" in
+            *.tar.xz|*.txz|*.xz) tar -xJf "$f" --directory "$root" ;;
+            *.tar.gz|*.tgz|*.gz) tar -xzvf "$f" --directory "$root" ;;
+            *) echo "::error::unhandled archive $f"; exit 1 ;;
+          esac
+          if [[ ! -f "$root/bin/arqmad" ]]; then
+            found=""
+            while IFS= read -r p; do
+              case "$p" in *.app/*) continue ;; esac
+              found="$p"; break
+            done < <(find "$root" \( -path "$root/.git" -o -path "$root/rust/target" -o -path "$root/flutter" -o -path "$root/node_modules" -o -path "$root/downloads" \) -prune -o -type f -name arqmad ! -path "*.app/*" -print 2>/dev/null)
+            if [[ -n "$found" ]]; then
+              mkdir -p "$root/bin"
+              cp -f "$found" "$root/bin/arqmad"
+              chmod +x "$root/bin/arqmad" || true
+              echo "Staged arqmad from $found -> bin/arqmad"
+            fi
+          fi
+          ls -la "$root/bin" || true
 
       - name: Extract archive (Windows)
         if: matrix.os == 'windows-latest'

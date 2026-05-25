@@ -7,7 +7,7 @@
  * The Cargo step must not put MinGW *before* MSVC either: host `build.rs` crates (e.g. `vswhom-sys`) use the `cc`
  * crate — if `g++.exe` wins first, objects are GCC-style but MSVC `link.exe` still links them → LNK2001.
  * Append MinGW at the **end** of PATH and set `CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER` so the GNU target uses
- * the MinGW linker. Tauri is invoked via `cargo tauri build` (not `npx tauri`).
+ * the MinGW linker. Tauri is invoked via npm `@tauri-apps/cli` (`tauri build`, not `cargo tauri`).
  */
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
@@ -73,8 +73,6 @@ const r = spawnSync(
   process.execPath,
   [
     join(tauriAppRoot, "scripts", "with-rust-target.mjs"),
-    "--cwd-tauri-src",
-    "cargo",
     "tauri",
     "build",
     "--ci",
