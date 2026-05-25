@@ -46,4 +46,4 @@ Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_n
 
 ## CI
 
-GitHub Actions **`.github/workflows/desktop-release.yml`** (Flutter jobs on tag pushes `v*` / semver `*.*.*`) builds **`wallet_merged`**, copies **`arqmad`** into `src-tauri/bin/` (no `arqma-wallet-rpc` there), then `cargo build -p arqma-wallet-flutter-ffi --release` on **macOS**, **Linux**, and **Windows** (Windows: `--target x86_64-pc-windows-gnu`, same idea as the Tauri Windows job).
+GitHub Actions **`.github/workflows/desktop-release.yml`** (Flutter jobs on tag pushes `v*` / semver `*.*.*`) fetches prebuilt FFI from **ArqTras/FFI** (`linux-x86_64`, `macos-arm64`, `windows-x86_64-gnu`) and **`arqmad`** from **arqma/arqma** latest release — no upstream CMake / `cargo build` in CI. See **`build/ci/fetch-arqma-wallet-ffi-release-linux.sh`** and **`fetch-arqma-wallet-ffi-release.ps1`**.

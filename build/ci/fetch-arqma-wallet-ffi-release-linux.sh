@@ -41,6 +41,42 @@ fetch_platform() {
   echo "[fetch-ffi] extracted -> ${dest}"
 }
 
+mirror_rust_target_release() {
+  local platform="$1"
+  local dir="${VER_DIR}/${platform}"
+  local out="${ROOT}/rust/target/release"
+  mkdir -p "${out}"
+  case "${platform}" in
+    linux-x86_64)
+      local src="${dir}/libarqma_wallet_flutter_ffi.so"
+      if [[ ! -f "${src}" ]]; then
+        src="$(find "${dir}" -name 'libarqma_wallet_flutter_ffi.so' -type f 2>/dev/null | head -1)"
+      fi
+      if [[ ! -f "${src}" ]]; then
+        echo "[fetch-ffi] error: missing Linux FFI under ${dir}" >&2
+        return 1
+      fi
+      cp -f "${src}" "${out}/libarqma_wallet_flutter_ffi.so"
+      echo "[fetch-ffi] rust/target/release/ <- ${src}"
+      ;;
+    macos-arm64|macos-x86_64)
+      local src="${dir}/libarqma_wallet_flutter_ffi.dylib"
+      if [[ ! -f "${src}" ]]; then
+        src="$(find "${dir}" -name 'libarqma_wallet_flutter_ffi.dylib' -type f 2>/dev/null | head -1)"
+      fi
+      if [[ ! -f "${src}" ]]; then
+        echo "[fetch-ffi] error: missing macOS FFI under ${dir}" >&2
+        return 1
+      fi
+      cp -f "${src}" "${out}/libarqma_wallet_flutter_ffi.dylib"
+      echo "[fetch-ffi] rust/target/release/ <- ${src}"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
 mirror_ios() {
   local platform="$1"
   local dir="${VER_DIR}/${platform}"
@@ -103,6 +139,8 @@ for p in "${_platforms[@]}"; do
     mirror_jni "${p}"
   elif [[ "${p}" == ios ]]; then
     mirror_ios "${p}"
+  elif [[ "${p}" == linux-x86_64 || "${p}" == macos-* ]]; then
+    mirror_rust_target_release "${p}"
   fi
 done
 
