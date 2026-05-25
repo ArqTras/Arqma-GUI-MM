@@ -88,7 +88,7 @@ Outputs under **`dist/`**:
 | `*-ios-manifest.txt` | Build metadata |
 | `TESTFLIGHT.md` | Upload steps |
 
-CI: push tag `5.1.0` or `v5.1.0` → workflow **Mobile release (Flutter iOS)** (requires `contrib/depends` + `wallet_merged` on the runner or a prior local build committed/cached).
+iOS IPA / TestFlight: build locally on macOS with `./tool/package_mobile_release.sh` (GitHub Actions does not build or publish iOS).
 
 `Info.plist` allows HTTP JSON-RPC to remote nodes (`NSAppTransportSecurity`).
 
