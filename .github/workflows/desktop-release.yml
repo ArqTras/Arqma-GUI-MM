@@ -434,6 +434,7 @@ jobs:
             exit 1
           fi
 
+      # Re-runs replace same-named release assets (zip/dmg/AppImage/Setup.exe) on this tag.
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
