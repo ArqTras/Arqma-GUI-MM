@@ -44,9 +44,25 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
           # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
           token: ''
 
@@ -161,9 +177,25 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
           # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
           token: ''
 
@@ -287,9 +319,25 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
           # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
           token: ''
 
