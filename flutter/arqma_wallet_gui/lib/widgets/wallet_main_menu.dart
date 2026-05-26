@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../core/app_exit_watchdog.dart';
+import '../core/desktop/desktop_app_exit.dart';
 import '../core/services/native_bridge.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
@@ -64,35 +64,9 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
     );
     if (ok == true && context.mounted) {
       await Future<void>.delayed(Duration.zero);
-      final AppExitWatchdog exitWatchdog =
-          await startAppExitWatchdog(maxSeconds: 14);
-      try {
-        try {
-          await bridge
-              .backendSend('wallet', 'save_wallet', <String, dynamic>{})
-              .timeout(const Duration(seconds: 4));
-        } catch (e, st) {
-          debugPrint('[WalletMainMenu] exit save_wallet: $e\n$st');
-        }
-        try {
-          await bridge
-              .backendSend('wallet', 'close_wallet', <String, dynamic>{})
-              .timeout(const Duration(seconds: 8));
-        } catch (e, st) {
-          debugPrint('[WalletMainMenu] exit close_wallet: $e\n$st');
-        }
-        try {
-          await bridge
-              .invoke('confirm_close', <String, dynamic>{'restart': false})
-              .timeout(const Duration(seconds: 4));
-        } catch (e, st) {
-          debugPrint('[WalletMainMenu] exit confirm_close: $e\n$st');
-        }
-        if (context.mounted) {
-          context.go('/quit');
-        }
-      } finally {
-        exitWatchdog.cancel();
+      await runDesktopGracefulExit(bridge);
+      if (context.mounted) {
+        context.go('/quit');
       }
     }
   }

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
 import '../core/app_api.dart';
+import '../core/validators/service_node_command.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
 import 'password_dialogs.dart';
@@ -488,7 +489,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     }
     final String s = cmd.text.trim();
     cmd.dispose();
-    if (s.isEmpty) {
+    if (!isValidRegisterServiceNodeCommand(s)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(loc
               .tr('components.wallet_settings.invalid_service_node_command'))));
@@ -496,6 +497,29 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     }
     await api.send('wallet', 'register_service_node',
         <String, dynamic>{'password': password, 'string': s});
+    if (!mounted) {
+      return;
+    }
+    final Map<String, dynamic> reg = Map<String, dynamic>.from(
+      (context.read<GatewayStore>().raw['service_node_status']
+              as Map<String, dynamic>?)?['registration'] as Map? ??
+          <String, dynamic>{},
+    );
+    final int code = reg['code'] is int ? reg['code'] as int : 0;
+    final String msg = '${reg['message'] ?? ''}'.trim();
+    if (code == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            loc.tr('components.wallet_settings.service_node_registering_message'),
+          ),
+        ),
+      );
+    } else if (msg.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    }
   }
 
   Future<void> _keyImages() async {

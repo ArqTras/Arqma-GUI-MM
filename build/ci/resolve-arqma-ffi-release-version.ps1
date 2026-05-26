@@ -1,4 +1,4 @@
-# Print the ArqTras/FFI release tag for prebuilt downloads (Latest release by default).
+# Print the ArqTras/FFI release tag for prebuilt downloads (default: GitHub Latest).
 param(
     [string]$Repo = $(if ($env:ARQMA_FFI_REPO) { $env:ARQMA_FFI_REPO } else { "ArqTras/FFI" }),
     [string]$Requested = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "latest" })

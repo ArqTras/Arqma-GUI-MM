@@ -231,8 +231,6 @@ final class DesktopNativeBridge implements NativeBridge {
   int _windowsScanHbLastHeight = -1;
   int _windowsScanStallTicks = 0;
   DateTime? _windowsWalletLastRefreshAt;
-  int _windowsScanLastXferHeight = 0;
-  DateTime? _windowsScanLastXferAt;
   int _daemonChainTipHeight = 0;
   int _whStoredHeight = 0;
   int _whStoredBalance = 0;
@@ -251,6 +249,21 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
+
+  /// Skip [save_wallet] on app exit while rescan/sync would block FFI on the UI thread.
+  bool get shouldSkipSaveOnExit {
+    if (_walletFullRescanUi) {
+      return true;
+    }
+    if (!Platform.isWindows) {
+      return false;
+    }
+    final int tip = _daemonChainTipHeight;
+    if (tip <= 0) {
+      return _walletHbInFlight;
+    }
+    return _whStoredHeight < tip - 16;
+  }
 
   /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
   bool _whAddressBookPending = false;
@@ -1628,8 +1641,6 @@ final class DesktopNativeBridge implements NativeBridge {
     _windowsScanHbLastHeight = -1;
     _windowsScanStallTicks = 0;
     _windowsWalletLastRefreshAt = null;
-    _windowsScanLastXferHeight = 0;
-    _windowsScanLastXferAt = null;
   }
 
   /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
@@ -1944,7 +1955,9 @@ final class DesktopNativeBridge implements NativeBridge {
     final int dh = _daemonChainTipHeight;
     final bool inScanRhythm = dh == 0 || h0 < dh;
     final Duration ghCap = inScanRhythm
-        ? const Duration(seconds: 120)
+        ? (Platform.isWindows
+            ? const Duration(seconds: 60)
+            : const Duration(seconds: 120))
         : const Duration(seconds: 45);
     final Duration abCap = inScanRhythm
         ? const Duration(seconds: 30)
@@ -1983,26 +1996,7 @@ final class DesktopNativeBridge implements NativeBridge {
           walletHeight: newH,
           daemonTip: dh,
         ));
-        // Periodic xfer during long scan (heavy; may pause UI briefly) so tx history is not empty until tip.
-        final DateTime now = DateTime.now();
-        final int daysWt =
-            (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ??
-                    1)
-                .clamp(1, 365);
-        final int daysWindowBlocks = daysWt * 720;
-        final bool xferCooldown = _windowsScanLastXferAt == null ||
-            now.difference(_windowsScanLastXferAt!) >
-                const Duration(seconds: 180);
-        final bool heightProgress =
-            newH > _windowsScanLastXferHeight + 25000;
-        if (!_walletXferBusy &&
-            xferCooldown &&
-            heightProgress &&
-            ghOk) {
-          _windowsScanLastXferAt = now;
-          _windowsScanLastXferHeight = newH;
-          unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
-        }
+        // Do not run get_transfers/xfer here — FFI on the UI isolate freezes scan progress.
       }
       return;
     }

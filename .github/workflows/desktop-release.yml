@@ -1,7 +1,7 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
-# Push to branch `dev` builds all platforms and uploads Actions artifacts (no GitHub Release).
+# Push to branch `main` builds all platforms and uploads Actions artifacts (no GitHub Release).
 # Tags / workflow_dispatch with a release tag still publish to GitHub Releases.
-# Wallet FFI + solo pool: Latest prebuilt from ArqTras/FFI (resolve-arqma-ffi-release-version.*).
+# Wallet FFI + solo pool: Latest ArqTras/FFI (resolve-arqma-ffi-release-version.*; pin with ARQMA_FFI_RELEASE_VERSION).
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
 # Solo pool: desktop only (Windows, Linux, macOS). Android/iOS do not include solo pool.
 #
@@ -16,13 +16,13 @@ on:
       - "v*"
       - "*.*.*"
     branches:
-      - dev
+      - main
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to build (branch or tag: dev, 5.1.0, v5.1.0)"
+        description: "Git ref to build (branch or tag: main, 5.1.0, v5.1.0)"
         required: true
-        default: "dev"
+        default: "main"
         type: string
 
 permissions:
@@ -34,6 +34,7 @@ concurrency:
 
 env:
   ARQMA_FFI_REPO: ArqTras/FFI
+  ARQMA_FFI_RELEASE_VERSION: "latest"
 
 jobs:
   flutter-macos:
@@ -44,9 +45,26 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
@@ -97,10 +115,10 @@ jobs:
           ARQMA_SOLO_POOL_PLATFORMS: macos-arm64
         run: bash build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+      - name: Install Flutter (pinned)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/setup-flutter-stable-ci.sh
 
       - run: flutter pub get
 
@@ -134,13 +152,17 @@ jobs:
           cd build/macos/Build/Products/Release
           ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip"
 
-      - name: DMG (macOS)
+      - name: DMG (macOS, drag to Applications)
         working-directory: ${{ github.workspace }}
         run: |
           set -eu
           APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
           test -d "$APP"
-          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "$APP" -ov -format UDZO "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          STAGING="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
+          cp -R "$APP" "${STAGING}/"
+          ln -sf /Applications "${STAGING}/Applications"
+          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "${STAGING}" -ov -format UDZO -imagekey zlib-level=9 "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          rm -rf "${STAGING}"
           ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
 
       - uses: actions/upload-artifact@v6
@@ -159,9 +181,26 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
@@ -218,10 +257,10 @@ jobs:
           ARQMA_SOLO_POOL_PLATFORMS: linux-x86_64
         run: bash build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+      - name: Install Flutter (pinned)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/setup-flutter-stable-ci.sh
 
       - run: flutter pub get
 
@@ -283,9 +322,26 @@ jobs:
       run:
         working-directory: flutter/arqma_wallet_gui
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+      - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        env:
+          CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+        run: |
+          set -euo pipefail
+          REF="${CHECKOUT_REF}"
+          if [[ "${REF}" != refs/heads/* && "${REF}" != refs/tags/* ]]; then
+            if git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${REF}" >/dev/null 2>&1; then
+              REF="refs/tags/${REF}"
+            else
+              REF="refs/heads/${REF}"
+            fi
+          fi
+          find "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git init "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
+          git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
@@ -300,28 +356,9 @@ jobs:
 
       - name: MSYS2 / MinGW64 (Windows — Flutter FFI runtime DLLs)
         id: msys2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-boost
-            mingw-w64-x86_64-openssl
-            mingw-w64-x86_64-libsodium
-            mingw-w64-x86_64-zeromq
-            mingw-w64-x86_64-hidapi
-            mingw-w64-x86_64-readline
-            mingw-w64-x86_64-ncurses
-            mingw-w64-x86_64-unbound
-            mingw-w64-x86_64-lmdb
-            mingw-w64-x86_64-icu
-            mingw-w64-x86_64-zlib
-            mingw-w64-x86_64-libunwind
-            git
-            zip
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: pwsh -NoProfile -File build/ci/setup-msys2-mingw64-windows-ci.ps1
 
       - uses: actions/setup-node@v4
         with:
@@ -350,7 +387,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARQMA_FFI_RELEASE_VERSION: latest
         run: |
           pwsh -NoProfile -File build/ci/fetch-arqma-wallet-ffi-release.ps1 `
             -Platforms windows-x86_64-gnu `
@@ -363,10 +399,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: pwsh -File build/ci/flutter-windows-fetch-arqma-binaries.ps1
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+      - name: Install Flutter (pinned)
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/setup-flutter-stable-ci.sh
 
       - run: flutter pub get
 
