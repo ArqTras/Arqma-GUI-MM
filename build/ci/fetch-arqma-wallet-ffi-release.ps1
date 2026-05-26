@@ -11,7 +11,7 @@
 # Also mirrors into rust/target/... for existing copy_* scripts.
 
 param(
-    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "latest" }),
+    [string]$Version = $(if ($env:ARQMA_FFI_RELEASE_VERSION) { $env:ARQMA_FFI_RELEASE_VERSION } else { "1.0.5" }),
     [string]$Repo = "ArqTras/FFI",
     [string[]]$Platforms = @(
         "windows-x86_64-gnu",

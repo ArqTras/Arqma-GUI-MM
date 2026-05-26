@@ -1,7 +1,7 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
 # Push to branch `dev` builds all platforms and uploads Actions artifacts (no GitHub Release).
 # Tags / workflow_dispatch with a release tag still publish to GitHub Releases.
-# Wallet FFI + solo pool: Latest prebuilt from ArqTras/FFI (resolve-arqma-ffi-release-version.*).
+# Wallet FFI + solo pool: ArqTras/FFI 1.0.5 (resolve-arqma-ffi-release-version.*; override with latest).
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
 # Solo pool: desktop only (Windows, Linux, macOS). Android/iOS do not include solo pool.
 #
@@ -34,6 +34,7 @@ concurrency:
 
 env:
   ARQMA_FFI_REPO: ArqTras/FFI
+  ARQMA_FFI_RELEASE_VERSION: "1.0.5"
 
 jobs:
   flutter-macos:
@@ -382,7 +383,6 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARQMA_FFI_RELEASE_VERSION: latest
         run: |
           pwsh -NoProfile -File build/ci/fetch-arqma-wallet-ffi-release.ps1 `
             -Platforms windows-x86_64-gnu `
