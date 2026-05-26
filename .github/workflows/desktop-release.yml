@@ -45,6 +45,7 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
         shell: bash
         env:
           CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
@@ -63,8 +64,6 @@ jobs:
           git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
           git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
-          # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
-          token: ''
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
@@ -178,6 +177,7 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
         shell: bash
         env:
           CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
@@ -196,8 +196,6 @@ jobs:
           git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
           git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
-          # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
-          token: ''
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
@@ -320,6 +318,7 @@ jobs:
         working-directory: flutter/arqma_wallet_gui
     steps:
       - name: Checkout repository (public unauthenticated)
+        working-directory: ${{ github.workspace }}
         shell: bash
         env:
           CHECKOUT_REF: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
@@ -338,8 +337,6 @@ jobs:
           git -C "${GITHUB_WORKSPACE}" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
           git -C "${GITHUB_WORKSPACE}" -c protocol.version=2 fetch --depth 1 origin "${REF}"
           git -C "${GITHUB_WORKSPACE}" checkout -f FETCH_HEAD
-          # Public repo: avoid GITHUB_TOKEN when owner account is restricted (403 suspended).
-          token: ''
 
       - name: Pubspec version slug (release artifacts)
         id: pubver
