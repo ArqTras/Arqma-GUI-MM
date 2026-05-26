@@ -1,4 +1,6 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
+# Push to branch `dev` builds all platforms and uploads Actions artifacts (no GitHub Release).
+# Tags / workflow_dispatch with a release tag still publish to GitHub Releases.
 # Wallet FFI + solo pool: Latest prebuilt from ArqTras/FFI (resolve-arqma-ffi-release-version.*).
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
 # Solo pool: desktop only (Windows, Linux, macOS). Android/iOS do not include solo pool.
@@ -13,12 +15,14 @@ on:
     tags:
       - "v*"
       - "*.*.*"
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref to build (tag recommended: 5.1.0 or v5.1.0 — must exist on remote)"
+        description: "Git ref to build (branch or tag: dev, 5.1.0, v5.1.0)"
         required: true
-        default: "5.1.0"
+        default: "dev"
         type: string
 
 permissions:
