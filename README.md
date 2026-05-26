@@ -117,7 +117,7 @@ Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event
 
 ## CI (GitHub Actions)
 
-- **`desktop-release.yml`** — On tag `v*` / semver `*.*.*` (np. `5.1.0` lub `v5.1.0`) lub `workflow_dispatch`: buduje **Flutter** desktop (zip / DMG / tar.gz / AppImage / Inno Setup na Windows) using prebuilt wallet FFI from **[ArqTras/FFI](https://github.com/ArqTras/FFI)** and **`arqmad`** from **arqma/arqma** releases; jeden **GitHub Release** ze wszystkimi artefaktami. Opcjonalnie po push tagu: ustawienie repozytorium na **private** przy secrecie `ARQMA_REPO_VISIBILITY_PAT`.
+- **`desktop-release.yml`** — Push do **`dev`**: buduje Flutter desktop (macOS / Linux / Windows) i publikuje artefakty w Actions (bez GitHub Release). Tag `v*` / semver `*.*.*` lub `workflow_dispatch`: to samo + jeden **GitHub Release** (prebuilt FFI z **[ArqTras/FFI](https://github.com/ArqTras/FFI)**, **`arqmad`** z **arqma/arqma**). Opcjonalnie po push tagu: repozytorium **private** przy secrecie `ARQMA_REPO_VISIBILITY_PAT`.
 
 ---
 
