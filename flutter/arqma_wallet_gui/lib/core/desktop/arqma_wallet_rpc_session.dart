@@ -299,6 +299,10 @@ final class ArqmaWalletRpcSession {
   Future<void> forceResetNativeFfi({int watchdogMs = 0}) async {
     final WalletFfiIsolateClient? iso = _isolateClient;
     if (iso != null) {
+      if (watchdogMs <= 0) {
+        unawaited(iso.dispose());
+        return;
+      }
       try {
         await iso
             .callJsonRpc('close_wallet', <String, dynamic>{})

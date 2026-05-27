@@ -18,6 +18,13 @@ void pauseBridgeTimersForExit(NativeBridge bridge) {
   }
 }
 
+/// User confirmed exit — do not await [showDialog]; start shutdown in the button handler.
+void confirmDesktopExitFromDialog(BuildContext dialogContext, NativeBridge bridge) {
+  Navigator.of(dialogContext, rootNavigator: true).pop(true);
+  scheduleQuitPage();
+  hardExitFromApp(bridge);
+}
+
 /// Full-screen "Shutting down…" after the modal route is gone.
 void scheduleQuitPage() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -30,7 +37,7 @@ void scheduleQuitPage() {
 
 /// Kill the process immediately; teardown runs in the background (must not block UI).
 void hardExitFromApp(NativeBridge bridge) {
-  unawaited(startAppExitWatchdog(maxSeconds: 3));
+  unawaited(startAppExitWatchdog(maxSeconds: 2));
   pauseBridgeTimersForExit(bridge);
   unawaited(Future<void>(() async {
     try {
@@ -45,6 +52,19 @@ void hardExitFromApp(NativeBridge bridge) {
 }
 
 void terminateDesktopProcessNow() {
+  final int ownPid = pid;
+  if (Platform.isWindows) {
+    // Detached taskkill — works when the UI isolate is stuck in synchronous FFI.
+    unawaited(Process.start(
+      'taskkill',
+      <String>['/F', '/T', '/PID', '$ownPid'],
+      runInShell: true,
+      mode: ProcessStartMode.detached,
+    ));
+  }
+  try {
+    Process.killPid(ownPid, ProcessSignal.sigkill);
+  } catch (_) {}
   try {
     exit(0);
   } catch (e, st) {
@@ -55,7 +75,4 @@ void terminateDesktopProcessNow() {
   } catch (e, st) {
     debugPrint('[DesktopAppExit] SystemNavigator.pop: $e\n$st');
   }
-  try {
-    Process.killPid(pid, ProcessSignal.sigkill);
-  } catch (_) {}
 }

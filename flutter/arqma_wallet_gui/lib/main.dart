@@ -206,7 +206,12 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
                 child: Text(loc.tr('composables.cancel')),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(d, true),
+                onPressed: () {
+                  if (!done.isCompleted) {
+                    done.complete(AppExitResponse.exit);
+                  }
+                  confirmDesktopExitFromDialog(d, bridge);
+                },
                 child: Text(loc.tr('components.mainmenu.exit_wallet')),
               ),
             ],
@@ -216,9 +221,6 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
           done.complete(AppExitResponse.cancel);
           return;
         }
-        done.complete(AppExitResponse.exit);
-        scheduleQuitPage();
-        hardExitFromApp(bridge);
       } catch (e, st) {
         debugPrint('[ArqmaWalletApp] didRequestAppExit: $e\n$st');
         done.complete(AppExitResponse.exit);

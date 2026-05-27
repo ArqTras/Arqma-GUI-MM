@@ -46,7 +46,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
     final LocaleController loc = context.read<LocaleController>();
     final NativeBridge bridge = context.read<NativeBridge>();
     pauseBridgeTimersForExit(bridge);
-    final ok = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       useRootNavigator: true,
       builder: (BuildContext c) => AlertDialog(
@@ -57,16 +57,13 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
               onPressed: () => Navigator.pop(c, false),
               child: Text(loc.tr('composables.cancel'))),
           TextButton(
-            onPressed: () => Navigator.pop(c, true),
+            onPressed: () => confirmDesktopExitFromDialog(c, bridge),
             child: Text(loc.tr('components.mainmenu.exit_wallet')),
           ),
         ],
       ),
     );
-    if (ok == true) {
-      scheduleQuitPage();
-      hardExitFromApp(bridge);
-    }
+    // Exit confirmed via [confirmDesktopExitFromDialog] in the dialog button handler.
   }
 
   @override
