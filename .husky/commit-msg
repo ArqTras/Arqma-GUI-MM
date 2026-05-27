@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Strip all Co-authored-by and Cursor/Anysphere trailers (ArqTras-only commits).
+# Second pass: strip Co-authored-by / Cursor trailers before the commit is recorded.
 msg_file="$1"
 [ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
 node "$(dirname "$0")/../build/strip-cursor-commit-trailers.mjs" "$msg_file" || true

@@ -23,7 +23,7 @@
     "build-armv8": "quasar build -m electron -T linux -A arm64",
     "lint": "eslint --ext .js,.vue ./src ./src-electron ./build",
     "test": "jest --passWithNoTests",
-    "prepare": "husky"
+    "prepare": "node build/install-git-hooks.mjs"
   },
   "dependencies": {
     "@metamask/sdk": "0.31.4",
