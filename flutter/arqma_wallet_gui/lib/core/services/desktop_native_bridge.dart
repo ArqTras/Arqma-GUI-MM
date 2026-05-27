@@ -292,9 +292,6 @@ final class DesktopNativeBridge implements NativeBridge {
       try {
         p.kill(ProcessSignal.sigterm);
       } catch (_) {}
-      try {
-        await p.exitCode.timeout(const Duration(seconds: 3));
-      } catch (_) {}
     }
   }
 
@@ -517,17 +514,13 @@ final class DesktopNativeBridge implements NativeBridge {
 
   Future<void> _runConfirmCloseShutdown(ArqmaWalletRpcSession? w) async {
     try {
-      await _stopSoloPoolSidecar().timeout(const Duration(seconds: 2));
+      await _stopSoloPoolSidecar();
     } catch (e, st) {
       debugPrint('[DesktopNative] confirm_close solo pool: $e\n$st');
     }
     if (w != null) {
-      unawaited(w.forceResetNativeFfi(watchdogMs: 0));
+      await w.forceResetNativeFfi(watchdogMs: 0);
     }
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    try {
-      exit(0);
-    } catch (_) {}
   }
 
   @override
