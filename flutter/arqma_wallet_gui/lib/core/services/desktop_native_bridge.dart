@@ -515,26 +515,16 @@ final class DesktopNativeBridge implements NativeBridge {
     );
   }
 
-  Future<void> _runConfirmCloseShutdown(
-    ArqmaWalletRpcSession? w, {
-    required bool walletOpenInFfi,
-  }) async {
+  Future<void> _runConfirmCloseShutdown(ArqmaWalletRpcSession? w) async {
     try {
-      await _stopSoloPoolSidecar();
+      await _stopSoloPoolSidecar().timeout(const Duration(seconds: 2));
     } catch (e, st) {
       debugPrint('[DesktopNative] confirm_close solo pool: $e\n$st');
     }
-    try {
-      if (w != null) {
-        if (walletOpenInFfi) {
-          await w.shutdown().timeout(const Duration(seconds: 3));
-        } else {
-          await w.releaseNativeResources().timeout(const Duration(seconds: 3));
-        }
-      }
-    } catch (e, st) {
-      debugPrint('[DesktopNative] confirm_close shutdown: $e\n$st');
+    if (w != null) {
+      unawaited(w.forceResetNativeFfi(watchdogMs: 0));
     }
+    await Future<void>.delayed(const Duration(milliseconds: 150));
     try {
       exit(0);
     } catch (_) {}
@@ -626,7 +616,6 @@ final class DesktopNativeBridge implements NativeBridge {
       _heartbeatSlow?.cancel();
       _heartbeatSlow = null;
       _walletPasswordHashHex = null;
-      final bool walletOpenInFfi = _openedWalletDisplayName.isNotEmpty;
       _openedWalletDisplayName = '';
       final ArqmaWalletRpcSession? w = _walletRpc;
       _walletRpc = null;
@@ -634,7 +623,7 @@ final class DesktopNativeBridge implements NativeBridge {
         _daemonProcess?.kill();
       } catch (_) {}
       _daemonProcess = null;
-      unawaited(_runConfirmCloseShutdown(w, walletOpenInFfi: walletOpenInFfi));
+      unawaited(_runConfirmCloseShutdown(w));
       return null;
     }
     if (cmd == 'dialog_open_dir') {

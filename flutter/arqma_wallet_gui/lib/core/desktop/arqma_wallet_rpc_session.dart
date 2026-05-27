@@ -274,8 +274,52 @@ final class ArqmaWalletRpcSession {
       debugPrint('[WalletRpc] native close watchdog spawn failed: $e\n$st');
     }
     try {
-      await call('close_wallet', <String, dynamic>{});
+      await call('close_wallet', <String, dynamic>{}).timeout(
+        Duration(milliseconds: nativeCloseWatchdogMs),
+      );
+      try {
+        watchdog?.kill(priority: Isolate.immediate);
+      } catch (_) {}
+      watchdog = null;
     } catch (_) {
+      await Future<void>.delayed(
+        Duration(milliseconds: nativeCloseWatchdogMs + 200),
+      );
+    } finally {
+      try {
+        watchdog?.kill(priority: Isolate.immediate);
+      } catch (_) {}
+    }
+  }
+
+  /// Reset native wallet FFI from a helper isolate — never call [WalletNativeFfi.reset] on the UI
+  /// isolate while wallet2 may be scanning (blocks forever; [Future.timeout] does not help).
+  Future<void> forceResetNativeFfi({int watchdogMs = 0}) async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      try {
+        await iso
+            .callJsonRpc('close_wallet', <String, dynamic>{})
+            .timeout(const Duration(milliseconds: 500));
+      } catch (_) {}
+      try {
+        await iso.reset().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      return;
+    }
+    if (_native == null || kIsWeb) {
+      return;
+    }
+    Isolate? watchdog;
+    try {
+      watchdog = await Isolate.spawn<int>(
+        _nativeWalletFfiResetWatchdogMain,
+        watchdogMs,
+        debugName: 'arqma_wallet_force_reset',
+      );
+      await Future<void>.delayed(Duration(milliseconds: watchdogMs + 400));
+    } catch (e, st) {
+      debugPrint('[WalletRpc] forceResetNativeFfi: $e\n$st');
     } finally {
       try {
         watchdog?.kill(priority: Isolate.immediate);
@@ -294,24 +338,11 @@ final class ArqmaWalletRpcSession {
       } catch (_) {}
       return;
     }
-    final WalletNativeFfi? n = _native;
-    if (n != null) {
-      try {
-        await closeWalletSession();
-      } catch (_) {}
-      n.reset();
+    if (_native != null) {
+      await forceResetNativeFfi(watchdogMs: 0);
     }
   }
 
-  /// Tear down FFI without `close_wallet` (already closed via switch-account / menu).
-  Future<void> releaseNativeResources() async {
-    final WalletFfiIsolateClient? iso = _isolateClient;
-    if (iso != null) {
-      try {
-        await iso.dispose();
-      } catch (_) {}
-      return;
-    }
-    _native?.reset();
-  }
+  /// Tear down FFI without blocking the UI isolate (switch-account / app exit).
+  Future<void> releaseNativeResources() => forceResetNativeFfi(watchdogMs: 0);
 }

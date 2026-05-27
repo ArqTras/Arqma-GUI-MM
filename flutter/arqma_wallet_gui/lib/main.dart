@@ -215,11 +215,12 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
           done.complete(AppExitResponse.cancel);
           return;
         }
-        // Yield so the dialog can dismiss before blocking FFI/RPC; timeouts avoid
-        // indefinite Windows "not responding" if the wallet is busy scanning.
-        await Future<void>.delayed(Duration.zero);
-        await runDesktopGracefulExit(bridge);
         done.complete(AppExitResponse.exit);
+        final BuildContext? quitCtx = appNavigatorKey.currentContext;
+        if (quitCtx != null && quitCtx.mounted) {
+          GoRouter.of(quitCtx).go('/quit');
+        }
+        unawaited(runDesktopGracefulExit(bridge));
       } catch (e, st) {
         debugPrint('[ArqmaWalletApp] didRequestAppExit: $e\n$st');
         done.complete(AppExitResponse.exit);

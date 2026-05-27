@@ -63,11 +63,8 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
       ),
     );
     if (ok == true && context.mounted) {
-      await Future<void>.delayed(Duration.zero);
-      await runDesktopGracefulExit(bridge);
-      if (context.mounted) {
-        context.go('/quit');
-      }
+      context.go('/quit');
+      unawaited(runDesktopGracefulExit(bridge));
     }
   }
 
@@ -114,7 +111,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
               try {
                 await bridgeSwitch
                     .backendSend('wallet', 'close_wallet', <String, dynamic>{})
-                    .timeout(const Duration(seconds: 22));
+                    .timeout(const Duration(seconds: 3));
               } catch (e, st) {
                 debugPrint('[WalletMainMenu] switch close_wallet: $e\n$st');
               }
