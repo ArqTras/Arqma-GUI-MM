@@ -62,9 +62,8 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
         ],
       ),
     );
-    if (ok == true && context.mounted) {
-      context.go('/quit');
-      unawaited(runDesktopGracefulExit(bridge));
+    if (ok == true) {
+      scheduleQuitPageAndExit(bridge);
     }
   }
 

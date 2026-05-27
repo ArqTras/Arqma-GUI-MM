@@ -216,11 +216,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
           return;
         }
         done.complete(AppExitResponse.exit);
-        final BuildContext? quitCtx = appNavigatorKey.currentContext;
-        if (quitCtx != null && quitCtx.mounted) {
-          GoRouter.of(quitCtx).go('/quit');
-        }
-        unawaited(runDesktopGracefulExit(bridge));
+        scheduleQuitPageAndExit(bridge);
       } catch (e, st) {
         debugPrint('[ArqmaWalletApp] didRequestAppExit: $e\n$st');
         done.complete(AppExitResponse.exit);
