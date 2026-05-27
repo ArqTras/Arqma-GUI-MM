@@ -184,6 +184,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
     }
     final LocaleController loc = Provider.of<LocaleController>(navCtx, listen: false);
     final NativeBridge bridge = Provider.of<NativeBridge>(navCtx, listen: false);
+    pauseBridgeTimersForExit(bridge);
     final Completer<AppExitResponse> done = Completer<AppExitResponse>();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
@@ -216,7 +217,8 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
           return;
         }
         done.complete(AppExitResponse.exit);
-        scheduleQuitPageAndExit(bridge);
+        scheduleQuitPage();
+        hardExitFromApp(bridge);
       } catch (e, st) {
         debugPrint('[ArqmaWalletApp] didRequestAppExit: $e\n$st');
         done.complete(AppExitResponse.exit);

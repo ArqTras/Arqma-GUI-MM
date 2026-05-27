@@ -115,15 +115,17 @@ final class ArqmaWalletRpcSession {
     ArqmaWalletRpcSession? fromMain;
     ArqmaWalletRpcSession? fromIsolate;
     if (Platform.isWindows) {
-      fromMain =
-          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-      if (fromMain != null) {
-        return fromMain;
-      }
+      // Worker isolate first — UI-thread FFI blocks the event loop during scan/close and
+      // prevents Exit / window close from running (Future.timeout does not help).
       fromIsolate =
           await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
       if (fromIsolate != null) {
         return fromIsolate;
+      }
+      fromMain =
+          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+      if (fromMain != null) {
+        return fromMain;
       }
     } else {
       fromIsolate =

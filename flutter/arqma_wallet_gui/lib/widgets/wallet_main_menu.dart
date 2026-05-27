@@ -45,6 +45,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
   Future<void> _exitWallet(BuildContext context) async {
     final LocaleController loc = context.read<LocaleController>();
     final NativeBridge bridge = context.read<NativeBridge>();
+    pauseBridgeTimersForExit(bridge);
     final ok = await showDialog<bool>(
       context: context,
       useRootNavigator: true,
@@ -63,7 +64,8 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
       ),
     );
     if (ok == true) {
-      scheduleQuitPageAndExit(bridge);
+      scheduleQuitPage();
+      hardExitFromApp(bridge);
     }
   }
 

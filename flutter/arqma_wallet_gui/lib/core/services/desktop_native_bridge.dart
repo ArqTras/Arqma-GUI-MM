@@ -1629,6 +1629,13 @@ final class DesktopNativeBridge implements NativeBridge {
     _windowsWalletLastRefreshAt = null;
   }
 
+  /// Called before the exit confirmation dialog so polling does not start new FFI work.
+  void stopTimersForExit() {
+    _stopWalletHeartbeat();
+    _stakePoolsTimer?.cancel();
+    _stakePoolsTimer = null;
+  }
+
   /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
   void _startWalletHeartbeat() {
     _stopWalletHeartbeat();

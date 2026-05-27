@@ -8,34 +8,43 @@ import 'package:go_router/go_router.dart';
 
 import '../app_exit_watchdog.dart';
 import '../app_nav.dart';
+import '../services/desktop_native_bridge.dart';
 import '../services/native_bridge.dart';
 
-/// Navigate to `/quit` after the exit dialog route is gone, then terminate the process.
-void scheduleQuitPageAndExit(NativeBridge bridge) {
+/// Stop wallet/daemon polling before showing the exit dialog (avoids new FFI work on UI).
+void pauseBridgeTimersForExit(NativeBridge bridge) {
+  if (bridge is DesktopNativeBridge) {
+    bridge.stopTimersForExit();
+  }
+}
+
+/// Full-screen "Shutting down…" after the modal route is gone.
+void scheduleQuitPage() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     final BuildContext? ctx = appNavigatorKey.currentContext;
     if (ctx != null && ctx.mounted) {
       GoRouter.of(ctx).go('/quit');
     }
-    unawaited(runDesktopGracefulExit(bridge));
   });
 }
 
-/// Stop timers/daemon synchronously, schedule FFI teardown in background, then exit immediately.
-///
-/// Never await wallet FFI on the UI isolate — `store` / `close_wallet` block forever while scanning.
-Future<void> runDesktopGracefulExit(NativeBridge bridge) async {
-  unawaited(startAppExitWatchdog(maxSeconds: 8));
-  try {
-    // Runs the synchronous body of [DesktopNativeBridge.invoke] `confirm_close` now.
-    bridge.invoke('confirm_close', <String, dynamic>{'restart': false});
-  } catch (e, st) {
-    debugPrint('[DesktopAppExit] confirm_close: $e\n$st');
-  }
-  _terminateProcessNow();
+/// Kill the process immediately; teardown runs in the background (must not block UI).
+void hardExitFromApp(NativeBridge bridge) {
+  unawaited(startAppExitWatchdog(maxSeconds: 3));
+  pauseBridgeTimersForExit(bridge);
+  unawaited(Future<void>(() async {
+    try {
+      await bridge
+          .invoke('confirm_close', <String, dynamic>{'restart': false})
+          .timeout(const Duration(milliseconds: 800));
+    } catch (e, st) {
+      debugPrint('[DesktopAppExit] confirm_close: $e\n$st');
+    }
+  }));
+  terminateDesktopProcessNow();
 }
 
-void _terminateProcessNow() {
+void terminateDesktopProcessNow() {
   try {
     exit(0);
   } catch (e, st) {
