@@ -20,3 +20,4 @@ fi
 bash "$ROOT/build/ci/patch-arqma-epee-floor.sh" "$DEST"
 # Upstream CMake/FFI patches (RandomX ARCH_ID, MinGW GUI bits, stack_trace, …) — must run for cached clones too; does not build arqmad.
 bash "$ROOT/build/ci/patch-arqma-mingw-gui.sh" "$DEST"
+bash "$ROOT/build/ci/patch-arqma-register-service-node.sh" "$DEST"

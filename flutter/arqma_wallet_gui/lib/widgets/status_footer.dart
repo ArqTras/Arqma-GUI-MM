@@ -22,8 +22,6 @@ class _StatusFooterState extends State<StatusFooter> {
     switch (wb) {
       case 'ffi':
         return '+wallet-ffi';
-      case 'subprocess':
-        return '+wallet-rpc';
       case 'none':
         return '+wallet-off';
       case 'off':

@@ -6,7 +6,6 @@ import 'dart:math' show Random;
 
 import 'package:flutter/foundation.dart';
 
-import 'arqma_executable_resolve.dart';
 import 'arqma_paths.dart';
 import 'wallet_ffi_isolate.dart';
 import 'wallet_json_rpc.dart';
@@ -62,72 +61,36 @@ String? walletDaemonAddress(Map<String, dynamic> configData) {
   return '$h:$p';
 }
 
-int walletRpcBindPort(Map<String, dynamic> configData) {
-  final Object? raw = (configData['wallet'] as Map?)?['rpc_bind_port'];
-  if (raw is int) {
-    return raw;
-  }
-  if (raw is num) {
-    return raw.toInt();
-  }
-  return int.tryParse('$raw') ?? 19999;
-}
-
-int walletRpcLogLevel(Map<String, dynamic> configData) {
-  final Object? raw = (configData['wallet'] as Map?)?['log_level'];
-  if (raw is int) {
-    return raw.clamp(1, 4);
-  }
-  if (raw is num) {
-    return raw.toInt().clamp(1, 4);
-  }
-  return int.tryParse('$raw')?.clamp(1, 4) ?? 1;
-}
-
-String? resolveWalletRpcExecutable() =>
-    resolveArqmaExecutable(ArqmaExecutableKind.walletRpc);
-
-/// Wallet JSON-RPC: **native** `Wallet2ApiClient` via `arqma_wallet_flutter_ffi` (`.dll` / `.so` / `.dylib`; default on desktop).
+/// Wallet JSON-RPC via in-process `arqma_wallet_flutter_ffi` (`Wallet2ApiClient` / wallet2).
 ///
-/// There is **no** `arqma-wallet-rpc` subprocess unless you opt in with **`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`**
-/// (debug / migration only).
-///
-/// Build the FFI library: `bash rust/tool/build_wallet_flutter_ffi.sh` (needs Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
-/// Override discovery with **`ARQMA_FLUTTER_WALLET_FFI`**.
+/// Build: `rust/tool/build_wallet_flutter_ffi.sh` (Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
+/// Override library path with **`ARQMA_FLUTTER_WALLET_FFI`**.
 final class ArqmaWalletRpcSession {
-  ArqmaWalletRpcSession._subprocess(
-      this.process, this.client, this.rpcPbkdf2SaltHex)
-      : _native = null,
-        _isolateClient = null;
-
   ArqmaWalletRpcSession._native(this._native, this.rpcPbkdf2SaltHex)
-      : process = null,
-        client = null,
-        _isolateClient = null;
+      : _isolateClient = null;
 
   ArqmaWalletRpcSession._nativeIsolate(
       this._isolateClient, this.rpcPbkdf2SaltHex)
-      : process = null,
-        client = null,
-        _native = null;
+      : _native = null;
 
-  final Process? process;
-  final WalletJsonRpcClient? client;
   final WalletNativeFfi? _native;
   final WalletFfiIsolateClient? _isolateClient;
 
-  /// PBKDF2 salt for GUI password checks (same triple shape as RPC subprocess path).
+  /// PBKDF2 salt for GUI password checks (same triple shape as legacy RPC auth).
   final String rpcPbkdf2SaltHex;
 
-  /// True when [WalletNativeFfi] is active (no `arqma-wallet-rpc` subprocess).
-  bool get usesNativeFfi => _native != null || _isolateClient != null;
+  /// Always true — desktop wallet uses native FFI only (no `arqma-wallet-rpc` subprocess).
+  bool get usesNativeFfi => true;
 
-  /// Cleared when [tryStart] begins; explains why native mode did not activate (shown in UI instead of guessing "missing DLL").
+  /// Cleared when [tryStart] begins; explains why native mode did not activate.
   static String lastNativeStartupDiagnosis = '';
 
   static Future<ArqmaWalletRpcSession?> tryStart(
       Map<String, dynamic> configData) async {
     lastNativeStartupDiagnosis = '';
+    if (kIsWeb) {
+      return null;
+    }
     final String? daemonAddr = walletDaemonAddress(configData);
     if (daemonAddr == null || daemonAddr.isEmpty) {
       lastNativeStartupDiagnosis =
@@ -144,140 +107,45 @@ final class ArqmaWalletRpcSession {
     }
     Directory(wdir).createSync(recursive: true);
 
-    final (String user, String pass, String saltHex) =
-        generateWalletRpcAuthTriple();
+    final (_, _, String saltHex) = generateWalletRpcAuthTriple();
     final String net =
         (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final int netCode = networkCodeForNetType(net);
 
-    final bool useSubprocessOnly = !kIsWeb &&
-        Platform.environment[kArqmaFlutterWalletRpcModeEnv] == 'subprocess';
-
-    if (!kIsWeb && !useSubprocessOnly) {
-      // Windows: load FFI on the UI isolate first (reliable DLL search path for Setup installs).
-      // Other desktops: prefer worker isolate when available.
-      ArqmaWalletRpcSession? fromMain;
-      ArqmaWalletRpcSession? fromIsolate;
-      if (Platform.isWindows) {
-        fromMain =
-            await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-        if (fromMain != null) {
-          return fromMain;
-        }
-        fromIsolate =
-            await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
-        if (fromIsolate != null) {
-          return fromIsolate;
-        }
-      } else {
-        fromIsolate =
-            await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
-        if (fromIsolate != null) {
-          return fromIsolate;
-        }
-        fromMain =
-            await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-        if (fromMain != null) {
-          return fromMain;
-        }
+    ArqmaWalletRpcSession? fromMain;
+    ArqmaWalletRpcSession? fromIsolate;
+    if (Platform.isWindows) {
+      fromMain =
+          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+      if (fromMain != null) {
+        return fromMain;
       }
-      {
-        lastNativeStartupDiagnosis =
-            'Could not load `arqma_wallet_flutter_ffi` native library. '
-            '${WalletNativeFfi.lastLoadFailureDetail.isNotEmpty ? "(${WalletNativeFfi.lastLoadFailureDetail}). " : ""}'
-            'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
-            'or set `$kArqmaFlutterWalletFfiEnv` to full path to DLL. '
-            'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
-        debugPrint(
-            '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
-            'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '
-            '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
+      fromIsolate =
+          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+      if (fromIsolate != null) {
+        return fromIsolate;
       }
-      return null;
-    }
-
-    if (kIsWeb) {
-      return null;
-    }
-
-    final String? exe = resolveWalletRpcExecutable();
-    if (exe == null) {
-      debugPrint(
-        '[WalletRpc] subprocess mode: `arqma-wallet-rpc` not found (ARQMA_WALLET_RPC, PATH, or '
-        '…/Contents/Resources/bin/arqma-wallet-rpc)',
-      );
-      return null;
-    }
-
-    final int rpcPort = walletRpcBindPort(configData);
-    final int logLevel = walletRpcLogLevel(configData);
-
-    final Directory? logDir = Directory(wdir).parent.path.isEmpty
-        ? null
-        : Directory(
-            '${Directory(wdir).parent.path}${Platform.pathSeparator}logs');
-    logDir?.createSync(recursive: true);
-    final String? logFile = logDir != null
-        ? '${logDir.path}${Platform.pathSeparator}arqma-wallet-rpc.log'
-        : null;
-
-    final List<String> args = <String>[
-      '--rpc-login',
-      '$user:$pass',
-      '--rpc-bind-port',
-      '$rpcPort',
-      '--daemon-address',
-      daemonAddr,
-      '--log-level',
-      '$logLevel',
-      '--wallet-dir',
-      wdir,
-    ];
-    if (logFile != null) {
-      args.addAll(<String>['--log-file', logFile]);
-    }
-    if (net == 'testnet') {
-      args.add('--testnet');
-    } else if (net == 'stagenet') {
-      args.add('--stagenet');
-    }
-
-    debugPrint('[WalletRpc] starting subprocess: $exe ${args.join(' ')}');
-    late final Process proc;
-    try {
-      proc = await Process.start(
-        exe,
-        args,
-        mode: ProcessStartMode.normal,
-      );
-      unawaited(proc.stdout.drain());
-      unawaited(proc.stderr.drain());
-    } catch (e) {
-      debugPrint('[WalletRpc] spawn failed: $e');
-      return null;
-    }
-
-    final WalletJsonRpcClient http = WalletJsonRpcClient(
-      host: '127.0.0.1',
-      port: rpcPort,
-      user: user,
-      pass: pass,
-    );
-
-    for (int i = 0; i < 60; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      final Map<String, dynamic>? r =
-          await http.call('get_languages', <String, dynamic>{});
-      if (walletJsonRpcNoError(r)) {
-        debugPrint('[WalletRpc] subprocess ready (get_languages OK)');
-        return ArqmaWalletRpcSession._subprocess(proc, http, saltHex);
+    } else {
+      fromIsolate =
+          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+      if (fromIsolate != null) {
+        return fromIsolate;
+      }
+      fromMain =
+          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+      if (fromMain != null) {
+        return fromMain;
       }
     }
-    debugPrint('[WalletRpc] timeout waiting for get_languages');
-    try {
-      proc.kill();
-    } catch (_) {}
-    await proc.exitCode.timeout(const Duration(seconds: 3), onTimeout: () => 0);
+
+    lastNativeStartupDiagnosis =
+        'Could not load `arqma_wallet_flutter_ffi` native library. '
+        '${WalletNativeFfi.lastLoadFailureDetail.isNotEmpty ? "(${WalletNativeFfi.lastLoadFailureDetail}). " : ""}'
+        'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
+        'or set `$kArqmaFlutterWalletFfiEnv` to the full path to the DLL. '
+        'Windows GNU: ship MinGW dependency DLLs next to the exe.';
+    debugPrint(
+        '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines)');
     return null;
   }
 
@@ -369,15 +237,9 @@ final class ArqmaWalletRpcSession {
     if (n != null) {
       return n.callJsonRpc(method, params);
     }
-    return client!.call(method, params);
+    return Future<Map<String, dynamic>?>.value(null);
   }
 
-  /// Closes the wallet session. Subprocess mode uses HTTP JSON-RPC only.
-  ///
-  /// Native FFI: `close_wallet` runs synchronously inside the C entrypoint and can block
-  /// the Dart UI isolate for a long time; [Future.timeout] does not preempt it. We spawn
-  /// a short-lived [Isolate] that sleeps then calls [WalletNativeFfi.reset] (see Rust
-  /// `arqma_wallet_ffi_call_json`: global `CLIENT` must not be held across `block_on`).
   Future<void> closeWalletSession(
       {int nativeCloseWatchdogMs = kNativeWalletCloseWatchdogMs}) async {
     final WalletFfiIsolateClient? iso = _isolateClient;
@@ -438,17 +300,6 @@ final class ArqmaWalletRpcSession {
         await closeWalletSession();
       } catch (_) {}
       n.reset();
-      return;
     }
-    try {
-      await call('close_wallet', <String, dynamic>{});
-    } catch (_) {}
-    try {
-      process?.kill();
-    } catch (_) {}
-    try {
-      await process?.exitCode
-          .timeout(const Duration(seconds: 4), onTimeout: () => 0);
-    } catch (_) {}
   }
 }

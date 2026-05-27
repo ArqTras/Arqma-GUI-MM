@@ -8,9 +8,6 @@ import 'package:flutter/foundation.dart';
 /// Optional absolute path to `libarqma_wallet_flutter_ffi.{dylib,so}` or `arqma_wallet_flutter_ffi.dll`.
 const String kArqmaFlutterWalletFfiEnv = 'ARQMA_FLUTTER_WALLET_FFI';
 
-/// Set to `subprocess` to use the legacy `arqma-wallet-rpc` child + HTTP instead of in-process FFI.
-const String kArqmaFlutterWalletRpcModeEnv = 'ARQMA_FLUTTER_WALLET_RPC_MODE';
-
 typedef _ConfigureNative = Int32 Function(
     Pointer<Utf8> walletDir, Pointer<Utf8> daemonAddress, Int32 network);
 typedef _ConfigureDart = int Function(

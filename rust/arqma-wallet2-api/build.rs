@@ -109,6 +109,7 @@ fn main() {
         && has_relay_from_hex;
     let has_destination_amounts_per_slice = header_text.contains("destinationAmountsPerSlice");
     let has_slice_relay = has_export_pending_relay && has_destination_amounts_per_slice;
+    let has_register_service_node = header_text.contains("registerServiceNode");
 
     println!("cargo:rerun-if-env-changed=ARQMA_WALLET2_UPSTREAM_DIR");
     println!("cargo:rerun-if-changed=src/native.rs");
@@ -134,6 +135,8 @@ fn main() {
         if let Some(compiler) = resolve_mingw_gxx_exe() {
             b.compiler(compiler);
         }
+        // patch-arqma-mingw-gui.js adds daemonizer to wallet_merged; do not also emit check_admin stub.
+        b.define("ARQMA_WALLET2_DAEMONIZER_IN_MERGED", "1");
     }
     if has_export_pending_relay {
         b.define("ARQMA_WALLET2_HAS_EXPORT_PENDING_RELAY", "1");
@@ -143,6 +146,9 @@ fn main() {
     }
     if has_relay_from_hex {
         b.define("ARQMA_WALLET2_HAS_RELAY_FROM_HEX", "1");
+    }
+    if has_register_service_node {
+        b.define("ARQMA_WALLET2_HAS_REGISTER_SERVICE_NODE", "1");
     }
     b.file("src/wallet2_api_wrapper.cpp")
         .include("src")

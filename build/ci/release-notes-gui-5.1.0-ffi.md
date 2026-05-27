@@ -4,7 +4,7 @@ Desktop and mobile bundles built from tag **5.1.0** with prebuilt wallet FFI fro
 
 ### Native wallet (FFI + GUI)
 
-- **FFI:** Desktop and mobile use ArqTras/FFI **Latest** by default (`resolve-arqma-ffi-release-version.*`). Set `ARQMA_FFI_RELEASE_VERSION=1.0.5` (or another tag) to pin.
+- **FFI:** Desktop and mobile use ArqTras/FFI **Latest** by default. Windows **1.0.6+** fixes FFI **1.0.5** `LoadLibrary` error **1114**; pin with `ARQMA_FFI_RELEASE_VERSION` if needed.
 - **Windows sync:** FFI stall recovery (`pauseRefresh` + `refreshAsync` fallback). GUI heartbeat defers heavy RPC during scan.
 - **UI:** Fix nested `Scrollbar` / `PrimaryScrollController` errors on wallet list and daemon settings.
 - **Daemon RPC:** Quieter probe logging during remote node scan.

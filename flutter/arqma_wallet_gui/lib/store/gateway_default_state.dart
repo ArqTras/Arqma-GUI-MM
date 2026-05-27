@@ -46,7 +46,7 @@ Map<String, dynamic> defaultGatewayState() {
       'remotes': <dynamic>[],
       'net_type': 'local',
 
-      /// Desktop bridge: `pending` → `ffi` | `subprocess` | `none` | `off` after wallet RPC session start.
+      /// Desktop bridge: `pending` → `ffi` | `none` | `off` after wallet RPC session start.
       'wallet_backend': 'pending',
       'promptForPassword': true,
       'loggingLevel': 'info',

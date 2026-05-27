@@ -111,65 +111,55 @@ bool _windowsDeferHeavyWalletRpcDuringScan({
 
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
 String _walletFfiMissedStartHint() {
-  const String rpc =
-      'Legacy: set `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` and use `arqma-wallet-rpc`.';
   if (Platform.isWindows) {
     return 'Missing or unloadable `arqma_wallet_flutter_ffi.dll` next to `Arqma-Wallet.exe` (legacy: `lib\\`). '
-        'If the `.dll` is present but still error **126**, missing **dependencies** (Boost, OpenSSL, libsodium, '
-        'unbound, ICU, …) from MSYS2 `mingw64\\bin` — rebuild with `ARQMA_WALLET2_MSYS_ROOT` set or run '
+        'If the `.dll` is present but still error **126** or **1114**, missing or mismatched **dependencies** '
+        '(Boost, OpenSSL, libsodium, unbound, ICU, …) from MSYS2 `mingw64\\bin` — run '
         '`tool\\package_flutter_release.ps1` which copies those DLLs. Minimum runtime: `libgcc_s_seh-1.dll`, '
         '`libstdc++-6.dll`, `libwinpthread-1.dll`. '
-        'Build (CI-style): from `rust/`, '
-        '`cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu`, then '
-        '`flutter build windows --release` (see `rust/tool/build_native_wallet_flutter_ffi_windows.ps1`). '
-        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL. $rpc';
+        'Build: `rust/tool/build_native_wallet_flutter_ffi_windows.ps1` then `flutter build windows --release`. '
+        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL.';
   }
   if (Platform.isMacOS) {
     return 'Missing `libarqma_wallet_flutter_ffi.dylib` in the app bundle (e.g. `Arqma-Wallet.app/Contents/Frameworks/`). '
         'Build: `bash rust/tool/build_wallet_flutter_ffi.sh`, then `flutter build macos --release`. '
-        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the dylib. $rpc';
+        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the dylib.';
   }
   if (Platform.isLinux) {
     return 'Missing `libarqma_wallet_flutter_ffi.so` in the bundle (next to the app, often under `lib/`). '
         'Build: `bash rust/tool/build_wallet_flutter_ffi.sh`, then `flutter build linux --release`. '
-        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the `.so`. $rpc';
+        'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the `.so`.';
   }
-  return 'Native wallet FFI library not found or failed to load. $rpc';
+  return 'Native wallet FFI library not found or failed to load.';
 }
 
 String _walletFfiBackendOfflineHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (embed `arqma_wallet_flutter_ffi.dll` next to the exe, or legacy `lib\\`, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
+    return 'Wallet backend is not running (embed `arqma_wallet_flutter_ffi.dll` next to the exe, or legacy `lib\\`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
   if (Platform.isMacOS) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib`, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in the app bundle). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom dylib path.';
   }
   if (Platform.isLinux) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.so`, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.so` in the bundle). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom `.so` path.';
   }
-  return 'Wallet backend is not running (embed the FFI library or use `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`).';
+  return 'Wallet backend is not running (embed the native FFI library next to the app).';
 }
 
 String _walletFfiCreateRestoreHint() {
   if (Platform.isWindows) {
-    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/` next to the exe, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
+    return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/` next to the exe).';
   }
   if (Platform.isMacOS) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in the `.app`, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.dylib` in the `.app`).';
   }
   if (Platform.isLinux) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.so` in the Linux bundle, or '
-        '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
+    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.so` in the Linux bundle).';
   }
-  return 'Wallet backend is not running (`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`, or embed the FFI library).';
+  return 'Wallet backend is not running (embed the native FFI library).';
 }
 
 /// Native `validate_address` returns `nettype` as a Monero enum **int**; `app.config.app.net_type` uses
@@ -1507,17 +1497,15 @@ final class DesktopNativeBridge implements NativeBridge {
       return;
     }
     final ArqmaWalletRpcSession? s = _walletRpc;
-    final String wb =
-        s == null ? 'none' : (s.usesNativeFfi ? 'ffi' : 'subprocess');
+    final String wb = s == null ? 'none' : 'ffi';
     _emit(<String, dynamic>{
       'event': 'set_app_data',
       'data': <String, dynamic>{'wallet_backend': wb},
     });
   }
 
-  /// When daemon startup fails with `status -1`, still attempt wallet JSON-RPC (native FFI or
-  /// subprocess if opted in) so account list / open wallet can work when the node comes back, and
-  /// the footer shows `wallet_backend` instead of staying `pending`.
+  /// When daemon startup fails with `status -1`, still attempt native wallet FFI so account list /
+  /// open wallet can work when the node comes back, and the footer shows `wallet_backend`.
   Future<void> _bestEffortWalletRpcAfterFailure(
       Map<String, dynamic> configData) async {
     if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {

@@ -759,9 +759,38 @@ fn emit_ios_wallet_aux_archives(emit: &dyn Fn(&str)) {
 fn emit_upstream_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
     let macos = target_os == "macos";
     // iOS / Android: epee is folded into `wallet_merged` by fold-wallet-merged-archive.sh.
     if target_os == "ios" || target_os == "android" {
+        return;
+    }
+    // MinGW: `wallet_merged` already includes epee/easylogging/daemonizer; re-whole-archiving those `.a`
+    // files duplicates static init → LoadLibrary Win32 1114 (FFI 1.0.5). LMDB stays a separate archive.
+    if target_os == "windows" && target_env == "gnu" {
+        for sub in [
+            "build/ci-depends-release",
+            "build-mingw",
+            "build/ci-native-release",
+            "build",
+        ] {
+            let lmdb = upstream
+                .join(sub)
+                .join("src/lmdb/liblmdb/liblmdb.a");
+            if lmdb.is_file() {
+                println!(
+                    "cargo:warning=arqma-wallet-flutter-ffi: windows-gnu link LMDB only ({})",
+                    lmdb.display()
+                );
+                emit("-Wl,--whole-archive");
+                emit(&path_for_ld(&lmdb));
+                emit("-Wl,--no-whole-archive");
+                return;
+            }
+        }
+        println!(
+            "cargo:warning=arqma-wallet-flutter-ffi: windows-gnu LMDB archive not found; wallet link may fail"
+        );
         return;
     }
     // CI macOS/Linux use `build/ci-native-release` (see build/ci/build-arqma-*.sh); MinGW uses `build-mingw`.
