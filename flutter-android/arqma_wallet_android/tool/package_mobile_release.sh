@@ -228,15 +228,15 @@ xcrun altool --upload-app -f dist/Arqma-Wallet-Mobile-VERSION-ios-testflight.ipa
 
 ## GitHub Release
 
-Attach to a release tag matching pubspec semver (e.g. \`5.1.0\` or \`v5.1.0\`):
+Attach to a release tag matching pubspec semver (e.g. \`5.1.1\` or \`v5.1.1\`):
 
-- \`Arqma-Wallet-Mobile-5.1.0-ios-testflight.ipa\` (or \`*-development.ipa\` for dev testers)
-- \`Arqma-Wallet-Mobile-5.1.0-ios.xcarchive.zip\`
+- \`Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa\` (or \`*-development.ipa\` for dev testers)
+- \`Arqma-Wallet-Mobile-5.1.1-ios.xcarchive.zip\`
 - \`SHA256SUMS.txt\`, \`*-ios-manifest.txt\`
 
 ## Bump build for re-upload
 
-Edit \`pubspec.yaml\` build number after \`+\` (e.g. \`5.1.0+2\`) and re-run \`./tool/package_mobile_release.sh\`.
+Edit \`pubspec.yaml\` build number after \`+\` (e.g. \`5.1.1+2\`) and re-run \`./tool/package_mobile_release.sh\`.
 EOF
 
 echo ""

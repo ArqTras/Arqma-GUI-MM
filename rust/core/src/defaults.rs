@@ -61,19 +61,19 @@ pub fn build_defaults (paths: &ArqmaPaths) -> Value {
       },
         "mining": {
         "address": "",
-        "enableBlockRefreshInterval": false,
+        "enableBlockRefreshInterval": true,
         "blockRefreshInterval": 5,
         "minerTimeout": 900
       },
       "varDiff": {
         "enabled": true,
-        "startDiff": 50000,
+        "startDiff": 60000,
         "minDiff": 25000,
-        "maxDiff": 10000000,
+        "maxDiff": 5000000,
         "targetTime": 45,
-        "retargetTime": 45,
-        "variancePercent": 30,
-        "maxJump": 150,
+        "retargetTime": 30,
+        "variancePercent": 25,
+        "maxJump": 50,
         "fixedDiffSeparator": "."
       }
     }

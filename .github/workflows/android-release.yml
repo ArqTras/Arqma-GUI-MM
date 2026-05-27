@@ -1,5 +1,5 @@
 # Android release: APK (sideload) + AAB (Play Store) using prebuilt FFI from ArqTras/FFI.
-# Attaches to GitHub Release tag 5.1.0 / v5.1.0 (workflow_dispatch or tag push).
+# Attaches to GitHub Release tag 5.1.1 / v5.1.1 (workflow_dispatch or tag push).
 # Re-runs overwrite existing APK/AAB/manifest/checksums on that release (overwrite_files: true).
 name: Android release (Flutter)
 
@@ -18,7 +18,7 @@ on:
       release_tag:
         description: "Existing GitHub Release tag to attach APK/AAB (semver, without v prefix)"
         required: true
-        default: "5.1.0"
+        default: "5.1.1"
         type: string
       ffi_version:
         description: "ArqTras/FFI release tag for prebuilt wallet FFI (latest = GitHub Latest release)"

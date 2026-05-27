@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restore flutter-android/ when the checked-out ref predates the Android app (e.g. tag 5.1.0).
+# Restore flutter-android/ when the checked-out ref predates the Android app (e.g. tag 5.1.1).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APP="${ROOT}/flutter-android/arqma_wallet_android"

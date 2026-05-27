@@ -2,8 +2,8 @@
 
 ## Version embedded in filenames
 
-- Source: the **`version`** field in `pubspec.yaml` (e.g. `5.1.0+1`).
-- **Filename slug:** semver **before** the first `+` (build metadata is not in filenames), e.g. `5.1.0` — same as the Git release tag. Same rule as `package_flutter_release.ps1` / `.sh` and CI.
+- Source: the **`version`** field in `pubspec.yaml` (e.g. `5.1.1+1`).
+- **Filename slug:** semver **before** the first `+` (build metadata is not in filenames), e.g. `5.1.1` — same as the Git release tag. Same rule as `package_flutter_release.ps1` / `.sh` and CI.
 
 ## Distribution artifacts (`Arqma-Wallet-Flutter-` prefix)
 
@@ -16,7 +16,7 @@
 | Linux (tar.gz) | `Arqma-Wallet-Flutter-{slug}-linux-x64.tar.gz` |
 | Linux (AppImage) | `Arqma-Wallet-Flutter-{slug}-x86_64.AppImage` |
 
-`{slug}` is the same string as above (e.g. `5.1.0`).
+`{slug}` is the same string as above (e.g. `5.1.1`).
 
 ## Installed application name (unchanged)
 

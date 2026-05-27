@@ -9,7 +9,7 @@
 | Build manifest | `Arqma-Wallet-Mobile-{slug}-ios-manifest.txt` |
 | Upload guide | `TESTFLIGHT.md` |
 
-`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.0` from `5.1.0+1`).
+`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.1` from `5.1.1+1`).
 
 **Build:** `./tool/package_mobile_release.sh` (macOS + Xcode + Apple Developer signing).
 
@@ -24,11 +24,11 @@
 | Checksums | `SHA256SUMS-android-{slug}.txt` |
 | Manifest | `Arqma-Wallet-Android-{slug}-manifest.txt` |
 
-`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.0`).
+`{slug}` = semver before `+` in `pubspec.yaml` (e.g. `5.1.1`).
 
 **Build (local):** `./tool/package_android_release.sh` — uses prebuilt FFI from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/tag/1.0.1) (`ARQMA_FFI_RELEASE_VERSION`, default `1.0.1`).
 
-**CI:** `.github/workflows/android-release.yml` — `build/ci/package-flutter-android-release.sh`, attaches to GitHub Release `5.1.0` / `v5.1.0`.
+**CI:** `.github/workflows/android-release.yml` — `build/ci/package-flutter-android-release.sh`, attaches to GitHub Release `5.1.1` / `v5.1.1`.
 
 **Application ID:** `com.arqma.arqma_wallet_android` — display name **Arqma Wallet**.
 
@@ -38,8 +38,8 @@
 
 ## Version embedded in filenames
 
-- Source: the **`version`** field in `pubspec.yaml` (e.g. `5.1.0+1`).
-- **Filename slug:** semver **before** the first `+` (build metadata is not in filenames), e.g. `5.1.0` — same as the Git release tag. Same rule as `package_flutter_release.ps1` / `.sh` and CI.
+- Source: the **`version`** field in `pubspec.yaml` (e.g. `5.1.1+1`).
+- **Filename slug:** semver **before** the first `+` (build metadata is not in filenames), e.g. `5.1.1` — same as the Git release tag. Same rule as `package_flutter_release.ps1` / `.sh` and CI.
 
 ## Distribution artifacts (`Arqma-Wallet-Flutter-` prefix)
 
@@ -52,7 +52,7 @@
 | Linux (tar.gz) | `Arqma-Wallet-Flutter-{slug}-linux-x64.tar.gz` |
 | Linux (AppImage) | `Arqma-Wallet-Flutter-{slug}-x86_64.AppImage` |
 
-`{slug}` is the same string as above (e.g. `5.1.0`).
+`{slug}` is the same string as above (e.g. `5.1.1`).
 
 ## Installed application name (unchanged)
 

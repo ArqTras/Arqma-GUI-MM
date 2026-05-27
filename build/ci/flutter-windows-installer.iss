@@ -1,13 +1,13 @@
 ; Inno Setup — packs Flutter `windows/runner/Release` into a single Setup.exe (similar role to Tauri NSIS).
 ; Build from repo root, e.g.:
-;   ISCC.exe build\ci\flutter-windows-installer.iss /DMyAppVersion=5.1.0 /DVersionSafe=5.1.0 /DSrcRelease=C:\full\path\to\Release
+;   ISCC.exe build\ci\flutter-windows-installer.iss /DMyAppVersion=5.1.1 /DVersionSafe=5.1.1 /DSrcRelease=C:\full\path\to\Release
 #ifndef SrcRelease
   #error Pass /DSrcRelease=... (absolute path to Flutter Release folder, no trailing backslash)
 #endif
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
 #endif
-; Release filename segment: pubspec semver before + (e.g. 5.1.0 from 5.1.0+1); pass /DVersionSafe=... from CI or ISCC.
+; Release filename segment: pubspec semver before + (e.g. 5.1.1 from 5.1.1+1); pass /DVersionSafe=... from CI or ISCC.
 #ifndef VersionSafe
   #define VersionSafe "0.0.0"
 #endif

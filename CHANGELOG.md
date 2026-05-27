@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.1.1 — 2026-05-27
+
+- Bump app / workspace version to **5.1.1** (patch after 5.1.0).
+- **Solo pool (desktop):** network block detection aligned with nodejs-pool (`hashDiff` / full 256-bit check); `enableBlockRefreshInterval` and `blockRefreshInterval` honored by the Rust sidecar; tuned VarDiff defaults for RandomARQ (see release notes).
+- **Windows / Linux / macOS:** Rebuild bundles with latest wallet FFI and `arqma_flutter_solo_pool` from source or [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest).
+- **Android / iOS:** Wallet FFI only (no solo pool binary); version and build numbers bumped in `pubspec.yaml`.
+
 ## 5.1.0 — 2026-05-11
 
 - Bump app / workspace version to **5.1.0** (from 5.0.5).

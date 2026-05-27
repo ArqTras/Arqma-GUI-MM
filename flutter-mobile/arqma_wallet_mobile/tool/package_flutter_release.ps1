@@ -104,7 +104,7 @@ if ($BuildNativeWalletFfi) {
 
 $versionLine = (Select-String -Path "pubspec.yaml" -Pattern "^\s*version:\s*(\S+)" | Select-Object -First 1).Matches.Groups[1].Value
 if (-not $versionLine) { $versionLine = "0.0.0" }
-# Release artifact names use semver only (same as Git tag, e.g. 5.1.0+1 -> 5.1.0).
+# Release artifact names use semver only (same as Git tag, e.g. 5.1.1+1 -> 5.1.1).
 $versionSafe = $versionLine -replace "\+.*", ""
 
 $dist = Join-Path $GuiRoot "dist"

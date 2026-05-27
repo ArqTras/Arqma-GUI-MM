@@ -222,7 +222,7 @@ def screen_settings(size: tuple[int, int]) -> Image.Image:
         ("Network", "mainnet"),
         ("Language", "English"),
         ("History days", "30"),
-        ("Version", "5.1.0"),
+        ("Version", "5.1.1"),
     ]
     for i, (k, v) in enumerate(rows):
         box = (48, y + i * 110, w - 48, y + i * 110 + 96)

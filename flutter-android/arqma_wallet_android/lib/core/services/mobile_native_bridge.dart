@@ -498,7 +498,7 @@ final class MobileNativeBridge implements NativeBridge {
       return null;
     }
     if (cmd == 'app_version_str') {
-      return '5.1.0';
+      return '5.1.1';
     }
     if (cmd == 'daemon_version_probe') {
       final Map<String, dynamic>? c = _runtimeConfig;
@@ -713,9 +713,9 @@ final class MobileNativeBridge implements NativeBridge {
       return x.clamp(lo, hi);
     }
 
-    int start = clampU(vd['startDiff'], 50000, 1000, 100000000);
+    int start = clampU(vd['startDiff'], 60000, 1000, 100000000);
     int minD = clampU(vd['minDiff'], 25000, 1, 100000000);
-    int maxD = clampU(vd['maxDiff'], 10000000, 1, 100000000);
+    int maxD = clampU(vd['maxDiff'], 5000000, 1, 100000000);
     if (minD > maxD) {
       final int t = minD;
       minD = maxD;
@@ -723,9 +723,9 @@ final class MobileNativeBridge implements NativeBridge {
     }
     start = start.clamp(minD, maxD);
     final int target = clampU(vd['targetTime'], 45, 5, 600);
-    final int retarget = clampU(vd['retargetTime'], 45, 1, 3600);
-    final int variance = clampU(vd['variancePercent'], 30, 1, 95);
-    final int jump = clampU(vd['maxJump'], 150, 1, 10000);
+    final int retarget = clampU(vd['retargetTime'], 30, 1, 3600);
+    final int variance = clampU(vd['variancePercent'], 25, 1, 95);
+    final int jump = clampU(vd['maxJump'], 50, 1, 10000);
     final String sep = '${vd['fixedDiffSeparator'] ?? '.'}';
     final Map<String, dynamic> merged = Map<String, dynamic>.from(pool);
     merged['varDiff'] = <String, dynamic>{

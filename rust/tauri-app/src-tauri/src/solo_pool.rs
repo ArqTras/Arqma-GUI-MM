@@ -654,6 +654,67 @@ fn passes_compact_target(result_hash: &str, compact_target_le_hex: &str) -> bool
     samples.into_iter().any(|sample| sample <= target_le)
 }
 
+/// `hash_hex` as little-endian integer; true when `MAX_TARGET / hash >= difficulty`
+/// (same rule as nodejs-pool `hashDiff` + `isBlockCandidate`).
+fn hash_meets_difficulty(hash_hex: &str, difficulty: u64) -> bool {
+    if difficulty == 0 || !is_hex_64(hash_hex) {
+        return false;
+    }
+    let Ok(bytes) = hex::decode(hash_hex) else {
+        return false;
+    };
+    if bytes.len() != 32 || bytes.iter().all(|b| *b == 0) {
+        return false;
+    }
+    le256_mul_u64_leq_max(&bytes, difficulty)
+}
+
+/// True when `hash_le * multiplier <= 2^256 - 1` (`hash_le` is 32-byte little-endian).
+fn le256_mul_u64_leq_max(hash_le: &[u8], multiplier: u64) -> bool {
+    if multiplier == 0 {
+        return true;
+    }
+    let limbs: [u64; 4] = [
+        u64::from_le_bytes(hash_le[0..8].try_into().unwrap_or([0; 8])),
+        u64::from_le_bytes(hash_le[8..16].try_into().unwrap_or([0; 8])),
+        u64::from_le_bytes(hash_le[16..24].try_into().unwrap_or([0; 8])),
+        u64::from_le_bytes(hash_le[24..32].try_into().unwrap_or([0; 8])),
+    ];
+    let product = mul_u64_limbs_by_u64(limbs, multiplier);
+    if product[4] != 0 {
+        return false;
+    }
+    for i in (0..4).rev() {
+        if product[i] < u64::MAX {
+            return true;
+        }
+        if product[i] > u64::MAX {
+            return false;
+        }
+    }
+    true
+}
+
+fn mul_u64_limbs_by_u64(limbs: [u64; 4], multiplier: u64) -> [u64; 5] {
+    let mut out = [0u64; 5];
+    for i in 0..4 {
+        let mut carry: u128 = 0;
+        for j in 0..=i {
+            let prod = limbs[j] as u128 * multiplier as u128 + out[i - j] as u128 + carry;
+            out[i - j] = prod as u64;
+            carry = prod >> 64;
+        }
+        let mut k = i + 1;
+        while carry > 0 && k < 5 {
+            let sum = out[k] as u128 + carry;
+            out[k] = sum as u64;
+            carry = sum >> 64;
+            k += 1;
+        }
+    }
+    out
+}
+
 fn pool_enabled(st: &WalletBackendState) -> bool {
     st.config_data
         .get("pool")
@@ -1143,7 +1204,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("startDiff"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(50_000)
+        .unwrap_or(60_000)
         .clamp(1000, 100_000_000);
     let var_retarget_time_s = st
         .config_data
@@ -1151,7 +1212,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("retargetTime"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(45);
+        .unwrap_or(30);
     let var_target_time_s = st
         .config_data
         .get("pool")
@@ -1165,7 +1226,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("variancePercent"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(30);
+        .unwrap_or(25);
     let var_min_diff = st
         .config_data
         .get("pool")
@@ -1179,14 +1240,14 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("maxDiff"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(10_000_000);
+        .unwrap_or(5_000_000);
     let var_max_jump_percent = st
         .config_data
         .get("pool")
         .and_then(|p| p.get("varDiff"))
         .and_then(|v| v.get("maxJump"))
         .and_then(|v| v.as_u64())
-        .unwrap_or(150);
+        .unwrap_or(50);
     let miner_timeout_ms = st
         .config_data
         .get("pool")
@@ -1196,6 +1257,21 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         .unwrap_or(900)
         .saturating_mul(1000)
         .max(60_000) as i64;
+    let block_refresh_enabled = st
+        .config_data
+        .get("pool")
+        .and_then(|p| p.get("mining"))
+        .and_then(|m| m.get("enableBlockRefreshInterval"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let block_refresh_secs = st
+        .config_data
+        .get("pool")
+        .and_then(|p| p.get("mining"))
+        .and_then(|m| m.get("blockRefreshInterval"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5)
+        .clamp(1, 120);
     let (tx, mut rx) = oneshot::channel::<()>();
     st.solo_pool_shutdown = Some(tx);
     let sink = sink.clone();
@@ -1291,6 +1367,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
         let last_disconnected: Arc<Mutex<HashMap<String, WorkerState>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let mut prev_job_id = String::new();
+        let mut last_template_height: u64 = 0;
         refresh_job(
             &http,
             &daemon,
@@ -1301,7 +1378,16 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
             PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
         )
         .await;
-        let mut beat = interval(Duration::from_secs(5));
+        {
+            let j = current_job.lock().await;
+            last_template_height = j.height;
+        }
+        let beat_secs = if block_refresh_enabled {
+            block_refresh_secs
+        } else {
+            30
+        };
+        let mut beat = interval(Duration::from_secs(beat_secs));
         beat.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut persist_tick = interval(Duration::from_secs(30));
         persist_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -1343,16 +1429,34 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                 save_persisted(&config_dir, &PersistData { workers: workers_snapshot, blocks: blocks_snapshot });
               }
               _ = beat.tick() => {
-                refresh_job(
-                  &http,
-                  &daemon,
-                  &mining_address,
-                  &current_job,
-                  &job_ring,
-                  job_seq.as_ref(),
-                  PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
-                )
-                .await;
+                let mut network_height_for_refresh: u64 = 0;
+                if !block_refresh_enabled {
+                  if let Ok(info) = daemon_post(&http, &daemon.0, daemon.1, "get_info", 0, &Value::Null).await {
+                    network_height_for_refresh = info
+                      .get("result")
+                      .and_then(|r| r.get("height"))
+                      .and_then(json_u64)
+                      .unwrap_or(0);
+                  }
+                }
+                let should_refresh_template = block_refresh_enabled
+                  || network_height_for_refresh > last_template_height;
+                if should_refresh_template {
+                  refresh_job(
+                    &http,
+                    &daemon,
+                    &mining_address,
+                    &current_job,
+                    &job_ring,
+                    job_seq.as_ref(),
+                    PUBLIC_POOL_TEMPLATE_RESERVE_SIZE,
+                  )
+                  .await;
+                  let j = current_job.lock().await;
+                  if j.height > last_template_height {
+                    last_template_height = j.height;
+                  }
+                }
                 let now = now_ms();
                 let current = current_job.lock().await.clone();
                 let job_changed = current.id != prev_job_id;
@@ -2010,7 +2114,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                       // If the miner sends `blob` (non-standard), use it when it also meets network target.
                       let maybe_blob_param = params.get("blob").and_then(|v| v.as_str()).unwrap_or("");
                       let hits_network =
-                        current.difficulty > 0 && passes_compact_target(result_hash, &current.target);
+                        current.difficulty > 0 && hash_meets_difficulty(result_hash, current.difficulty);
                       if hits_network {
                         let block_hex: Option<String> = if !maybe_blob_param.is_empty() {
                           Some(maybe_blob_param.to_string())
