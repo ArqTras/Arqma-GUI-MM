@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app_exit_watchdog.dart';
-import '../app_nav.dart';
+import '../../app_nav.dart';
 import '../services/desktop_native_bridge.dart';
 import '../services/native_bridge.dart';
 
