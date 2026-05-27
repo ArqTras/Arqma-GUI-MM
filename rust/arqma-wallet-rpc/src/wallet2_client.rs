@@ -13,6 +13,16 @@ use crate::error::WalletRpcError;
 use crate::rpc_method_aliases::canonical_wallet_rpc_method;
 use crate::traits::WalletJsonRpc;
 
+/// Wallet2 `stakePending(..., amount, ...)` expects a **decimal coin string** (Arq: 9 fractional digits),
+/// not raw atomic units. JSON-RPC `stake` still uses `amount` in atoms for parity with the GUI.
+#[inline]
+fn arq_atoms_to_stake_amount_string(amount_atoms: u64) -> String {
+    const ATOMS_PER_COIN: u64 = 1_000_000_000;
+    let whole = amount_atoms / ATOMS_PER_COIN;
+    let frac = amount_atoms % ATOMS_PER_COIN;
+    format!("{whole}.{frac:09}")
+}
+
 #[derive(Clone, Debug)]
 pub struct Wallet2ApiConfig {
     pub wallet_dir: String,
@@ -882,8 +892,9 @@ impl Wallet2ApiClient {
                 let s = g.as_mut().ok_or_else(|| {
                     WalletRpcError::Transport("wallet2: no wallet session".to_string())
                 })?;
+                let amount_str = arq_atoms_to_stake_amount_string(amount_atoms);
                 let raw = s
-                    .stake_prepare_json(service_node_key, &amount_atoms.to_string())
+                    .stake_prepare_json(service_node_key, &amount_str)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
                 let parsed = serde_json::from_str::<Value>(&raw)
                     .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
