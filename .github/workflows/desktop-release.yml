@@ -71,7 +71,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
+          SAFE="${LINE%%+*}"
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
 
@@ -207,7 +207,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           LINE=$(grep -m1 '^version:' flutter/arqma_wallet_gui/pubspec.yaml | sed 's/^version:[[:space:]]*//;s/[[:space:]]*$//')
-          SAFE=$(echo "$LINE" | tr '+ ' '--')
+          SAFE="${LINE%%+*}"
           echo "safe=${SAFE}" >> "$GITHUB_OUTPUT"
           echo "VersionSafe=${SAFE}"
 
