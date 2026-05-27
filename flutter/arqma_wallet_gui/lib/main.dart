@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/foundation.dart' show FlutterError, kIsWeb;
@@ -10,6 +11,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import 'app_nav.dart';
 import 'core/desktop/desktop_app_exit.dart';
+import 'core/desktop/wallet_native_ffi.dart';
 import 'core/app_api.dart';
 import 'core/services/app_receiver.dart';
 import 'core/services/native_bridge.dart';
@@ -38,6 +40,9 @@ void _configureAppErrorPresentation() {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && Platform.isWindows) {
+    WalletNativeFfi.prepareWindowsDllSearchPath();
+  }
   _configureAppErrorPresentation();
 
   final LocaleController locale = LocaleController();

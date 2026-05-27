@@ -154,15 +154,32 @@ final class ArqmaWalletRpcSession {
         Platform.environment[kArqmaFlutterWalletRpcModeEnv] == 'subprocess';
 
     if (!kIsWeb && !useSubprocessOnly) {
-      final ArqmaWalletRpcSession? fromIsolate =
-          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
-      if (fromIsolate != null) {
-        return fromIsolate;
-      }
-      final ArqmaWalletRpcSession? fromMain =
-          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-      if (fromMain != null) {
-        return fromMain;
+      // Windows: load FFI on the UI isolate first (reliable DLL search path for Setup installs).
+      // Other desktops: prefer worker isolate when available.
+      ArqmaWalletRpcSession? fromMain;
+      ArqmaWalletRpcSession? fromIsolate;
+      if (Platform.isWindows) {
+        fromMain =
+            await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+        if (fromMain != null) {
+          return fromMain;
+        }
+        fromIsolate =
+            await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+        if (fromIsolate != null) {
+          return fromIsolate;
+        }
+      } else {
+        fromIsolate =
+            await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+        if (fromIsolate != null) {
+          return fromIsolate;
+        }
+        fromMain =
+            await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+        if (fromMain != null) {
+          return fromMain;
+        }
       }
       {
         lastNativeStartupDiagnosis =

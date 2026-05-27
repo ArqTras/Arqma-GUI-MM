@@ -111,29 +111,109 @@ final class WalletNativeFfi {
   /// Last load error (path + exception) for wallet startup diagnostics / UI.
   static String lastLoadFailureDetail = '';
 
-  /// MinGW-built `arqma_wallet_flutter_ffi.dll` links these DLLs dynamically; Dart `DynamicLibrary`
-  /// on `ffi.dll` often fails with **Win32 error 126** (“module not found”) when a *dependency*
-  /// is missing — preload by **absolute path** fixes that reliably.
-  ///
-  /// Bundles place MinGW runtime DLLs next to `Arqma-Wallet.exe` (and may still use legacy `lib/`).
+  static bool _windowsSearchPathPrepared = false;
+
+  /// Call once from `main()` on Windows before wallet FFI (incl. worker isolates).
+  static void prepareWindowsDllSearchPath() {
+    if (kIsWeb || !Platform.isWindows || _windowsSearchPathPrepared) {
+      return;
+    }
+    _windowsSearchPathPrepared = true;
+    try {
+      final String exeDir = File(Platform.resolvedExecutable).parent.path;
+      _setWindowsDllDirectory(exeDir);
+      _addWindowsDllDirectory(exeDir);
+      _preloadWindowsDllsFrom(exeDir);
+      final String libDir = '$exeDir${Platform.pathSeparator}lib';
+      if (Directory(libDir).existsSync()) {
+        _addWindowsDllDirectory(libDir);
+        _preloadWindowsDllsFrom(libDir);
+      }
+    } catch (e, st) {
+      debugPrint('[WalletNativeFfi] prepareWindowsDllSearchPath: $e\n$st');
+    }
+  }
+
+  static void _setWindowsDllDirectory(String dir) {
+    final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+    final _SetDllDirectoryWDart setDll = k32.lookupFunction<
+        _SetDllDirectoryWNative, _SetDllDirectoryWDart>('SetDllDirectoryW');
+    final Pointer<Utf16> dirW = dir.toNativeUtf16();
+    try {
+      if (setDll(dirW) == 0) {
+        debugPrint('[WalletNativeFfi] SetDllDirectoryW failed for: $dir');
+      }
+    } finally {
+      malloc.free(dirW);
+    }
+  }
+
+  static void _addWindowsDllDirectory(String dir) {
+    try {
+      final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+      final int Function(Pointer<Utf16>) addDir = k32.lookupFunction<
+          IntPtr Function(Pointer<Utf16>),
+          int Function(Pointer<Utf16>)>('AddDllDirectory');
+      final Pointer<Utf16> dirW = dir.toNativeUtf16();
+      try {
+        final int cookie = addDir(dirW);
+        if (cookie == 0) {
+          debugPrint('[WalletNativeFfi] AddDllDirectory failed for: $dir');
+        }
+      } finally {
+        malloc.free(dirW);
+      }
+    } catch (e) {
+      debugPrint('[WalletNativeFfi] AddDllDirectory unavailable: $e');
+    }
+  }
+
+  /// MinGW-built `arqma_wallet_flutter_ffi.dll` links many DLLs dynamically; Dart
+  /// `DynamicLibrary.open` often fails with **Win32 error 126** when a dependency is missing.
+  /// Preload by absolute path (ordered + full directory scan) fixes that for Setup installs.
   static void _preloadWindowsDllsFrom(String baseDir) {
-    const List<String> names = <String>[
+    const List<String> first = <String>[
       'libgcc_s_seh-1.dll',
       'libstdc++-6.dll',
       'libwinpthread-1.dll',
     ];
-    for (final String n in names) {
-      final String p = '$baseDir${Platform.pathSeparator}$n';
-      if (!File(p).existsSync()) {
-        debugPrint('[WalletNativeFfi] preload skip (missing file): $p');
+    for (final String n in first) {
+      _tryPreloadDllFile('$baseDir${Platform.pathSeparator}$n');
+    }
+    final Directory dir = Directory(baseDir);
+    if (!dir.existsSync()) {
+      return;
+    }
+    final List<FileSystemEntity> entries = dir.listSync();
+    entries.sort((FileSystemEntity a, FileSystemEntity b) =>
+        a.path.toLowerCase().compareTo(b.path.toLowerCase()));
+    for (final FileSystemEntity ent in entries) {
+      if (ent is! File) {
         continue;
       }
-      try {
-        DynamicLibrary.open(p);
-        debugPrint('[WalletNativeFfi] preloaded dependency: $p');
-      } catch (e, st) {
-        debugPrint('[WalletNativeFfi] preload failed $p: $e\n$st');
+      final String name = ent.uri.pathSegments.last.toLowerCase();
+      if (!name.endsWith('.dll')) {
+        continue;
       }
+      if (name == 'flutter_windows.dll' ||
+          name == 'arqma_wallet_flutter_ffi.dll') {
+        continue;
+      }
+      if (first.contains(name)) {
+        continue;
+      }
+      _tryPreloadDllFile(ent.path);
+    }
+  }
+
+  static void _tryPreloadDllFile(String path) {
+    if (!File(path).existsSync()) {
+      return;
+    }
+    try {
+      DynamicLibrary.open(path);
+    } catch (e) {
+      debugPrint('[WalletNativeFfi] preload skip $path: $e');
     }
   }
 
@@ -143,66 +223,31 @@ final class WalletNativeFfi {
     }
     lastLoadFailureDetail = '';
     final List<String> tried = <String>[];
-    bool windowsDllDirSet = false;
     if (Platform.isWindows) {
+      prepareWindowsDllSearchPath();
+    }
+    final List<String> errors = <String>[];
+    for (final String path in _candidateLibraryPaths()) {
+      if (path.isEmpty) {
+        continue;
+      }
+      tried.add(path);
       try {
-        final String exeDir = File(Platform.resolvedExecutable).parent.path;
-        final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
-        final _SetDllDirectoryWDart setDll = k32.lookupFunction<
-            _SetDllDirectoryWNative,
-            _SetDllDirectoryWDart>('SetDllDirectoryW');
-        final Pointer<Utf16> dirW = exeDir.toNativeUtf16();
-        try {
-          if (setDll(dirW) != 0) {
-            windowsDllDirSet = true;
-          }
-        } finally {
-          malloc.free(dirW);
-        }
-        _preloadWindowsDllsFrom(exeDir);
-        // Legacy layout: deps only under lib/
-        final String libDir = '$exeDir${Platform.pathSeparator}lib';
-        if (Directory(libDir).existsSync()) {
-          _preloadWindowsDllsFrom(libDir);
-        }
+        final DynamicLibrary lib = DynamicLibrary.open(path);
+        return WalletNativeFfi._(lib);
       } catch (e) {
-        debugPrint('[WalletNativeFfi] SetDllDirectoryW / preload skipped: $e');
+        final String line = '$path: $e';
+        errors.add(line);
+        lastLoadFailureDetail = line;
+        debugPrint('[WalletNativeFfi] skip open "$path": $e');
       }
     }
-    try {
-      final List<String> errors = <String>[];
-      for (final String path in _candidateLibraryPaths()) {
-        if (path.isEmpty) {
-          continue;
-        }
-        tried.add(path);
-        try {
-          final DynamicLibrary lib = DynamicLibrary.open(path);
-          return WalletNativeFfi._(lib);
-        } catch (e) {
-          final String line = '$path: $e';
-          errors.add(line);
-          lastLoadFailureDetail = line;
-          debugPrint('[WalletNativeFfi] skip open "$path": $e');
-        }
-      }
-      if (errors.isNotEmpty) {
-        lastLoadFailureDetail = errors.join(' | ');
-      } else if (tried.isNotEmpty) {
-        lastLoadFailureDetail = 'tried: ${tried.join(", ")}';
-      }
-      return null;
-    } finally {
-      if (Platform.isWindows && windowsDllDirSet) {
-        try {
-          final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
-          final _SetDllDirectoryWDart setDll = k32.lookupFunction<
-              _SetDllDirectoryWNative,
-              _SetDllDirectoryWDart>('SetDllDirectoryW');
-          setDll(nullptr);
-        } catch (_) {}
-      }
+    if (errors.isNotEmpty) {
+      lastLoadFailureDetail = errors.join(' | ');
+    } else if (tried.isNotEmpty) {
+      lastLoadFailureDetail = 'tried: ${tried.join(", ")}';
     }
+    return null;
   }
 
   static List<String> _candidateLibraryPaths() {

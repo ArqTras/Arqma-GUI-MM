@@ -128,6 +128,11 @@ if (-not (Test-Path $releaseDir)) {
 Copy-RepoRootDaemonToTauriBin -RepoRoot $repoRoot
 Copy-TauriBinIntoRelease -RepoRoot $repoRoot -ReleaseDir $releaseDir
 
+$bundleFfi = Join-Path $repoRoot "build\ci\bundle-windows-ffi-release.ps1"
+if (Test-Path $bundleFfi) {
+    & $bundleFfi -ReleaseDir $releaseDir -MsysRoot (Join-Path $MsysRoot "mingw64")
+}
+
 # MinGW-built FFI: compiler runtime + Boost/OpenSSL/sodium/unbound/ICU DLLs next to Arqma-Wallet.exe (Win32 126 if missing).
 # Same globs as windows/cmake/install_arqma_wallet_ffi.cmake.in — flat Release layout (not Release\lib).
 $mingwBin = Join-Path $MsysRoot "mingw64\bin"

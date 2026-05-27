@@ -147,6 +147,7 @@ final class WalletFfiIsolateClient {
 }
 
 void _walletFfiIsolateMain(SendPort replyToMain) {
+  WalletNativeFfi.prepareWindowsDllSearchPath();
   final ReceivePort commands = ReceivePort();
   replyToMain.send(commands.sendPort);
   WalletNativeFfi? ffi;
