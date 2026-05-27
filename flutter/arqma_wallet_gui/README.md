@@ -29,7 +29,7 @@ Tauri packs `rust/tauri-app/src-tauri/bin/` via `tauri.conf.json` → `bundle.re
 | **Linux** | `linux/CMakeLists.txt` `install(PROGRAMS …)` | `<bundle>/bin/` next to the app executable |
 | **Linux** | same file — optional `install(FILES …)` | `<bundle>/lib/libarqma_wallet_flutter_ffi.so` when built under `rust/target/…` (native wallet2 FFI) |
 | **Windows** | `windows/CMakeLists.txt` `install(FILES …)` | `<install prefix>/bin/` next to `Arqma-Wallet.exe` |
-| **Windows** | same file — optional `install(SCRIPT …)` | `lib/arqma_wallet_flutter_ffi.dll` + MinGW deps under `<runner Release>/lib/` when built under `rust/target/…` |
+| **Windows** | same file — optional `install(SCRIPT …)` | `arqma_wallet_flutter_ffi.dll` + MinGW deps flat under `<runner Release>/` (legacy `lib/` mirror supported) |
 
 **Before building Flutter:** place **`arqmad`** in `rust/tauri-app/src-tauri/bin/` — see `rust/tauri-app/src-tauri/bin/README.txt`. From repo root: `node build/copy-to-tauri-bins.js` when `./bin` already has upstream **arqmad**.
 

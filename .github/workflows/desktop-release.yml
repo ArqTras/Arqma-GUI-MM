@@ -411,48 +411,18 @@ jobs:
           ARQMA_WALLET2_MSYS_ROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
         run: flutter build windows --release
 
-      - name: Ensure wallet FFI DLL and MinGW runtime under Release/lib
+      - name: Bundle wallet FFI + MinGW runtime (flat Release/, force prebuilt)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          $root = "${{ steps.msys2.outputs.msys2-location }}"
-          if ([string]::IsNullOrWhiteSpace($root)) { $root = "C:\msys64" }
-          $mingwBin = Join-Path $root "mingw64\bin"
-          $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
+          $rel = Join-Path $pwd "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
           if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $lib = Join-Path $rel "lib"
-          New-Item -Force -ItemType Directory -Path $lib | Out-Null
-          $dll = Join-Path $lib "arqma_wallet_flutter_ffi.dll"
-          if (-not (Test-Path $dll)) {
-            $src = "rust/target/x86_64-pc-windows-gnu/release/arqma_wallet_flutter_ffi.dll"
-            if (-not (Test-Path $src)) { throw "missing FFI prebuilt (ArqTras/FFI): $src" }
-            Copy-Item -Force $src $dll
-            Write-Host "Copied FFI DLL -> $dll"
-          } else {
-            Write-Host "FFI DLL already present: $dll"
-          }
-          foreach ($n in @('libgcc_s_seh-1.dll','libstdc++-6.dll','libwinpthread-1.dll')) {
-            $src = Join-Path $mingwBin $n
-            if (-not (Test-Path $src)) { Write-Host "::warning::missing MinGW runtime: $src"; continue }
-            Copy-Item -Force $src $lib
-            Write-Host "Copied $n -> $lib"
-          }
-          # Match flutter/arqma_wallet_gui/windows/cmake/install_arqma_wallet_ffi.cmake.in
-          $patterns = @(
-            'libboost_*.dll','libcrypto*.dll','libssl*.dll','libsodium*.dll','libhidapi*.dll',
-            'libunbound*.dll','libicu*.dll','libldns*.dll','libevent*.dll','libnghttp*.dll',
-            'libcares*.dll','libexpat*.dll','libsqlite3*.dll','libgmp*.dll',
-            'libzstd*.dll','zlib1.dll','libbz2*.dll','liblzma*.dll','libxml2*.dll','libiconv*.dll',
-            'libzmq*.dll','liblmdb*.dll','libunwind*.dll','libreadline*.dll','libhistory*.dll',
-            'libtermcap*.dll','libncurses*.dll','libncursesw*.dll','libintl*.dll','libffi*.dll',
-            'libssp*.dll','liblz4*.dll','libbrotli*.dll','libdeflate*.dll','libatomic*.dll'
-          )
-          foreach ($pat in $patterns) {
-            Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
-              Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
-              ForEach-Object { Copy-Item -Force $_.FullName $lib; Write-Host "Copied $($_.Name) -> $lib" }
-          }
+          $msys = "${{ steps.msys2.outputs.msys2-location }}"
+          if ([string]::IsNullOrWhiteSpace($msys)) { $msys = "C:\msys64" }
+          pwsh -NoProfile -File build/ci/bundle-windows-ffi-release.ps1 `
+            -ReleaseDir $rel `
+            -MsysRoot (Join-Path $msys "mingw64")
 
       - name: Sync daemon into Flutter Release + verify bundle (local script parity)
         shell: pwsh
