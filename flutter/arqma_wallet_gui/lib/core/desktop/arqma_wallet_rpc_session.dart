@@ -302,4 +302,16 @@ final class ArqmaWalletRpcSession {
       n.reset();
     }
   }
+
+  /// Tear down FFI without `close_wallet` (already closed via switch-account / menu).
+  Future<void> releaseNativeResources() async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      try {
+        await iso.dispose();
+      } catch (_) {}
+      return;
+    }
+    _native?.reset();
+  }
 }

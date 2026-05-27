@@ -15,7 +15,7 @@ Future<void> runDesktopGracefulExit(NativeBridge bridge) async {
   final AppExitWatchdog exitWatchdog =
       await startAppExitWatchdog(maxSeconds: 14);
   try {
-    final bool skipSave = bridge is DesktopNativeBridge &&
+    final bool skipSave = bridge is! DesktopNativeBridge ||
         bridge.shouldSkipSaveOnExit;
     if (!skipSave) {
       try {
@@ -25,6 +25,8 @@ Future<void> runDesktopGracefulExit(NativeBridge bridge) async {
       } catch (e, st) {
         debugPrint('[DesktopAppExit] save_wallet: $e\n$st');
       }
+    } else if (bridge is DesktopNativeBridge && !bridge.hasOpenWallet) {
+      debugPrint('[DesktopAppExit] skipping save_wallet (no open wallet)');
     } else {
       debugPrint(
         '[DesktopAppExit] skipping save_wallet (rescan or Windows sync in progress)',
