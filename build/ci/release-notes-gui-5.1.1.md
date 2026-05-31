@@ -16,7 +16,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (15)** — latest wallet FFI (ArqTras/FFI **Latest**).
+- **iOS:** TestFlight build **5.1.1 (16)** — latest wallet FFI (ArqTras/FFI **Latest**); About copyright **2018–2026** (Arqma only).
 - **Android:** Rebuilt APK/AAB with the same tx-history refresh (CI).
 
 ### Release assets (by platform)

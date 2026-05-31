@@ -173,9 +173,7 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
                       Text('Version: $_version'),
                       Text(_daemonVersion),
                       const SizedBox(height: 8),
-                      const Text('Copyright (c) 2018–2025, Arqma Project'),
-                      const Text('Copyright (c) 2018–2019, Loki Project'),
-                      const Text('Copyright (c) 2018, Ryo Currency Project'),
+                      const Text('Copyright (c) 2018–2026, Arqma Project'),
                       const Text('All rights reserved.'),
                       const SizedBox(height: 12),
                       TextButton(

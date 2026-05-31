@@ -7,6 +7,7 @@
 - **Windows / Linux / macOS:** Rebuild bundles with latest wallet FFI and `arqma_flutter_solo_pool` from source or [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest).
 - **Android / iOS:** Wallet FFI only (no solo pool binary); version and build numbers bumped in `pubspec.yaml`.
 - **Android / iOS:** Transaction history refreshes every **5 s** at chain tip, on each new block, and immediately after sending a transaction (pending/outgoing visible without waiting for the 60 s remote heartbeat).
+- **About:** Copyright **2018–2026, Arqma Project** only (removed Loki / Ryo lines) on desktop and mobile.
 
 ## 5.1.0 — 2026-05-11
 
