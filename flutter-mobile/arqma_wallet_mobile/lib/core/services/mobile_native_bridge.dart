@@ -483,7 +483,11 @@ final class MobileNativeBridge implements NativeBridge {
       return null;
     }
     if (cmd == 'app_version_str') {
-      return '5.1.1';
+      return '5.1.1+25';
+    }
+    if (cmd == 'wallet_password_matches') {
+      final String password = '${_coerceMap(args)['password'] ?? ''}';
+      return _walletPasswordMatches(password);
     }
     if (cmd == 'daemon_version_probe') {
       final Map<String, dynamic>? c = _runtimeConfig;

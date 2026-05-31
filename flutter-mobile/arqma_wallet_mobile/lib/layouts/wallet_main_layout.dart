@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
 import '../core/services/native_bridge.dart';
+import '../core/mobile/wallet_biometric_unlock.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -49,6 +50,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
       }
       context.read<NativeBridge>().backendSend('wallet', 'get_coin_price', {});
       _debouncedArmInactivity();
+      unawaited(WalletBiometricUnlock.flushPendingEnable());
     });
   }
 

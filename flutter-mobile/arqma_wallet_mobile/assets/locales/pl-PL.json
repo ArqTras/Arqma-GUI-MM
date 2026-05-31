@@ -45,6 +45,8 @@
                 "enable_face_id_skip": "Nie teraz",
                 "face_id_enable_reason": "Potwierdź Face ID, aby zapisać hasło portfela",
                 "face_id_enabled_message": "Odblokowanie Face ID włączone dla tego konta.",
+                "face_id_failed_message": "Odblokowanie Face ID nie powiodło się lub zostało anulowane. Wpisz hasło lub spróbuj ponownie.",
+                "face_id_enable_switch_label": "Następnym razem odblokuj Face ID zamiast hasła",
                 "copy_address_message": "Adres skopiowany do schowka",
                 "copy_address": "Skopiuj adres",
                 "open_account": "Otwórz konto",

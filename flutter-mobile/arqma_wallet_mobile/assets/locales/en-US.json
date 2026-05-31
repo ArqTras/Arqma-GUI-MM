@@ -45,6 +45,8 @@
                 "enable_face_id_skip": "Not now",
                 "face_id_enable_reason": "Confirm Face ID to save your wallet password",
                 "face_id_enabled_message": "Face ID unlock enabled for this account.",
+                "face_id_failed_message": "Face ID unlock failed or was cancelled. Enter your password or try again.",
+                "face_id_enable_switch_label": "Use Face ID instead of password next time",
                 "copy_address_message": "Address copied to clipboard",
                 "copy_address": "Copy Address",
                 "open_account": "Open Account",

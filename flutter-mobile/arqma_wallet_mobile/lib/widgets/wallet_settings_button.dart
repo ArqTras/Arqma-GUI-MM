@@ -283,17 +283,12 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
 
   Future<void> _manageFaceIdUnlock() async {
     final LocaleController loc = context.read<LocaleController>();
-    final AppApi api = context.read<AppApi>();
     final GatewayStore store = context.read<GatewayStore>();
     final String walletName = '${store.walletInfo['name'] ?? ''}'.trim();
     if (walletName.isEmpty) {
       return;
     }
     final String netType = _netType(store);
-    final bool hasPassword = await api.hasPasswordRpc();
-    if (!hasPassword) {
-      return;
-    }
     final bool enabled =
         await WalletBiometricUnlock.isEnabled(netType, walletName);
     if (!mounted) {
@@ -302,6 +297,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (enabled) {
       final bool? off = await showDialog<bool>(
         context: context,
+        useRootNavigator: true,
         builder: (BuildContext c) => AlertDialog(
           title: Text(loc.tr('components.wallet_settings.face_id_unlock')),
           content:
@@ -332,18 +328,33 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       return;
     }
 
-    final String? password = await PasswordDialogs.showPasswordConfirmation(
+    final String? password = await PasswordDialogs.showWalletPasswordEntry(
       context: context,
-      api: api,
       locale: loc,
       title: loc.tr('components.wallet_settings.face_id_unlock'),
-      noPasswordMessage:
+      message:
           loc.tr('components.wallet_settings.face_id_unlock_enable_message'),
       okLabel: loc.tr('pages.wallet_select.index.enable_face_id_ok'),
     );
-    if (password == null || !mounted) {
+    if (password == null || password.isEmpty || !mounted) {
       return;
     }
+    final bool matches = await context.read<AppApi>().invoke(
+              'wallet_password_matches',
+              <String, dynamic>{'password': password},
+            ) ==
+        true;
+    if (!matches) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc.tr('pages.wallet_select.index.face_id_failed_message')),
+          ),
+        );
+      }
+      return;
+    }
+    await WalletBiometricUnlock.waitForModalDismiss();
     try {
       await WalletBiometricUnlock.enable(
         netType: netType,
@@ -351,18 +362,26 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
         password: password,
         localizedReason: loc.tr('pages.wallet_select.index.face_id_enable_reason'),
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final ScaffoldMessengerState? messenger =
+          appScaffoldMessengerKey.currentState;
+      if (messenger != null) {
+        messenger.showSnackBar(
           SnackBar(
             content:
                 Text(loc.tr('components.wallet_settings.face_id_unlock_enabled')),
           ),
         );
       }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(loc.tr('composables.cancel'))),
+    } catch (e) {
+      debugPrint('[WalletSettings] enable Face ID: $e');
+      final ScaffoldMessengerState? messenger =
+          appScaffoldMessengerKey.currentState;
+      if (messenger != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+                loc.tr('pages.wallet_select.index.face_id_failed_message')),
+          ),
         );
       }
     }
@@ -816,7 +835,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             value: 'pw',
             enabled: ready,
             child: Text(loc.tr('components.wallet_settings.change_password'))),
-        if (Platform.isIOS && _iosBiometricSupported)
+        if (Platform.isIOS)
           PopupMenuItem(
             value: 'faceid',
             enabled: ready,
