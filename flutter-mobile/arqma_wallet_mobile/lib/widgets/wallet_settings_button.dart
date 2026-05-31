@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
 import '../core/app_api.dart';
+import '../core/mobile/wallet_biometric_unlock.dart';
 import '../core/validators/service_node_command.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -24,13 +26,29 @@ class WalletSettingsButton extends StatefulWidget {
 class _WalletSettingsButtonState extends State<WalletSettingsButton> {
   StreamSubscription<Map<String, dynamic>>? _sub;
   bool _awaitingPrivateKeys = false;
+  bool _iosBiometricSupported = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sub = context.read<AppApi>().bridge.backendReceive.listen(_onBridge);
+      if (Platform.isIOS) {
+        unawaited(_probeBiometricSupport());
+      }
     });
+  }
+
+  Future<void> _probeBiometricSupport() async {
+    final bool supported = await WalletBiometricUnlock.isPlatformSupported();
+    if (mounted) {
+      setState(() => _iosBiometricSupported = supported);
+    }
+  }
+
+  String _netType(GatewayStore store) {
+    final Map<String, dynamic>? cfg = store.app['config'] as Map<String, dynamic>?;
+    return (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   }
 
   @override
@@ -219,6 +237,135 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       'old_password': result['old'],
       'new_password': result['new'],
     });
+    if (!mounted) {
+      return;
+    }
+    final GatewayStore store = context.read<GatewayStore>();
+    final String walletName = '${store.walletInfo['name'] ?? ''}'.trim();
+    if (walletName.isNotEmpty) {
+      final String netType = _netType(store);
+      await WalletBiometricUnlock.disable(netType, walletName);
+      if (!mounted) {
+        return;
+      }
+      if (Platform.isIOS && _iosBiometricSupported) {
+        final bool? reenable = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext c) => AlertDialog(
+            title: Text(loc.tr('pages.wallet_select.index.enable_face_id_title')),
+            content: Text(loc.tr('pages.wallet_select.index.enable_face_id_message')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text(loc.tr('pages.wallet_select.index.enable_face_id_skip')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text(loc.tr('pages.wallet_select.index.enable_face_id_ok')),
+              ),
+            ],
+          ),
+        );
+        if (reenable == true && mounted) {
+          try {
+            await WalletBiometricUnlock.enable(
+              netType: netType,
+              walletName: walletName,
+              password: result['new']!,
+              localizedReason:
+                  loc.tr('pages.wallet_select.index.face_id_enable_reason'),
+            );
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  Future<void> _manageFaceIdUnlock() async {
+    final LocaleController loc = context.read<LocaleController>();
+    final AppApi api = context.read<AppApi>();
+    final GatewayStore store = context.read<GatewayStore>();
+    final String walletName = '${store.walletInfo['name'] ?? ''}'.trim();
+    if (walletName.isEmpty) {
+      return;
+    }
+    final String netType = _netType(store);
+    final bool hasPassword = await api.hasPasswordRpc();
+    if (!hasPassword) {
+      return;
+    }
+    final bool enabled =
+        await WalletBiometricUnlock.isEnabled(netType, walletName);
+    if (!mounted) {
+      return;
+    }
+    if (enabled) {
+      final bool? off = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext c) => AlertDialog(
+          title: Text(loc.tr('components.wallet_settings.face_id_unlock')),
+          content:
+              Text(loc.tr('components.wallet_settings.face_id_unlock_disable_confirm')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(loc.tr('composables.cancel')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(loc.tr('components.wallet_settings.face_id_unlock')),
+            ),
+          ],
+        ),
+      );
+      if (off == true) {
+        await WalletBiometricUnlock.disable(netType, walletName);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  loc.tr('components.wallet_settings.face_id_unlock_disabled')),
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    final String? password = await PasswordDialogs.showPasswordConfirmation(
+      context: context,
+      api: api,
+      locale: loc,
+      title: loc.tr('components.wallet_settings.face_id_unlock'),
+      noPasswordMessage:
+          loc.tr('components.wallet_settings.face_id_unlock_enable_message'),
+      okLabel: loc.tr('pages.wallet_select.index.enable_face_id_ok'),
+    );
+    if (password == null || !mounted) {
+      return;
+    }
+    try {
+      await WalletBiometricUnlock.enable(
+        netType: netType,
+        walletName: walletName,
+        password: password,
+        localizedReason: loc.tr('pages.wallet_select.index.face_id_enable_reason'),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text(loc.tr('components.wallet_settings.face_id_unlock_enabled')),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.tr('composables.cancel'))),
+        );
+      }
+    }
   }
 
   Future<void> _rescan() async {
@@ -426,7 +573,13 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     if (ok != true || !mounted) {
       return;
     }
+    final GatewayStore store = context.read<GatewayStore>();
+    final String walletName = '${store.walletInfo['name'] ?? ''}'.trim();
+    final String netType = _netType(store);
     await api.send('wallet', 'delete_wallet', <String, dynamic>{});
+    if (walletName.isNotEmpty) {
+      await WalletBiometricUnlock.disable(netType, walletName);
+    }
   }
 
   Future<void> _registerServiceNode() async {
@@ -611,6 +764,11 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
               await _changePassword();
             }
             break;
+          case 'faceid':
+            if (ready) {
+              await _manageFaceIdUnlock();
+            }
+            break;
           case 'save':
             if (ready) {
               await _saveWallet();
@@ -658,6 +816,11 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             value: 'pw',
             enabled: ready,
             child: Text(loc.tr('components.wallet_settings.change_password'))),
+        if (Platform.isIOS && _iosBiometricSupported)
+          PopupMenuItem(
+            value: 'faceid',
+            enabled: ready,
+            child: Text(loc.tr('components.wallet_settings.face_id_unlock'))),
         PopupMenuItem(
             value: 'save',
             enabled: ready,

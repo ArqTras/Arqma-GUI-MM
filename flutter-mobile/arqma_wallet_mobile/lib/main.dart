@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/foundation.dart'
@@ -12,7 +13,9 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'app_nav.dart';
 import 'core/app_exit_watchdog.dart';
 import 'core/app_api.dart';
+import 'core/mobile/mobile_background_wallet_sync.dart';
 import 'core/services/app_receiver.dart';
+import 'core/services/mobile_native_bridge.dart';
 import 'core/services/native_bridge.dart';
 import 'core/services/native_bridge_resolver.dart';
 import 'core/theme/arqma_colors.dart';
@@ -87,6 +90,9 @@ Future<void> _launchFullWalletApp() async {
     router: router,
     locale: locale,
   );
+  if (!kIsWeb && Platform.isIOS && bridge is MobileNativeBridge) {
+    MobileBackgroundWalletSync.install(bridge);
+  }
   runApp(
     ArqmaWalletApp(
       store: store,

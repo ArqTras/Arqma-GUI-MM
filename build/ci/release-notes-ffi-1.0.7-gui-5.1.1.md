@@ -8,11 +8,12 @@ Prebuilt **arqma-wallet-flutter-ffi** and **arqma_flutter_solo_pool** libraries 
 
 - **Stake**: `wallet2` `stakePending` expects a decimal coin amount string (9 fractional digits); the in-process RPC layer was forwarding raw atomic units, causing `"Incorrect amount"` for typical stake sizes (e.g. 100–1000 ARQ).
 
-### Mobile (5.1.1 refresh)
+### Mobile & desktop GUI (5.1.1 refresh)
 
-- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** at chain tip, on new blocks, and immediately after send (`5.1.1+10`).
-- **iOS:** Local build **5.1.1 (15)** — TestFlight IPA + xcarchive attached below (FFI **1.0.7**, ArqTras/FFI Latest).
-
+- **iOS:** TestFlight **5.1.1 (17)** — Face ID unlock, background wallet sync, IPA + xcarchive below (FFI **1.0.7**).
+- **Android:** Rebuilt APK/AAB — tx-history poll every **5 s**, About copyright **2018–2026** (Arqma only).
+- **macOS:** Local Flutter bundle with FFI **1.0.7** + **solo pool** sidecar (zip + dmg).
+- **Windows / Linux:** CI rebuild from tag **5.1.1** (same About + tx-history fixes on desktop).
 ### Solo pool (desktop — Windows, Linux, macOS)
 
 Bundled in **5.1.1** desktop builds and available as `arqma-wallet-solo-pool-*-1.0.7.zip` for custom packaging.
@@ -35,7 +36,7 @@ Bundled in **5.1.1** desktop builds and available as `arqma-wallet-solo-pool-*-1
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-x86_64.AppImage` | **tar.gz:** extract and run `./Arqma-Wallet`. **AppImage:** `chmod +x` and run. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. |
 | **Android** | `Arqma-Wallet-Android-5.1.1.apk` (sideload), `Arqma-Wallet-Android-5.1.1.aab` (Play) | Install APK on device. AAB for Play Console. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa`, `*-ios.xcarchive.zip`, `*-ios-manifest.txt` | **Transporter** / Xcode → App Store Connect (TestFlight). Build **15**, signing profile required. |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa`, `*-ios.xcarchive.zip`, `*-ios-manifest.txt` | **Transporter** / Xcode → TestFlight. Build **17** (Face ID, background sync). |
 
 **FFI-only zips:** `arqma-wallet-ffi-<os>-1.0.7.zip`, `arqma-wallet-solo-pool-<os>-1.0.7.zip` (desktop solo pool only).
 

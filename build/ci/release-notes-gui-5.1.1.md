@@ -16,8 +16,13 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (16)** — latest wallet FFI (ArqTras/FFI **Latest**); About copyright **2018–2026** (Arqma only).
-- **Android:** Rebuilt APK/AAB with the same tx-history refresh (CI).
+- **iOS:** TestFlight build **5.1.1 (17)** — Face ID / Touch ID unlock, background wallet sync when the screen is off, FFI **1.0.7**; About copyright **2018–2026** (Arqma only).
+- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI).
+
+### iOS (5.1.1 build 17)
+
+- **Face ID / Touch ID:** Unlock password-protected accounts with biometrics (Keychain); enable after first password open or in wallet settings.
+- **Background sync:** Keeps wallet heartbeat running while the app is backgrounded (screen off) via iOS background tasks.
 
 ### Release assets (by platform)
 
@@ -27,7 +32,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; not for solo mining (no solo pool on iOS). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **17** (Face ID, background sync). |
 
 ### Solo pool quick start (desktop)
 

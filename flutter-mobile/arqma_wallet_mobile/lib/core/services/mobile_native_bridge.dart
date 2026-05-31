@@ -1631,6 +1631,22 @@ final class MobileNativeBridge implements NativeBridge {
     unawaited(_walletHeartbeatTick());
   }
 
+  /// iOS background sync — open wallet session (FFI / RPC).
+  bool get isWalletOpenForBackgroundSync =>
+      _walletRpc != null && _openedWalletDisplayName.isNotEmpty;
+
+  /// One daemon tip poll + wallet heartbeat tick (used when screen is off).
+  Future<void> pulseBackgroundWalletSync() async {
+    if (!isWalletOpenForBackgroundSync) {
+      return;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg != null) {
+      await _heartbeatTick(cfg);
+    }
+    await _walletHeartbeatTick();
+  }
+
   /// Same bucket merge + sort as `wallet_heartbeat::merge_transfers_list`.
   List<dynamic> _mergeWalletRpcTransfersList(Map<String, dynamic> result) {
     const List<String> keys = <String>[

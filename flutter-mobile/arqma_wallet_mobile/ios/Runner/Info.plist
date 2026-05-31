@@ -67,11 +67,21 @@
 	<string>Arqma Wallet can save QR codes or exported wallet images to your photo library when you choose to.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Arqma Wallet uses the camera to scan QR codes for receiving Arqma and to capture documents during wallet import.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Arqma Wallet uses Face ID to unlock your account without typing the password.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.arqma.arqmaWalletMobile.wallet-sync</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

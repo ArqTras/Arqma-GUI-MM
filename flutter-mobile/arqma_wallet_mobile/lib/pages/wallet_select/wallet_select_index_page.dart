@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_api.dart';
 import '../../core/desktop/arqma_paths.dart';
+import '../../core/mobile/wallet_biometric_unlock.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../widgets/address_identicon.dart';
@@ -88,17 +91,93 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     });
   }
 
+  String _netType(GatewayStore store) {
+    final Map<String, dynamic>? cfg = store.app['config'] as Map<String, dynamic>?;
+    return (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  }
+
+  Future<void> _maybeOfferFaceIdEnable({
+    required LocaleController loc,
+    required String netType,
+    required String walletName,
+    required String password,
+  }) async {
+    if (!Platform.isIOS || password.isEmpty) {
+      return;
+    }
+    if (!await WalletBiometricUnlock.isPlatformSupported()) {
+      return;
+    }
+    if (await WalletBiometricUnlock.isEnabled(netType, walletName)) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final bool? enable = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext c) => AlertDialog(
+        backgroundColor: const Color(0xFF1d1d1d),
+        title: Text(loc.tr('pages.wallet_select.index.enable_face_id_title')),
+        content: Text(loc.tr('pages.wallet_select.index.enable_face_id_message')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(loc.tr('pages.wallet_select.index.enable_face_id_skip')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(loc.tr('pages.wallet_select.index.enable_face_id_ok')),
+          ),
+        ],
+      ),
+    );
+    if (enable != true || !mounted) {
+      return;
+    }
+    try {
+      await WalletBiometricUnlock.enable(
+        netType: netType,
+        walletName: walletName,
+        password: password,
+        localizedReason: loc.tr('pages.wallet_select.index.face_id_enable_reason'),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loc.tr('pages.wallet_select.index.face_id_enabled_message')),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
   Future<void> _openWallet(Map<String, dynamic> wallet) async {
     final LocaleController loc = context.read<LocaleController>();
     final AppApi api = context.read<AppApi>();
+    final GatewayStore store = context.read<GatewayStore>();
     final String name = '${wallet['name']}';
+    final String netType = _netType(store);
     final bool pwdProt = wallet['password_protected'] != false;
     String? password = '';
     if (pwdProt) {
-      password = await showDialog<String>(
+      if (Platform.isIOS && await WalletBiometricUnlock.isEnabled(netType, name)) {
+        password = await WalletBiometricUnlock.unlockPassword(
+          netType: netType,
+          walletName: name,
+          localizedReason: loc.tr('pages.wallet_select.index.face_id_unlock_reason'),
+        );
+      }
+      if (!mounted) {
+        return;
+      }
+      password ??= await showDialog<String>(
         context: context,
-        builder: (BuildContext _) =>
-            _OpenWalletPasswordDialog(loc: loc),
+        builder: (BuildContext _) => _OpenWalletPasswordDialog(
+          loc: loc,
+          walletName: name,
+          netType: netType,
+        ),
       );
       if (password == null) {
         return;
@@ -115,6 +194,14 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         context.read<GatewayStore>().wallet['status'] as Map<String, dynamic>;
     final int code = st['code'] as int? ?? 1;
     if (code == 0) {
+      if (pwdProt) {
+        unawaited(_maybeOfferFaceIdEnable(
+          loc: loc,
+          netType: netType,
+          walletName: name,
+          password: password,
+        ));
+      }
       // Success: [GatewayStore] listener [_onWalletStatus] navigates to `/wallet`
       // once `reset_wallet_status` is applied (avoid duplicate `go` + transient build errors).
       return;
@@ -232,6 +319,10 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
       'delete_wallet',
       <String, dynamic>{'name': name},
     );
+    if (mounted) {
+      final GatewayStore store = context.read<GatewayStore>();
+      await WalletBiometricUnlock.disable(_netType(store), name);
+    }
   }
 
   @override
@@ -435,9 +526,15 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
 /// Owns the password [TextEditingController] for the route lifetime (avoids
 /// disposing before the dialog subtree finishes unmounting).
 class _OpenWalletPasswordDialog extends StatefulWidget {
-  const _OpenWalletPasswordDialog({required this.loc});
+  const _OpenWalletPasswordDialog({
+    required this.loc,
+    required this.walletName,
+    required this.netType,
+  });
 
   final LocaleController loc;
+  final String walletName;
+  final String netType;
 
   @override
   State<_OpenWalletPasswordDialog> createState() =>
@@ -446,6 +543,60 @@ class _OpenWalletPasswordDialog extends StatefulWidget {
 
 class _OpenWalletPasswordDialogState extends State<_OpenWalletPasswordDialog> {
   late final TextEditingController _pw = TextEditingController();
+  bool _biometricAvailable = false;
+  List<BiometricType> _biometricTypes = <BiometricType>[];
+  bool _biometricBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadBiometricState());
+  }
+
+  Future<void> _loadBiometricState() async {
+    if (!Platform.isIOS) {
+      return;
+    }
+    final bool supported = await WalletBiometricUnlock.isPlatformSupported();
+    final List<BiometricType> types =
+        await WalletBiometricUnlock.availableBiometrics();
+    final bool enabled = await WalletBiometricUnlock.isEnabled(
+      widget.netType,
+      widget.walletName,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _biometricAvailable = supported && types.isNotEmpty && enabled;
+      _biometricTypes = types;
+    });
+  }
+
+  Future<void> _unlockWithBiometrics() async {
+    if (_biometricBusy) {
+      return;
+    }
+    setState(() => _biometricBusy = true);
+    try {
+      final String? password = await WalletBiometricUnlock.unlockPassword(
+        netType: widget.netType,
+        walletName: widget.walletName,
+        localizedReason:
+            widget.loc.tr('pages.wallet_select.index.face_id_unlock_reason'),
+      );
+      if (!mounted) {
+        return;
+      }
+      if (password != null) {
+        Navigator.pop(context, password);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _biometricBusy = false);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -455,27 +606,61 @@ class _OpenWalletPasswordDialogState extends State<_OpenWalletPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final String bioLabel = WalletBiometricUnlock.biometricLabel(
+      _biometricTypes,
+      faceIdLabel: widget.loc.tr('pages.wallet_select.index.face_id_unlock_button'),
+      touchIdLabel:
+          widget.loc.tr('pages.wallet_select.index.touch_id_unlock_button'),
+      genericLabel:
+          widget.loc.tr('pages.wallet_select.index.biometric_unlock_button'),
+    );
+
     return AlertDialog(
       backgroundColor: const Color(0xFF1d1d1d),
       title: Text(
           widget.loc.tr('pages.wallet_select.index.open_wallet_password_title')),
       content: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 300),
-        child: TextField(
-          controller: _pw,
-          autofocus: true,
-          obscureText: true,
-          style: const TextStyle(
-            color: ArqmaColors.textPrimary,
-            fontSize: 15,
-          ),
-          cursorColor: ArqmaColors.arqmaGreenSolid,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => Navigator.pop(context, _pw.text),
-          decoration: InputDecoration(
-            labelText: widget.loc
-                .tr('pages.wallet_select.index.open_wallet_password_message'),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_biometricAvailable) ...[
+              OutlinedButton.icon(
+                onPressed: _biometricBusy ? null : _unlockWithBiometrics,
+                icon: _biometricBusy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        _biometricTypes.contains(BiometricType.face)
+                            ? Icons.face
+                            : Icons.fingerprint,
+                        color: ArqmaColors.arqmaGreenSolid,
+                      ),
+                label: Text(bioLabel),
+              ),
+              const SizedBox(height: 16),
+            ],
+            TextField(
+              controller: _pw,
+              autofocus: !_biometricAvailable,
+              obscureText: true,
+              style: const TextStyle(
+                color: ArqmaColors.textPrimary,
+                fontSize: 15,
+              ),
+              cursorColor: ArqmaColors.arqmaGreenSolid,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => Navigator.pop(context, _pw.text),
+              decoration: InputDecoration(
+                labelText: widget.loc
+                    .tr('pages.wallet_select.index.open_wallet_password_message'),
+              ),
+            ),
+          ],
         ),
       ),
       actions: [
