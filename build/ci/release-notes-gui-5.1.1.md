@@ -12,6 +12,12 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 
 - **FFI:** [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) prebuilts for each platform, or build locally with `rust/tool/build_native_wallet_flutter_ffi_*`.
 - **Android / iOS:** FFI only — **no** `arqma_flutter_solo_pool` sidecar.
+- **Android / iOS:** Transaction history poll every **5 s** at tip, on new blocks, and right after relay (transfer / stake / sweep).
+
+### Mobile builds (this release refresh)
+
+- **iOS:** TestFlight build **5.1.1 (15)** — latest wallet FFI (ArqTras/FFI **Latest**).
+- **Android:** Rebuilt APK/AAB with the same tx-history refresh (CI).
 
 ### Release assets (by platform)
 

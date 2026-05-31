@@ -238,6 +238,10 @@ final class MobileNativeBridge implements NativeBridge {
   /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
   DateTime? _walletXferTipCatchUpThrottleUntil;
 
+  /// Mobile: poll wallet height/balance/tx list every 5s (remote daemon; faster than desktop 60s).
+  static const Duration _kMobileWalletHeartbeatInterval =
+      Duration(seconds: 5);
+
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
 
@@ -1602,22 +1606,26 @@ final class MobileNativeBridge implements NativeBridge {
     _walletHeartbeat?.cancel();
     _walletHeartbeat = null;
     _walletXferScanThrottleUntil = null;
+    _walletXferTipCatchUpThrottleUntil = null;
   }
 
-  /// Electron `wallet-rpc.js` / Tauri `wallet_heartbeat::start`: 5 s when not `remote`, else 60 s.
+  /// Queue `get_transfers`; [immediate] runs a heartbeat tick now (after relay / new block).
+  void _requestWalletTransactionsRefresh({bool immediate = false}) {
+    _whFetchTxPending = true;
+    if (immediate) {
+      unawaited(_walletHeartbeatTick());
+    }
+  }
+
+  /// Mobile wallet heartbeat: 5 s (tx history at tip + height/balance), not desktop 60 s remote.
   void _startWalletHeartbeat() {
     _stopWalletHeartbeat();
     final Map<String, dynamic>? cfg = _runtimeConfig;
     if (cfg == null || _walletRpc == null || _openedWalletDisplayName.isEmpty) {
       return;
     }
-    final String net =
-        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final String typ =
-        '${((cfg['daemons'] as Map?)?[net] as Map?)?['type'] ?? 'remote'}';
-    final bool isLocal = typ != 'remote';
-    final Duration interval = Duration(seconds: isLocal ? 5 : 60);
-    _walletHeartbeat = Timer.periodic(interval, (_) {
+    _walletHeartbeat =
+        Timer.periodic(_kMobileWalletHeartbeatInterval, (_) {
       unawaited(_walletHeartbeatTick());
     });
     unawaited(_walletHeartbeatTick());
@@ -1962,11 +1970,14 @@ final class MobileNativeBridge implements NativeBridge {
             now.add(const Duration(seconds: 90));
       }
     }
+    // At chain tip refresh txs every heartbeat (~5s). During sync use [xferDuringScan] throttle.
+    final bool periodicAtTip = !inScanRhythm;
     final bool xferTrigger = _whFetchTxPending ||
         hasBalanceChange ||
         (!inScanRhythm && newH != h0) ||
         xferDuringScan ||
-        txListBehindTip;
+        txListBehindTip ||
+        periodicAtTip;
     // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
     // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
@@ -2125,7 +2136,7 @@ final class MobileNativeBridge implements NativeBridge {
     if (_openedWalletDisplayName.isNotEmpty &&
         prevDaemonTip > 0 &&
         footerTarget > prevDaemonTip) {
-      _whFetchTxPending = true;
+      _requestWalletTransactionsRefresh(immediate: true);
     }
     _emitPoolDataWithHeartbeat(cfg, m);
   }
@@ -2794,7 +2805,7 @@ final class MobileNativeBridge implements NativeBridge {
         },
       });
     } else {
-      _whFetchTxPending = true;
+      _requestWalletTransactionsRefresh(immediate: true);
       _emit(<String, dynamic>{
         'event': 'set_tx_status',
         'data': <String, dynamic>{
@@ -2887,7 +2898,7 @@ final class MobileNativeBridge implements NativeBridge {
       }
     }
     if (items.isNotEmpty) {
-      _whFetchTxPending = true;
+      _requestWalletTransactionsRefresh(immediate: true);
     }
     _pendingTxRelay
         .removeWhere((Map<String, dynamic> m) => m['kind'] == 'stake');
@@ -2928,7 +2939,7 @@ final class MobileNativeBridge implements NativeBridge {
         },
       });
     } else {
-      _whFetchTxPending = true;
+      _requestWalletTransactionsRefresh(immediate: true);
       _emit(<String, dynamic>{
         'event': 'set_tx_status',
         'data': <String, dynamic>{
@@ -3347,6 +3358,9 @@ final class MobileNativeBridge implements NativeBridge {
                 : 'sweep_all_rpc_success_message',
           };
           _emit(<String, dynamic>{'event': 'set_tx_status', 'data': status});
+          if (!doNot) {
+            _requestWalletTransactionsRefresh(immediate: true);
+          }
         }
       }
       return <String, dynamic>{};
