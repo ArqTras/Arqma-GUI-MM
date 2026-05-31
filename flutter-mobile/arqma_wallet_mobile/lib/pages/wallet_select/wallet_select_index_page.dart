@@ -159,14 +159,17 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final String name = '${wallet['name']}';
     final String netType = _netType(store);
     final bool pwdProt = wallet['password_protected'] != false;
-    String? password = '';
+    String? password;
     if (pwdProt) {
       if (Platform.isIOS && await WalletBiometricUnlock.isEnabled(netType, name)) {
-        password = await WalletBiometricUnlock.unlockPassword(
+        final String? bioPassword = await WalletBiometricUnlock.unlockPassword(
           netType: netType,
           walletName: name,
           localizedReason: loc.tr('pages.wallet_select.index.face_id_unlock_reason'),
         );
+        if (bioPassword != null && bioPassword.isNotEmpty) {
+          password = bioPassword;
+        }
       }
       if (!mounted) {
         return;
@@ -182,6 +185,8 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
       if (password == null) {
         return;
       }
+    } else {
+      password = '';
     }
     await AppLoading.show();
     await api.send('wallet', 'open_wallet',
