@@ -26,6 +26,7 @@ import '../desktop/desktop_stake_pools.dart';
 import '../desktop/desktop_wallet_address_book.dart';
 import '../desktop/desktop_wallet_address_list.dart';
 import '../desktop/wallet_json_rpc.dart';
+import '../wallet_daemon_tip_tolerance.dart';
 import '../desktop/wallet_list_fs.dart';
 import '../desktop/wallet_password_pbkdf2.dart';
 import '../utils/deep_merge.dart';
@@ -252,16 +253,43 @@ final class MobileNativeBridge implements NativeBridge {
   /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
   bool _whAddressBookPending = false;
 
-  /// While [rescan_blockchain] runs, `getheight` often returns the pre-rescan tip from cache; keep UI at genesis progress.
+  /// While [rescan_blockchain] runs, `getheight` may still report the pre-rescan chain tip until
+  /// the wallet rewinds — ignore that snapshot only while UI height is still in the early scan range.
   int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
     if (!_walletFullRescanUi) {
       return parsedFromRpc;
     }
     final int preTip = _rescanPreTipHeight;
-    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+    if (preTip > 0 &&
+        parsedFromRpc >= preTip - 16 &&
+        _whStoredHeight < preTip - 32) {
       return _whStoredHeight;
     }
     return parsedFromRpc;
+  }
+
+  void _syncIosWalletScanLiveActivity({
+    required int walletHeight,
+    required int daemonTip,
+    required bool fullRescan,
+  }) {
+    if (!Platform.isIOS || daemonTip <= 0) {
+      return;
+    }
+    final int gap = daemonTip - walletHeight;
+    final bool scanning =
+        fullRescan || gap > kWalletDaemonTipToleranceBlocks;
+    if (!scanning) {
+      unawaited(IosRescanLiveActivity.end());
+      return;
+    }
+    unawaited(
+      IosRescanLiveActivity.startOrUpdate(
+        current: walletHeight.clamp(0, daemonTip),
+        target: daemonTip,
+        subtitle: fullRescan ? 'Blockchain rescan' : 'Syncing wallet',
+      ),
+    );
   }
 
   void _emit(Map<String, dynamic> msg) {
@@ -1933,9 +1961,11 @@ final class MobileNativeBridge implements NativeBridge {
         unawaited(IosRescanLiveActivity.end());
       }
     }
-    if (_walletFullRescanUi && Platform.isIOS && dh > 0) {
-      unawaited(IosRescanLiveActivity.startOrUpdate(current: newH, target: dh));
-    }
+    _syncIosWalletScanLiveActivity(
+      walletHeight: newH,
+      daemonTip: dh,
+      fullRescan: _walletFullRescanUi,
+    );
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
       'height': newH,
@@ -2081,7 +2111,13 @@ final class MobileNativeBridge implements NativeBridge {
       final int tip =
           _daemonChainTipHeight > 0 ? _daemonChainTipHeight : _rescanPreTipHeight;
       if (tip > 0) {
-        unawaited(IosRescanLiveActivity.startOrUpdate(current: 0, target: tip));
+        unawaited(
+          IosRescanLiveActivity.startOrUpdate(
+            current: 0,
+            target: tip,
+            subtitle: 'Blockchain rescan',
+          ),
+        );
       }
     }
   }

@@ -49,11 +49,12 @@ class IosRescanLiveActivity {
     required int current,
     required int target,
     required double pct,
+    required String subtitle,
   }) {
     final int pctInt = pct.clamp(0, 100).round();
     return <String, dynamic>{
       'title': 'Arqma Wallet',
-      'subtitle': 'Blockchain rescan',
+      'subtitle': subtitle,
       'current': current,
       'target': target,
       'pct': pctInt,
@@ -63,6 +64,7 @@ class IosRescanLiveActivity {
   static Future<void> startOrUpdate({
     required int current,
     required int target,
+    String subtitle = 'Syncing wallet',
   }) async {
     if (!await _canUse) {
       return;
@@ -70,8 +72,12 @@ class IosRescanLiveActivity {
     final LiveActivities plugin = _plugin!;
     final double pct =
         target > 0 ? (100.0 * current / target).clamp(0, 100) : 0.0;
-    final Map<String, dynamic> data =
-        _payload(current: current, target: target, pct: pct);
+    final Map<String, dynamic> data = _payload(
+      current: current,
+      target: target,
+      pct: pct,
+      subtitle: subtitle,
+    );
     try {
       await plugin.createOrUpdateActivity(
         activityId,

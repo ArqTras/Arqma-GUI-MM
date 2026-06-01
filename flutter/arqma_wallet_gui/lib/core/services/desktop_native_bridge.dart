@@ -87,16 +87,17 @@ bool _walletCaughtDaemonTip(int walletHeight, int daemonTip) {
   return walletHeight >= daemonTip;
 }
 
-/// Blocks behind daemon tip before running heavy wallet RPC on Windows (see [_windowsDeferHeavyWalletRpcDuringScan]).
-const int _windowsWalletScanXferDeferBlocks = 64;
+/// Blocks behind daemon tip before running heavy wallet RPC on desktop (see [_desktopDeferHeavyWalletRpcDuringScan]).
+const int _desktopWalletScanXferDeferBlocks = 64;
 
-/// Windows: in-process FFI calls block the UI isolate; `get_transfers` runs `history::refresh()` in native code
-/// and can freeze footer scan % for a long time. Defer xfer until the wallet height is near the daemon tip.
-bool _windowsDeferHeavyWalletRpcDuringScan({
+/// Desktop FFI: in-process calls block the UI isolate; `get_transfers` can freeze footer scan % for a long time.
+/// Defer heavy RPC until the wallet height is near the daemon tip so `getheight` keeps updating progress.
+bool _desktopDeferHeavyWalletRpcDuringScan({
   required int walletHeight,
   required int daemonTip,
 }) {
-  if (kIsWeb || !Platform.isWindows) {
+  if (kIsWeb ||
+      (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) {
     return false;
   }
   // Daemon footer tip may lag wallet hb by a tick; still avoid balance/xfer that hold `inner`.
@@ -106,7 +107,7 @@ bool _windowsDeferHeavyWalletRpcDuringScan({
   if (walletHeight >= daemonTip) {
     return false;
   }
-  return daemonTip - walletHeight > _windowsWalletScanXferDeferBlocks;
+  return daemonTip - walletHeight > _desktopWalletScanXferDeferBlocks;
 }
 
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
@@ -243,13 +244,16 @@ final class DesktopNativeBridge implements NativeBridge {
   /// Wallet height before a full rescan — used to ignore stale `getheight` while native rescan runs.
   int _rescanPreTipHeight = 0;
 
-  /// While [rescan_blockchain] runs, `getheight` often returns the pre-rescan tip from cache; keep UI at genesis progress.
+  /// While [rescan_blockchain] runs, `getheight` may still report the pre-rescan chain tip until
+  /// the wallet rewinds — ignore that snapshot only while UI height is still in the early scan range.
   int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
     if (!_walletFullRescanUi) {
       return parsedFromRpc;
     }
     final int preTip = _rescanPreTipHeight;
-    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+    if (preTip > 0 &&
+        parsedFromRpc >= preTip - 16 &&
+        _whStoredHeight < preTip - 32) {
       return _whStoredHeight;
     }
     return parsedFromRpc;
@@ -1879,17 +1883,19 @@ final class DesktopNativeBridge implements NativeBridge {
     }
   }
 
-  /// Windows scan path: emit [set_wallet_info] after `getheight` only so `getbalance` does not hold
-  /// the wallet session mutex and starve later `getheight` polls (stale height in UI).
-  Future<void> _maybeKickWindowsWalletRefresh(
+  /// During scan: emit [set_wallet_info] after `getheight` only so `getbalance` / `get_transfers` do not
+  /// hold the wallet session mutex and starve later `getheight` polls (stale height in UI).
+  Future<void> _maybeKickDesktopWalletRefresh(
     ArqmaWalletRpcSession w, {
     required int walletHeight,
     required int daemonTip,
   }) async {
-    if (kIsWeb || !Platform.isWindows || daemonTip <= 0) {
+    if (kIsWeb ||
+        (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) ||
+        daemonTip <= 0) {
       return;
     }
-    if (walletHeight >= daemonTip - _windowsWalletScanXferDeferBlocks) {
+    if (walletHeight >= daemonTip - _desktopWalletScanXferDeferBlocks) {
       return;
     }
     if (walletHeight == _windowsScanHbLastHeight) {
@@ -1909,17 +1915,17 @@ final class DesktopNativeBridge implements NativeBridge {
     _windowsWalletLastRefreshAt = now;
     try {
       debugPrint(
-        '[DesktopNative] Windows: scan stalled at $walletHeight (daemon $daemonTip), refresh_from_height',
+        '[DesktopNative] scan stalled at $walletHeight (daemon $daemonTip), refresh_from_height',
       );
       await w.call('refresh', <String, dynamic>{
         'start_height': walletHeight,
       }).timeout(const Duration(minutes: 30));
     } catch (e, st) {
-      debugPrint('[DesktopNative] Windows wallet refresh: $e\n$st');
+      debugPrint('[DesktopNative] wallet refresh: $e\n$st');
     }
   }
 
-  void _emitWindowsScanHeartbeatInfo({
+  void _emitDesktopScanHeartbeatInfo({
     required String name,
     required int newH,
     required int daemonTip,
@@ -1947,7 +1953,7 @@ final class DesktopNativeBridge implements NativeBridge {
     });
     if (_walletOpenTraceEnabled()) {
       debugPrint(
-        '[DesktopNative] Windows scan hb: wallet=$newH daemon=$daemonTip',
+        '[DesktopNative] scan hb: wallet=$newH daemon=$daemonTip',
       );
     }
   }
@@ -1990,18 +1996,18 @@ final class DesktopNativeBridge implements NativeBridge {
       }
     }
 
-    final bool windowsDeferHeavyXfer = _windowsDeferHeavyWalletRpcDuringScan(
+    final bool deferHeavyXfer = _desktopDeferHeavyWalletRpcDuringScan(
       walletHeight: newH,
       daemonTip: dh,
     );
-    if (windowsDeferHeavyXfer) {
+    if (deferHeavyXfer) {
       if (ghOk) {
-        _emitWindowsScanHeartbeatInfo(
+        _emitDesktopScanHeartbeatInfo(
           name: name,
           newH: newH,
           daemonTip: dh,
         );
-        unawaited(_maybeKickWindowsWalletRefresh(
+        unawaited(_maybeKickDesktopWalletRefresh(
           w,
           walletHeight: newH,
           daemonTip: dh,
@@ -2116,11 +2122,13 @@ final class DesktopNativeBridge implements NativeBridge {
             now.add(const Duration(seconds: 90));
       }
     }
+    final bool periodicAtTip = !inScanRhythm;
     final bool xferTrigger = _whFetchTxPending ||
         hasBalanceChange ||
         (!inScanRhythm && newH != h0) ||
         xferDuringScan ||
-        txListBehindTip;
+        txListBehindTip ||
+        periodicAtTip;
     // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
     // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
@@ -2685,11 +2693,11 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'set_wallet_transactions',
       'data': <String, dynamic>{'tx_list': <dynamic>[]},
     });
-    final bool windowsDeferHeavyOnOpen = _windowsDeferHeavyWalletRpcDuringScan(
+    final bool deferHeavyOnOpen = _desktopDeferHeavyWalletRpcDuringScan(
       walletHeight: openedHeight,
       daemonTip: _daemonChainTipHeight,
     );
-    if (!windowsDeferHeavyOnOpen) {
+    if (!deferHeavyOnOpen) {
       unawaited(_emitWalletAddressListFromRpc(w));
       unawaited(_emitWalletAddressBookFromRpc(w));
     }

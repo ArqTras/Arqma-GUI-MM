@@ -179,9 +179,6 @@ class _StatusFooterState extends State<StatusFooter> {
       if (displayTip == 0) {
         return 0;
       }
-      if (fullRescanUi) {
-        return 2;
-      }
       if (walletSyncedForFooter) {
         return 100;
       }
