@@ -33,6 +33,9 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 - **Build 26:** FFI **1.0.8** rescan progress UI.
 - **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); FFI **1.0.9** sync/rescan progress; installable on device and TestFlight.
 - **Build 28:** Background sync while screen locked; inactivity logout does not fire during lock/rescan; rescan progress no longer resets when opening from Live Activity.
+- **Build 31:** Smoother tab switching (narrow GoRouter refresh); fewer periodic UI rebuilds in footer and transaction list.
+- **Build 32:** Instant tab switches on iOS (`IndexedStack`, `NoTransitionPage`, lazy tab bodies).
+- **Build 33:** Same tab performance stack on **iOS, Android, and desktop** (including Solo Pool tab on desktop).
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
 ### Desktop Flutter (5.1.1+3, release tag rebuild with FFI 1.0.10)
@@ -40,6 +43,8 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 - Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
 - Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
 - Wallet RPC: rescan height poller fix in `wallet2_client` (shipped in FFI **1.0.10** prebuilts).
+- **macOS:** Optional Touch ID unlock (Keychain); tab navigation uses the same `IndexedStack` shell as mobile.
+- **All desktop OS:** `NoTransitionPage` wallet routes; lazy tab builds; deduplicated store notifications during daemon/wallet heartbeat.
 
 ### Release assets (by platform)
 
