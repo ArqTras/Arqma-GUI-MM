@@ -8,6 +8,9 @@
 - **Android / iOS:** Wallet FFI only (no solo pool binary); version and build numbers bumped in `pubspec.yaml`.
 - **Android / iOS:** Transaction history refreshes every **5 s** at chain tip, on each new block, and immediately after sending a transaction (pending/outgoing visible without waiting for the 60 s remote heartbeat).
 - **About:** Copyright **2018–2026, Arqma Project** only (removed Loki / Ryo lines) on desktop and mobile.
+- **FFI 1.0.9:** Async wallet `refresh`/sync with live height polling (fixes frozen **0%** scan progress on desktop footer and iOS Live Activity); includes async full rescan from 1.0.8.
+- **iOS (build 27):** Live Activity rescan extension restored (`RescanLiveActivity`, App Group); archive build fix for extension target.
+- **Desktop + mobile:** Scan progress UI no longer masks tip height during catch-up after open or manual refresh.
 
 ## 5.1.0 — 2026-05-11
 

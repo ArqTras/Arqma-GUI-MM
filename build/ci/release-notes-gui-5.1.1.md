@@ -1,6 +1,6 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://github.com/ArqTras/FFI/releases/tag/1.0.8)** (async full rescan + live `getheight` during scan). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.9](https://github.com/ArqTras/FFI/releases/tag/1.0.9)** (async full rescan + live heights during rescan **and** wallet sync/refresh). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
 ### Solo pool (desktop — Windows, Linux, macOS)
 
@@ -16,12 +16,12 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://githu
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** Build **5.1.1 (27)** — FFI **1.0.8**; full blockchain rescan with live block progress; **Live Activity / Dynamic Island** during rescan (extension `RescanLiveActivity`, App Group `group.com.arqma.arqmaWalletMobile`); Face ID and background wallet sync (builds 17–26).
-- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI).
+- **iOS:** Build **5.1.1 (27)** — FFI **1.0.9**; live scan progress during full rescan **and** wallet sync; **Live Activity / Dynamic Island** during scan (extension `RescanLiveActivity`, App Group `group.com.arqma.arqmaWalletMobile`); Face ID and background wallet sync (builds 17–26).
+- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.9**.
 
-### Full blockchain rescan (FFI 1.0.8 — desktop + mobile)
+### Wallet scan progress (FFI 1.0.9 — desktop + mobile)
 
-- Async `rescanBlockchain` with height polling — footer and transaction list show **current / tip (%)** instead of a frozen progress bar.
+- Async `rescanBlockchain` and **`refresh`/sync** with height polling — footer, status bar, and iOS Live Activity show **current / tip (%)** instead of staying at **0%** while the wallet catches up.
 - Flutter desktop (Windows, macOS, Linux) uses the same FFI prebuilts as mobile.
 
 ### iOS (5.1.1 builds 17–26)
@@ -31,7 +31,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://githu
 - **Build 18:** Fix password prompt when opening imported accounts (`password` null vs empty).
 - **Build 25:** Face ID prompt runs after wallet screen loads; settings menu always prompts for password before Keychain save.
 - **Build 26:** FFI **1.0.8** rescan progress UI.
-- **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); installable on device and TestFlight.
+- **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); FFI **1.0.9** sync/rescan progress; installable on device and TestFlight.
 
 ### Release assets (by platform)
 
@@ -41,7 +41,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://githu
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **26** (FFI 1.0.8, rescan UI). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **27** (FFI 1.0.9, Live Activity + scan progress). |
 
 ### Solo pool quick start (desktop)
 
