@@ -15,6 +15,9 @@ jobs:
   mirror:
     name: Sync arqma/Flutter-Wallet
     runs-on: ubuntu-latest
+    concurrency:
+      group: flutter-wallet-mirror
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:

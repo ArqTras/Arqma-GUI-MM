@@ -24,6 +24,11 @@ on:
         required: true
         default: "main"
         type: string
+      release_tag:
+        description: "GitHub Release tag to publish + mirror (semver, e.g. 5.1.1). Leave empty when building main only."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -486,7 +491,7 @@ jobs:
   publish-release:
     name: GitHub Release (Flutter)
     needs: [flutter-macos, flutter-linux, flutter-windows]
-    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -503,11 +508,12 @@ jobs:
           set -eu
           chmod +x build/ci/*.sh
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            t=$(bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.ref }}")
+            t=$(bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.release_tag }}")
           else
             t=$(bash build/ci/resolve-release-tag.sh "${{ github.ref_name }}")
           fi
           echo "tag=${t}" >> "$GITHUB_OUTPUT"
+          bash build/ci/is-semver-release-tag.sh "${t}"
 
       - name: Prune duplicate assets on existing release
         env:
@@ -580,7 +586,10 @@ jobs:
   mirror-flutter-wallet:
     name: Mirror to arqma/Flutter-Wallet
     needs: [publish-release]
-    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
+    concurrency:
+      group: flutter-wallet-mirror
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -593,14 +602,10 @@ jobs:
         env:
           FLUTTER_WALLET_MIRROR_PAT: ${{ secrets.FLUTTER_WALLET_MIRROR_PAT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_INPUT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref_name }}
         run: |
           set -eu
           chmod +x build/ci/*.sh
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            export RELEASE_TAG_INPUT=$(bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.ref }}")
-          else
-            export RELEASE_TAG_INPUT=$(bash build/ci/resolve-release-tag.sh "${{ github.ref_name }}")
-          fi
           bash build/ci/mirror-flutter-wallet-release.sh
 
   repo-private-after-release:

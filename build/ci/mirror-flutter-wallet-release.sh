@@ -148,7 +148,9 @@ upload_paths=( "${ASSETS}"/* )
 shopt -u nullglob
 
 if gh release view "${TAG}" -R "${TARGET_REPO}" >/dev/null 2>&1; then
-  gh release upload "${TAG}" -R "${TARGET_REPO}" --clobber "${upload_paths[@]}"
+  echo "==> Replace existing release assets on ${TARGET_REPO}@${TAG}"
+  bash "${ROOT}/build/ci/delete-github-release-assets.sh" "${TARGET_REPO}" "${TAG}"
+  gh release upload "${TAG}" -R "${TARGET_REPO}" "${upload_paths[@]}"
 else
   gh release create "${TAG}" -R "${TARGET_REPO}" \
     --title "Arqma Wallet ${TAG}" \
