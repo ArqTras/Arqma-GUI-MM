@@ -1,2 +1,1 @@
-d5d57dfc5195dea413fdb17865a258b2b2fcf4ee305ea5e4fa2e4fb82b70040b  Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa
-8db69b4383aeb07791d187ba017f9efd66c97fb99e903df1e25ed23128ec803f  Arqma-Wallet-Mobile-5.1.1-ios.xcarchive.zip
+28afa9b9dd5c1df4256d61124114c0d14d3f61701b36231261c993fdbc49032c
