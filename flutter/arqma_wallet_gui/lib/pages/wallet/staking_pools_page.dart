@@ -612,6 +612,76 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     );
   }
 
+  Widget _buildNodeStatusFilterDropdown({
+    required LocaleController loc,
+    required GatewayStore store,
+    required int filterIndex,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: DropdownButton<int>(
+        isExpanded: true,
+        isDense: true,
+        value: filterIndex.clamp(0, 4),
+        itemHeight: 52,
+        menuMaxHeight: 280,
+        underline: const SizedBox.shrink(),
+        selectedItemBuilder: (BuildContext ctx) {
+          return _nodeFilterOptions.map((Map<String, dynamic> o) {
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                loc.tr(o['label'] as String),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 13),
+              ),
+            );
+          }).toList();
+        },
+        dropdownColor: ArqmaColors.darkPanel,
+        items: _nodeFilterOptions
+            .map(
+              (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                value: o['index'] as int,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      loc.tr(o['label'] as String),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    Text(
+                      loc.tr(o['description'] as String? ?? ''),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: ArqmaColors.textMuted,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (int? v) {
+          if (v == null) {
+            return;
+          }
+          final Map<String, dynamic> opt = Map<String, dynamic>.from(
+            _nodeFilterOptions
+                .firstWhere((Map<String, dynamic> e) => e['index'] == v),
+          );
+          store.setPoolsFilterState(opt);
+        },
+      ),
+    );
+  }
+
   /// [PopupMenuButton] inside nested scroll + clipped cards can paint the menu
   /// with a tiny max width on Windows; [showMenu] on the root overlay avoids that.
   Future<void> _showPoolRowOverflowMenu({
@@ -1183,59 +1253,15 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
           label: loc
               .tr('pages.wallet.staking_pools.filter_by_oracle_node_status'),
           child: InputDecorator(
-            decoration: const InputDecoration(border: InputBorder.none),
-            child: DropdownButton<int>(
-              isExpanded: true,
-              value: filterIndex.clamp(0, 4),
-              itemHeight: 88,
-              underline: const SizedBox.shrink(),
-              selectedItemBuilder: (BuildContext ctx) {
-                return _nodeFilterOptions.map((Map<String, dynamic> o) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      loc.tr(o['label'] as String),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  );
-                }).toList();
-              },
-              dropdownColor: ArqmaColors.darkPanel,
-              items: _nodeFilterOptions
-                  .map(
-                    (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                      value: o['index'] as int,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(loc.tr(o['label'] as String),
-                              overflow: TextOverflow.ellipsis),
-                          Text(
-                            loc.tr(o['description'] as String? ?? ''),
-                            style: const TextStyle(
-                                fontSize: 10,
-                                color: ArqmaColors.textMuted,
-                                height: 1.2),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? v) {
-                if (v == null) {
-                  return;
-                }
-                final Map<String, dynamic> opt = Map<String, dynamic>.from(
-                  _nodeFilterOptions.firstWhere(
-                      (Map<String, dynamic> e) => e['index'] == v),
-                );
-                store.setPoolsFilterState(opt);
-              },
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4),
+              isDense: true,
+            ),
+            child: _buildNodeStatusFilterDropdown(
+              loc: loc,
+              store: store,
+              filterIndex: filterIndex,
             ),
           ),
         ),

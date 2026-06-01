@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../../core/app_api.dart';
+import '../../core/mobile/mobile_responsive_layout.dart';
 import '../../core/theme/arqma_colors.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
@@ -612,6 +613,118 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     );
   }
 
+  String _poolStakedAvailPlain(
+    LocaleController loc,
+    num price,
+    Object? arqAmount,
+  ) {
+    final String base = '${arqAmount ?? '-'} ARQ';
+    final String? fiat = _fiatUsdApprox(loc, price, arqAmount);
+    if (fiat == null) {
+      return base;
+    }
+    return '$base $fiat';
+  }
+
+  Widget _poolCompactStat({
+    required BuildContext context,
+    required String label,
+    required String value,
+  }) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 96, maxWidth: 168),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: _poolMetaStyle(context),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: _poolValueStyle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNodeStatusFilterDropdown({
+    required LocaleController loc,
+    required GatewayStore store,
+    required int filterIndex,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: DropdownButton<int>(
+        isExpanded: true,
+        isDense: true,
+        value: filterIndex.clamp(0, 4),
+        itemHeight: 52,
+        menuMaxHeight: 280,
+        underline: const SizedBox.shrink(),
+        selectedItemBuilder: (BuildContext ctx) {
+          return _nodeFilterOptions.map((Map<String, dynamic> o) {
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                loc.tr(o['label'] as String),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 13),
+              ),
+            );
+          }).toList();
+        },
+        dropdownColor: ArqmaColors.darkPanel,
+        items: _nodeFilterOptions
+            .map(
+              (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                value: o['index'] as int,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      loc.tr(o['label'] as String),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    Text(
+                      loc.tr(o['description'] as String? ?? ''),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: ArqmaColors.textMuted,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (int? v) {
+          if (v == null) {
+            return;
+          }
+          final Map<String, dynamic> opt = Map<String, dynamic>.from(
+            _nodeFilterOptions
+                .firstWhere((Map<String, dynamic> e) => e['index'] == v),
+          );
+          store.setPoolsFilterState(opt);
+        },
+      ),
+    );
+  }
+
   /// [PopupMenuButton] inside nested scroll + clipped cards can paint the menu
   /// with a tiny max width on Windows; [showMenu] on the root overlay avoids that.
   Future<void> _showPoolRowOverflowMenu({
@@ -741,6 +854,164 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     poolOverflowItems.add(menuEntry(
         'explorer',
         loc.tr('components.pool_list_tabular.view_on_explorer')));
+
+    final double layoutW = MobileResponsiveLayout.contentWidth(context);
+    if (MobileResponsiveLayout.useCompactStakingPools(layoutW)) {
+      final String pubkeyShort =
+          MobileResponsiveLayout.txidListLabel(pubkey, layoutW);
+      final String lockValue = !lockEmpty && lockI18nKey.isNotEmpty
+          ? '$lockAmount ${loc.tr(lockI18nKey)}'
+          : lockAmount;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        child: Material(
+          color: ArqmaColors.black90,
+          borderRadius: BorderRadius.circular(3),
+          clipBehavior: Clip.none,
+          child: InkWell(
+            hoverColor: ArqmaColors.selection,
+            splashColor: ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.18),
+            onTap: canTapStake ? () => _openStakeDialog(item) : null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _poolTypeLabel(loc, item),
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.25,
+                            color: typeColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Builder(
+                        builder: (BuildContext btnCtx) {
+                          return IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 32,
+                            ),
+                            onPressed: () async {
+                              await _showPoolRowOverflowMenu(
+                                anchor: btnCtx,
+                                items: poolOverflowItems,
+                                onChosen: (String v) async {
+                                  switch (v) {
+                                    case 'copy':
+                                      await _copyNodeId(pubkey);
+                                      break;
+                                    case 'explorer':
+                                      await _openExplorer(pubkey);
+                                      break;
+                                    case 'book':
+                                      await _addOperatorToBook(item);
+                                      break;
+                                    case 'deregister':
+                                      await _deregisterNode(pubkey);
+                                      break;
+                                  }
+                                },
+                              );
+                            },
+                            icon: Icon(
+                              Icons.more_vert,
+                              size: 20,
+                              color: ArqmaColors.textPrimary
+                                  .withValues(alpha: 0.85),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    loc.tr('components.pool_list_tabular.oracle_node_id'),
+                    style: _poolMetaStyle(context),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    pubkeyShort,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      height: 1.25,
+                      color: ArqmaColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      _poolCompactStat(
+                        context: context,
+                        label: loc.tr('components.pool_list_tabular.stakers'),
+                        value: stakers,
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label:
+                            loc.tr('components.pool_list_tabular.operator_fee'),
+                        value: fee,
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label: loc.tr(
+                            'components.pool_list_tabular.last_reward_height'),
+                        value: lastReward,
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label: lockMetaLabel,
+                        value: lockValue,
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label: loc.tr(
+                            'components.pool_list_tabular.last_uptime_proof'),
+                        value: _relativeUptime(loc, lastProof),
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label: loc.tr('components.pool_list_tabular.staked'),
+                        value: _poolStakedAvailPlain(loc, price, item['staked']),
+                      ),
+                      _poolCompactStat(
+                        context: context,
+                        label:
+                            loc.tr('components.pool_list_tabular.available'),
+                        value:
+                            _poolStakedAvailPlain(loc, price, item['available']),
+                      ),
+                      if (hasEquity)
+                        _poolCompactStat(
+                          context: context,
+                          label: loc.tr('components.pool_list_tabular.equity'),
+                          value: '$eq %',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     // Parity with `app.scss` `.pool-list-tabular .arqma-list-item.transaction` + `pool_list_tabular.vue`.
     return Padding(
@@ -1183,59 +1454,15 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
           label: loc
               .tr('pages.wallet.staking_pools.filter_by_oracle_node_status'),
           child: InputDecorator(
-            decoration: const InputDecoration(border: InputBorder.none),
-            child: DropdownButton<int>(
-              isExpanded: true,
-              value: filterIndex.clamp(0, 4),
-              itemHeight: 88,
-              underline: const SizedBox.shrink(),
-              selectedItemBuilder: (BuildContext ctx) {
-                return _nodeFilterOptions.map((Map<String, dynamic> o) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      loc.tr(o['label'] as String),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  );
-                }).toList();
-              },
-              dropdownColor: ArqmaColors.darkPanel,
-              items: _nodeFilterOptions
-                  .map(
-                    (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                      value: o['index'] as int,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(loc.tr(o['label'] as String),
-                              overflow: TextOverflow.ellipsis),
-                          Text(
-                            loc.tr(o['description'] as String? ?? ''),
-                            style: const TextStyle(
-                                fontSize: 10,
-                                color: ArqmaColors.textMuted,
-                                height: 1.2),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? v) {
-                if (v == null) {
-                  return;
-                }
-                final Map<String, dynamic> opt = Map<String, dynamic>.from(
-                  _nodeFilterOptions.firstWhere(
-                      (Map<String, dynamic> e) => e['index'] == v),
-                );
-                store.setPoolsFilterState(opt);
-              },
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4),
+              isDense: true,
+            ),
+            child: _buildNodeStatusFilterDropdown(
+              loc: loc,
+              store: store,
+              filterIndex: filterIndex,
             ),
           ),
         ),
@@ -1275,10 +1502,38 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
                 final double availW = c.maxWidth.isFinite && c.maxWidth > 0
                     ? c.maxWidth
                     : _kPoolTableMinWidth;
-                final double tableW = math.max(
-                  _kPoolTableMinWidth,
-                  math.max(0.0, availW - _kPoolTableScrollHPadding),
+                final bool compactPools =
+                    MobileResponsiveLayout.useCompactStakingPools(
+                  MobileResponsiveLayout.contentWidth(ctx),
                 );
+                final double tableW = compactPools
+                    ? math.max(0.0, availW)
+                    : math.max(
+                        _kPoolTableMinWidth,
+                        math.max(0.0, availW - _kPoolTableScrollHPadding),
+                      );
+                final Widget listBody = Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
+                  child: SizedBox(
+                    width: tableW,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: poolRows,
+                    ),
+                  ),
+                );
+                if (compactPools) {
+                  return Scrollbar(
+                    controller: _poolVerticalScroll,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _poolVerticalScroll,
+                      clipBehavior: Clip.none,
+                      child: listBody,
+                    ),
+                  );
+                }
                 return Scrollbar(
                   controller: _poolHorizontalScroll,
                   thumbVisibility: true,
@@ -1292,17 +1547,7 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
                       child: SingleChildScrollView(
                         controller: _poolVerticalScroll,
                         clipBehavior: Clip.none,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
-                          child: SizedBox(
-                            width: tableW,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              mainAxisSize: MainAxisSize.min,
-                              children: poolRows,
-                            ),
-                          ),
-                        ),
+                        child: listBody,
                       ),
                     ),
                   ),

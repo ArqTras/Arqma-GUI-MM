@@ -11,7 +11,13 @@ abstract final class MobileResponsiveLayout {
   /// Wider txid preview on tablets / unfolded phones.
   static const double expandedBreakpoint = 600;
 
+  /// Staking pool list uses stacked cards instead of the wide tabular row.
+  static const double stakingCompactBreakpoint = 900;
+
   static bool stackFilters(double width) => width < stackFiltersBreakpoint;
+
+  static bool useCompactStakingPools(double width) =>
+      width < stakingCompactBreakpoint;
 
   static bool isCompact(double width) => width < compactBreakpoint;
 
