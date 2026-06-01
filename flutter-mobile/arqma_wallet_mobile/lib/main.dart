@@ -13,6 +13,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'app_nav.dart';
 import 'core/app_exit_watchdog.dart';
 import 'core/app_api.dart';
+import 'core/mobile/ios_rescan_live_activity.dart';
 import 'core/mobile/mobile_background_wallet_sync.dart';
 import 'core/services/app_receiver.dart';
 import 'core/services/mobile_native_bridge.dart';
@@ -91,6 +92,7 @@ Future<void> _launchFullWalletApp() async {
     locale: locale,
   );
   if (!kIsWeb && Platform.isIOS && bridge is MobileNativeBridge) {
+    unawaited(IosRescanLiveActivity.init());
     MobileBackgroundWalletSync.install(bridge);
   }
   runApp(

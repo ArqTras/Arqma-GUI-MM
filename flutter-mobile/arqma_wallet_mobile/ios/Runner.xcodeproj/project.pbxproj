@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		137721973577CA14861930EA /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A25A4660BEE93578986F044A /* Pods_Runner.framework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		16FB87FEED8EE69EA19EF061 /* ArqmaRescanWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE3B2B9B23077F2BCFB8E8BF /* ArqmaRescanWidgetBundle.swift */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
@@ -16,7 +17,10 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9D1BBCBE74C82222F82EAE4D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 657251D505B72D1D543A4B21 /* Foundation.framework */; };
 		9E1D95201A8EB2811589B220 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1DE9F4D0421A727C1273A6E2 /* Pods_RunnerTests.framework */; };
+		C1B8EBEEB0463E09794A43EC /* ArqmaRescanWidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FD27E327989DC0126917DAD /* ArqmaRescanWidgetLiveActivity.swift */; };
+		E2168D6CB6E8667B44FE393A /* ArqmaRescanWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 83D0B7BD6224E764EBD2894D /* ArqmaRescanWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -26,6 +30,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		AEE5D28F46110B8A85F32A97 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5A2E2E1AF3EBF0773AA88D96;
+			remoteInfo = ArqmaRescanWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -51,12 +62,15 @@
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		4FD27E327989DC0126917DAD /* ArqmaRescanWidgetLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArqmaRescanWidgetLiveActivity.swift; sourceTree = "<group>"; };
+		657251D505B72D1D543A4B21 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		75114C4F28A74E25E90230FC /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7D47394CA3548111FDC7DE6A /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
+		83D0B7BD6224E764EBD2894D /* ArqmaRescanWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = ArqmaRescanWidget.appex; path = ArqmaRescanWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -67,6 +81,9 @@
 		A25A4660BEE93578986F044A /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C010EFBBF6DC20E3968343C7 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		C883451A4C4B2571E85A5169 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		CA310A46B2EDEB531A5DD290 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		DE3B2B9B23077F2BCFB8E8BF /* ArqmaRescanWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArqmaRescanWidgetBundle.swift; sourceTree = "<group>"; };
+		DE909197EE29A9AB27CC9829 /* ArqmaRescanWidget.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ArqmaRescanWidget.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +92,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				137721973577CA14861930EA /* Pods_Runner.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C417DD89FA56DF461EEF6E59 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9D1BBCBE74C82222F82EAE4D /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +127,7 @@
 			children = (
 				A25A4660BEE93578986F044A /* Pods_Runner.framework */,
 				1DE9F4D0421A727C1273A6E2 /* Pods_RunnerTests.framework */,
+				B9F7FBAAE721FD4AED69784E /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -126,6 +152,7 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				A647F8D50D5EE7A2F8052A99 /* Pods */,
 				8FD877A3402FF9C8D5CC5CA3 /* Frameworks */,
+				E60CC0BD95F0E82F6A5040EF /* ArqmaRescanWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -134,6 +161,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				83D0B7BD6224E764EBD2894D /* ArqmaRescanWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -168,6 +196,26 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
+		B9F7FBAAE721FD4AED69784E /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				657251D505B72D1D543A4B21 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		E60CC0BD95F0E82F6A5040EF /* ArqmaRescanWidget */ = {
+			isa = PBXGroup;
+			children = (
+				DE3B2B9B23077F2BCFB8E8BF /* ArqmaRescanWidgetBundle.swift */,
+				4FD27E327989DC0126917DAD /* ArqmaRescanWidgetLiveActivity.swift */,
+				CA310A46B2EDEB531A5DD290 /* Info.plist */,
+				DE909197EE29A9AB27CC9829 /* ArqmaRescanWidget.entitlements */,
+			);
+			name = ArqmaRescanWidget;
+			path = ArqmaRescanWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -190,6 +238,23 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		5A2E2E1AF3EBF0773AA88D96 /* ArqmaRescanWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE5E909F81D6A6E50228FD1A /* Build configuration list for PBXNativeTarget "ArqmaRescanWidget" */;
+			buildPhases = (
+				E0E4599E65B875C43E1B0B85 /* Sources */,
+				C417DD89FA56DF461EEF6E59 /* Frameworks */,
+				192A8960DE053616BFBB85FA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ArqmaRescanWidget;
+			productName = ArqmaRescanWidget;
+			productReference = 83D0B7BD6224E764EBD2894D /* ArqmaRescanWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
@@ -203,10 +268,13 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				239FE130921BD783EC4B5D05 /* [CP] Embed Pods Frameworks */,
 				A1B2C3D51CF901F6004384FC /* Copy Arqma Wallet FFI */,
+				5BA76F677057451D2FDD6FC7 /* [CP] Copy Pods Resources */,
+				0C50B060B70B18A759A97BC2 /* Embed Live Activity Extension */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				ECD9D8169BC4B181761DEB0A /* PBXTargetDependency */,
 			);
 			name = Runner;
 			productName = Runner;
@@ -248,11 +316,19 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				5A2E2E1AF3EBF0773AA88D96 /* ArqmaRescanWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		192A8960DE053616BFBB85FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		331C807F294A63A400263BE5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -274,6 +350,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0C50B060B70B18A759A97BC2 /* Embed Live Activity Extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Live Activity Extension";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/embed_live_activity_extension.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		239FE130921BD783EC4B5D05 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -306,6 +401,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
+		};
+		5BA76F677057451D2FDD6FC7 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
+			showEnvVarsInLog = 0;
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -401,6 +513,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E0E4599E65B875C43E1B0B85 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16FB87FEED8EE69EA19EF061 /* ArqmaRescanWidgetBundle.swift in Sources */,
+				C1B8EBEEB0463E09794A43EC /* ArqmaRescanWidgetLiveActivity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -408,6 +529,12 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		ECD9D8169BC4B181761DEB0A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ArqmaRescanWidget;
+			target = 5A2E2E1AF3EBF0773AA88D96 /* ArqmaRescanWidget */;
+			targetProxy = AEE5D28F46110B8A85F32A97 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -489,6 +616,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 75L2UT4BNN;
 				ENABLE_BITCODE = NO;
@@ -672,6 +801,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 75L2UT4BNN;
 				ENABLE_BITCODE = NO;
@@ -696,6 +827,8 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
 				DEVELOPMENT_TEAM = 75L2UT4BNN;
 				EMBEDDED_CONTENT_CONTAINS_SWIFT = "$(inherited)";
@@ -709,6 +842,92 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		AF0DD86E8E52CBE654E88010 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = ArqmaRescanWidget/ArqmaRescanWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 75L2UT4BNN;
+				INFOPLIST_FILE = ArqmaRescanWidget/Info.plist;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.arqma.arqmaWalletMobile.RescanLiveActivity;
+				PRODUCT_NAME = ArqmaRescanWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Profile;
+		};
+		DEE003FFF3549F83F615D7D0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = ArqmaRescanWidget/ArqmaRescanWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 75L2UT4BNN;
+				INFOPLIST_FILE = ArqmaRescanWidget/Info.plist;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.arqma.arqmaWalletMobile.RescanLiveActivity;
+				PRODUCT_NAME = ArqmaRescanWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		EB93F30F291F5186173D9B6C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = ArqmaRescanWidget/ArqmaRescanWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = 75L2UT4BNN;
+				INFOPLIST_FILE = ArqmaRescanWidget/Info.plist;
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.arqma.arqmaWalletMobile.RescanLiveActivity;
+				PRODUCT_NAME = ArqmaRescanWidget;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -742,6 +961,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE5E909F81D6A6E50228FD1A /* Build configuration list for PBXNativeTarget "ArqmaRescanWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB93F30F291F5186173D9B6C /* Release */,
+				DEE003FFF3549F83F615D7D0 /* Debug */,
+				AF0DD86E8E52CBE654E88010 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

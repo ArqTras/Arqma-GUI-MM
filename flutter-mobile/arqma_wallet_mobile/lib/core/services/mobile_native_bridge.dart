@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../mobile/ios_rescan_live_activity.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
@@ -1928,6 +1929,12 @@ final class MobileNativeBridge implements NativeBridge {
     if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
       _walletFullRescanUi = false;
       _rescanPreTipHeight = 0;
+      if (Platform.isIOS) {
+        unawaited(IosRescanLiveActivity.end());
+      }
+    }
+    if (_walletFullRescanUi && Platform.isIOS && dh > 0) {
+      unawaited(IosRescanLiveActivity.startOrUpdate(current: newH, target: dh));
     }
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
@@ -2070,6 +2077,13 @@ final class MobileNativeBridge implements NativeBridge {
       'event': 'reset_wallet_status',
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
+    if (Platform.isIOS) {
+      final int tip =
+          _daemonChainTipHeight > 0 ? _daemonChainTipHeight : _rescanPreTipHeight;
+      if (tip > 0) {
+        unawaited(IosRescanLiveActivity.startOrUpdate(current: 0, target: tip));
+      }
+    }
   }
 
   /// Poll wallet RPC once after `rescan_*` so the footer shows scan height immediately (from genesis)
@@ -3304,6 +3318,9 @@ final class MobileNativeBridge implements NativeBridge {
           debugPrint('[MobileNative] rescan_blockchain: $e\n$st');
           _walletFullRescanUi = false;
           _rescanPreTipHeight = 0;
+          if (Platform.isIOS) {
+            unawaited(IosRescanLiveActivity.end());
+          }
           _emit(<String, dynamic>{
             'event': 'set_wallet_info',
             'data': <String, dynamic>{

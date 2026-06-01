@@ -16,7 +16,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://githu
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** Build **5.1.1 (26)** — FFI **1.0.8**; full blockchain rescan shows live block progress; Live Activity / Dynamic Island during rescan (iOS 16.1+); Face ID and background wallet sync (builds 17–25).
+- **iOS:** Build **5.1.1 (27)** — FFI **1.0.8**; full blockchain rescan with live block progress; **Live Activity / Dynamic Island** during rescan (extension `RescanLiveActivity`, App Group `group.com.arqma.arqmaWalletMobile`); Face ID and background wallet sync (builds 17–26).
 - **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI).
 
 ### Full blockchain rescan (FFI 1.0.8 — desktop + mobile)
@@ -30,7 +30,8 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://githu
 - **Background sync:** Keeps wallet heartbeat running while the app is backgrounded (screen off) via iOS background tasks.
 - **Build 18:** Fix password prompt when opening imported accounts (`password` null vs empty).
 - **Build 25:** Face ID prompt runs after wallet screen loads; settings menu always prompts for password before Keychain save.
-- **Build 26:** FFI **1.0.8** rescan progress UI; Live Activity widget for rescan status when leaving the app.
+- **Build 26:** FFI **1.0.8** rescan progress UI.
+- **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); installable on device and TestFlight.
 
 ### Release assets (by platform)
 
