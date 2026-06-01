@@ -50,11 +50,9 @@ end
 
 existing = project.targets.find { |t| t.name == widget_name }
 if existing
-  flutter_debug_xcconfig = project.files.find { |f| f.path == 'Flutter/Debug.xcconfig' }
-  flutter_release_xcconfig = project.files.find { |f| f.path == 'Flutter/Release.xcconfig' }
+  extension_xcconfig = project.files.find { |f| f.path == 'Flutter/Extension.xcconfig' }
   existing.build_configurations.each do |config|
-    xcconfig = config.name == 'Debug' ? flutter_debug_xcconfig : flutter_release_xcconfig
-    config.base_configuration_reference = xcconfig if xcconfig
+    config.base_configuration_reference = extension_xcconfig if extension_xcconfig
     config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = extension_bundle_id
     config.build_settings['CODE_SIGN_ENTITLEMENTS'] = "#{widget_dir}/ArqmaRescanWidget.entitlements"
     config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
@@ -91,12 +89,10 @@ target = project.new_target(
   :swift
 )
 target.product_reference.name = "#{widget_name}.appex"
-flutter_debug_xcconfig = project.files.find { |f| f.path == 'Flutter/Debug.xcconfig' }
-flutter_release_xcconfig = project.files.find { |f| f.path == 'Flutter/Release.xcconfig' }
+extension_xcconfig = project.files.find { |f| f.path == 'Flutter/Extension.xcconfig' }
 
 target.build_configurations.each do |config|
-  xcconfig = config.name == 'Debug' ? flutter_debug_xcconfig : flutter_release_xcconfig
-  config.base_configuration_reference = xcconfig if xcconfig
+  config.base_configuration_reference = extension_xcconfig if extension_xcconfig
   config.build_settings['INFOPLIST_FILE'] = "#{widget_dir}/Info.plist"
   config.build_settings['CODE_SIGN_ENTITLEMENTS'] = "#{widget_dir}/ArqmaRescanWidget.entitlements"
   config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = extension_bundle_id

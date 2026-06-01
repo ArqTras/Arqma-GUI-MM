@@ -1,0 +1,2 @@
+// Live Activity app extension — version sync only (no Pods-Runner / Flutter engine).
+#include "Generated.xcconfig"
