@@ -156,7 +156,12 @@ class _WalletMainMenuState extends State<WalletMainMenu> {
             }
             break;
           case 'settings':
-            await showDaemonSettingsDialog(context);
+            // Close the popup first; open settings on the next frame.
+            scheduleMicrotask(() {
+              if (context.mounted) {
+                unawaited(showDaemonSettingsDialog(context));
+              }
+            });
             break;
           case 'about':
             final NativeBridge bridgeForAbout = context.read<NativeBridge>();

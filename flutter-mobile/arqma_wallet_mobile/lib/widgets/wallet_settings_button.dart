@@ -753,15 +753,18 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
-    final bool ready = store.isReady;
-    final bool canRescan = store.hasOpenWallet;
-    final Map<String, dynamic> info = store.walletInfo;
-    final String label = '${info['name'] ?? ''}'.isEmpty
-        ? loc.tr('components.wallet_settings.settings')
-        : '${info['name']}';
+    return Selector<GatewayStore, _WalletSettingsMenuSnapshot>(
+      selector: (_, GatewayStore store) =>
+          _WalletSettingsMenuSnapshot.fromStore(store),
+      builder: (BuildContext context, _WalletSettingsMenuSnapshot snap,
+          Widget? _) {
+        final bool ready = snap.ready;
+        final bool canRescan = snap.canRescan;
+        final String label = snap.label.isEmpty
+            ? loc.tr('components.wallet_settings.settings')
+            : snap.label;
 
-    final Widget menuChild = widget.stackedUnderMenu
+        final Widget menuChild = widget.stackedUnderMenu
         ? Padding(
             padding: const EdgeInsets.only(top: 2),
             child: ConstrainedBox(
@@ -922,7 +925,40 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             child: Text(loc.tr('components.wallet_settings.delete_account'))),
       ],
     );
+      },
+    );
   }
+}
+
+final class _WalletSettingsMenuSnapshot {
+  const _WalletSettingsMenuSnapshot({
+    required this.ready,
+    required this.canRescan,
+    required this.label,
+  });
+
+  final bool ready;
+  final bool canRescan;
+  final String label;
+
+  static _WalletSettingsMenuSnapshot fromStore(GatewayStore store) {
+    return _WalletSettingsMenuSnapshot(
+      ready: store.isReady,
+      canRescan: store.hasOpenWallet,
+      label: '${store.walletInfo['name'] ?? ''}'.trim(),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _WalletSettingsMenuSnapshot &&
+        other.ready == ready &&
+        other.canRescan == canRescan &&
+        other.label == label;
+  }
+
+  @override
+  int get hashCode => Object.hash(ready, canRescan, label);
 }
 
 class _ChangeWalletPasswordDialog extends StatefulWidget {

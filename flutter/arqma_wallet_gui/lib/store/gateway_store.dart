@@ -16,13 +16,44 @@ void _assignMergedEntries(
   });
 }
 
+/// Fields that drive visible wallet UI (footer/header/list scan banner).
+const List<String> _kWalletInfoUiKeys = <String>[
+  'height',
+  'balance',
+  'unlocked_balance',
+  'name',
+  'full_rescan_ui',
+  'address',
+  'view_only',
+];
+
+bool _walletInfoUiPatchChanged(
+    Map<String, dynamic> patch, Map<String, dynamic> current) {
+  for (final String k in _kWalletInfoUiKeys) {
+    if (!patch.containsKey(k)) {
+      continue;
+    }
+    if ('${patch[k]}' != '${current[k]}') {
+      return true;
+    }
+  }
+  return false;
+}
+
 /// Vuex `gateway` module + `receiver.js` commit paths, backed by a deep tree.
 class GatewayStore extends ChangeNotifier {
   GatewayStore() : _state = defaultGatewayState();
 
   Map<String, dynamic> _state;
 
+  List<dynamic>? _filteredTransactionsCache;
+  Object? _filteredTransactionsCacheKey;
+  int _transactionsRevision = 0;
+
   Map<String, dynamic> get raw => _state;
+
+  /// Bumps on every meaningful tx-list change — drives fast, narrow UI updates.
+  int get transactionsRevision => _transactionsRevision;
 
   Map<String, dynamic> get app => _state['app'] as Map<String, dynamic>;
   Map<String, dynamic> get wallet => _state['wallet'] as Map<String, dynamic>;
@@ -61,15 +92,52 @@ class GatewayStore extends ChangeNotifier {
     final w = wallet;
     final merged = deepMergeMaps(w, data) as Map<String, dynamic>;
     _assignMergedEntries(w, merged);
+    _transactionsRevision++;
+    _invalidateFilteredTransactionsCache();
     _notify();
+  }
+
+  void _invalidateFilteredTransactionsCache() {
+    _filteredTransactionsCache = null;
+    _filteredTransactionsCacheKey = null;
   }
 
   void setWalletError(Map<String, dynamic> data) {
     resetWalletData(data);
   }
 
+  static Object _txListChangeToken(List<dynamic> list) {
+    if (list.isEmpty) {
+      return 0;
+    }
+    int token = list.length;
+    for (final Object? x in list) {
+      if (x is Map) {
+        token = Object.hash(
+          token,
+          x['txid'],
+          x['type'],
+          x['height'],
+          x['amount'],
+          x['timestamp'],
+        );
+      }
+    }
+    return token;
+  }
+
   void setWalletTransactions(Map<String, dynamic> data) {
+    final List<dynamic> next =
+        (data['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
+    final List<dynamic> cur =
+        ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ??
+            const <dynamic>[];
+    if (_txListChangeToken(next) == _txListChangeToken(cur)) {
+      return;
+    }
     wallet['transactions'] = data;
+    _transactionsRevision++;
+    _invalidateFilteredTransactionsCache();
     _notify();
   }
 
@@ -84,6 +152,8 @@ class GatewayStore extends ChangeNotifier {
       return p;
     }).toList();
     (wallet['transactions'] as Map)['tx_list'] = next;
+    _transactionsRevision++;
+    _invalidateFilteredTransactionsCache();
     _notify();
   }
 
@@ -129,9 +199,12 @@ class GatewayStore extends ChangeNotifier {
       patch['scan_poll_ts'] = num.tryParse('${patch['scan_poll_ts']}') ?? 0;
     }
     final wi = wallet['info'] as Map<String, dynamic>;
+    final bool uiChanged = _walletInfoUiPatchChanged(patch, wi);
     final merged = deepMergeMaps(wi, patch) as Map<String, dynamic>;
     _assignMergedEntries(wi, merged);
-    _notify();
+    if (uiChanged) {
+      _notify();
+    }
   }
 
   void setWalletSecret(Map<String, dynamic> data) {
@@ -157,7 +230,12 @@ class GatewayStore extends ChangeNotifier {
   }
 
   void setCoinPrice(dynamic data) {
-    _state['coin_price'] = data;
+    final num? next =
+        data is num ? data : num.tryParse(data == null ? '' : '$data');
+    if (next != null && next == coinPrice) {
+      return;
+    }
+    _state['coin_price'] = next ?? data;
     _notify();
   }
 
@@ -510,13 +588,21 @@ class GatewayStore extends ChangeNotifier {
         _state['transaction_id_filter'] as Map<String, dynamic>;
     final String tidVal = '${tid['value'] ?? ''}';
     final int idx = tf['index'] as int? ?? 0;
+    final Object cacheKey = Object.hash(_transactionsRevision, idx, tidVal);
+    if (_filteredTransactionsCacheKey == cacheKey &&
+        _filteredTransactionsCache != null) {
+      return _filteredTransactionsCache!;
+    }
     Iterable<dynamic> out = txList.where(
         (dynamic x) => _txTypeMatch(Map<String, dynamic>.from(x as Map), idx));
     if (tidVal.isNotEmpty) {
       out =
           out.where((dynamic x) => '${(x as Map)['txid']}'.startsWith(tidVal));
     }
-    return out.toList();
+    final List<dynamic> result = out.toList();
+    _filteredTransactionsCacheKey = cacheKey;
+    _filteredTransactionsCache = result;
+    return result;
   }
 
   Map<String, dynamic> get poolsRoot =>

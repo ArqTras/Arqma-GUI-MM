@@ -439,6 +439,7 @@ class TxListWidget extends StatelessWidget {
     final Widget listView = ListView.separated(
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const ClampingScrollPhysics() : null,
+      cacheExtent: 480,
       itemCount: txs.length,
       separatorBuilder: (BuildContext context, int index) =>
           const Divider(height: 1, color: ArqmaColors.outlineSubtle),
@@ -452,7 +453,10 @@ class TxListWidget extends StatelessWidget {
             DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true)
                 .toLocal();
         final String timeAgo = timeago.format(dt);
-        return _buildTxListRow(
+        final String txid = '${tx['txid'] ?? ''}'.trim();
+        return KeyedSubtree(
+          key: ValueKey<String>(txid.isEmpty ? 'tx-$i' : txid),
+          child: _buildTxListRow(
           context: context,
           loc: loc,
           tx: tx,
@@ -512,6 +516,7 @@ class TxListWidget extends StatelessWidget {
               ),
             );
           },
+        ),
         );
       },
     );

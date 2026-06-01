@@ -58,15 +58,15 @@ class _StatusFooterState extends State<StatusFooter> {
     });
   }
 
-  int _daemonChainTip(Map<String, dynamic> info) {
+  static int _daemonChainTip(Map<String, dynamic> info) {
     final h = num.tryParse('${info['height']}') ?? 0;
     final th = num.tryParse('${info['target_height']}') ?? 0;
     return (h > th ? h : th).toInt();
   }
 
-  String _statusText(LocaleController loc, GatewayStore store) {
+  static String _statusText(LocaleController loc, _FooterSnapshot snap) {
     final Map<String, dynamic> cfg =
-        store.app['config'] as Map<String, dynamic>? ?? {};
+        snap.app['config'] as Map<String, dynamic>? ?? {};
     // `daemons[null]` yields no RPC entry when `net_type` is missing — match Rust default `mainnet`.
     final String net =
         (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
@@ -75,11 +75,10 @@ class _StatusFooterState extends State<StatusFooter> {
     final Map<String, dynamic> configDaemon =
         daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
     final String dtype = configDaemon['type'] as String? ?? 'local';
-    final Map<String, dynamic> info =
-        store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> info = snap.daemonInfo;
     final int daemonTip = _daemonChainTip(info);
-    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
-    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
+    final num walletHeight = snap.walletHeight;
+    final bool fullRescanUi = snap.fullRescanUi;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
@@ -114,7 +113,7 @@ class _StatusFooterState extends State<StatusFooter> {
     return loc.tr('components.footer.ready');
   }
 
-  Color _statusColor(String s, LocaleController loc) {
+  static Color _statusColor(String s, LocaleController loc) {
     final String ready = loc.tr('components.footer.ready');
     if (s == ready) {
       return ArqmaColors.arqmaGreenSolid;
@@ -129,26 +128,26 @@ class _StatusFooterState extends State<StatusFooter> {
 
   @override
   Widget build(BuildContext context) {
-    final GatewayStore store = context.watch<GatewayStore>();
     final LocaleController loc = context.watch<LocaleController>();
+    return Selector<GatewayStore, _FooterSnapshot>(
+      selector: (_, GatewayStore store) => _FooterSnapshot.fromStore(store),
+      builder: (BuildContext context, _FooterSnapshot snap, Widget? _) {
+        final Map<String, dynamic> app = snap.app;
+        final String wb = snap.walletBackend;
+        final Map<String, dynamic> cfg =
+            app['config'] as Map<String, dynamic>? ?? {};
+        final String net =
+            (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+        final Map<String, dynamic> daemons =
+            cfg['daemons'] as Map<String, dynamic>? ?? {};
+        final Map<String, dynamic> configDaemon =
+            daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
+        final String dtype = configDaemon['type'] as String? ?? 'local';
 
-    final Map<String, dynamic> app = store.app;
-    final String wb = '${app['wallet_backend'] ?? 'pending'}';
-    final Map<String, dynamic> cfg =
-        app['config'] as Map<String, dynamic>? ?? {};
-    final String net =
-        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic> daemons =
-        cfg['daemons'] as Map<String, dynamic>? ?? {};
-    final Map<String, dynamic> configDaemon =
-        daemons[net] as Map<String, dynamic>? ?? {'type': 'local'};
-    final String dtype = configDaemon['type'] as String? ?? 'local';
-
-    final Map<String, dynamic> info =
-        store.daemon['info'] as Map<String, dynamic>? ?? {};
-    final int daemonTip = _daemonChainTip(info);
-    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
-    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
+        final Map<String, dynamic> info = snap.daemonInfo;
+        final int daemonTip = _daemonChainTip(info);
+        final num walletHeight = snap.walletHeight;
+        final bool fullRescanUi = snap.fullRescanUi;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
@@ -221,7 +220,7 @@ class _StatusFooterState extends State<StatusFooter> {
       return (daemonTip > 0 && dwo < daemonTip) || walletNeeds;
     }
 
-    final String st = _statusText(loc, store);
+    final String st = _statusText(loc, snap);
     final num dh = daemonTip == 0
         ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
         : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
@@ -322,7 +321,50 @@ class _StatusFooterState extends State<StatusFooter> {
         ],
       ),
     );
+      },
+    );
   }
+}
+
+final class _FooterSnapshot {
+  const _FooterSnapshot({
+    required this.app,
+    required this.daemonInfo,
+    required this.walletHeight,
+    required this.fullRescanUi,
+    required this.walletBackend,
+  });
+
+  final Map<String, dynamic> app;
+  final Map<String, dynamic> daemonInfo;
+  final num walletHeight;
+  final bool fullRescanUi;
+  final String walletBackend;
+
+  static _FooterSnapshot fromStore(GatewayStore store) {
+    return _FooterSnapshot(
+      app: store.app,
+      daemonInfo: store.daemon['info'] as Map<String, dynamic>? ??
+          const <String, dynamic>{},
+      walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
+      fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
+      walletBackend: '${store.app['wallet_backend'] ?? 'pending'}',
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FooterSnapshot &&
+        identical(other.app, app) &&
+        identical(other.daemonInfo, daemonInfo) &&
+        other.walletHeight == walletHeight &&
+        other.fullRescanUi == fullRescanUi &&
+        other.walletBackend == walletBackend;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      app, daemonInfo, walletHeight, fullRescanUi, walletBackend);
 }
 
 class _BarTrack extends StatelessWidget {

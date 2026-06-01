@@ -81,6 +81,24 @@ class TxListWidget extends StatelessWidget {
     return false;
   }
 
+  static Object _txListChangeToken(List<Map<String, dynamic>> list) {
+    if (list.isEmpty) {
+      return 0;
+    }
+    int token = list.length;
+    for (final Map<String, dynamic> x in list) {
+      token = Object.hash(
+        token,
+        x['txid'],
+        x['type'],
+        x['height'],
+        x['amount'],
+        x['timestamp'],
+      );
+    }
+    return token;
+  }
+
   static List<dynamic> _transactionsForDisplay(
     GatewayStore store, {
     required String? filterAddress,
@@ -400,13 +418,66 @@ class TxListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
-    final List<dynamic> txs = _transactionsForDisplay(
+    return Selector<GatewayStore, _TxListUiSnapshot>(
+      selector: (_, GatewayStore store) => _TxListUiSnapshot.from(
+        store,
+        filterAddress: filterAddress,
+        filterAddressMinor: filterAddressMinor,
+        limit: limit,
+      ),
+      builder: (BuildContext context, _TxListUiSnapshot snap, Widget? _) {
+        return _TxListBody(
+          loc: loc,
+          snap: snap,
+          shrinkWrap: shrinkWrap,
+        );
+      },
+    );
+  }
+}
+
+final class _TxListUiSnapshot {
+  const _TxListUiSnapshot({
+    required this.txs,
+    required this.walletHeight,
+    required this.daemonTip,
+    required this.fullRescanUi,
+    required this.showScanProgress,
+    required this.transactionsRevision,
+    required this.filterIndex,
+    required this.tidFilter,
+    required this.filterAddress,
+    required this.filterAddressMinor,
+    required this.limit,
+  });
+
+  final List<Map<String, dynamic>> txs;
+  final int walletHeight;
+  final int daemonTip;
+  final bool fullRescanUi;
+  final bool showScanProgress;
+  final int transactionsRevision;
+  final int filterIndex;
+  final String tidFilter;
+  final String? filterAddress;
+  final int? filterAddressMinor;
+  final int limit;
+
+  static _TxListUiSnapshot from(
+    GatewayStore store, {
+    required String? filterAddress,
+    required int? filterAddressMinor,
+    required int limit,
+  }) {
+    final List<dynamic> rawTxs = TxListWidget._transactionsForDisplay(
       store,
       filterAddress: filterAddress,
       filterAddressMinor: filterAddressMinor,
       limit: limit,
     );
+    final List<Map<String, dynamic>> txs = rawTxs
+        .map((dynamic x) => Map<String, dynamic>.from(x as Map))
+        .toList(growable: false);
     final Map<String, dynamic> daemonInfo =
         store.daemon['info'] as Map<String, dynamic>? ?? {};
     final int daemonTip = () {
@@ -422,7 +493,78 @@ class TxListWidget extends StatelessWidget {
     final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
     final bool scanningBehind =
         daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
-    final bool showScanProgress = scanningBehind || fullRescanUi;
+    final Map<String, dynamic> tf =
+        store.raw['transactions_filter'] as Map<String, dynamic>? ??
+            const <String, dynamic>{};
+    final Map<String, dynamic> tid =
+        store.raw['transaction_id_filter'] as Map<String, dynamic>? ??
+            const <String, dynamic>{};
+    return _TxListUiSnapshot(
+      txs: txs,
+      walletHeight: walletH,
+      daemonTip: daemonTip,
+      fullRescanUi: fullRescanUi,
+      showScanProgress: scanningBehind || fullRescanUi,
+      transactionsRevision: store.transactionsRevision,
+      filterIndex: tf['index'] as int? ?? 0,
+      tidFilter: '${tid['value'] ?? ''}',
+      filterAddress: filterAddress,
+      filterAddressMinor: filterAddressMinor,
+      limit: limit,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _TxListUiSnapshot &&
+        other.walletHeight == walletHeight &&
+        other.daemonTip == daemonTip &&
+        other.fullRescanUi == fullRescanUi &&
+        other.showScanProgress == showScanProgress &&
+        other.transactionsRevision == transactionsRevision &&
+        other.filterIndex == filterIndex &&
+        other.tidFilter == tidFilter &&
+        other.filterAddress == filterAddress &&
+        other.filterAddressMinor == filterAddressMinor &&
+        other.limit == limit &&
+        TxListWidget._txListChangeToken(other.txs) ==
+            TxListWidget._txListChangeToken(txs);
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        walletHeight,
+        daemonTip,
+        fullRescanUi,
+        showScanProgress,
+        transactionsRevision,
+        filterIndex,
+        tidFilter,
+        filterAddress,
+        filterAddressMinor,
+        limit,
+        TxListWidget._txListChangeToken(txs),
+      );
+}
+
+class _TxListBody extends StatelessWidget {
+  const _TxListBody({
+    required this.loc,
+    required this.snap,
+    required this.shrinkWrap,
+  });
+
+  final LocaleController loc;
+  final _TxListUiSnapshot snap;
+  final bool shrinkWrap;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> txs = snap.txs;
+    final int walletH = snap.walletHeight;
+    final int daemonTip = snap.daemonTip;
+    final bool fullRescanUi = snap.fullRescanUi;
+    final bool showScanProgress = snap.showScanProgress;
 
     if (txs.isEmpty && !showScanProgress) {
       return Padding(
@@ -435,7 +577,7 @@ class TxListWidget extends StatelessWidget {
       return SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: _walletScanProgressBanner(
+          child: TxListWidget._walletScanProgressBanner(
             loc,
             walletH: walletH,
             daemonTip: daemonTip,
@@ -448,79 +590,87 @@ class TxListWidget extends StatelessWidget {
     final Widget listView = ListView.separated(
       shrinkWrap: shrinkWrap,
       physics: shrinkWrap ? const ClampingScrollPhysics() : null,
+      cacheExtent: 480,
       itemCount: txs.length,
       separatorBuilder: (BuildContext context, int index) =>
           const Divider(height: 1, color: ArqmaColors.outlineSubtle),
       itemBuilder: (BuildContext context, int i) {
-        final Map<String, dynamic> tx =
-            Map<String, dynamic>.from(txs[i] as Map);
+        final Map<String, dynamic> tx = txs[i];
         final String type = '${tx['type'] ?? ''}';
-        final int wh = int.tryParse('${store.walletInfo['height'] ?? 0}') ?? 0;
         final int ts = int.tryParse('${tx['timestamp'] ?? 0}') ?? 0;
         final DateTime dt =
             DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true)
                 .toLocal();
         final String timeAgo = timeago.format(dt);
-        return _buildTxListRow(
-          context: context,
-          loc: loc,
-          tx: tx,
-          type: type,
-          walletHeight: wh,
-          timeAgo: timeAgo,
-          onTap: () => showTxDetailsDialog(context, tx),
-          onLongPress: () async {
-            await showModalBottomSheet<void>(
+        final String txid = '${tx['txid'] ?? ''}'.trim();
+        return KeyedSubtree(
+          key: ValueKey<String>(txid.isEmpty ? 'tx-$i' : txid),
+          child: RepaintBoundary(
+            child: TxListWidget._buildTxListRow(
               context: context,
-              backgroundColor: const Color(0xFF1d1d1d),
-              builder: (BuildContext c) => SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      title: Text(loc.tr('components.tx_list.show_details')),
-                      onTap: () {
-                        Navigator.pop(c);
-                        showTxDetailsDialog(context, tx);
-                      },
+              loc: loc,
+              tx: tx,
+              type: type,
+              walletHeight: walletH,
+              timeAgo: timeAgo,
+              onTap: () => showTxDetailsDialog(context, tx),
+              onLongPress: () async {
+                await showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: const Color(0xFF1d1d1d),
+                  builder: (BuildContext c) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          title:
+                              Text(loc.tr('components.tx_list.show_details')),
+                          onTap: () {
+                            Navigator.pop(c);
+                            showTxDetailsDialog(context, tx);
+                          },
+                        ),
+                        ListTile(
+                          title: Text(loc
+                              .tr('components.tx_list.copy_transaction_id')),
+                          onTap: () async {
+                            await context
+                                .read<AppApi>()
+                                .writeText('${tx['txid']}');
+                            if (c.mounted) {
+                              Navigator.pop(c);
+                            }
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(loc.tr(
+                                        'components.tx_list.copied_transaction_id_to_clipboard'))),
+                              );
+                            }
+                          },
+                        ),
+                        ListTile(
+                          title: Text(
+                              loc.tr('components.tx_list.view_on_explorer')),
+                          onTap: () async {
+                            await context
+                                .read<AppApi>()
+                                .send('core', 'open_explorer', <String, dynamic>{
+                              'type': 'tx',
+                              'id': '${tx['txid']}',
+                            });
+                            if (c.mounted) {
+                              Navigator.pop(c);
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                    ListTile(
-                      title: Text(
-                          loc.tr('components.tx_list.copy_transaction_id')),
-                      onTap: () async {
-                        await context.read<AppApi>().writeText('${tx['txid']}');
-                        if (c.mounted) {
-                          Navigator.pop(c);
-                        }
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text(loc.tr(
-                                    'components.tx_list.copied_transaction_id_to_clipboard'))),
-                          );
-                        }
-                      },
-                    ),
-                    ListTile(
-                      title:
-                          Text(loc.tr('components.tx_list.view_on_explorer')),
-                      onTap: () async {
-                        await context
-                            .read<AppApi>()
-                            .send('core', 'open_explorer', <String, dynamic>{
-                          'type': 'tx',
-                          'id': '${tx['txid']}',
-                        });
-                        if (c.mounted) {
-                          Navigator.pop(c);
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
+            ),
+          ),
         );
       },
     );
@@ -529,7 +679,7 @@ class TxListWidget extends StatelessWidget {
     }
     final Widget banner = Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: _walletScanProgressBanner(
+      child: TxListWidget._walletScanProgressBanner(
         loc,
         walletH: walletH,
         daemonTip: daemonTip,

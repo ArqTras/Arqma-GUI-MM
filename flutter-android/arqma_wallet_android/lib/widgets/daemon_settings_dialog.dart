@@ -106,8 +106,7 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
-    final bool remoteOnly = _daemonIsRemote(store);
+    final bool remoteOnly = _daemonIsRemote(context.read<GatewayStore>());
     if (remoteOnly && _tab != 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -115,10 +114,6 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
         }
       });
     }
-    final List<dynamic> connections =
-        (store.daemon['connections'] as List<dynamic>?) ?? const <dynamic>[];
-    final List<dynamic> bans =
-        (store.daemon['bans'] as List<dynamic>?) ?? const <dynamic>[];
 
     return Dialog(
       backgroundColor: const Color(0xFF1a1a1a),
@@ -173,61 +168,10 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
                         ),
                       ),
                     )
-                  : ListView(
-                      padding: const EdgeInsets.all(12),
-                      children: [
-                        Text(loc.tr('components.settings.peer_list'),
-                            style: Theme.of(context).textTheme.titleSmall),
-                        if (connections.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(loc.tr(
-                                'components.settings.no_daemon_connections')),
-                          )
-                        else
-                          ...connections.map((dynamic e) {
-                            final Map<String, dynamic> m =
-                                Map<String, dynamic>.from(e as Map);
-                            final String addr =
-                                '${m['address'] ?? m['ip'] ?? m['host'] ?? ''}';
-                            final String h =
-                                '${m['height'] ?? m['live_time'] ?? ''}';
-                            return Card(
-                              color: const Color(0xFF151515),
-                              margin: const EdgeInsets.only(bottom: 6),
-                              child: ListTile(
-                                title: Text(addr,
-                                    style: const TextStyle(fontSize: 12)),
-                                subtitle: Text(
-                                    '${loc.tr('components.settings.height')}$h'),
-                                onTap: () => _onPeerTap(context, m),
-                              ),
-                            );
-                          }),
-                        if (bans.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Text(loc.tr('components.settings.banned_peers'),
-                              style: Theme.of(context).textTheme.titleSmall),
-                          ...bans.map((dynamic e) {
-                            final Map<String, dynamic> m =
-                                Map<String, dynamic>.from(e as Map);
-                            final String host = '${m['host'] ?? ''}';
-                            final int sec =
-                                (m['seconds'] as num?)?.toInt() ?? 0;
-                            final String until = DateTime.now()
-                                .add(Duration(seconds: sec))
-                                .toLocal()
-                                .toString();
-                            return ListTile(
-                              dense: true,
-                              title: Text(host,
-                                  style: const TextStyle(fontSize: 12)),
-                              subtitle: Text(
-                                  '${loc.tr('components.settings.banned_until')} $until'),
-                            );
-                          }),
-                        ],
-                      ],
+                  : _DaemonPeersPanel(
+                      loc: loc,
+                      onPeerTap: (Map<String, dynamic> entry) =>
+                          _onPeerTap(context, entry),
                     ),
             ),
           ],
@@ -235,6 +179,105 @@ class _DaemonSettingsDialogState extends State<_DaemonSettingsDialog> {
       ),
     );
   }
+}
+
+class _DaemonPeersPanel extends StatelessWidget {
+  const _DaemonPeersPanel({
+    required this.loc,
+    required this.onPeerTap,
+  });
+
+  final LocaleController loc;
+  final ValueChanged<Map<String, dynamic>> onPeerTap;
+
+  static _DaemonPeersSnapshot _select(GatewayStore store) {
+    return _DaemonPeersSnapshot(
+      connections: (store.daemon['connections'] as List<dynamic>?) ??
+          const <dynamic>[],
+      bans: (store.daemon['bans'] as List<dynamic>?) ?? const <dynamic>[],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Selector<GatewayStore, _DaemonPeersSnapshot>(
+      selector: (_, GatewayStore store) => _select(store),
+      builder: (BuildContext context, _DaemonPeersSnapshot snap, Widget? _) {
+        return ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            Text(loc.tr('components.settings.peer_list'),
+                style: Theme.of(context).textTheme.titleSmall),
+            if (snap.connections.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                    loc.tr('components.settings.no_daemon_connections')),
+              )
+            else
+              ...snap.connections.map((dynamic e) {
+                final Map<String, dynamic> m =
+                    Map<String, dynamic>.from(e as Map);
+                final String addr =
+                    '${m['address'] ?? m['ip'] ?? m['host'] ?? ''}';
+                final String h = '${m['height'] ?? m['live_time'] ?? ''}';
+                return Card(
+                  color: const Color(0xFF151515),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    title:
+                        Text(addr, style: const TextStyle(fontSize: 12)),
+                    subtitle: Text('${loc.tr('components.settings.height')}$h'),
+                    onTap: () => onPeerTap(m),
+                  ),
+                );
+              }),
+            if (snap.bans.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(loc.tr('components.settings.banned_peers'),
+                  style: Theme.of(context).textTheme.titleSmall),
+              ...snap.bans.map((dynamic e) {
+                final Map<String, dynamic> m =
+                    Map<String, dynamic>.from(e as Map);
+                final String host = '${m['host'] ?? ''}';
+                final int sec = (m['seconds'] as num?)?.toInt() ?? 0;
+                final String until = DateTime.now()
+                    .add(Duration(seconds: sec))
+                    .toLocal()
+                    .toString();
+                return ListTile(
+                  dense: true,
+                  title: Text(host, style: const TextStyle(fontSize: 12)),
+                  subtitle: Text(
+                      '${loc.tr('components.settings.banned_until')} $until'),
+                );
+              }),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+final class _DaemonPeersSnapshot {
+  const _DaemonPeersSnapshot({
+    required this.connections,
+    required this.bans,
+  });
+
+  final List<dynamic> connections;
+  final List<dynamic> bans;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _DaemonPeersSnapshot &&
+        identical(other.connections, connections) &&
+        identical(other.bans, bans);
+  }
+
+  @override
+  int get hashCode => Object.hash(connections, bans);
 }
 
 class _BanPeerSecondsDialog extends StatefulWidget {

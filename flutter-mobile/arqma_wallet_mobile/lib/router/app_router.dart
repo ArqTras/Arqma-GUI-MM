@@ -24,13 +24,17 @@ import '../pages/wallet_select/wallet_select_import_page.dart';
 import '../pages/wallet_select/wallet_select_import_view_only_page.dart';
 import '../pages/wallet_select/wallet_select_index_page.dart';
 import '../pages/wallet_select/wallet_select_restore_page.dart';
+import '../store/gateway_router_refresh.dart';
 import '../store/gateway_store.dart';
 
-GoRouter createAppRouter(GatewayStore store) {
+GoRouter createAppRouter(
+  GatewayStore store, {
+  required GatewayRouterRefreshListenable routerRefresh,
+}) {
   return GoRouter(
     navigatorKey: appNavigatorKey,
     initialLocation: '/',
-    refreshListenable: store,
+    refreshListenable: routerRefresh,
     redirect: (BuildContext context, GoRouterState state) {
       final path = state.uri.path;
       if (path == '/' || path.isEmpty) {
@@ -121,41 +125,51 @@ GoRouter createAppRouter(GatewayStore store) {
               child: WalletSelectImportOldGuiPage());
         },
       ),
-      GoRoute(
-        path: '/wallet',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: TxHistoryPage());
+      // One persistent shell — tab switches only swap [child], not header/footer/timers.
+      ShellRoute(
+        builder: (BuildContext context, GoRouterState state, Widget child) {
+          return WalletMainLayout(child: child);
         },
-      ),
-      GoRoute(
-        path: '/wallet/receive',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: ReceivePage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/send',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: SendPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/swap',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: SwapPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/staking-pools',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: StakingPoolsPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/addressbook',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: AddressBookPage());
-        },
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/wallet',
+            builder: (BuildContext context, GoRouterState state) {
+              return const TxHistoryPage();
+            },
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'receive',
+                builder: (BuildContext context, GoRouterState state) {
+                  return const ReceivePage();
+                },
+              ),
+              GoRoute(
+                path: 'send',
+                builder: (BuildContext context, GoRouterState state) {
+                  return const SendPage();
+                },
+              ),
+              GoRoute(
+                path: 'swap',
+                builder: (BuildContext context, GoRouterState state) {
+                  return const SwapPage();
+                },
+              ),
+              GoRoute(
+                path: 'staking-pools',
+                builder: (BuildContext context, GoRouterState state) {
+                  return const StakingPoolsPage();
+                },
+              ),
+              GoRoute(
+                path: 'addressbook',
+                builder: (BuildContext context, GoRouterState state) {
+                  return const AddressBookPage();
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     ],
     errorBuilder: (BuildContext context, GoRouterState state) =>

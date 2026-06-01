@@ -61,29 +61,28 @@ class _StatusFooterState extends State<StatusFooter> {
     });
   }
 
-  int _daemonChainTip(Map<String, dynamic> info) {
+  static int _daemonChainTip(Map<String, dynamic> info) {
     final h = num.tryParse('${info['height']}') ?? 0;
     final th = num.tryParse('${info['target_height']}') ?? 0;
     return (h > th ? h : th).toInt();
   }
 
-  String _statusText(LocaleController loc, GatewayStore store) {
-    final Map<String, dynamic> cfg = effectiveAppConfig(store.app);
+  static String _statusText(LocaleController loc, _FooterSnapshot snap) {
+    final Map<String, dynamic> cfg = effectiveAppConfig(snap.app);
     final String net =
         (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
     final String dtype = configDaemon['type'] as String? ?? 'remote';
-    final Map<String, dynamic> info =
-        store.daemon['info'] as Map<String, dynamic>? ?? {};
+    final Map<String, dynamic> info = snap.daemonInfo;
     final int daemonTip = _daemonChainTip(info);
-    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
-    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
+    final num walletHeight = snap.walletHeight;
+    final bool fullRescanUi = snap.fullRescanUi;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
     if (displayTip == 0) {
       if (dtype == 'remote') {
-        final bool ok = store.app['remote_daemon_ok'] == true;
+        final bool ok = snap.app['remote_daemon_ok'] == true;
         final String node = remoteNodeLabel(cfg);
         if (ok) {
           return loc.tr('components.footer.syncing');
@@ -123,7 +122,7 @@ class _StatusFooterState extends State<StatusFooter> {
     return loc.tr('components.footer.ready');
   }
 
-  Color _statusColor(String s, LocaleController loc) {
+  static Color _statusColor(String s, LocaleController loc) {
     final String ready = loc.tr('components.footer.ready');
     if (s == ready) {
       return ArqmaColors.arqmaGreenSolid;
@@ -138,204 +137,250 @@ class _StatusFooterState extends State<StatusFooter> {
 
   @override
   Widget build(BuildContext context) {
-    final GatewayStore store = context.watch<GatewayStore>();
     final LocaleController loc = context.watch<LocaleController>();
+    return Selector<GatewayStore, _FooterSnapshot>(
+      selector: (_, GatewayStore store) => _FooterSnapshot.fromStore(store),
+      builder: (BuildContext context, _FooterSnapshot snap, Widget? _) {
+        final Map<String, dynamic> app = snap.app;
+        final String wb = snap.walletBackend;
+        final Map<String, dynamic> cfg = effectiveAppConfig(app);
+        final String net =
+            (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+        final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
+        final String dtype = configDaemon['type'] as String? ?? 'remote';
+        final String nodeLabel = remoteNodeLabel(cfg);
 
-    final Map<String, dynamic> app = store.app;
-    final String wb = '${app['wallet_backend'] ?? 'pending'}';
-    final Map<String, dynamic> cfg = effectiveAppConfig(app);
-    final String net =
-        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
-    final String dtype = configDaemon['type'] as String? ?? 'remote';
-    final String nodeLabel = remoteNodeLabel(cfg);
+        final Map<String, dynamic> info = snap.daemonInfo;
+        final int daemonTip = _daemonChainTip(info);
+        final num walletHeight = snap.walletHeight;
+        final bool fullRescanUi = snap.fullRescanUi;
+        final int displayTip = daemonTip > 0
+            ? daemonTip
+            : (walletHeight > 0 ? walletHeight.toInt() : 0);
+        final int gapBlocks = displayTip > 0
+            ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
+            : 0;
+        final bool walletSyncedForFooter = displayTip > 0 &&
+            gapBlocks <= kWalletDaemonTipToleranceBlocks &&
+            !fullRescanUi;
 
-    final Map<String, dynamic> info =
-        store.daemon['info'] as Map<String, dynamic>? ?? {};
-    final int daemonTip = _daemonChainTip(info);
-    final num walletHeight = num.tryParse('${store.walletInfo['height']}') ?? 0;
-    final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
-    final int displayTip = daemonTip > 0
-        ? daemonTip
-        : (walletHeight > 0 ? walletHeight.toInt() : 0);
-    final int gapBlocks = displayTip > 0
-        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
-        : 0;
-    final bool walletSyncedForFooter = displayTip > 0 &&
-        gapBlocks <= kWalletDaemonTipToleranceBlocks &&
-        !fullRescanUi;
+        double daemonLocalPct() {
+          if (dtype == 'remote') {
+            return 0;
+          }
+          if (daemonTip == 0) {
+            return 0;
+          }
+          final num dwo =
+              num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+          var pct = (100 * dwo) / daemonTip;
+          if (dwo < daemonTip && (pct * 10).round() / 10 >= 100) {
+            pct = 99.9;
+          }
+          final int decimals = pct >= 100 ? 1 : 2;
+          return double.parse(pct.clamp(0, 100).toStringAsFixed(decimals));
+        }
 
-    double daemonLocalPct() {
-      if (dtype == 'remote') {
-        return 0;
-      }
-      if (daemonTip == 0) {
-        return 0;
-      }
-      final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-      var pct = (100 * dwo) / daemonTip;
-      if (dwo < daemonTip && (pct * 10).round() / 10 >= 100) {
-        pct = 99.9;
-      }
-      final int decimals = pct >= 100 ? 1 : 2;
-      return double.parse(pct.clamp(0, 100).toStringAsFixed(decimals));
-    }
+        double walletPct() {
+          if (displayTip == 0) {
+            return 0;
+          }
+          if (walletSyncedForFooter) {
+            return 100;
+          }
+          final num pct = (100 * walletHeight) / displayTip;
+          if (pct >= 100) {
+            return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
+          }
+          if (walletHeight < displayTip && pct >= 99) {
+            return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
+          }
+          return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
+        }
 
-    double walletPct() {
-      if (displayTip == 0) {
-        return 0;
-      }
-      if (fullRescanUi) {
-        return 2;
-      }
-      if (walletSyncedForFooter) {
-        return 100;
-      }
-      final num pct = (100 * walletHeight) / displayTip;
-      if (pct >= 100) {
-        return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
-      }
-      if (walletHeight < displayTip && pct >= 99) {
-        return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
-      }
-      return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
-    }
+        double barFloor(double pct) {
+          if (pct <= 0) {
+            return 0;
+          }
+          if (pct >= 100) {
+            return 100;
+          }
+          return pct < 1 ? 1 : pct;
+        }
 
-    double barFloor(double pct) {
-      if (pct <= 0) {
-        return 0;
-      }
-      if (pct >= 100) {
-        return 100;
-      }
-      return pct < 1 ? 1 : pct;
-    }
+        final double daemonPct = (dtype == 'local' || dtype == 'local_remote')
+            ? daemonLocalPct()
+            : 0.0;
+        final double wPct = walletPct();
 
-    final double daemonPct =
-        (dtype == 'local' || dtype == 'local_remote') ? daemonLocalPct() : 0.0;
-    final double wPct = walletPct();
+        final int walletBlocksLeft = walletSyncedForFooter ? 0 : gapBlocks;
 
-    final int walletBlocksLeft = walletSyncedForFooter ? 0 : gapBlocks;
+        bool showBars() {
+          if (displayTip == 0) {
+            return false;
+          }
+          final bool walletNeeds = fullRescanUi ||
+              (!walletSyncedForFooter && walletHeight < displayTip);
+          if (dtype == 'remote') {
+            return walletNeeds;
+          }
+          final num dwo =
+              num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+          return (daemonTip > 0 && dwo < daemonTip) || walletNeeds;
+        }
 
-    bool showBars() {
-      if (displayTip == 0) {
-        return false;
-      }
-      final bool walletNeeds = fullRescanUi ||
-          (!walletSyncedForFooter && walletHeight < displayTip);
-      if (dtype == 'remote') {
-        return walletNeeds;
-      }
-      final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-      return (daemonTip > 0 && dwo < daemonTip) || walletNeeds;
-    }
+        final String st = _statusText(loc, snap);
+        final num dh = daemonTip == 0
+            ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
+            : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
+                .clamp(0, daemonTip);
+        final num whDisp = displayTip == 0
+            ? walletHeight
+            : (walletSyncedForFooter
+                ? displayTip
+                : walletHeight.clamp(0, displayTip));
+        final String walletLine =
+            '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
+                '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
+                      'n': walletBlocksLeft.toString()
+                    })}' : ''}';
+        String selectedLocaleLabel = loc.locale;
+        for (final Map<String, String> o in _localeOptions) {
+          if (o['value'] == loc.locale) {
+            selectedLocaleLabel = o['label']!;
+            break;
+          }
+        }
 
-    final String st = _statusText(loc, store);
-    final num dh = daemonTip == 0
-        ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-        : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-            .clamp(0, daemonTip);
-    final num whDisp = displayTip == 0
-        ? walletHeight
-        : (walletSyncedForFooter
-            ? displayTip
-            : walletHeight.clamp(0, displayTip));
-    final String walletLine = fullRescanUi
-        ? '${loc.tr('components.footer.wallet')}: — / $displayTip (—)'
-        : '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
-            '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
-                  'n': walletBlocksLeft.toString()
-                })}' : ''}';
-    String selectedLocaleLabel = loc.locale;
-    for (final Map<String, String> o in _localeOptions) {
-      if (o['value'] == loc.locale) {
-        selectedLocaleLabel = o['label']!;
-        break;
-      }
-    }
-
-    return Material(
-      color: ArqmaColors.black90,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: DefaultTextStyle.merge(
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: ArqmaColors.arqmaGreenSolid,
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${loc.tr('components.footer.status')}: '),
-                      Text(st, style: TextStyle(color: _statusColor(st, loc))),
-                    ],
+        return Material(
+          color: ArqmaColors.black90,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: ArqmaColors.arqmaGreenSolid,
                   ),
-                  Text(
-                    '${loc.tr('components.footer.version')} $_version${_walletBackendSuffix(wb == 'pending' ? null : wb)}',
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text('${loc.tr('components.footer.language')}: '),
-                      PopupMenuButton<String>(
-                        padding: EdgeInsets.zero,
-                        useRootNavigator: true,
-                        color: ArqmaColors.darkPanel,
-                        onSelected: (String v) =>
-                            context.read<LocaleController>().setLocale(v),
-                        itemBuilder: (BuildContext c) => _localeOptions
-                            .map(
-                              (Map<String, String> o) => PopupMenuItem<String>(
-                                value: o['value'],
-                                child: Text(o['label']!),
-                              ),
-                            )
-                            .toList(),
-                        child: Text(selectedLocaleLabel),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${loc.tr('components.footer.status')}: '),
+                          Text(st,
+                              style: TextStyle(color: _statusColor(st, loc))),
+                        ],
                       ),
+                      Text(
+                        '${loc.tr('components.footer.version')} $_version${_walletBackendSuffix(wb == 'pending' ? null : wb)}',
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${loc.tr('components.footer.language')}: '),
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            useRootNavigator: true,
+                            color: ArqmaColors.darkPanel,
+                            onSelected: (String v) => context
+                                .read<LocaleController>()
+                                .setLocale(v),
+                            itemBuilder: (BuildContext c) => _localeOptions
+                                .map(
+                                  (Map<String, String> o) =>
+                                      PopupMenuItem<String>(
+                                    value: o['value'],
+                                    child: Text(o['label']!),
+                                  ),
+                                )
+                                .toList(),
+                            child: Text(selectedLocaleLabel),
+                          ),
+                        ],
+                      ),
+                      if (dtype != 'remote')
+                        Text(
+                          daemonTip > 0
+                              ? '${loc.tr('components.footer.daemon')}: $dh / $daemonTip (${daemonPct.toStringAsFixed(1)}%)'
+                              : '${loc.tr('components.footer.daemon')}: $dh / —',
+                        ),
+                      if (dtype != 'local' && nodeLabel.isNotEmpty)
+                        Text(
+                          daemonTip > 0
+                              ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${info['height'] ?? '—'}'
+                              : '${loc.tr('components.footer.remote')}: $nodeLabel',
+                        ),
+                      Text(walletLine),
                     ],
                   ),
-                  if (dtype != 'remote')
-                    Text(
-                      daemonTip > 0
-                          ? '${loc.tr('components.footer.daemon')}: $dh / $daemonTip (${daemonPct.toStringAsFixed(1)}%)'
-                          : '${loc.tr('components.footer.daemon')}: $dh / —',
-                    ),
-                  if (dtype != 'local' && nodeLabel.isNotEmpty)
-                    Text(
-                      daemonTip > 0
-                          ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${info['height'] ?? '—'}'
-                          : '${loc.tr('components.footer.remote')}: $nodeLabel',
-                    ),
-                  Text(walletLine),
-                ],
+                ),
               ),
-            ),
+              if (showBars())
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  child: Column(
+                    children: [
+                      if (dtype != 'remote')
+                        _BarTrack(widthPct: barFloor(daemonPct)),
+                      _BarTrack(widthPct: barFloor(wPct)),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          if (showBars())
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-              child: Column(
-                children: [
-                  if (dtype != 'remote')
-                    _BarTrack(widthPct: barFloor(daemonPct)),
-                  _BarTrack(widthPct: barFloor(wPct)),
-                ],
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
+}
+
+final class _FooterSnapshot {
+  const _FooterSnapshot({
+    required this.app,
+    required this.daemonInfo,
+    required this.walletHeight,
+    required this.fullRescanUi,
+    required this.walletBackend,
+  });
+
+  final Map<String, dynamic> app;
+  final Map<String, dynamic> daemonInfo;
+  final num walletHeight;
+  final bool fullRescanUi;
+  final String walletBackend;
+
+  static _FooterSnapshot fromStore(GatewayStore store) {
+    return _FooterSnapshot(
+      app: store.app,
+      daemonInfo: store.daemon['info'] as Map<String, dynamic>? ??
+          const <String, dynamic>{},
+      walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
+      fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
+      walletBackend: '${store.app['wallet_backend'] ?? 'pending'}',
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _FooterSnapshot &&
+        identical(other.app, app) &&
+        identical(other.daemonInfo, daemonInfo) &&
+        other.walletHeight == walletHeight &&
+        other.fullRescanUi == fullRescanUi &&
+        other.walletBackend == walletBackend;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(app, daemonInfo, walletHeight, fullRescanUi, walletBackend);
 }
 
 class _BarTrack extends StatelessWidget {

@@ -241,13 +241,8 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<GatewayStore>();
     final LocaleController loc = context.watch<LocaleController>();
     final path = GoRouterState.of(context).uri.path;
-    final price = store.coinPrice;
-    final info = store.walletInfo;
-    final balance = num.tryParse('${info['balance'] ?? 0}') ?? 0;
-    final unlocked = num.tryParse('${info['unlocked_balance'] ?? 0}') ?? 0;
 
     Future<void> refreshPrice() async {
       await context
@@ -305,80 +300,17 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
                 child: ArqmaLogoAsset(height: 52),
               ),
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (price != 0)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            r'$',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w300,
-                              color: ArqmaColors.arqmaGreenSolid,
-                            ),
-                          ),
-                          FormatArqma(amount: balance * price, digits: 2),
-                          IconButton(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: refreshPrice,
-                            color: ArqmaColors.arqmaGreenSolid,
-                          ),
-                        ],
-                      )
-                    else
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FormatArqma(amount: balance),
-                          const Text(
-                            ' ARQ',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w300,
-                              color: ArqmaColors.arqmaGreenSolid,
-                            ),
-                          ),
-                        ],
-                      ),
-                    if (price != 0)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FormatArqma(amount: balance),
-                          const Text(
-                            ' ARQ',
-                            style: TextStyle(
-                                fontSize: 13, color: ArqmaColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    if (balance != unlocked)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              loc.tr('layouts.wallet.main.temporarily_locked'),
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: ArqmaColors.textSecondary),
-                            ),
-                            FormatArqma(
-                                amount: (balance - unlocked).abs(), digits: 4),
-                            const Text(
-                              ' ARQ',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: ArqmaColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
+                child: Selector<GatewayStore, _WalletHeaderSnapshot>(
+                  selector: (_, GatewayStore s) =>
+                      _WalletHeaderSnapshot.fromStore(s),
+                  builder: (BuildContext context, _WalletHeaderSnapshot snap,
+                      Widget? _) {
+                    return _WalletBalanceHeader(
+                      loc: loc,
+                      snapshot: snap,
+                      onRefreshPrice: refreshPrice,
+                    );
+                  },
                 ),
               ),
             ],
@@ -422,9 +354,11 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
                 tabRoutes: _walletTabRoutes,
                 activePath: path,
                 onTabChange: goToWalletTab,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: widget.child,
+                child: RepaintBoundary(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: widget.child,
+                  ),
                 ),
               ),
             ),
@@ -432,6 +366,131 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Balance / fiat header — isolated from tab body rebuilds.
+final class _WalletHeaderSnapshot {
+  const _WalletHeaderSnapshot({
+    required this.balance,
+    required this.unlocked,
+    required this.coinPrice,
+  });
+
+  final num balance;
+  final num unlocked;
+  final num coinPrice;
+
+  static _WalletHeaderSnapshot fromStore(GatewayStore store) {
+    final Map<String, dynamic> info = store.walletInfo;
+    return _WalletHeaderSnapshot(
+      balance: num.tryParse('${info['balance'] ?? 0}') ?? 0,
+      unlocked: num.tryParse('${info['unlocked_balance'] ?? 0}') ?? 0,
+      coinPrice: store.coinPrice,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _WalletHeaderSnapshot &&
+        other.balance == balance &&
+        other.unlocked == unlocked &&
+        other.coinPrice == coinPrice;
+  }
+
+  @override
+  int get hashCode => Object.hash(balance, unlocked, coinPrice);
+}
+
+class _WalletBalanceHeader extends StatelessWidget {
+  const _WalletBalanceHeader({
+    required this.loc,
+    required this.snapshot,
+    required this.onRefreshPrice,
+  });
+
+  final LocaleController loc;
+  final _WalletHeaderSnapshot snapshot;
+  final VoidCallback onRefreshPrice;
+
+  @override
+  Widget build(BuildContext context) {
+    final num balance = snapshot.balance;
+    final num unlocked = snapshot.unlocked;
+    final num price = snapshot.coinPrice;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (price != 0)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                r'$',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w300,
+                  color: ArqmaColors.arqmaGreenSolid,
+                ),
+              ),
+              FormatArqma(amount: balance * price, digits: 2),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: onRefreshPrice,
+                color: ArqmaColors.arqmaGreenSolid,
+              ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FormatArqma(amount: balance),
+              const Text(
+                ' ARQ',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w300,
+                  color: ArqmaColors.arqmaGreenSolid,
+                ),
+              ),
+            ],
+          ),
+        if (price != 0)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FormatArqma(amount: balance),
+              const Text(
+                ' ARQ',
+                style: TextStyle(
+                    fontSize: 13, color: ArqmaColors.textSecondary),
+              ),
+            ],
+          ),
+        if (balance != unlocked)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  loc.tr('layouts.wallet.main.temporarily_locked'),
+                  style: const TextStyle(
+                      fontSize: 12, color: ArqmaColors.textSecondary),
+                ),
+                FormatArqma(amount: (balance - unlocked).abs(), digits: 4),
+                const Text(
+                  ' ARQ',
+                  style: TextStyle(
+                      fontSize: 12, color: ArqmaColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

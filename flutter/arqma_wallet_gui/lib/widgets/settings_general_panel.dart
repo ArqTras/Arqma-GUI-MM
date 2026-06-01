@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -33,7 +31,29 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     if (src == null) {
       return <String, dynamic>{};
     }
-    return jsonDecode(jsonEncode(src)) as Map<String, dynamic>;
+    if (src is Map) {
+      return Map<String, dynamic>.fromEntries(
+        src.entries.map(
+          (MapEntry<Object?, Object?> e) => MapEntry<String, dynamic>(
+            e.key.toString(),
+            _deepCloneValue(e.value),
+          ),
+        ),
+      );
+    }
+    return <String, dynamic>{};
+  }
+
+  static dynamic _deepCloneValue(Object? value) {
+    if (value is Map) {
+      return _deepClone(value);
+    }
+    if (value is List) {
+      return value
+          .map((Object? e) => e is Map ? _deepClone(e) : e)
+          .toList(growable: true);
+    }
+    return value;
   }
 
   Map<String, dynamic> _daemon() {
@@ -79,6 +99,23 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
       return;
     }
     final GatewayStore store = context.read<GatewayStore>();
+    final Map<String, dynamic> p =
+        Map<String, dynamic>.from(store.app['pending_config'] as Map? ?? {});
+    final Map<String, dynamic> c =
+        Map<String, dynamic>.from(store.app['config'] as Map? ?? {});
+    final Map<String, dynamic> full = p.isNotEmpty ? p : c;
+    final Map<String, dynamic>? srcApp = full['app'] as Map<String, dynamic>?;
+    if (srcApp == null) {
+      return;
+    }
+    _pending.putIfAbsent('app', () => <String, dynamic>{});
+    final Map<String, dynamic> app = _pending['app'] as Map<String, dynamic>;
+    final String nextDataDir = '${srcApp['data_dir'] ?? ''}';
+    final String nextWalletDir = '${srcApp['wallet_data_dir'] ?? ''}';
+    if ('${app['data_dir'] ?? ''}' == nextDataDir &&
+        '${app['wallet_data_dir'] ?? ''}' == nextWalletDir) {
+      return;
+    }
     _syncStoragePathsFromGateway(store);
     setState(() {});
   }

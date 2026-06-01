@@ -23,6 +23,7 @@ import 'core/theme/arqma_colors.dart';
 import 'core/theme/arqma_theme.dart';
 import 'i18n/locale_controller.dart';
 import 'router/app_router.dart';
+import 'store/gateway_router_refresh.dart';
 import 'store/gateway_store.dart';
 import 'widgets/mobile_splash_screen.dart';
 
@@ -77,6 +78,8 @@ Future<void> _launchFullWalletApp() async {
   _configureTimeago(locale.locale);
 
   final GatewayStore store = GatewayStore();
+  final GatewayRouterRefreshListenable routerRefresh =
+      GatewayRouterRefreshListenable(store);
   NativeBridge bridge;
   try {
     bridge = await resolveAppNativeBridge().timeout(const Duration(seconds: 15));
@@ -84,7 +87,7 @@ Future<void> _launchFullWalletApp() async {
     debugPrint('[ArqmaWallet] bridge: $e\n$st');
     bridge = StubNativeBridge();
   }
-  final GoRouter router = createAppRouter(store);
+  final GoRouter router = createAppRouter(store, routerRefresh: routerRefresh);
   final AppReceiver receiver = AppReceiver(
     bridge: bridge,
     store: store,
@@ -100,6 +103,7 @@ Future<void> _launchFullWalletApp() async {
       store: store,
       bridge: bridge,
       router: router,
+      routerRefresh: routerRefresh,
       receiver: receiver,
       locale: locale,
     ),
@@ -171,6 +175,7 @@ class ArqmaWalletApp extends StatefulWidget {
     required this.store,
     required this.bridge,
     required this.router,
+    required this.routerRefresh,
     required this.receiver,
     required this.locale,
   });
@@ -178,6 +183,7 @@ class ArqmaWalletApp extends StatefulWidget {
   final GatewayStore store;
   final NativeBridge bridge;
   final GoRouter router;
+  final GatewayRouterRefreshListenable routerRefresh;
   final AppReceiver receiver;
   final LocaleController locale;
 
@@ -200,6 +206,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
       WidgetsBinding.instance.removeObserver(this);
     }
     widget.receiver.dispose();
+    widget.routerRefresh.dispose();
     super.dispose();
   }
 
