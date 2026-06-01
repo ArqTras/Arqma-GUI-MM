@@ -14,23 +14,36 @@ import '../widgets/arqma_logo_asset.dart';
 import '../widgets/format_arqma.dart';
 import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
+import '../widgets/wallet_main_tab_bar.dart';
 import '../widgets/wallet_settings_button.dart';
+import '../widgets/wallet_tab_body.dart';
 
 /// Parity with `layouts/wallet/main.vue`.
 class WalletMainLayout extends StatefulWidget {
-  const WalletMainLayout({super.key, required this.child});
-
-  final Widget child;
+  const WalletMainLayout({super.key});
 
   @override
   State<WalletMainLayout> createState() => _WalletMainLayoutState();
 }
 
-class _WalletMainLayoutState extends State<WalletMainLayout> {
+class _WalletMainLayoutState extends State<WalletMainLayout>
+    with WidgetsBindingObserver {
   static const Duration _inactivityDebounce = Duration(milliseconds: 300);
+
+  static const List<String> _walletTabRoutes = <String>[
+    '/wallet',
+    '/wallet/send',
+    '/wallet/receive',
+    '/wallet/staking-pools',
+    '/wallet/addressbook',
+  ];
 
   Timer? _debounce;
   Timer? _inactivity;
+  bool _inactivityPausedForBackground = false;
+
+  /// Updated immediately on tab tap (before [GoRouter] catches up) for glitch-free switches.
+  String? _displayedTabPath;
 
   bool _onHardwareKey(KeyEvent event) {
     if (event is KeyDownEvent) {
@@ -40,8 +53,20 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      if (_displayedTabPath != routerPath) {
+        _displayedTabPath = routerPath;
+      }
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -54,13 +79,57 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     _debounce?.cancel();
     _inactivity?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        _pauseInactivityForBackground();
+      case AppLifecycleState.resumed:
+        _resumeInactivityAfterForeground();
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  /// Screen lock / app switcher must not count toward the inactivity log-out timer.
+  void _pauseInactivityForBackground() {
+    if (_inactivityPausedForBackground) {
+      return;
+    }
+    _inactivityPausedForBackground = true;
+    _debounce?.cancel();
+    _debounce = null;
+    _inactivity?.cancel();
+    _inactivity = null;
+  }
+
+  void _resumeInactivityAfterForeground() {
+    if (!_inactivityPausedForBackground) {
+      return;
+    }
+    _inactivityPausedForBackground = false;
+    if (!mounted) {
+      return;
+    }
+    if (context.read<GatewayStore>().walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
+    _debouncedArmInactivity();
+  }
+
   void _debouncedArmInactivity() {
+    if (_inactivityPausedForBackground) {
+      return;
+    }
     _debounce?.cancel();
     _debounce = Timer(_inactivityDebounce, _armInactivityTimer);
   }
@@ -100,6 +169,9 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
       return;
     }
     final GatewayStore store = context.read<GatewayStore>();
+    if (store.walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
     final int minutes = _readInactivityMinutes(store);
     final bool soloOn = _soloPoolServerEnabled(store);
 
@@ -120,7 +192,15 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     if (!mounted) {
       return;
     }
+    final AppLifecycleState? life = WidgetsBinding.instance.lifecycleState;
+    if (life != null && life != AppLifecycleState.resumed) {
+      _debouncedArmInactivity();
+      return;
+    }
     final GatewayStore store = context.read<GatewayStore>();
+    if (store.walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
     if (!store.isAbleToSend) {
       _debouncedArmInactivity();
       return;
@@ -170,10 +250,23 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     }
   }
 
+  String _resolveActivePath(BuildContext context) {
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_displayedTabPath != null &&
+        (_walletTabRoutes.contains(_displayedTabPath) ||
+            _displayedTabPath == '/wallet/swap')) {
+      return _displayedTabPath!;
+    }
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      return routerPath;
+    }
+    return '/wallet';
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final path = GoRouterState.of(context).uri.path;
+    final String path = _resolveActivePath(context);
 
     Future<void> refreshPrice() async {
       await context
@@ -181,79 +274,42 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
           .backendSend('wallet', 'get_coin_price', {});
     }
 
-    Widget navBtn(String route, String label, IconData icon) {
-      final bool active = path == route;
-      return SizedBox(
-        width: 118,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => context.go(route),
-              child: Ink(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: active
-                      ? ArqmaColors.arqmaGreenSolid
-                      : const Color(0xFF161410),
-                  border: Border.all(
-                    color: active
-                        ? ArqmaColors.outlineBright
-                        : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.42),
-                    width: active ? 1.4 : 1,
-                  ),
-                boxShadow: active
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: ArqmaColors.arqmaGreenSolid
-                              .withValues(alpha: 0.22),
-                          blurRadius: 10,
-                          spreadRadius: 0,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 18,
-                      color: active
-                          ? const Color(0xFF14110A)
-                          : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.88),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: active
-                            ? const Color(0xFF14110A)
-                            : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.92),
-                        fontWeight:
-                            active ? FontWeight.w600 : FontWeight.w500,
-                        fontSize: 11.5,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        ),
-      );
+    void goToWalletTab(String route) {
+      if (path != route) {
+        setState(() => _displayedTabPath = route);
+      }
+      if (GoRouterState.of(context).uri.path != route) {
+        context.go(route);
+      }
     }
+
+    final List<WalletMainTabItem> walletTabs = <WalletMainTabItem>[
+      WalletMainTabItem(
+        route: '/wallet',
+        label: loc.tr('layouts.wallet.main.transactions'),
+        icon: Icons.swap_horiz,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/send',
+        label: loc.tr('layouts.wallet.main.send'),
+        icon: Icons.arrow_right_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/receive',
+        label: loc.tr('layouts.wallet.main.receive'),
+        icon: Icons.save_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/staking-pools',
+        label: loc.tr('layouts.wallet.main.staking_pools'),
+        icon: Icons.arrow_right_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/addressbook',
+        label: loc.tr('layouts.wallet.main.address_book'),
+        icon: Icons.person,
+      ),
+    ];
 
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -289,7 +345,15 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
           actions: const <Widget>[
             Padding(
               padding: EdgeInsets.only(right: 8),
-              child: WalletMainMenu(),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  WalletMainMenu(),
+                  WalletSettingsButton(),
+                ],
+              ),
             ),
           ],
           bottom: PreferredSize(
@@ -305,38 +369,24 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    navBtn(
-                        '/wallet',
-                        loc.tr('layouts.wallet.main.transactions'),
-                        Icons.swap_horiz),
-                    navBtn('/wallet/send', loc.tr('layouts.wallet.main.send'),
-                        Icons.arrow_right_alt),
-                    navBtn('/wallet/receive',
-                        loc.tr('layouts.wallet.main.receive'), Icons.save_alt),
-                    // Swap route exists (`/wallet/swap`) but the main nav button is commented out in `layouts/wallet/main.vue`.
-                    navBtn(
-                        '/wallet/staking-pools',
-                        loc.tr('layouts.wallet.main.staking_pools'),
-                        Icons.arrow_right_alt),
-                    navBtn(
-                        '/wallet/addressbook',
-                        loc.tr('layouts.wallet.main.address_book'),
-                        Icons.person),
-                    const WalletSettingsButton(),
-                  ],
-                ),
+              child: WalletMainTabBar(
+                activePath: path,
+                tabs: walletTabs,
+                onTabTap: goToWalletTab,
               ),
             ),
             const Divider(color: ArqmaColors.dividerLine, height: 24),
             Expanded(
-              child: RepaintBoundary(
+              child: WalletMainTabSwipeNavigator(
+                tabRoutes: _walletTabRoutes,
+                activePath: path,
+                onTabChange: goToWalletTab,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: widget.child,
+                  child: WalletTabBody(
+                    activePath: path,
+                    tabRoutes: _walletTabRoutes,
+                  ),
                 ),
               ),
             ),

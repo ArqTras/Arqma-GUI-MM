@@ -20,6 +20,7 @@ import 'core/theme/arqma_colors.dart';
 import 'core/theme/arqma_theme.dart';
 import 'i18n/locale_controller.dart';
 import 'router/app_router.dart';
+import 'store/gateway_router_refresh.dart';
 import 'store/gateway_store.dart';
 
 void _configureAppErrorPresentation() {
@@ -50,12 +51,14 @@ Future<void> main() async {
   _configureTimeago(locale.locale);
 
   final GatewayStore store = GatewayStore();
+  final GatewayRouterRefreshListenable routerRefresh =
+      GatewayRouterRefreshListenable(store);
   // Native: MethodChannel embedder when it implements `native_ping`; else desktop I/O + `arqmad`.
   // `ARQMA_FLUTTER_USE_STUB=1` forces in-memory stub.
   final NativeBridge bridge = await resolveAppNativeBridge();
 
-  late final GoRouter router;
-  router = createAppRouter(store);
+  final GoRouter router =
+      createAppRouter(store, routerRefresh: routerRefresh);
 
   final AppReceiver receiver = AppReceiver(
     bridge: bridge,
@@ -70,6 +73,7 @@ Future<void> main() async {
       store: store,
       bridge: bridge,
       router: router,
+      routerRefresh: routerRefresh,
       receiver: receiver,
       locale: locale,
     ),
@@ -140,6 +144,7 @@ class ArqmaWalletApp extends StatefulWidget {
     required this.store,
     required this.bridge,
     required this.router,
+    required this.routerRefresh,
     required this.receiver,
     required this.locale,
   });
@@ -147,6 +152,7 @@ class ArqmaWalletApp extends StatefulWidget {
   final GatewayStore store;
   final NativeBridge bridge;
   final GoRouter router;
+  final GatewayRouterRefreshListenable routerRefresh;
   final AppReceiver receiver;
   final LocaleController locale;
 
@@ -169,6 +175,7 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
       WidgetsBinding.instance.removeObserver(this);
     }
     widget.receiver.dispose();
+    widget.routerRefresh.dispose();
     super.dispose();
   }
 

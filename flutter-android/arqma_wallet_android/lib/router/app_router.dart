@@ -10,12 +10,6 @@ import '../pages/init/init_index_page.dart';
 import '../pages/init/init_quit_page.dart';
 import '../pages/init/init_welcome_page.dart';
 import '../pages/not_found_page.dart';
-import '../pages/wallet/addressbook_page.dart';
-import '../pages/wallet/receive_page.dart';
-import '../pages/wallet/send_page.dart';
-import '../pages/wallet/staking_pools_page.dart';
-import '../pages/wallet/swap_page.dart';
-import '../pages/wallet/txhistory_page.dart';
 import '../pages/wallet_select/wallet_select_created_page.dart';
 import '../pages/wallet_select/wallet_select_create_page.dart';
 import '../pages/wallet_select/wallet_select_import_legacy_page.dart';
@@ -24,23 +18,25 @@ import '../pages/wallet_select/wallet_select_import_page.dart';
 import '../pages/wallet_select/wallet_select_import_view_only_page.dart';
 import '../pages/wallet_select/wallet_select_index_page.dart';
 import '../pages/wallet_select/wallet_select_restore_page.dart';
+import '../store/gateway_router_refresh.dart';
 import '../store/gateway_store.dart';
 
-GoRouter createAppRouter(GatewayStore store) {
+GoRouter createAppRouter(
+  GatewayStore store, {
+  required GatewayRouterRefreshListenable routerRefresh,
+}) {
   return GoRouter(
     navigatorKey: appNavigatorKey,
     initialLocation: '/',
-    refreshListenable: store,
+    refreshListenable: routerRefresh,
     redirect: (BuildContext context, GoRouterState state) {
       final path = state.uri.path;
       if (path == '/' || path.isEmpty) {
         final int c = store.appStatusCode;
-        // Ready for wallet list, or recoverable setup error — same landing as Tauri (wallets from config paths first).
         if (c == 0 || c == -1) {
           return '/wallet-select';
         }
       }
-      // Wallet layout expects an open account (`wallet.status.code == 0` after `open_wallet`).
       final bool wantsWalletChrome =
           path == '/wallet' || path.startsWith('/wallet/');
       if (wantsWalletChrome) {
@@ -121,41 +117,50 @@ GoRouter createAppRouter(GatewayStore store) {
               child: WalletSelectImportOldGuiPage());
         },
       ),
-      GoRoute(
-        path: '/wallet',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: TxHistoryPage());
+      ShellRoute(
+        builder: (BuildContext context, GoRouterState state, Widget child) {
+          return const WalletMainLayout();
         },
-      ),
-      GoRoute(
-        path: '/wallet/receive',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: ReceivePage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/send',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: SendPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/swap',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: SwapPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/staking-pools',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: StakingPoolsPage());
-        },
-      ),
-      GoRoute(
-        path: '/wallet/addressbook',
-        builder: (BuildContext context, GoRouterState state) {
-          return const WalletMainLayout(child: AddressBookPage());
-        },
+        routes: <RouteBase>[
+          GoRoute(
+            path: '/wallet',
+            pageBuilder: (BuildContext context, GoRouterState state) {
+              return const NoTransitionPage<void>(child: SizedBox.shrink());
+            },
+            routes: <RouteBase>[
+              GoRoute(
+                path: 'receive',
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
+                },
+              ),
+              GoRoute(
+                path: 'send',
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
+                },
+              ),
+              GoRoute(
+                path: 'swap',
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
+                },
+              ),
+              GoRoute(
+                path: 'staking-pools',
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
+                },
+              ),
+              GoRoute(
+                path: 'addressbook',
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     ],
     errorBuilder: (BuildContext context, GoRouterState state) =>

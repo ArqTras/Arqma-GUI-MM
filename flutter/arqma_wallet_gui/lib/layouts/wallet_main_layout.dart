@@ -15,13 +15,13 @@ import '../widgets/arqma_logo_asset.dart';
 import '../widgets/format_arqma.dart';
 import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
+import '../widgets/wallet_main_tab_bar.dart';
 import '../widgets/wallet_settings_button.dart';
+import '../widgets/wallet_tab_body.dart';
 
 /// Parity with `layouts/wallet/main.vue`.
 class WalletMainLayout extends StatefulWidget {
-  const WalletMainLayout({super.key, required this.child});
-
-  final Widget child;
+  const WalletMainLayout({super.key});
 
   @override
   State<WalletMainLayout> createState() => _WalletMainLayoutState();
@@ -31,15 +31,38 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     with WidgetsBindingObserver {
   static const Duration _inactivityDebounce = Duration(milliseconds: 300);
 
+  static const List<String> _walletTabRoutes = <String>[
+    '/wallet',
+    '/wallet/send',
+    '/wallet/receive',
+    '/wallet/staking-pools',
+    '/wallet/addressbook',
+    '/wallet/solo-pool',
+  ];
+
   Timer? _debounce;
   Timer? _inactivity;
   bool _inactivityPausedForBackground = false;
+
+  /// Updated immediately on tab tap (before [GoRouter] catches up).
+  String? _displayedTabPath;
 
   bool _onHardwareKey(KeyEvent event) {
     if (event is KeyDownEvent) {
       _debouncedArmInactivity();
     }
     return false;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      if (_displayedTabPath != routerPath) {
+        _displayedTabPath = routerPath;
+      }
+    }
   }
 
   @override
@@ -229,10 +252,23 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     }
   }
 
+  String _resolveActivePath(BuildContext context) {
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_displayedTabPath != null &&
+        (_walletTabRoutes.contains(_displayedTabPath) ||
+            _displayedTabPath == '/wallet/swap')) {
+      return _displayedTabPath!;
+    }
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      return routerPath;
+    }
+    return '/wallet';
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final path = GoRouterState.of(context).uri.path;
+    final String path = _resolveActivePath(context);
 
     Future<void> refreshPrice() async {
       await context
@@ -240,79 +276,47 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
           .backendSend('wallet', 'get_coin_price', {});
     }
 
-    Widget navBtn(String route, String label, IconData icon) {
-      final bool active = path == route;
-      return SizedBox(
-        width: 118,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => context.go(route),
-              child: Ink(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: active
-                      ? ArqmaColors.arqmaGreenSolid
-                      : const Color(0xFF161410),
-                  border: Border.all(
-                    color: active
-                        ? ArqmaColors.outlineBright
-                        : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.42),
-                    width: active ? 1.4 : 1,
-                  ),
-                boxShadow: active
-                    ? <BoxShadow>[
-                        BoxShadow(
-                          color: ArqmaColors.arqmaGreenSolid
-                              .withValues(alpha: 0.22),
-                          blurRadius: 10,
-                          spreadRadius: 0,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 18,
-                      color: active
-                          ? const Color(0xFF14110A)
-                          : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.88),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: active
-                            ? const Color(0xFF14110A)
-                            : ArqmaColors.arqmaGreenSolid.withValues(alpha: 0.92),
-                        fontWeight:
-                            active ? FontWeight.w600 : FontWeight.w500,
-                        fontSize: 11.5,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        ),
-      );
+    void goToWalletTab(String route) {
+      if (path != route) {
+        setState(() => _displayedTabPath = route);
+      }
+      if (GoRouterState.of(context).uri.path != route) {
+        context.go(route);
+      }
     }
+
+    final List<WalletMainTabItem> walletTabs = <WalletMainTabItem>[
+      WalletMainTabItem(
+        route: '/wallet',
+        label: loc.tr('layouts.wallet.main.transactions'),
+        icon: Icons.swap_horiz,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/send',
+        label: loc.tr('layouts.wallet.main.send'),
+        icon: Icons.arrow_right_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/receive',
+        label: loc.tr('layouts.wallet.main.receive'),
+        icon: Icons.save_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/staking-pools',
+        label: loc.tr('layouts.wallet.main.staking_pools'),
+        icon: Icons.arrow_right_alt,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/addressbook',
+        label: loc.tr('layouts.wallet.main.address_book'),
+        icon: Icons.person,
+      ),
+      WalletMainTabItem(
+        route: '/wallet/solo-pool',
+        label: loc.tr('components.mainmenu.solo_pool'),
+        icon: Icons.engineering,
+      ),
+    ];
 
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -364,42 +368,25 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    navBtn(
-                        '/wallet',
-                        loc.tr('layouts.wallet.main.transactions'),
-                        Icons.swap_horiz),
-                    navBtn('/wallet/send', loc.tr('layouts.wallet.main.send'),
-                        Icons.arrow_right_alt),
-                    navBtn('/wallet/receive',
-                        loc.tr('layouts.wallet.main.receive'), Icons.save_alt),
-                    // Swap route exists (`/wallet/swap`) but the main nav button is commented out in `layouts/wallet/main.vue`.
-                    navBtn(
-                        '/wallet/staking-pools',
-                        loc.tr('layouts.wallet.main.staking_pools'),
-                        Icons.arrow_right_alt),
-                    navBtn(
-                        '/wallet/addressbook',
-                        loc.tr('layouts.wallet.main.address_book'),
-                        Icons.person),
-                    navBtn(
-                        '/wallet/solo-pool',
-                        loc.tr('components.mainmenu.solo_pool'),
-                        Icons.engineering),
-                    const WalletSettingsButton(),
-                  ],
-                ),
+              child: WalletMainTabBar(
+                activePath: path,
+                tabs: walletTabs,
+                onTabTap: goToWalletTab,
+                trailing: const WalletSettingsButton(),
               ),
             ),
             const Divider(color: ArqmaColors.dividerLine, height: 24),
             Expanded(
-              child: RepaintBoundary(
+              child: WalletMainTabSwipeNavigator(
+                tabRoutes: _walletTabRoutes,
+                activePath: path,
+                onTabChange: goToWalletTab,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: widget.child,
+                  child: WalletTabBody(
+                    activePath: path,
+                    tabRoutes: _walletTabRoutes,
+                  ),
                 ),
               ),
             ),

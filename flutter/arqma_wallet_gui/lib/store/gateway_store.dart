@@ -40,6 +40,20 @@ bool _walletInfoUiPatchChanged(
   return false;
 }
 
+Object _daemonUiToken(Map<String, dynamic> daemon) {
+  final Map<String, dynamic> info =
+      daemon['info'] as Map<String, dynamic>? ?? const <String, dynamic>{};
+  return Object.hash(
+    info['height'],
+    info['target_height'],
+    info['height_without_bootstrap'],
+    info['is_ready'],
+    (daemon['connections'] as List?)?.length,
+    (daemon['bans'] as List?)?.length,
+    daemon['tx_pool_backlog'],
+  );
+}
+
 /// Vuex `gateway` module + `receiver.js` commit paths, backed by a deep tree.
 class GatewayStore extends ChangeNotifier {
   GatewayStore() : _state = defaultGatewayState();
@@ -83,8 +97,12 @@ class GatewayStore extends ChangeNotifier {
 
   void setDaemonData(Map<String, dynamic> data) {
     final d = daemon;
+    final Object tokenBefore = _daemonUiToken(d);
     final merged = deepMergeMaps(d, data) as Map<String, dynamic>;
     _assignMergedEntries(d, merged);
+    if (_daemonUiToken(d) == tokenBefore) {
+      return;
+    }
     _notify();
   }
 
@@ -213,6 +231,13 @@ class GatewayStore extends ChangeNotifier {
   }
 
   void resetWalletStatus(Map<String, dynamic> data) {
+    final Map<String, dynamic> cur = Map<String, dynamic>.from(
+        wallet['status'] as Map? ?? const <String, dynamic>{});
+    final int nextCode = data['code'] as int? ?? 1;
+    final String nextMsg = '${data['message'] ?? ''}';
+    if (cur['code'] == nextCode && '${cur['message'] ?? ''}' == nextMsg) {
+      return;
+    }
     wallet['status'] = data;
     _notify();
   }
