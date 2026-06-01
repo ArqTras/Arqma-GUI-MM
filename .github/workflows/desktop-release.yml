@@ -229,6 +229,7 @@ jobs:
             pkg-config \
             clang \
             libgtk-3-dev \
+            libsecret-1-dev \
             file \
             desktop-file-utils \
             squashfs-tools
