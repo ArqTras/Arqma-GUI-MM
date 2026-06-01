@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/arqma_colors.dart';
@@ -37,8 +39,8 @@ class WalletMainTabBar extends StatefulWidget {
 }
 
 class _WalletMainTabBarState extends State<WalletMainTabBar> {
-  static const Duration _scrollDuration = Duration(milliseconds: 320);
-  static const Curve _scrollCurve = Curves.easeInOutCubic;
+  static const Duration _scrollDuration = Duration(milliseconds: 180);
+  static const Curve _scrollCurve = Curves.easeOutCubic;
 
   final List<GlobalKey> _tabKeys = <GlobalKey>[];
 
@@ -69,7 +71,7 @@ class _WalletMainTabBarState extends State<WalletMainTabBar> {
     }
   }
 
-  Future<void> _centerActiveTab() async {
+  Future<void> _centerActiveTab({bool animate = true}) async {
     if (!mounted) {
       return;
     }
@@ -85,7 +87,7 @@ class _WalletMainTabBarState extends State<WalletMainTabBar> {
     await Scrollable.ensureVisible(
       tabContext,
       alignment: 0.5,
-      duration: _scrollDuration,
+      duration: animate ? _scrollDuration : Duration.zero,
       curve: _scrollCurve,
       alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
     );
@@ -93,7 +95,10 @@ class _WalletMainTabBarState extends State<WalletMainTabBar> {
 
   void _handleTabTap(String route) {
     widget.onTabTap(route);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerActiveTab());
+    // Tab chip is already under the finger — skip scroll animation to avoid jank.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_centerActiveTab(animate: false));
+    });
   }
 
   @override
@@ -168,8 +173,8 @@ class WalletMainTabButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             onTap: onTap,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeInOutCubic,
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 color: active
@@ -200,8 +205,8 @@ class WalletMainTabButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOutCubic,
+                      duration: const Duration(milliseconds: 120),
+                      curve: Curves.easeOutCubic,
                       style: TextStyle(
                         color: active
                             ? const Color(0xFF14110A)
@@ -212,8 +217,8 @@ class WalletMainTabButton extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOutCubic,
+                      duration: const Duration(milliseconds: 120),
+                      curve: Curves.easeOutCubic,
                       style: TextStyle(
                         color: active
                             ? const Color(0xFF14110A)

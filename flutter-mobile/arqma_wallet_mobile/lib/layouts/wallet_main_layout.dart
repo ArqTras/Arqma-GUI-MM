@@ -17,12 +17,11 @@ import '../widgets/status_footer.dart';
 import '../widgets/wallet_main_menu.dart';
 import '../widgets/wallet_main_tab_bar.dart';
 import '../widgets/wallet_settings_button.dart';
+import '../widgets/wallet_tab_body.dart';
 
 /// Parity with `layouts/wallet/main.vue`.
 class WalletMainLayout extends StatefulWidget {
-  const WalletMainLayout({super.key, required this.child});
-
-  final Widget child;
+  const WalletMainLayout({super.key});
 
   @override
   State<WalletMainLayout> createState() => _WalletMainLayoutState();
@@ -44,11 +43,25 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
   Timer? _inactivity;
   bool _inactivityPausedForBackground = false;
 
+  /// Updated immediately on tab tap (before [GoRouter] catches up) for glitch-free switches.
+  String? _displayedTabPath;
+
   bool _onHardwareKey(KeyEvent event) {
     if (event is KeyDownEvent) {
       _debouncedArmInactivity();
     }
     return false;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      if (_displayedTabPath != routerPath) {
+        _displayedTabPath = routerPath;
+      }
+    }
   }
 
   @override
@@ -239,10 +252,23 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     }
   }
 
+  String _resolveActivePath(BuildContext context) {
+    final String routerPath = GoRouterState.of(context).uri.path;
+    if (_displayedTabPath != null &&
+        (_walletTabRoutes.contains(_displayedTabPath) ||
+            _displayedTabPath == '/wallet/swap')) {
+      return _displayedTabPath!;
+    }
+    if (_walletTabRoutes.contains(routerPath) || routerPath == '/wallet/swap') {
+      return routerPath;
+    }
+    return '/wallet';
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final path = GoRouterState.of(context).uri.path;
+    final String path = _resolveActivePath(context);
 
     Future<void> refreshPrice() async {
       await context
@@ -251,6 +277,9 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     }
 
     void goToWalletTab(String route) {
+      if (path != route) {
+        setState(() => _displayedTabPath = route);
+      }
       if (GoRouterState.of(context).uri.path != route) {
         context.go(route);
       }
@@ -354,10 +383,11 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
                 tabRoutes: _walletTabRoutes,
                 activePath: path,
                 onTabChange: goToWalletTab,
-                child: RepaintBoundary(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: widget.child,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: WalletTabBody(
+                    activePath: path,
+                    tabRoutes: _walletTabRoutes,
                   ),
                 ),
               ),

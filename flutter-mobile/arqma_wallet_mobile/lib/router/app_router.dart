@@ -10,12 +10,6 @@ import '../pages/init/init_index_page.dart';
 import '../pages/init/init_quit_page.dart';
 import '../pages/init/init_welcome_page.dart';
 import '../pages/not_found_page.dart';
-import '../pages/wallet/addressbook_page.dart';
-import '../pages/wallet/receive_page.dart';
-import '../pages/wallet/send_page.dart';
-import '../pages/wallet/staking_pools_page.dart';
-import '../pages/wallet/swap_page.dart';
-import '../pages/wallet/txhistory_page.dart';
 import '../pages/wallet_select/wallet_select_created_page.dart';
 import '../pages/wallet_select/wallet_select_create_page.dart';
 import '../pages/wallet_select/wallet_select_import_legacy_page.dart';
@@ -125,46 +119,46 @@ GoRouter createAppRouter(
               child: WalletSelectImportOldGuiPage());
         },
       ),
-      // One persistent shell — tab switches only swap [child], not header/footer/timers.
+      // Persistent shell; tab bodies live in [WalletTabBody] (IndexedStack), not route [child].
       ShellRoute(
         builder: (BuildContext context, GoRouterState state, Widget child) {
-          return WalletMainLayout(child: child);
+          return const WalletMainLayout();
         },
         routes: <RouteBase>[
           GoRoute(
             path: '/wallet',
-            builder: (BuildContext context, GoRouterState state) {
-              return const TxHistoryPage();
+            pageBuilder: (BuildContext context, GoRouterState state) {
+              return const NoTransitionPage<void>(child: SizedBox.shrink());
             },
             routes: <RouteBase>[
               GoRoute(
                 path: 'receive',
-                builder: (BuildContext context, GoRouterState state) {
-                  return const ReceivePage();
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
                 },
               ),
               GoRoute(
                 path: 'send',
-                builder: (BuildContext context, GoRouterState state) {
-                  return const SendPage();
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
                 },
               ),
               GoRoute(
                 path: 'swap',
-                builder: (BuildContext context, GoRouterState state) {
-                  return const SwapPage();
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
                 },
               ),
               GoRoute(
                 path: 'staking-pools',
-                builder: (BuildContext context, GoRouterState state) {
-                  return const StakingPoolsPage();
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
                 },
               ),
               GoRoute(
                 path: 'addressbook',
-                builder: (BuildContext context, GoRouterState state) {
-                  return const AddressBookPage();
+                pageBuilder: (BuildContext context, GoRouterState state) {
+                  return const NoTransitionPage<void>(child: SizedBox.shrink());
                 },
               ),
             ],
