@@ -321,7 +321,7 @@
                 "scan_progress_title": "Die Wallet scannt die Blockchain",
                 "scan_progress_detail": "Blockhöhe {current} / {target} ({pct}%). Etwa {left} Blöcke zum Scannen übrig.",
                 "scan_progress_hint": "Frühe Bereiche haben oft keine passenden Transfers — Einträge erscheinen, wenn Ihre Wallet Outputs in diesem Fenster findet.",
-                "scan_progress_rescan_detail": "Vollständiger Blockchain-Rescan läuft. Blockzähler bleiben eingefroren, bis die Wallet fertig ist (Kettenspitze ca. {target})."
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
             }
         },
         "not_found": {

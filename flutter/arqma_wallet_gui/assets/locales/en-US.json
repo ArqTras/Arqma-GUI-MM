@@ -317,7 +317,7 @@
                 "scan_progress_title": "Wallet is scanning the blockchain",
                 "scan_progress_detail": "Block height {current} / {target} ({pct}%). About {left} blocks left to scan.",
                 "scan_progress_hint": "Early ranges often have no matching transfers — entries appear when your wallet finds outputs in this window.",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block counts stay frozen until the wallet finishes (chain tip about {target}).",
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left.",
                 "transactions": "Transactions",
                 "all": "All",
                 "incoming": "Incoming",

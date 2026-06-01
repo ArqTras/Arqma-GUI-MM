@@ -321,7 +321,7 @@
                 "scan_progress_title": "Гаманець сканує блокчейн",
                 "scan_progress_detail": "Висота блоку {current} / {target} ({pct}%). Залишилось бл. {left} блоків для сканування.",
                 "scan_progress_hint": "Ранні діапазони часто без відповідних переказів — записи з’являються, коли гаманець знаходить виходи у цьому вікні.",
-                "scan_progress_rescan_detail": "Виконується повний rescan блокчейну. Лічильник блоків не оновлюється, доки потік гаманця не завершить роботу (вершина ланцюга ~{target})."
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
             }
         },
         "not_found": {

@@ -240,6 +240,21 @@ final class DesktopNativeBridge implements NativeBridge {
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
 
+  /// Wallet height before a full rescan — used to ignore stale `getheight` while native rescan runs.
+  int _rescanPreTipHeight = 0;
+
+  /// While [rescan_blockchain] runs, `getheight` often returns the pre-rescan tip from cache; keep UI at genesis progress.
+  int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
+    if (!_walletFullRescanUi) {
+      return parsedFromRpc;
+    }
+    final int preTip = _rescanPreTipHeight;
+    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+      return _whStoredHeight;
+    }
+    return parsedFromRpc;
+  }
+
   /// True when a wallet file is open in the native FFI session (not on account list).
   bool get hasOpenWallet => _openedWalletDisplayName.isNotEmpty;
 
@@ -1911,6 +1926,7 @@ final class DesktopNativeBridge implements NativeBridge {
   }) {
     if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, daemonTip)) {
       _walletFullRescanUi = false;
+      _rescanPreTipHeight = 0;
     }
     _whStoredHeight = newH;
     _emit(<String, dynamic>{
@@ -1922,6 +1938,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'full_rescan_ui': _walletFullRescanUi,
+        if (_walletFullRescanUi) 'allow_lower_height': true,
       },
     });
     _emit(<String, dynamic>{
@@ -1969,7 +1986,7 @@ final class DesktopNativeBridge implements NativeBridge {
     if (ghOk) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, dh);
       }
     }
 
@@ -2019,12 +2036,14 @@ final class DesktopNativeBridge implements NativeBridge {
     bool hasBalanceChange = false;
     if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
       _walletFullRescanUi = false;
+      _rescanPreTipHeight = 0;
     }
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
       'height': newH,
       'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       'full_rescan_ui': _walletFullRescanUi,
+      if (_walletFullRescanUi) 'allow_lower_height': true,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
       final Object? res = ga['result'];
@@ -2128,6 +2147,9 @@ final class DesktopNativeBridge implements NativeBridge {
     if (name.isEmpty) {
       return;
     }
+    _rescanPreTipHeight = _whStoredHeight > 0
+        ? _whStoredHeight
+        : (_daemonChainTipHeight > 0 ? _daemonChainTipHeight : 0);
     _whStoredHeight = 0;
     _whFetchTxPending = true;
     _walletFullRescanUi = true;
@@ -2178,11 +2200,11 @@ final class DesktopNativeBridge implements NativeBridge {
           .timeout(const Duration(seconds: 30), onTimeout: () => null);
     } catch (_) {}
 
-    int newH = _whStoredHeight;
-    if (gh != null && walletJsonRpcNoError(gh)) {
+    int newH = clearTransactions ? 0 : _whStoredHeight;
+    if (!clearTransactions && gh != null && walletJsonRpcNoError(gh)) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, _daemonChainTipHeight);
       }
     }
     _whStoredHeight = newH;
@@ -2209,6 +2231,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'allow_lower_height': true,
+        'full_rescan_ui': _walletFullRescanUi,
       },
     });
     if (clearTransactions) {
@@ -3429,6 +3452,7 @@ final class DesktopNativeBridge implements NativeBridge {
         } catch (e, st) {
           debugPrint('[DesktopNative] rescan_blockchain: $e\n$st');
           _walletFullRescanUi = false;
+          _rescanPreTipHeight = 0;
           _emit(<String, dynamic>{
             'event': 'set_wallet_info',
             'data': <String, dynamic>{

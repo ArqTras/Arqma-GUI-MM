@@ -321,7 +321,7 @@
                 "scan_progress_title": "Dompet mengimbas rantaian blok",
                 "scan_progress_detail": "Ketinggian blok {current} / {target} ({pct}%). Kira-kira {left} blok lagi untuk imbas.",
                 "scan_progress_hint": "Julat awal sering tiada pemindahan yang sepadan — entri muncul apabila dompet anda menjumpai output dalam tetingkap ini.",
-                "scan_progress_rescan_detail": "Rescan penuh blockchain sedang berjalan. Kiraan blok dibekukan sehingga dompet selesai (hujung rantai ~{target})."
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
             }
         },
         "not_found": {

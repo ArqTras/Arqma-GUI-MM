@@ -185,9 +185,6 @@ class _StatusFooterState extends State<StatusFooter> {
       if (displayTip == 0) {
         return 0;
       }
-      if (fullRescanUi) {
-        return 2;
-      }
       if (walletSyncedForFooter) {
         return 100;
       }
@@ -240,9 +237,8 @@ class _StatusFooterState extends State<StatusFooter> {
         : (walletSyncedForFooter
             ? displayTip
             : walletHeight.clamp(0, displayTip));
-    final String walletLine = fullRescanUi
-        ? '${loc.tr('components.footer.wallet')}: — / $displayTip (—)'
-        : '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
+    final String walletLine =
+        '${loc.tr('components.footer.wallet')}: $whDisp / $displayTip (${wPct.toStringAsFixed(2)}%)'
             '${walletBlocksLeft > 0 ? ' · ${loc.tr('components.footer.blocks_left', named: {
                   'n': walletBlocksLeft.toString()
                 })}' : ''}';

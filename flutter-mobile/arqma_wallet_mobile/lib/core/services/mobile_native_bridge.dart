@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../mobile/ios_rescan_live_activity.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
@@ -245,8 +246,23 @@ final class MobileNativeBridge implements NativeBridge {
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
 
+  /// Wallet height before a full rescan — used to ignore stale `getheight` while native rescan runs.
+  int _rescanPreTipHeight = 0;
+
   /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
   bool _whAddressBookPending = false;
+
+  /// While [rescan_blockchain] runs, `getheight` often returns the pre-rescan tip from cache; keep UI at genesis progress.
+  int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
+    if (!_walletFullRescanUi) {
+      return parsedFromRpc;
+    }
+    final int preTip = _rescanPreTipHeight;
+    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+      return _whStoredHeight;
+    }
+    return parsedFromRpc;
+  }
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -1907,17 +1923,25 @@ final class MobileNativeBridge implements NativeBridge {
     if (ghOk) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, dh);
       }
     }
     if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
       _walletFullRescanUi = false;
+      _rescanPreTipHeight = 0;
+      if (Platform.isIOS) {
+        unawaited(IosRescanLiveActivity.end());
+      }
+    }
+    if (_walletFullRescanUi && Platform.isIOS && dh > 0) {
+      unawaited(IosRescanLiveActivity.startOrUpdate(current: newH, target: dh));
     }
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
       'height': newH,
       'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       'full_rescan_ui': _walletFullRescanUi,
+      if (_walletFullRescanUi) 'allow_lower_height': true,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
       final Object? res = ga['result'];
@@ -2024,6 +2048,9 @@ final class MobileNativeBridge implements NativeBridge {
     if (name.isEmpty) {
       return;
     }
+    _rescanPreTipHeight = _whStoredHeight > 0
+        ? _whStoredHeight
+        : (_daemonChainTipHeight > 0 ? _daemonChainTipHeight : 0);
     _whStoredHeight = 0;
     _whFetchTxPending = true;
     _walletFullRescanUi = true;
@@ -2050,6 +2077,13 @@ final class MobileNativeBridge implements NativeBridge {
       'event': 'reset_wallet_status',
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
+    if (Platform.isIOS) {
+      final int tip =
+          _daemonChainTipHeight > 0 ? _daemonChainTipHeight : _rescanPreTipHeight;
+      if (tip > 0) {
+        unawaited(IosRescanLiveActivity.startOrUpdate(current: 0, target: tip));
+      }
+    }
   }
 
   /// Poll wallet RPC once after `rescan_*` so the footer shows scan height immediately (from genesis)
@@ -2074,11 +2108,11 @@ final class MobileNativeBridge implements NativeBridge {
           .timeout(const Duration(seconds: 30), onTimeout: () => null);
     } catch (_) {}
 
-    int newH = _whStoredHeight;
-    if (gh != null && walletJsonRpcNoError(gh)) {
+    int newH = clearTransactions ? 0 : _whStoredHeight;
+    if (!clearTransactions && gh != null && walletJsonRpcNoError(gh)) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, _daemonChainTipHeight);
       }
     }
     _whStoredHeight = newH;
@@ -2105,6 +2139,7 @@ final class MobileNativeBridge implements NativeBridge {
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'allow_lower_height': true,
+        'full_rescan_ui': _walletFullRescanUi,
       },
     });
     if (clearTransactions) {
@@ -3282,6 +3317,10 @@ final class MobileNativeBridge implements NativeBridge {
         } catch (e, st) {
           debugPrint('[MobileNative] rescan_blockchain: $e\n$st');
           _walletFullRescanUi = false;
+          _rescanPreTipHeight = 0;
+          if (Platform.isIOS) {
+            unawaited(IosRescanLiveActivity.end());
+          }
           _emit(<String, dynamic>{
             'event': 'set_wallet_info',
             'data': <String, dynamic>{

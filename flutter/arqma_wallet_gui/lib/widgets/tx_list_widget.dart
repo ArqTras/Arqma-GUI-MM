@@ -207,26 +207,25 @@ class TxListWidget extends StatelessWidget {
             const SizedBox(height: 14),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: fullRescanUi
-                  ? const LinearProgressIndicator(
-                      minHeight: 7,
-                      backgroundColor: ArqmaColors.outlineDefault,
-                      color: ArqmaColors.arqmaGreenSolid,
-                    )
-                  : LinearProgressIndicator(
-                      value: pct / 100.0,
-                      minHeight: 7,
-                      backgroundColor: ArqmaColors.outlineDefault
-                          .withValues(alpha: 0.45),
-                      color: ArqmaColors.arqmaGreenSolid,
-                    ),
+              child: LinearProgressIndicator(
+                value: daemonTip > 0 && walletH > 0 ? pct / 100.0 : null,
+                minHeight: 7,
+                backgroundColor: ArqmaColors.outlineDefault
+                    .withValues(alpha: 0.45),
+                color: ArqmaColors.arqmaGreenSolid,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
               fullRescanUi
                   ? loc.tr(
                       'pages.wallet.txhistory.scan_progress_rescan_detail',
-                      named: <String, String>{'target': '$daemonTip'},
+                      named: <String, String>{
+                        'current': '$walletH',
+                        'target': '$daemonTip',
+                        'pct': pctLabel,
+                        'left': '$gapBlocks',
+                      },
                     )
                   : loc.tr(
                       'pages.wallet.txhistory.scan_progress_detail',

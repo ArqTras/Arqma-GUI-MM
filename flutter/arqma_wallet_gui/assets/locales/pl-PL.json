@@ -317,7 +317,7 @@
                 "scan_progress_title": "Portfel skanuje łańcuch",
                 "scan_progress_detail": "Wysokość bloków {current} / {target} ({pct}%). Pozostało ok. {left} bloków.",
                 "scan_progress_hint": "W początkowych zakresach często nie ma przelewów — lista uzupełni się, gdy portfel znajdzie wyjścia w tym oknie.",
-                "scan_progress_rescan_detail": "Trwa pełny rescan łańcucha. Licznik bloków nie odświeża się do końca pracy wątku portfela (cel ok. {target} bloków).",
+                "scan_progress_rescan_detail": "Trwa pełny rescan łańcucha. Wysokość {current} / {target} ({pct}%). Pozostało ok. {left} bloków.",
                 "transactions": "Transakcje",
                 "all": "Wszystkie",
                 "incoming": "Przychodzące",

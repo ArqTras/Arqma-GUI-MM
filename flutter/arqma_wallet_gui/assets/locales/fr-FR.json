@@ -321,7 +321,7 @@
                 "scan_progress_title": "Le portefeuille analyse la blockchain",
                 "scan_progress_detail": "Hauteur de bloc {current} / {target} ({pct}%). Environ {left} blocs restants à analyser.",
                 "scan_progress_hint": "Les plages précoces n’ont souvent pas de transferts correspondants — les entrées apparaissent quand votre portefeuille trouve des sorties dans cette fenêtre.",
-                "scan_progress_rescan_detail": "Rescan complet de la blockchain en cours. Les compteurs restent figés jusqu’à la fin du portefeuille (pointe ~{target})."
+                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
             }
         },
         "not_found": {

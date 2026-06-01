@@ -1,6 +1,6 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) (CI default: **Latest**). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.8](https://github.com/ArqTras/FFI/releases/tag/1.0.8)** (async full rescan + live `getheight` during scan). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
 ### Solo pool (desktop — Windows, Linux, macOS)
 
@@ -16,15 +16,21 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (25)** — Face ID unlock: password switch on login, deferred system prompt on wallet screen, menu enrollment with real password entry; background wallet sync; FFI **1.0.7**.
+- **iOS:** Build **5.1.1 (26)** — FFI **1.0.8**; full blockchain rescan shows live block progress; Live Activity / Dynamic Island during rescan (iOS 16.1+); Face ID and background wallet sync (builds 17–25).
 - **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI).
 
-### iOS (5.1.1 builds 17–25)
+### Full blockchain rescan (FFI 1.0.8 — desktop + mobile)
+
+- Async `rescanBlockchain` with height polling — footer and transaction list show **current / tip (%)** instead of a frozen progress bar.
+- Flutter desktop (Windows, macOS, Linux) uses the same FFI prebuilts as mobile.
+
+### iOS (5.1.1 builds 17–26)
 
 - **Face ID / Touch ID:** Unlock password-protected accounts with biometrics (Keychain). Enable via switch on the password dialog, after login, or in wallet settings (must enter wallet password).
 - **Background sync:** Keeps wallet heartbeat running while the app is backgrounded (screen off) via iOS background tasks.
 - **Build 18:** Fix password prompt when opening imported accounts (`password` null vs empty).
 - **Build 25:** Face ID prompt runs after wallet screen loads; settings menu always prompts for password before Keychain save.
+- **Build 26:** FFI **1.0.8** rescan progress UI; Live Activity widget for rescan status when leaving the app.
 
 ### Release assets (by platform)
 
@@ -34,7 +40,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI from [ArqTras/FFI](http
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **25** (Face ID fixes). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **26** (FFI 1.0.8, rescan UI). |
 
 ### Solo pool quick start (desktop)
 
