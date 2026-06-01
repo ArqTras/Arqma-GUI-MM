@@ -85,13 +85,6 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
-bool _walletCaughtDaemonTip(int walletHeight, int daemonTip) {
-  if (daemonTip <= 0) {
-    return false;
-  }
-  return walletHeight >= daemonTip;
-}
-
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
 String _walletFfiMissedStartHint() {
   const String rpc =
@@ -250,20 +243,39 @@ final class MobileNativeBridge implements NativeBridge {
   /// Wallet height before a full rescan — used to ignore stale `getheight` while native rescan runs.
   int _rescanPreTipHeight = 0;
 
+  /// Best sub-tip height seen during full rescan (RPC may alternate stale tip vs scan progress).
+  int _rescanProgressPeak = 0;
+
   /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
   bool _whAddressBookPending = false;
 
+  /// Full rescan is done only after real sub-tip progress, not a stale pre-rescan tip snapshot.
+  bool _walletFullRescanCaughtUp(int walletHeight, int daemonTip) {
+    if (!_walletFullRescanUi || daemonTip <= 0 || _rescanProgressPeak <= 0) {
+      return false;
+    }
+    final int preTip = _rescanPreTipHeight;
+    if (preTip > 0 && _rescanProgressPeak + 32 >= preTip) {
+      return false;
+    }
+    return walletHeight + kWalletDaemonTipToleranceBlocks >= daemonTip &&
+        _rescanProgressPeak + kWalletDaemonTipToleranceBlocks >= daemonTip;
+  }
+
   /// While [rescan_blockchain] runs, `getheight` may still report the pre-rescan chain tip until
-  /// the wallet rewinds — ignore that snapshot only while UI height is still in the early scan range.
+  /// the wallet rewinds — never adopt that snapshot during full rescan (tap/resume included).
   int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
     if (!_walletFullRescanUi) {
       return parsedFromRpc;
     }
     final int preTip = _rescanPreTipHeight;
-    if (preTip > 0 &&
-        parsedFromRpc >= preTip - 16 &&
-        _whStoredHeight < preTip - 32) {
-      return _whStoredHeight;
+    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+      return _rescanProgressPeak > _whStoredHeight
+          ? _rescanProgressPeak
+          : _whStoredHeight;
+    }
+    if (parsedFromRpc > _rescanProgressPeak) {
+      _rescanProgressPeak = parsedFromRpc;
     }
     return parsedFromRpc;
   }
@@ -1954,9 +1966,10 @@ final class MobileNativeBridge implements NativeBridge {
         newH = _walletHeightForHeartbeat(parsed, dh);
       }
     }
-    if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
+    if (_walletFullRescanCaughtUp(newH, dh)) {
       _walletFullRescanUi = false;
       _rescanPreTipHeight = 0;
+      _rescanProgressPeak = 0;
       if (Platform.isIOS) {
         unawaited(IosRescanLiveActivity.end());
       }
@@ -2081,6 +2094,7 @@ final class MobileNativeBridge implements NativeBridge {
     _rescanPreTipHeight = _whStoredHeight > 0
         ? _whStoredHeight
         : (_daemonChainTipHeight > 0 ? _daemonChainTipHeight : 0);
+    _rescanProgressPeak = 0;
     _whStoredHeight = 0;
     _whFetchTxPending = true;
     _walletFullRescanUi = true;
@@ -3354,6 +3368,7 @@ final class MobileNativeBridge implements NativeBridge {
           debugPrint('[MobileNative] rescan_blockchain: $e\n$st');
           _walletFullRescanUi = false;
           _rescanPreTipHeight = 0;
+          _rescanProgressPeak = 0;
           if (Platform.isIOS) {
             unawaited(IosRescanLiveActivity.end());
           }

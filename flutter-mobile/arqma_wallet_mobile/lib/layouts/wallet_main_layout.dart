@@ -28,7 +28,8 @@ class WalletMainLayout extends StatefulWidget {
   State<WalletMainLayout> createState() => _WalletMainLayoutState();
 }
 
-class _WalletMainLayoutState extends State<WalletMainLayout> {
+class _WalletMainLayoutState extends State<WalletMainLayout>
+    with WidgetsBindingObserver {
   static const Duration _inactivityDebounce = Duration(milliseconds: 300);
 
   static const List<String> _walletTabRoutes = <String>[
@@ -41,6 +42,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
 
   Timer? _debounce;
   Timer? _inactivity;
+  bool _inactivityPausedForBackground = false;
 
   bool _onHardwareKey(KeyEvent event) {
     if (event is KeyDownEvent) {
@@ -52,6 +54,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
@@ -65,13 +68,57 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     _debounce?.cancel();
     _inactivity?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+        _pauseInactivityForBackground();
+      case AppLifecycleState.resumed:
+        _resumeInactivityAfterForeground();
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  /// Screen lock / app switcher must not count toward the inactivity log-out timer.
+  void _pauseInactivityForBackground() {
+    if (_inactivityPausedForBackground) {
+      return;
+    }
+    _inactivityPausedForBackground = true;
+    _debounce?.cancel();
+    _debounce = null;
+    _inactivity?.cancel();
+    _inactivity = null;
+  }
+
+  void _resumeInactivityAfterForeground() {
+    if (!_inactivityPausedForBackground) {
+      return;
+    }
+    _inactivityPausedForBackground = false;
+    if (!mounted) {
+      return;
+    }
+    if (context.read<GatewayStore>().walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
+    _debouncedArmInactivity();
+  }
+
   void _debouncedArmInactivity() {
+    if (_inactivityPausedForBackground) {
+      return;
+    }
     _debounce?.cancel();
     _debounce = Timer(_inactivityDebounce, _armInactivityTimer);
   }
@@ -111,6 +158,9 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
       return;
     }
     final GatewayStore store = context.read<GatewayStore>();
+    if (store.walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
     final int minutes = _readInactivityMinutes(store);
     final bool soloOn = _soloPoolServerEnabled(store);
 
@@ -131,7 +181,15 @@ class _WalletMainLayoutState extends State<WalletMainLayout> {
     if (!mounted) {
       return;
     }
+    final AppLifecycleState? life = WidgetsBinding.instance.lifecycleState;
+    if (life != null && life != AppLifecycleState.resumed) {
+      _debouncedArmInactivity();
+      return;
+    }
     final GatewayStore store = context.read<GatewayStore>();
+    if (store.walletInfo['full_rescan_ui'] == true) {
+      return;
+    }
     if (!store.isAbleToSend) {
       _debouncedArmInactivity();
       return;

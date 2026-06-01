@@ -32,6 +32,9 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
   final Set<int> _activeIosTaskKeys = <int>{};
   bool _appInBackground = false;
   bool _backgroundTransitionInFlight = false;
+  Timer? _backgroundPulseTimer;
+
+  static const Duration _kBackgroundPulseInterval = Duration(seconds: 5);
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -62,6 +65,7 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
       _appInBackground = true;
       debugPrint('[MobileBackgroundWalletSync] enter background — keep wallet sync');
       await _beginIosBackgroundTask();
+      _startBackgroundPulseLoop();
       await IosBackgroundSync.scheduleProcessingSync();
     } finally {
       _backgroundTransitionInFlight = false;
@@ -73,10 +77,30 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
       return;
     }
     _appInBackground = false;
+    _stopBackgroundPulseLoop();
     await _endAllIosBackgroundTasks();
     if (_bridge.isWalletOpenForBackgroundSync) {
       unawaited(_bridge.pulseBackgroundWalletSync());
     }
+  }
+
+  /// Dart [Timer.periodic] heartbeats pause when iOS suspends the isolate; pulse
+  /// explicitly while a [UIBackgroundTask] / [BGProcessingTask] window is active.
+  void _startBackgroundPulseLoop() {
+    _stopBackgroundPulseLoop();
+    if (!_bridge.isWalletOpenForBackgroundSync) {
+      return;
+    }
+    _backgroundPulseTimer =
+        Timer.periodic(_kBackgroundPulseInterval, (_) {
+      unawaited(_bridge.pulseBackgroundWalletSync());
+    });
+    unawaited(_bridge.pulseBackgroundWalletSync());
+  }
+
+  void _stopBackgroundPulseLoop() {
+    _backgroundPulseTimer?.cancel();
+    _backgroundPulseTimer = null;
   }
 
   /// Called from native when a `UIBackgroundTask` is about to expire (~30–180 s).
@@ -89,6 +113,9 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
     await _endAllIosBackgroundTasks();
     await _bridge.pulseBackgroundWalletSync();
     await _beginIosBackgroundTask();
+    if (_backgroundPulseTimer == null) {
+      _startBackgroundPulseLoop();
+    }
     await IosBackgroundSync.scheduleProcessingSync();
   }
 
