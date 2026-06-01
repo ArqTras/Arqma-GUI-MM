@@ -11,6 +11,8 @@
 - **FFI 1.0.9:** Async wallet `refresh`/sync with live height polling (fixes frozen **0%** scan progress on desktop footer and iOS Live Activity); includes async full rescan from 1.0.8.
 - **iOS (build 27):** Live Activity rescan extension restored (`RescanLiveActivity`, App Group); archive build fix for extension target.
 - **Desktop + mobile:** Scan progress UI no longer masks tip height during catch-up after open or manual refresh.
+- **Desktop (Flutter 5.1.1+3):** Full rescan progress ignores stale pre-rescan tip snapshots; inactivity logout paused while minimized/backgrounded or during full rescan (parity with mobile).
+- **iOS (build 28):** Background wallet sync pulse; no inactivity logout on screen lock; rescan progress UI fixes when tapping Live Activity.
 
 ## 5.1.0 — 2026-05-11
 

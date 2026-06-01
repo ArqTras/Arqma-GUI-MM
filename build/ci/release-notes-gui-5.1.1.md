@@ -32,6 +32,13 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.9](https://githu
 - **Build 25:** Face ID prompt runs after wallet screen loads; settings menu always prompts for password before Keychain save.
 - **Build 26:** FFI **1.0.8** rescan progress UI.
 - **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); FFI **1.0.9** sync/rescan progress; installable on device and TestFlight.
+- **Build 28:** Background sync while screen locked; inactivity logout does not fire during lock/rescan; rescan progress no longer resets when opening from Live Activity.
+
+### Desktop Flutter (5.1.1+3)
+
+- Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
+- Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
+- Wallet RPC: rescan height poller fix in `wallet2_client` (requires FFI **1.0.9+** prebuilts or local Rust build).
 
 ### Release assets (by platform)
 
