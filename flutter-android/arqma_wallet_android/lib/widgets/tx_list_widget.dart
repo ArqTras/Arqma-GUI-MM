@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 import '../core/app_api.dart';
+import '../core/mobile/mobile_responsive_layout.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -149,6 +150,135 @@ class TxListWidget extends StatelessWidget {
       return '${loc.tr('components.tx_list.height')} $height ($confirms ${loc.tr('components.tx_list.confirm')}$plural)';
     }
     return '${loc.tr('components.tx_list.height')} $height ${loc.tr('components.tx_list.confirmed')}';
+  }
+
+  static Widget _buildTxListRow({
+    required BuildContext context,
+    required LocaleController loc,
+    required Map<String, dynamic> tx,
+    required String type,
+    required int walletHeight,
+    required String timeAgo,
+    required VoidCallback onTap,
+    required VoidCallback onLongPress,
+  }) {
+    final double layoutWidth = MobileResponsiveLayout.contentWidth(context);
+    final EdgeInsets rowPadding = MobileResponsiveLayout.listHorizontalPadding(
+      layoutWidth,
+    ).copyWith(top: 10, bottom: 10);
+    final String? extra = _txSubtitleExtra(loc, tx);
+    final String txid = '${tx['txid'] ?? ''}'.trim();
+    final String heightLine = _formatHeight(loc, tx, walletHeight);
+    const TextStyle metaStyle = TextStyle(
+      fontSize: 10,
+      color: ArqmaColors.textMuted,
+      height: 1.2,
+    );
+    const TextStyle txidStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 11,
+      height: 1.25,
+      color: ArqmaColors.textSecondary,
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: rowPadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TxTypeIcon(type: type, tooltip: true, mainSize: 28),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                typeLabelForTx(loc, type),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FormatArqma(
+                              amount:
+                                  num.tryParse('${tx['amount'] ?? 0}') ?? 0,
+                              digits: 5,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                timeAgo,
+                                style: const TextStyle(fontSize: 11),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                heightLine,
+                                style: metaStyle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (txid.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 38),
+                  child: Text(
+                    MobileResponsiveLayout.txidListLabel(txid, layoutWidth),
+                    style: txidStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
+                ),
+              ],
+              if (extra != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 38, top: 4),
+                  child: Text(
+                    extra,
+                    style: metaStyle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Banner when the wallet height is still far below the daemon tip (same rule as [GatewayStore] / footer).
@@ -322,64 +452,13 @@ class TxListWidget extends StatelessWidget {
             DateTime.fromMillisecondsSinceEpoch(ts * 1000, isUtc: true)
                 .toLocal();
         final String timeAgo = timeago.format(dt);
-        return ListTile(
-          leading: SizedBox(
-            width: 86,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                TxTypeIcon(type: type, tooltip: true, mainSize: 28),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    typeLabelForTx(loc, type),
-                    style: const TextStyle(fontSize: 10, height: 1.15),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          title: FormatArqma(
-              amount: num.tryParse('${tx['amount'] ?? 0}') ?? 0, digits: 5),
-          subtitle: Builder(
-            builder: (BuildContext _) {
-              final String? extra = _txSubtitleExtra(loc, tx);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('${tx['txid']}',
-                      style: const TextStyle(
-                          fontFamily: 'monospace', fontSize: 10)),
-                  if (extra != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        extra,
-                        style: const TextStyle(
-                            fontSize: 10,
-                            color: ArqmaColors.textMuted,
-                            height: 1.2),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          trailing: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(timeAgo, style: const TextStyle(fontSize: 11)),
-              Text(_formatHeight(loc, tx, wh),
-                  style: const TextStyle(
-                      fontSize: 10, color: ArqmaColors.textMuted)),
-            ],
-          ),
+        return _buildTxListRow(
+          context: context,
+          loc: loc,
+          tx: tx,
+          type: type,
+          walletHeight: wh,
+          timeAgo: timeAgo,
           onTap: () => showTxDetailsDialog(context, tx),
           onLongPress: () async {
             await showModalBottomSheet<void>(

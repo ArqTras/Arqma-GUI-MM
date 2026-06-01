@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Generate root README.md for arqma/Flutter-Wallet from release tag + asset list.
+set -euo pipefail
+
+TAG="${1:?tag}"
+OUT="${2:?output path}"
+SOURCE_REPO="${3:-ArqTras/Arqma-GUI-MM}"
+
+cat > "${OUT}" <<EOF
+# Arqma Wallet — prebuilt releases
+
+Public distribution of **Arqma Wallet** desktop and mobile builds for version **${TAG}**.
+
+- **Source code:** [${SOURCE_REPO}](https://github.com/${SOURCE_REPO})
+- **Wallet FFI:** [ArqTras/FFI](https://github.com/ArqTras/FFI/releases)
+- **License:** [MIT](LICENSE)
+
+## Download (${TAG})
+
+Installers and packages are attached to the [${TAG} release](https://github.com/arqma/Flutter-Wallet/releases/tag/${TAG}).
+
+| Platform | Files |
+|----------|--------|
+| **Windows** | \`Arqma-Wallet-Flutter-${TAG}-windows-x64.zip\`, \`Arqma-Wallet-Flutter-${TAG}-windows-x64-Setup.exe\` |
+| **Linux** | \`Arqma-Wallet-Flutter-${TAG}-linux-x64.tar.gz\`, \`Arqma-Wallet-Flutter-${TAG}-x86_64.AppImage\` |
+| **macOS** | \`Arqma-Wallet-Flutter-${TAG}-macos.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos.dmg\` |
+| **Android** | \`Arqma-Wallet-Android-${TAG}.apk\`, \`Arqma-Wallet-Android-${TAG}.aab\` |
+| **iOS** | \`Arqma-Wallet-Mobile-${TAG}-ios-testflight.ipa\` (TestFlight / registered devices) |
+
+Checksum files: \`SHA256SUMS-android-${TAG}.txt\`, \`SHA256SUMS-ios.txt\` (when present).
+
+## Privacy & App Store
+
+- [Privacy Policy](docs/PRIVACY_POLICY.md)
+- [App Store privacy disclosure](docs/APP_STORE_PRIVACY_DISCLOSURE.md)
+- [App Store publication requirements](docs/APP_STORE_PUBLICATION_REQUIREMENTS.md)
+
+## Release notes
+
+See [docs/RELEASE_NOTES-${TAG}.md](docs/RELEASE_NOTES-${TAG}.md) when available.
+
+**Non-custodial wallet.** You control your keys. Verify checksums before install. No warranty.
+EOF

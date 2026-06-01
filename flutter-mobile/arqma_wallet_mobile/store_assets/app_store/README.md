@@ -1,5 +1,7 @@
 # App Store Connect — screenshots (English)
 
+**Docs:** [Publication checklist](../docs/APP_STORE_PUBLICATION_REQUIREMENTS.md) · [Privacy policy](../docs/PRIVACY_POLICY.md) · [Privacy labels & review](../docs/APP_STORE_PRIVACY_DISCLOSURE.md)
+
 ## iPhone 6.5" Display
 
 Folder: **`iphone_65_1284x2778/`** — **1284 × 2778** px (portrait). Alt: **1242 × 2688**.

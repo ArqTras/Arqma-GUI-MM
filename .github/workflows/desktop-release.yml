@@ -350,7 +350,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
-          $safe = $line -replace '\+', '-'
+          $safe = $line -replace '\+.*$',''
           "safe=$safe" >> $env:GITHUB_OUTPUT
           Write-Host "VersionSafe=$safe"
 
@@ -491,6 +491,29 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout (release scripts)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: Resolve release tag
+        id: reltag
+        run: |
+          set -eu
+          chmod +x build/ci/*.sh
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            t=$(bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.ref }}")
+          else
+            t=$(bash build/ci/resolve-release-tag.sh "${{ github.ref_name }}")
+          fi
+          echo "tag=${t}" >> "$GITHUB_OUTPUT"
+
+      - name: Prune duplicate assets on existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/prune-github-release-duplicate-assets.sh "${{ github.repository }}" "${{ steps.reltag.outputs.tag }}"
+
       - name: Download all bundle artifacts
         uses: actions/download-artifact@v6
         with:
@@ -523,17 +546,62 @@ jobs:
           fi
 
       # Re-runs replace same-named release assets (zip/dmg/AppImage/Setup.exe) on this tag.
+      - name: Pick release notes file
+        id: notes
+        run: |
+          set -eu
+          f="build/ci/release-notes-gui-${{ steps.reltag.outputs.tag }}.md"
+          if [ -f "$f" ]; then
+            echo "path=${f}" >> "$GITHUB_OUTPUT"
+            echo "generate=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "generate=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
-          name: Arqma Wallet ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref_name }}
-          generate_release_notes: true
+          tag_name: ${{ steps.reltag.outputs.tag }}
+          name: Arqma Wallet ${{ steps.reltag.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
+          generate_release_notes: ${{ steps.notes.outputs.generate == 'true' }}
           overwrite_files: true
           files: upload/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prune duplicate assets after upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash build/ci/prune-github-release-duplicate-assets.sh "${{ github.repository }}" "${{ steps.reltag.outputs.tag }}"
+
+  mirror-flutter-wallet:
+    name: Mirror to arqma/Flutter-Wallet
+    needs: [publish-release]
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: Mirror release assets and docs
+        env:
+          FLUTTER_WALLET_MIRROR_PAT: ${{ secrets.FLUTTER_WALLET_MIRROR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          chmod +x build/ci/*.sh
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            export RELEASE_TAG_INPUT=$(bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.ref }}")
+          else
+            export RELEASE_TAG_INPUT=$(bash build/ci/resolve-release-tag.sh "${{ github.ref_name }}")
+          fi
+          bash build/ci/mirror-flutter-wallet-release.sh
 
   repo-private-after-release:
     name: Repository private (optional PAT)

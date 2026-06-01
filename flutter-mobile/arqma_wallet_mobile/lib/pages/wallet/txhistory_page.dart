@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../core/mobile/mobile_responsive_layout.dart';
 import '../../widgets/arqma_field.dart';
 import '../../widgets/tx_list_widget.dart';
 import '../../core/theme/arqma_colors.dart';
@@ -20,9 +21,6 @@ class TxHistoryPage extends StatefulWidget {
 
 class _TxHistoryPageState extends State<TxHistoryPage>
     with WidgetsBindingObserver {
-  /// Label + single-line control per filter cell (tx id + type).
-  static const double _kFilterRowHeight = 104;
-
   final TextEditingController _txid = TextEditingController();
   int _typeIndex = 0;
   Timer? _txidDebounce;
@@ -123,6 +121,77 @@ class _TxHistoryPageState extends State<TxHistoryPage>
     });
   }
 
+  Widget _txidFilterField(LocaleController loc) {
+    return ArqmaField(
+      stretchContent: true,
+      goldChrome: true,
+      label: loc.tr('pages.wallet.txhistory.filter_by_transactionid'),
+      disableMenu: false,
+      child: TextField(
+        controller: _txid,
+        style: const TextStyle(
+          fontSize: 13,
+          color: ArqmaColors.textPrimary,
+        ),
+        decoration: InputDecoration(
+          hintText: loc
+              .tr('pages.wallet.txhistory.filter_by_transactionid_placeholder'),
+          hintStyle: TextStyle(
+            fontSize: 13,
+            color: ArqmaColors.textMuted.withValues(alpha: 0.9),
+          ),
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+        onChanged: (_) => _scheduleTxidFilter(),
+      ),
+    );
+  }
+
+  Widget _typeFilterField(LocaleController loc) {
+    return ArqmaField(
+      stretchContent: true,
+      goldChrome: true,
+      label: loc.tr('pages.wallet.txhistory.filter_by_transaction_type'),
+      child: InputDecorator(
+        decoration: const InputDecoration(border: InputBorder.none),
+        child: DropdownButton<int>(
+          value: _typeIndex,
+          isDense: true,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          style: const TextStyle(
+            fontSize: 13,
+            color: ArqmaColors.textPrimary,
+          ),
+          iconEnabledColor: ArqmaColors.arqmaGreenSolid,
+          dropdownColor: const Color(0xFF1d1d1d),
+          items: _typeOptions
+              .map(
+                (Map<String, dynamic> o) => DropdownMenuItem<int>(
+                  value: o['index'] as int,
+                  child: Text(
+                    loc.tr(o['label'] as String),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: ArqmaColors.textPrimary,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (int? v) {
+            if (v != null) {
+              setState(() => _typeIndex = v);
+              _pushFilter();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
@@ -131,88 +200,31 @@ class _TxHistoryPageState extends State<TxHistoryPage>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: SizedBox(
-            height: _kFilterRowHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: ArqmaField(
-                    stretchContent: true,
-                    goldChrome: true,
-                    label: loc
-                        .tr('pages.wallet.txhistory.filter_by_transactionid'),
-                    disableMenu: false,
-                    child: TextField(
-                      controller: _txid,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: ArqmaColors.textPrimary,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: loc.tr(
-                            'pages.wallet.txhistory.filter_by_transactionid_placeholder'),
-                        hintStyle: TextStyle(
-                          fontSize: 13,
-                          color: ArqmaColors.textMuted.withValues(alpha: 0.9),
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onChanged: (_) => _scheduleTxidFilter(),
-                    ),
-                  ),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final bool stackFilters =
+                  MobileResponsiveLayout.stackFilters(constraints.maxWidth);
+              if (stackFilters) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _txidFilterField(loc),
+                    const SizedBox(height: 10),
+                    _typeFilterField(loc),
+                  ],
+                );
+              }
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 5, child: _txidFilterField(loc)),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 4, child: _typeFilterField(loc)),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 4,
-                  child: ArqmaField(
-                    stretchContent: true,
-                    goldChrome: true,
-                    label: loc
-                        .tr('pages.wallet.txhistory.filter_by_transaction_type'),
-                    child: InputDecorator(
-                      decoration:
-                          const InputDecoration(border: InputBorder.none),
-                      child: DropdownButton<int>(
-                        value: _typeIndex,
-                        isDense: true,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: ArqmaColors.textPrimary,
-                        ),
-                        iconEnabledColor: ArqmaColors.arqmaGreenSolid,
-                        dropdownColor: const Color(0xFF1d1d1d),
-                        items: _typeOptions
-                            .map(
-                              (Map<String, dynamic> o) => DropdownMenuItem<int>(
-                                value: o['index'] as int,
-                                child: Text(
-                                  loc.tr(o['label'] as String),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: ArqmaColors.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (int? v) {
-                          if (v != null) {
-                            setState(() => _typeIndex = v);
-                            _pushFilter();
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
         Padding(

@@ -1,0 +1,31 @@
+# Manual mirror of ArqTras/Arqma-GUI-MM release assets to public arqma/Flutter-Wallet.
+# Normally runs automatically from desktop-release / android-release after publish.
+name: Mirror Flutter-Wallet release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (semver, e.g. 5.1.1)"
+        required: true
+        default: "5.1.1"
+        type: string
+
+jobs:
+  mirror:
+    name: Sync arqma/Flutter-Wallet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Mirror release assets and docs
+        env:
+          FLUTTER_WALLET_MIRROR_PAT: ${{ secrets.FLUTTER_WALLET_MIRROR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+        run: |
+          set -eu
+          chmod +x build/ci/*.sh
+          bash build/ci/mirror-flutter-wallet-release.sh

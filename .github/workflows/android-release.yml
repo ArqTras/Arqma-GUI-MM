@@ -169,3 +169,36 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mirror-flutter-wallet:
+    name: Mirror to arqma/Flutter-Wallet
+    needs: [github-release]
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+          fetch-depth: 1
+
+      - name: Resolve release tag
+        id: reltag
+        run: |
+          set -eu
+          chmod +x build/ci/*.sh
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            bash build/ci/resolve-release-tag.sh "${{ github.event.inputs.release_tag }}"
+          else
+            bash build/ci/resolve-release-tag.sh "${{ github.ref_name }}"
+          fi | tee tag.txt
+          echo "tag=$(cat tag.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Mirror release assets and docs
+        env:
+          FLUTTER_WALLET_MIRROR_PAT: ${{ secrets.FLUTTER_WALLET_MIRROR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG_INPUT: ${{ steps.reltag.outputs.tag }}
+        run: |
+          set -eu
+          chmod +x build/ci/*.sh
+          bash build/ci/mirror-flutter-wallet-release.sh
