@@ -13,6 +13,7 @@
 - **Desktop + mobile:** Scan progress UI no longer masks tip height during catch-up after open or manual refresh.
 - **Desktop (Flutter 5.1.1+3):** Full rescan progress ignores stale pre-rescan tip snapshots; inactivity logout paused while minimized/backgrounded or during full rescan (parity with mobile).
 - **iOS (build 28):** Background wallet sync pulse; no inactivity logout on screen lock; rescan progress UI fixes when tapping Live Activity.
+- **iOS (build 29) / desktop release rebuild:** Wallet FFI **1.0.10** (full rescan native progress; `getheight` during background rescan/refresh).
 
 ## 5.1.0 — 2026-05-11
 

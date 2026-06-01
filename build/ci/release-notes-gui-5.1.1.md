@@ -1,6 +1,6 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.9](https://github.com/ArqTras/FFI/releases/tag/1.0.9)** (async full rescan + live heights during rescan **and** wallet sync/refresh). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://github.com/ArqTras/FFI/releases/tag/1.0.10)** (full rescan live progress + async refresh/sync height polling). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
 ### Solo pool (desktop — Windows, Linux, macOS)
 
@@ -16,8 +16,8 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.9](https://githu
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** Build **5.1.1 (27)** — FFI **1.0.9**; live scan progress during full rescan **and** wallet sync; **Live Activity / Dynamic Island** during scan (extension `RescanLiveActivity`, App Group `group.com.arqma.arqmaWalletMobile`); Face ID and background wallet sync (builds 17–26).
-- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.9**.
+- **iOS:** Build **5.1.1 (29)** — FFI **1.0.10**; live full rescan progress (native poller fix); background sync + inactivity fixes (build 28); Live Activity during scan.
+- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.10** when rebuilt after tag **5.1.1**.
 
 ### Wallet scan progress (FFI 1.0.9 — desktop + mobile)
 
@@ -33,12 +33,13 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.9](https://githu
 - **Build 26:** FFI **1.0.8** rescan progress UI.
 - **Build 27:** Live Activity extension enabled (App Group + `com.arqma.arqmaWalletMobile.RescanLiveActivity`); FFI **1.0.9** sync/rescan progress; installable on device and TestFlight.
 - **Build 28:** Background sync while screen locked; inactivity logout does not fire during lock/rescan; rescan progress no longer resets when opening from Live Activity.
+- **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
-### Desktop Flutter (5.1.1+3)
+### Desktop Flutter (5.1.1+3, release tag rebuild with FFI 1.0.10)
 
 - Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
 - Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
-- Wallet RPC: rescan height poller fix in `wallet2_client` (requires FFI **1.0.9+** prebuilts or local Rust build).
+- Wallet RPC: rescan height poller fix in `wallet2_client` (shipped in FFI **1.0.10** prebuilts).
 
 ### Release assets (by platform)
 
