@@ -24,7 +24,7 @@ case "${HOST}" in
 esac
 
 chmod +x "${ROOT}/build/ci/"*.sh 2>/dev/null || true
-VER="$(bash "${ROOT}/build/ci/resolve-arqma-ffi-release-version.sh")"
+VER="$(bash "${ROOT}/build/ci/ensure-desktop-latest-ffi.sh")"
 echo "[desktop-prebuilts] ArqTras/FFI release ${VER} (${PLATFORM})"
 
 ARQMA_FFI_PLATFORMS="${PLATFORM}" bash "${ROOT}/build/ci/fetch-arqma-wallet-ffi-release-linux.sh"

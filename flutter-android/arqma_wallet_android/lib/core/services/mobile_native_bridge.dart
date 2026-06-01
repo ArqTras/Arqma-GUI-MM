@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../mobile/ios_rescan_live_activity.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
@@ -25,6 +26,7 @@ import '../desktop/desktop_stake_pools.dart';
 import '../desktop/desktop_wallet_address_book.dart';
 import '../desktop/desktop_wallet_address_list.dart';
 import '../desktop/wallet_json_rpc.dart';
+import '../wallet_daemon_tip_tolerance.dart';
 import '../desktop/wallet_list_fs.dart';
 import '../desktop/wallet_password_pbkdf2.dart';
 import '../utils/deep_merge.dart';
@@ -83,13 +85,6 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
-bool _walletCaughtDaemonTip(int walletHeight, int daemonTip) {
-  if (daemonTip <= 0) {
-    return false;
-  }
-  return walletHeight >= daemonTip;
-}
-
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
 String _walletFfiMissedStartHint() {
   const String rpc =
@@ -104,15 +99,6 @@ String _walletFfiMissedStartHint() {
         '`cargo build -p arqma-wallet-flutter-ffi --release --target x86_64-pc-windows-gnu`, then '
         '`flutter build windows --release` (see `rust/tool/build_native_wallet_flutter_ffi_windows.ps1`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` = absolute path to the DLL. $rpc';
-  }
-  if (Platform.isAndroid) {
-    final String abiHint = Platform.isAndroid
-        ? 'jniLibs/arm64-v8a (phone) or jniLibs/x86_64 (emulator)'
-        : 'jniLibs';
-    return 'Missing Android `libarqma_wallet_flutter_ffi.so` in `$abiHint`. '
-        'Run `BUILD_ANDROID_X86_64=1 bash rust/tool/build_mobile_wallet_ffi_android.sh` (emulator) or default script (arm64), then '
-        '`bash flutter-android/arqma_wallet_android/tool/copy_android_wallet_ffi.sh`. '
-        'Mobile does not ship `arqma-wallet-rpc`.';
   }
   if (Platform.isIOS) {
     return 'Missing iOS `libarqma_wallet_flutter_ffi.framework` (must be built for `aarch64-apple-ios`, '
@@ -138,11 +124,6 @@ String _walletFfiBackendOfflineHint() {
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` + `arqma-wallet-rpc`). '
         'Optional: `ARQMA_FLUTTER_WALLET_FFI` for a custom DLL path.';
   }
-  if (Platform.isAndroid) {
-    return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.so` under `jniLibs/`, '
-        'not subprocess `arqma-wallet-rpc`). '
-        'Build: `bash rust/tool/build_mobile_wallet_ffi_android.sh`, copy FFI, then `flutter run -d android`.';
-  }
   if (Platform.isIOS) {
     return 'Wallet backend is not running (embed `libarqma_wallet_flutter_ffi.framework` in `Runner.app/Frameworks/`, '
         'not subprocess `arqma-wallet-rpc`). '
@@ -166,11 +147,6 @@ String _walletFfiCreateRestoreHint() {
   if (Platform.isWindows) {
     return 'Wallet backend is not running (copy `arqma_wallet_flutter_ffi.dll` into `runner/Release/` next to the exe, or '
         '`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess` with `arqma-wallet-rpc`).';
-  }
-  if (Platform.isAndroid) {
-    return 'Wallet FFI for Android is missing or built for the wrong ABI. '
-        'Build: `bash rust/tool/build_mobile_wallet_ffi_android.sh`, run `tool/copy_android_wallet_ffi.sh`, '
-        'then `flutter build apk --release`.';
   }
   if (Platform.isIOS) {
     return 'Wallet FFI for iOS is missing, wrong platform (macOS dylib), or not code-signed for this device. '
@@ -264,8 +240,69 @@ final class MobileNativeBridge implements NativeBridge {
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
 
+  /// Wallet height before a full rescan — used to ignore stale `getheight` while native rescan runs.
+  int _rescanPreTipHeight = 0;
+
+  /// Best sub-tip height seen during full rescan (RPC may alternate stale tip vs scan progress).
+  int _rescanProgressPeak = 0;
+
   /// First wallet heartbeat tick loads address book (Tauri `wh_heartbeat_ext_pending`).
   bool _whAddressBookPending = false;
+
+  /// Full rescan is done only after real sub-tip progress, not a stale pre-rescan tip snapshot.
+  bool _walletFullRescanCaughtUp(int walletHeight, int daemonTip) {
+    if (!_walletFullRescanUi || daemonTip <= 0 || _rescanProgressPeak <= 0) {
+      return false;
+    }
+    final int preTip = _rescanPreTipHeight;
+    if (preTip > 0 && _rescanProgressPeak + 32 >= preTip) {
+      return false;
+    }
+    return walletHeight + kWalletDaemonTipToleranceBlocks >= daemonTip &&
+        _rescanProgressPeak + kWalletDaemonTipToleranceBlocks >= daemonTip;
+  }
+
+  /// While [rescan_blockchain] runs, `getheight` may still report the pre-rescan chain tip until
+  /// the wallet rewinds — never adopt that snapshot during full rescan (tap/resume included).
+  int _walletHeightForHeartbeat(int parsedFromRpc, int daemonTip) {
+    if (!_walletFullRescanUi) {
+      return parsedFromRpc;
+    }
+    final int preTip = _rescanPreTipHeight;
+    if (preTip > 0 && parsedFromRpc >= preTip - 16) {
+      return _rescanProgressPeak > _whStoredHeight
+          ? _rescanProgressPeak
+          : _whStoredHeight;
+    }
+    if (parsedFromRpc > _rescanProgressPeak) {
+      _rescanProgressPeak = parsedFromRpc;
+    }
+    return parsedFromRpc;
+  }
+
+  void _syncIosWalletScanLiveActivity({
+    required int walletHeight,
+    required int daemonTip,
+    required bool fullRescan,
+  }) {
+    if (!Platform.isIOS || daemonTip <= 0) {
+      return;
+    }
+    final int gap = daemonTip - walletHeight;
+    final bool scanning =
+        fullRescan || gap > kWalletDaemonTipToleranceBlocks;
+    if (!scanning) {
+      unawaited(IosRescanLiveActivity.end());
+      return;
+    }
+    unawaited(
+      IosRescanLiveActivity.startOrUpdate(
+        current: walletHeight.clamp(0, daemonTip),
+        target: daemonTip,
+        subtitle: fullRescan ? 'Blockchain rescan' : 'Syncing wallet',
+      ),
+    );
+  }
 
   void _emit(Map<String, dynamic> msg) {
     if (!_controller.isClosed) {
@@ -502,7 +539,11 @@ final class MobileNativeBridge implements NativeBridge {
       return null;
     }
     if (cmd == 'app_version_str') {
-      return '5.1.1';
+      return '5.1.1+25';
+    }
+    if (cmd == 'wallet_password_matches') {
+      final String password = '${_coerceMap(args)['password'] ?? ''}';
+      return _walletPasswordMatches(password);
     }
     if (cmd == 'daemon_version_probe') {
       final Map<String, dynamic>? c = _runtimeConfig;
@@ -973,7 +1014,9 @@ final class MobileNativeBridge implements NativeBridge {
         return true;
       case 'apply_remote_node':
         final String host = '${params['host'] ?? ''}'.trim();
-        if (host.isEmpty || !isAllowedMobileRemoteHost(host)) {
+        final int port = int.tryParse('${params['port'] ?? kArqmaMainnetRemotePort}') ??
+            kArqmaMainnetRemotePort;
+        if (host.isEmpty) {
           return false;
         }
         final Map<String, dynamic> mergedRemote =
@@ -987,7 +1030,7 @@ final class MobileNativeBridge implements NativeBridge {
             daemons[net] as Map? ?? <String, dynamic>{});
         entry['type'] = 'remote';
         entry['remote_host'] = host;
-        entry['remote_port'] = kArqmaMainnetRemotePort;
+        entry['remote_port'] = port;
         daemons[net] = entry;
         mergedRemote['daemons'] = daemons;
         final Map<String, dynamic> outRemote = _finalizeConfigForDiskWrite(
@@ -1650,6 +1693,22 @@ final class MobileNativeBridge implements NativeBridge {
     unawaited(_walletHeartbeatTick());
   }
 
+  /// iOS background sync — open wallet session (FFI / RPC).
+  bool get isWalletOpenForBackgroundSync =>
+      _walletRpc != null && _openedWalletDisplayName.isNotEmpty;
+
+  /// One daemon tip poll + wallet heartbeat tick (used when screen is off).
+  Future<void> pulseBackgroundWalletSync() async {
+    if (!isWalletOpenForBackgroundSync) {
+      return;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg != null) {
+      await _heartbeatTick(cfg);
+    }
+    await _walletHeartbeatTick();
+  }
+
   /// Same bucket merge + sort as `wallet_heartbeat::merge_transfers_list`.
   List<dynamic> _mergeWalletRpcTransfersList(Map<String, dynamic> result) {
     const List<String> keys = <String>[
@@ -1906,17 +1965,28 @@ final class MobileNativeBridge implements NativeBridge {
     if (ghOk) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, dh);
       }
     }
-    if (_walletFullRescanUi && _walletCaughtDaemonTip(newH, dh)) {
+    if (_walletFullRescanCaughtUp(newH, dh)) {
       _walletFullRescanUi = false;
+      _rescanPreTipHeight = 0;
+      _rescanProgressPeak = 0;
+      if (Platform.isIOS) {
+        unawaited(IosRescanLiveActivity.end());
+      }
     }
+    _syncIosWalletScanLiveActivity(
+      walletHeight: newH,
+      daemonTip: dh,
+      fullRescan: _walletFullRescanUi,
+    );
     final Map<String, dynamic> info = <String, dynamic>{
       'name': name,
       'height': newH,
       'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       'full_rescan_ui': _walletFullRescanUi,
+      if (_walletFullRescanUi) 'allow_lower_height': true,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
       final Object? res = ga['result'];
@@ -2023,6 +2093,10 @@ final class MobileNativeBridge implements NativeBridge {
     if (name.isEmpty) {
       return;
     }
+    _rescanPreTipHeight = _whStoredHeight > 0
+        ? _whStoredHeight
+        : (_daemonChainTipHeight > 0 ? _daemonChainTipHeight : 0);
+    _rescanProgressPeak = 0;
     _whStoredHeight = 0;
     _whFetchTxPending = true;
     _walletFullRescanUi = true;
@@ -2049,6 +2123,19 @@ final class MobileNativeBridge implements NativeBridge {
       'event': 'reset_wallet_status',
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
+    if (Platform.isIOS) {
+      final int tip =
+          _daemonChainTipHeight > 0 ? _daemonChainTipHeight : _rescanPreTipHeight;
+      if (tip > 0) {
+        unawaited(
+          IosRescanLiveActivity.startOrUpdate(
+            current: 0,
+            target: tip,
+            subtitle: 'Blockchain rescan',
+          ),
+        );
+      }
+    }
   }
 
   /// Poll wallet RPC once after `rescan_*` so the footer shows scan height immediately (from genesis)
@@ -2073,11 +2160,11 @@ final class MobileNativeBridge implements NativeBridge {
           .timeout(const Duration(seconds: 30), onTimeout: () => null);
     } catch (_) {}
 
-    int newH = _whStoredHeight;
-    if (gh != null && walletJsonRpcNoError(gh)) {
+    int newH = clearTransactions ? 0 : _whStoredHeight;
+    if (!clearTransactions && gh != null && walletJsonRpcNoError(gh)) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = parsed;
+        newH = _walletHeightForHeartbeat(parsed, _daemonChainTipHeight);
       }
     }
     _whStoredHeight = newH;
@@ -2104,6 +2191,7 @@ final class MobileNativeBridge implements NativeBridge {
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'allow_lower_height': true,
+        'full_rescan_ui': _walletFullRescanUi,
       },
     });
     if (clearTransactions) {
@@ -3281,6 +3369,11 @@ final class MobileNativeBridge implements NativeBridge {
         } catch (e, st) {
           debugPrint('[MobileNative] rescan_blockchain: $e\n$st');
           _walletFullRescanUi = false;
+          _rescanPreTipHeight = 0;
+          _rescanProgressPeak = 0;
+          if (Platform.isIOS) {
+            unawaited(IosRescanLiveActivity.end());
+          }
           _emit(<String, dynamic>{
             'event': 'set_wallet_info',
             'data': <String, dynamic>{

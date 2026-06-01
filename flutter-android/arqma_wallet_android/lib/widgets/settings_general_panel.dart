@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_api.dart';
+import '../core/mobile/mobile_defaults.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -37,6 +38,8 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     }
     return jsonDecode(jsonEncode(src)) as Map<String, dynamic>;
   }
+
+  bool get _mobileRemoteOnly => Platform.isIOS || Platform.isAndroid;
 
   Map<String, dynamic> _daemon() {
     final Map<String, dynamic> pc = _pending;
@@ -102,6 +105,9 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
         store.app['remotes'] as List<dynamic>? ?? const <dynamic>[]);
     _ethereum = _deepClone(store.raw['ethereum']);
     _ethereumNetworkIndex = '${_ethereum['ethereum_network_index'] ?? '0'}';
+    if (_mobileRemoteOnly) {
+      enforceMobileRemoteOnlyConfig(_pending);
+    }
   }
 
   /// Welcome step 2 "Next" — `save_config_init` like Vue.
@@ -121,6 +127,9 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
       await api.send('core', 'change_ethereum', newEth);
       await api.send('core', 'change_remotes', List<dynamic>.from(_remotes));
       final Map<String, dynamic> mergedPending = _deepClone(_pending);
+      if (_mobileRemoteOnly) {
+        enforceMobileRemoteOnlyConfig(mergedPending);
+      }
       mergedPending['ethereum'] = newEth;
       await api.savePendingConfigToStore(mergedPending);
       await api.send('core', method, mergedPending);
@@ -260,7 +269,11 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
     final Map<String, dynamic> d = _daemon();
-    final String t = '${d['type'] ?? 'remote'}';
+    final String t =
+        _mobileRemoteOnly ? 'remote' : '${d['type'] ?? 'remote'}';
+    if (_mobileRemoteOnly && d['type'] != 'remote') {
+      d['type'] = 'remote';
+    }
 
     String inactivityLabel() {
       final int v = int.tryParse('${_app()['inactivityTimeout'] ?? 5}') ?? 5;
@@ -276,7 +289,7 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (t != 'remote') ...[
+          if (!_mobileRemoteOnly && t != 'remote') ...[
             Row(
               children: [
                 Expanded(
@@ -299,14 +312,16 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               ],
             ),
           ],
-          if (t != 'local') ...[
-            if (Platform.isIOS || Platform.isAndroid) ...[
+          if (_mobileRemoteOnly || t != 'local') ...[
+            if (_mobileRemoteOnly) ...[
               MobileRemoteNodePicker(
                 pendingConfig: _pending,
                 onChanged: (Map<String, dynamic> cfg) {
                   setState(() => _pending = cfg);
                 },
               ),
+              Text(loc.tr('components.general_settings.remote_message'),
+                  style: const TextStyle(color: ArqmaColors.textMuted)),
             ] else ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,7 +386,7 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               ),
             ],
           ],
-          if (t != 'local')
+          if (_mobileRemoteOnly || t != 'local')
             ArqmaField(
               label: loc.tr('components.general_settings.remote_node_scan'),
               child: Switch(
@@ -453,43 +468,48 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                 setState(() => _expandedAdvanced = e),
             title: Text(loc.tr('components.general_settings.advanced_options')),
             children: [
-              RadioGroup<String>(
-                groupValue: t,
-                onChanged: (String? v) {
-                  if (v != null) {
-                    setState(() => d['type'] = v);
-                  }
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    RadioListTile<String>(
-                      title: Text(loc.tr(
-                          'components.general_settings.remote_daemon_only')),
-                      value: 'remote',
-                    ),
-                    RadioListTile<String>(
-                      title: Text(loc.tr(
-                          'components.general_settings.local_and_remote_daemon')),
-                      value: 'local_remote',
-                    ),
-                    RadioListTile<String>(
-                      title: Text(loc.tr(
-                          'components.general_settings.local_daemon_only')),
-                      value: 'local',
-                    ),
-                  ],
+              if (!_mobileRemoteOnly) ...[
+                RadioGroup<String>(
+                  groupValue: t,
+                  onChanged: (String? v) {
+                    if (v != null) {
+                      setState(() => d['type'] = v);
+                    }
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      RadioListTile<String>(
+                        title: Text(loc.tr(
+                            'components.general_settings.remote_daemon_only')),
+                        value: 'remote',
+                      ),
+                      RadioListTile<String>(
+                        title: Text(loc.tr(
+                            'components.general_settings.local_and_remote_daemon')),
+                        value: 'local_remote',
+                      ),
+                      RadioListTile<String>(
+                        title: Text(loc.tr(
+                            'components.general_settings.local_daemon_only')),
+                        value: 'local',
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              if (t == 'local_remote')
-                Text(loc.tr('components.general_settings.local_remote_message'),
-                    style: const TextStyle(color: ArqmaColors.textSecondary)),
-              if (t == 'local')
-                Text(loc.tr('components.general_settings.local_message'),
-                    style: const TextStyle(color: ArqmaColors.textSecondary)),
-              if (t == 'remote')
-                Text(loc.tr('components.general_settings.remote_message'),
-                    style: const TextStyle(color: ArqmaColors.textSecondary)),
+                if (t == 'local_remote')
+                  Text(
+                      loc.tr('components.general_settings.local_remote_message'),
+                      style:
+                          const TextStyle(color: ArqmaColors.textSecondary)),
+                if (t == 'local')
+                  Text(loc.tr('components.general_settings.local_message'),
+                      style: const TextStyle(color: ArqmaColors.textSecondary)),
+                if (t == 'remote')
+                  Text(loc.tr('components.general_settings.remote_message'),
+                      style:
+                          const TextStyle(color: ArqmaColors.textSecondary)),
+              ],
               ArqmaField(
                 label: loc.tr('components.general_settings.data_storage_path'),
                 disableHover: true,
@@ -535,15 +555,17 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
               ),
               Row(
                 children: [
-                  Expanded(
-                    child: ArqmaField(
-                      label: loc
-                          .tr('components.general_settings.daemon_log_level'),
-                      child: _lineField(d, 'log_level',
-                          disabled: t == 'remote',
-                          keyboard: TextInputType.number),
+                  if (!_mobileRemoteOnly)
+                    Expanded(
+                      child: ArqmaField(
+                        label: loc
+                            .tr('components.general_settings.daemon_log_level'),
+                        child: _lineField(d, 'log_level',
+                            disabled: t == 'remote',
+                            keyboard: TextInputType.number),
+                      ),
                     ),
-                  ),
+                  if (!_mobileRemoteOnly) const SizedBox(width: 8),
                   Expanded(
                     child: ArqmaField(
                       label: loc
@@ -554,77 +576,79 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.max_incoming_peers'),
-                          child: _lineField(d, 'in_peers',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.max_outgoing_peers'),
-                          child: _lineField(d, 'out_peers',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.limit_upload_rate'),
-                          child: _lineField(d, 'limit_rate_up',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.limit_download_rate'),
-                          child: _lineField(d, 'limit_rate_down',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.daemon_p2p_port'),
-                          child: _lineField(d, 'p2p_bind_port',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.daemon_zmq_port'),
-                          child: _lineField(d, 'zmq_rpc_bind_port',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.internal_wallet_port'),
-                          child: _lineField(_app(), 'ws_bind_port',
-                              keyboard: TextInputType.number))),
-                  Expanded(
-                      child: ArqmaField(
-                          label: loc.tr(
-                              'components.general_settings.wallet_rpc_port'),
-                          child: _lineField(_walletCfg(), 'rpc_bind_port',
-                              disabled: t == 'remote',
-                              keyboard: TextInputType.number))),
-                ],
-              ),
+              if (!_mobileRemoteOnly) ...[
+                Row(
+                  children: [
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.max_incoming_peers'),
+                            child: _lineField(d, 'in_peers',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.max_outgoing_peers'),
+                            child: _lineField(d, 'out_peers',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.limit_upload_rate'),
+                            child: _lineField(d, 'limit_rate_up',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.limit_download_rate'),
+                            child: _lineField(d, 'limit_rate_down',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.daemon_p2p_port'),
+                            child: _lineField(d, 'p2p_bind_port',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.daemon_zmq_port'),
+                            child: _lineField(d, 'zmq_rpc_bind_port',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.internal_wallet_port'),
+                            child: _lineField(_app(), 'ws_bind_port',
+                                keyboard: TextInputType.number))),
+                    Expanded(
+                        child: ArqmaField(
+                            label: loc.tr(
+                                'components.general_settings.wallet_rpc_port'),
+                            child: _lineField(_walletCfg(), 'rpc_bind_port',
+                                disabled: t == 'remote',
+                                keyboard: TextInputType.number))),
+                  ],
+                ),
+              ],
               ArqmaField(
                 label: loc.tr('components.general_settings.choose_a_network'),
                 child: Column(

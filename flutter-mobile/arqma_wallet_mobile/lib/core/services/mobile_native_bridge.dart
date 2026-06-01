@@ -1014,7 +1014,9 @@ final class MobileNativeBridge implements NativeBridge {
         return true;
       case 'apply_remote_node':
         final String host = '${params['host'] ?? ''}'.trim();
-        if (host.isEmpty || !isAllowedMobileRemoteHost(host)) {
+        final int port = int.tryParse('${params['port'] ?? kArqmaMainnetRemotePort}') ??
+            kArqmaMainnetRemotePort;
+        if (host.isEmpty) {
           return false;
         }
         final Map<String, dynamic> mergedRemote =
@@ -1028,7 +1030,7 @@ final class MobileNativeBridge implements NativeBridge {
             daemons[net] as Map? ?? <String, dynamic>{});
         entry['type'] = 'remote';
         entry['remote_host'] = host;
-        entry['remote_port'] = kArqmaMainnetRemotePort;
+        entry['remote_port'] = port;
         daemons[net] = entry;
         mergedRemote['daemons'] = daemons;
         final Map<String, dynamic> outRemote = _finalizeConfigForDiskWrite(

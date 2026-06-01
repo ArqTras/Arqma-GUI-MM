@@ -26,17 +26,19 @@
 
 The **`Arqma-Wallet-Flutter-`** prefix applies to **installers and archives**, not to the process name or Start Menu shortcut target binary name.
 
-## Wallet FFI (desktop CI)
+## Wallet FFI (desktop GUI)
 
-Prebuilt **`arqma-wallet-flutter-ffi`** from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/tag/1.0.1) tag **`1.0.1`** (see `ARQMA_FFI_RELEASE_VERSION` in workflow):
+Desktop **Windows / Linux / macOS** always use the **Latest** [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) prebuilt **`arqma-wallet-flutter-ffi`** (resolved by `build/ci/ensure-desktop-latest-ffi.sh` → `resolve-arqma-ffi-release-version.sh`).
 
-| OS | Download |
-|----|----------|
-| macOS (arm64) | https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-macos-arm64-1.0.1.zip |
-| Windows (x64 GNU) | https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-windows-x86_64-gnu-1.0.1.zip |
-| Linux (x64) | https://github.com/ArqTras/FFI/releases/download/1.0.1/arqma-wallet-ffi-linux-x86_64-1.0.1.zip |
+| OS | Artifact pattern (version = Latest tag) |
+|----|----------------------------------------|
+| macOS (arm64) | `arqma-wallet-ffi-macos-arm64-<version>.zip` |
+| Windows (x64 GNU) | `arqma-wallet-ffi-windows-x86_64-gnu-<version>.zip` |
+| Linux (x64) | `arqma-wallet-ffi-linux-x86_64-<version>.zip` |
 
-Fetched by `build/ci/fetch-arqma-wallet-ffi-release-linux.sh` (macOS/Linux) and `fetch-arqma-wallet-ffi-release.ps1` (Windows).
+Fetched by `build/ci/fetch-arqma-desktop-prebuilts.sh` (local: `tool/fetch_latest_wallet_ffi.sh` / `.ps1`, or via `package_flutter_release.*`). Solo pool sidecars use the **same Latest** FFI release tag.
+
+**Pinning** (`ARQMA_FFI_RELEASE_VERSION=1.0.x`) is ignored for desktop unless `ARQMA_FFI_DESKTOP_ALLOW_PIN=1` (CI/debug). Mobile/Android may pin independently.
 
 ## Where this is implemented
 

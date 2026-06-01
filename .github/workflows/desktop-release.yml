@@ -1,7 +1,8 @@
 # Desktop release: Flutter only (macOS zip/DMG, Linux tar.gz/AppImage, Windows zip/Inno Setup).
 # Push to branch `main` builds all platforms and uploads Actions artifacts (no GitHub Release).
 # Tags / workflow_dispatch with a release tag still publish to GitHub Releases.
-# Wallet FFI + solo pool: Latest ArqTras/FFI (resolve-arqma-ffi-release-version.*; pin with ARQMA_FFI_RELEASE_VERSION).
+# Wallet FFI + solo pool: **Latest** [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) for desktop GUI (see ensure-desktop-latest-ffi.*).
+# Mobile/Android CI may pin via workflow input; desktop builds always refresh Latest unless ARQMA_FFI_DESKTOP_ALLOW_PIN=1.
 # arqmad: latest https://github.com/arqma/arqma release (not built from source in CI).
 # Solo pool: desktop only (Windows, Linux, macOS). Android/iOS do not include solo pool.
 #
@@ -84,15 +85,16 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: chmod +x build/ci/*.sh || true
 
-      - name: Resolve ArqTras/FFI release
+      - name: Resolve ArqTras/FFI release (desktop = Latest)
         id: ffi_release
         working-directory: ${{ github.workspace }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VER=$(bash build/ci/resolve-arqma-ffi-release-version.sh)
+          chmod +x build/ci/*.sh
+          VER=$(bash build/ci/ensure-desktop-latest-ffi.sh)
           echo "version=${VER}" >> "$GITHUB_OUTPUT"
-          echo "Using ArqTras/FFI release ${VER}"
+          echo "Using ArqTras/FFI Latest release ${VER} (desktop GUI policy)"
 
       - name: Fetch wallet FFI (ArqTras/FFI, macOS)
         working-directory: ${{ github.workspace }}

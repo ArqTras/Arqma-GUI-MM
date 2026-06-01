@@ -33,8 +33,12 @@ List<Map<String, dynamic>> mobileRemoteNodesJson() {
       .toList();
 }
 
-bool isAllowedMobileRemoteHost(String host) {
+bool isPresetMobileRemoteHost(String host) {
   return kMobileRemoteNodeHosts.contains(host.trim());
+}
+
+bool isAllowedMobileRemoteHost(String host) {
+  return isPresetMobileRemoteHost(host);
 }
 
 /// Probes [hosts] in order; returns the first that answers `get_info` on [kArqmaMainnetRemotePort].

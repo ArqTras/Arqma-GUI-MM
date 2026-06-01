@@ -560,6 +560,8 @@
             "local_remote_message": "Get started quickly with this default option. Wallet will download the\nfull blockchain, but use a remote node while syncing.",
             "local_message": "Full security, wallet will download the full blockchain. You will not be\nable to transact until sync is completed.",
             "remote_message": "Less security, wallet will connect to a remote node to make all\ntransactions.",
+            "custom_remote_node": "Custom remote node",
+            "apply_custom_node": "Apply custom node",
             "data_storage_path": "Data Storage Path",
             "select_location": "Select Location",
             "wallet_storage_path": "Wallet Storage Path",

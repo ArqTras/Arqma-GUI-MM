@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build Flutter desktop release and write distributable archives under ./dist/.
-# Requires: flutter SDK, platform desktop toolchain (Xcode on macOS, etc.).
+# Fetches GitHub Latest ArqTras/FFI before build (see tool/fetch_latest_wallet_ffi.sh).
 #
 # Usage:
 #   cd flutter/arqma_wallet_gui && ./tool/package_flutter_release.sh

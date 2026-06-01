@@ -180,9 +180,13 @@ void enforceMobileRemoteOnlyConfig(Map<String, dynamic> config) {
   final String host =
       '${entry['remote_host'] ?? kMobileDefaultRemoteHost}'.trim();
   entry['type'] = 'remote';
-  entry['remote_host'] =
-      isAllowedMobileRemoteHost(host) ? host : kMobileDefaultRemoteHost;
-  entry['remote_port'] = kArqmaMainnetRemotePort;
+  if (host.isEmpty) {
+    entry['remote_host'] = kMobileDefaultRemoteHost;
+  } else {
+    entry['remote_host'] = host;
+  }
+  entry['remote_port'] =
+      int.tryParse('${entry['remote_port']}') ?? kArqmaMainnetRemotePort;
   entry.remove('trusted-daemon');
   entry.remove('trusted_daemon');
   daemons[net] = entry;

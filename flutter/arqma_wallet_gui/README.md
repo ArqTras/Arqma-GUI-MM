@@ -4,8 +4,17 @@ This directory is a **Flutter desktop/mobile shell** that mirrors the **Vue + Qu
 
 ## Run
 
+**Desktop wallet FFI:** the GUI on **Windows, Linux, and macOS** always bundles the **Latest** prebuilt release from [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) (not a pinned tag). Before the first run or after a new FFI release:
+
 ```bash
 cd flutter/arqma_wallet_gui
+./tool/fetch_latest_wallet_ffi.sh    # macOS / Linux / Git Bash on Windows
+# Windows PowerShell: .\tool\fetch_latest_wallet_ffi.ps1
+```
+
+Release packagers (`package_flutter_release.sh` / `.ps1`) and **desktop-release** CI call the same fetch automatically. Pinning is disabled for desktop unless `ARQMA_FFI_DESKTOP_ALLOW_PIN=1` (debug only).
+
+```bash
 flutter pub get
 flutter run -d macos   # or linux / windows / chrome
 ```
@@ -90,7 +99,7 @@ When you run `flutter run -d macos` (or `linux` / `windows`) without a native em
 
 **Invoke parity (shell commands, not `backend_send`):** `app_version_str`, `daemon_version_probe`, `app_is_dev`, `app_log_*`, **`clip_write_text`**, **`app_save_log_level`** (writes `LOG_LEVEL=` under `ArqmaPaths.configDir/.env`), `dialog_open_dir` (via **file_picker**), **`confirm_close`** (stops pool / heartbeat / wallet RPC / daemon, then **`exit(0)`** like Tauri `app.exit(0)`).
 
-**Wallet (native FFI only):** On desktop, **`ArqmaWalletRpcSession`** loads **`arqma-wallet-flutter-ffi`** (same **`Wallet2ApiClient`** / `wallet2_api` stack as Tauri native mode). Build with **`rust/tool/build_wallet_flutter_ffi.sh`** (Arqma upstream per **`rust/docs/NATIVE_WALLET2.md`**). Set **`ARQMA_FLUTTER_WALLET_FFI`** to override the library path, or rely on **`macos/Runner.xcodeproj`** phase **“Copy Arqma Tauri bins”** / **`tool/package_flutter_release.ps1`**, which place **`libarqma_wallet_flutter_ffi`** next to the app. There is **no** `arqma-wallet-rpc` subprocess on desktop. If the library is missing, wallet features stay offline until you rebuild or bundle the FFI. Optional **`MethodChannel('com.arqma.wallet/native')`** with `native_ping` remains a separate full-bridge path.
+**Wallet (native FFI only):** On desktop, **`ArqmaWalletRpcSession`** loads **`arqma-wallet-flutter-ffi`** from [ArqTras/FFI **Latest**](https://github.com/ArqTras/FFI/releases/latest) (fetched by **`tool/fetch_latest_wallet_ffi.sh`** / **`package_flutter_release.*`** / CI). Override path with **`ARQMA_FLUTTER_WALLET_FFI`**. Local source build: **`rust/tool/build_wallet_flutter_ffi.sh`** (see **`rust/docs/NATIVE_WALLET2.md`**). There is **no** `arqma-wallet-rpc` subprocess on desktop.
 
 **Sharing the Tauri Rust backend with Flutter (roadmap):** see **`docs/FLUTTER_NATIVE_FROM_TAURI.md`** — phased plan (`BackendReceiveSink` in `gateway_emit.rs` started; then `cdylib` + MethodChannel, retiring duplicate Dart logic).
 
