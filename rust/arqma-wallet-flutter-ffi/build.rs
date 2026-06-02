@@ -731,28 +731,32 @@ fn emit_ios_wallet_aux_archives(emit: &dyn Fn(&str)) {
     let upstream = arqma_upstream_root();
     for sub in ["build-ios-depends-device", "build-ios-device"] {
         let root = upstream.join(sub);
-        // `wallet_merged` already contains cryptonote_format_utils_basic objects; force-loading
-        // the standalone `.a` causes Apple ld duplicate-symbol errors.
-        let archives = [
-            root.join("external/randomarq/librandomx.a"),
+        let merged = root.join("src/wallet/libwallet_merged.a");
+        // `arqma-wallet2-api` links `wallet_merged` + `lmdb` (+whole-archive). Folded `wallet_merged`
+        // still needs standalone `librandomx.a` and often `libeasylogging.a` for logging symbols.
+        // Never force_load epee or lmdb here (duplicate symbols with merged + wallet2-api).
+        let aux = [
             root.join("contrib/epee/src/libepee.a"),
+            root.join("external/randomarq/librandomx.a"),
             root.join("external/easylogging++/libeasylogging.a"),
-            root.join("src/lmdb/liblmdb/liblmdb.a"),
         ];
-        let mut any = false;
-        for path in archives {
+        let mut linked = false;
+        for path in aux {
             if path.is_file() {
                 emit("-Wl,-force_load");
                 emit(&path_for_ld(&path));
-                any = true;
+                linked = true;
             }
         }
-        if any {
+        if merged.is_file() && linked {
+            return;
+        }
+        if merged.is_file() {
             return;
         }
     }
     println!(
-        "cargo:warning=arqma-wallet-flutter-ffi: iOS wallet aux archives not found under build-ios-depends-device"
+        "cargo:warning=arqma-wallet-flutter-ffi: iOS wallet_merged not found under build-ios-depends-device"
     );
 }
 
