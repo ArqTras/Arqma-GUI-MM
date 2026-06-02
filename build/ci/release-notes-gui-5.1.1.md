@@ -16,7 +16,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (38)** — screen stays on while wallet UI is open (sync without auto-lock); build **37**: background persist + resume recover + rescan fixes; build **36**: footer Scanning/Synced.
+- **iOS:** TestFlight build **5.1.1 (39)** — fix resume-after-sleep (no tx wipe) and full blockchain rescan (restart after wake, retry busy, restore on failure); build **38**: keep screen on during wallet UI; build **37**: background persist + checkpoint; build **36**: footer Scanning/Synced.
 - **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.10** when rebuilt after tag **5.1.1**.
 
 ### Wallet scan progress (FFI 1.0.9 — desktop + mobile)
@@ -38,6 +38,9 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 - **Build 33:** Same tab performance stack on **iOS, Android, and desktop** (including Solo Pool tab on desktop).
 - **Build 34:** **Staking Pools** layout on phones: compact operator/status filter dropdown; pool list uses stacked cards (no column overlap) instead of forcing horizontal scroll on narrow screens. Android build **11** includes the same staking UI.
 - **Build 35:** Wallet heartbeat defers heavy `get_transfers` while switching tabs or scrolling tx history; inactive tabs skip rebuilds on 5 s polls (smoother UI during refresh).
+- **Build 37:** Background `store` + session checkpoint before suspend; foreground recover (`refresh` / reopen); full rescan clears history only after RPC success; skip `store` during rescan.
+- **Build 38:** Screen stays awake while the wallet screen is open (no auto-lock during sync/rescan on the foreground UI).
+- **Build 39:** Foreground resume uses lightweight RPC nudge (history not cleared); interrupted full rescan restarts after wake; rescan retries when wallet is busy; failed rescan restores previous height and tx list.
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
 ### Desktop Flutter (5.1.1+3, release tag rebuild with FFI 1.0.10)
@@ -58,7 +61,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **38** (keep screen on during wallet sync + build 37 fixes). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **39** (resume + full rescan fixes). |
 
 ### Solo pool quick start (desktop)
 

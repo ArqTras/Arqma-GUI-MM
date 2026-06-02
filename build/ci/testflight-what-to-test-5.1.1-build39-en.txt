@@ -1,0 +1,20 @@
+TestFlight — What to Test (5.1.1 build 39)
+
+Resume after sleep (regression fix)
+• Open a synced wallet with transaction history visible.
+• Lock the phone or background the app for 2–5 minutes, then return to the app.
+• Balance, footer height/progress, and transaction history must NOT stay empty or stuck at 0 / tip.
+• History must NOT disappear after resume (build 37–38 could clear the list on reopen).
+
+Full blockchain rescan (regression fix)
+• Wallet settings → Rescan full blockchain (hard).
+• Footer should show scanning from genesis; transaction list clears when rescan starts.
+• If rescan cannot start (e.g. wallet busy), you should get an error and the previous balance/history/height should return — not a permanent empty wallet.
+• Optional: start rescan, background the app mid-scan, return — rescan should continue or restart (Live Activity / footer progress).
+
+Also in this build
+• Screen stays on while the wallet screen is open (build 38).
+• Background store + checkpoint before suspend (build 37).
+• Footer Scanning/Synced only with an open wallet (build 36).
+
+Please report: empty history after wake, rescan that never starts, rescan stuck at 0%, or “background operation already running” with no recovery.
