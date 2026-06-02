@@ -64,6 +64,7 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
     try {
       _appInBackground = true;
       debugPrint('[MobileBackgroundWalletSync] enter background — keep wallet sync');
+      await _bridge.persistWalletBeforeSuspend(reason: 'enter_background');
       await _beginIosBackgroundTask();
       _startBackgroundPulseLoop();
       await IosBackgroundSync.scheduleProcessingSync();
@@ -80,6 +81,7 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
     _stopBackgroundPulseLoop();
     await _endAllIosBackgroundTasks();
     if (_bridge.isWalletOpenForBackgroundSync) {
+      await _bridge.recoverWalletSessionAfterForeground();
       unawaited(_bridge.pulseBackgroundWalletSync());
     }
   }
@@ -109,7 +111,8 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
       await _endAllIosBackgroundTasks();
       return;
     }
-    debugPrint('[MobileBackgroundWalletSync] iOS bg task expiring — chain sync');
+    debugPrint('[MobileBackgroundWalletSync] iOS bg task expiring — persist + chain');
+    await _bridge.persistWalletBeforeSuspend(reason: 'task_expiring');
     await _endAllIosBackgroundTasks();
     await _bridge.pulseBackgroundWalletSync();
     await _beginIosBackgroundTask();
@@ -125,6 +128,7 @@ class MobileBackgroundWalletSync with WidgetsBindingObserver {
       return;
     }
     debugPrint('[MobileBackgroundWalletSync] BGProcessingTask wallet pulse');
+    await _bridge.persistWalletBeforeSuspend(reason: 'bg_processing');
     await _bridge.pulseBackgroundWalletSync();
     if (_appInBackground) {
       await _beginIosBackgroundTask();

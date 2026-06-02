@@ -112,6 +112,11 @@ final class ArqmaWalletRpcSession {
   /// True when [WalletNativeFfi] is active (no `arqma-wallet-rpc` subprocess).
   bool get usesNativeFfi => _native != null;
 
+  /// Drops the in-process FFI client (clears stranded background rescan state on iOS).
+  void resetNativeFfiClient() {
+    _native?.reset();
+  }
+
   /// Cleared when [tryStart] begins; explains why native mode did not activate (shown in UI instead of guessing "missing DLL").
   static String lastNativeStartupDiagnosis = '';
 

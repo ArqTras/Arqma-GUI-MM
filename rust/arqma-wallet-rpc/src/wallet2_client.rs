@@ -580,6 +580,7 @@ impl Wallet2ApiClient {
             .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
         match method {
             "open_wallet" => {
+                self.wallet_background_busy.store(false, Ordering::SeqCst);
                 let filename = _params
                     .get("filename")
                     .or_else(|| _params.get("name"))
@@ -1386,6 +1387,9 @@ impl Wallet2ApiClient {
                 Ok(json!({ "result": {} }))
             }
             "close_wallet" | "stop_wallet" => {
+                // iOS suspend can strand a background rescan/refresh thread; clear the busy gate so
+                // the next open/heartbeat is not stuck at height 0 forever.
+                self.wallet_background_busy.store(false, Ordering::SeqCst);
                 if let Some(s) = g.as_mut() {
                     s.close()
                         .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
