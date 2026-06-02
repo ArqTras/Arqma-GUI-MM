@@ -262,7 +262,6 @@ final class _WalletFfiWorker {
 }
 
 void _walletFfiIsolateMain(SendPort replyToMain) {
-  WalletNativeFfi.prepareWindowsDllSearchPath();
   final ReceivePort commands = ReceivePort();
   replyToMain.send(commands.sendPort);
   final _WalletFfiWorker worker = _WalletFfiWorker(replyToMain);

@@ -348,16 +348,6 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
-  /// Clears sidecar handles when the child exits on its own (crash, SIGKILL, etc.).
-  void _onSoloPoolChildEnded(Process proc) {
-    if (_soloPoolProcess != proc) {
-      return;
-    }
-    _soloPoolProcess = null;
-    _soloPoolOutSub = null;
-    _soloPoolErrSub = null;
-  }
-
   /// Mobile: solo pool is not supported.
   Future<void> _syncSoloPoolSidecar(Map<String, dynamic> configData) async {}
 
@@ -1587,9 +1577,15 @@ final class MobileNativeBridge implements NativeBridge {
     final ArqmaWalletRpcSession? s = _walletRpc;
     final String wb =
         s == null ? 'none' : (s.usesNativeFfi ? 'ffi' : 'subprocess');
+    final Map<String, dynamic> payload = <String, dynamic>{'wallet_backend': wb};
+    final String daemonAddr =
+        ArqmaWalletRpcSession.lastConfiguredWalletDaemonAddress;
+    if (daemonAddr.isNotEmpty) {
+      payload['wallet_daemon_address'] = daemonAddr;
+    }
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'wallet_backend': wb},
+      'data': payload,
     });
   }
 
@@ -2088,7 +2084,7 @@ final class MobileNativeBridge implements NativeBridge {
       debugPrint('[MobileNative] recover closeWalletSession: $e\n$st');
     }
     if (w.usesNativeFfi) {
-      w.resetNativeFfiClient();
+      await w.resetNativeFfiClient();
       _walletRpc = null;
       if (!await _ensureWalletRpcStarted()) {
         _showNotification(
@@ -2669,18 +2665,6 @@ final class MobileNativeBridge implements NativeBridge {
   Future<void> _restartLocalDaemonIfExited(
       Map<String, dynamic> cfg, String net) async {}
 
-  Future<bool> _localDaemonExitedOrMissing() async {
-    final Process? p = _daemonProcess;
-    if (p == null) {
-      return true;
-    }
-    final Object? raced = await Future.any<Object?>(<Future<Object?>>[
-      p.exitCode.then<Object?>((int code) => true),
-      Future<Object?>.delayed(Duration.zero).then((_) => false),
-    ]);
-    return raced == true;
-  }
-
   /// `daemon_heartbeat::tick_fast` — `set_daemon_data` + pool network stats (`set_pool_data`) like Tauri.
   void _applyDaemonInfo(Map<String, dynamic> cfg, Map<String, dynamic> result) {
     final int h = jsonRpcLooseInt(result['height']) ?? 0;
@@ -2822,6 +2806,25 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
+  /// Close stray FFI / background jobs before [open_wallet] (account switch).
+  Future<ArqmaWalletRpcSession?> _prepareWalletRpcForOpen(
+    ArqmaWalletRpcSession w,
+  ) async {
+    if (_openedWalletDisplayName.isEmpty) {
+      return w;
+    }
+    try {
+      await w
+          .closeWalletSession()
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+    } catch (e, st) {
+      debugPrint('[MobileNative] prepare open closeWalletSession: $e\n$st');
+    }
+    _openedWalletDisplayName = '';
+    _stopWalletHeartbeat();
+    return _walletRpc;
+  }
+
   Future<dynamic> _openWalletDesktop(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
@@ -2841,8 +2844,24 @@ final class MobileNativeBridge implements NativeBridge {
       });
       return <String, dynamic>{};
     }
-    final ArqmaWalletRpcSession? w = _walletRpc;
+    ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
+      return <String, dynamic>{};
+    }
+    w = await _prepareWalletRpcForOpen(w);
+    if (w == null) {
+      _showNotification(
+        'negative',
+        _walletFfiBackendOfflineHint(),
+        12000,
+      );
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Wallet RPC unavailable',
+        },
+      });
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);

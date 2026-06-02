@@ -184,17 +184,23 @@ This script:
 
 ### 6.1 Demo account (Guideline 2.1)
 
-There is **no publisher-hosted user account**. Provide in **App Review Information → Notes**:
+There is **no publisher-hosted user account**. Full copy-paste text for App Store Connect is in **[APP_STORE_REVIEW_INFORMATION.md](./APP_STORE_REVIEW_INFORMATION.md)**:
 
-1. Install app → **Create wallet** or **Restore** with test seed (reviewer may create empty wallet).
+1. **App Review Information → Notes** — paste §3 before each submit.
+2. **Resolution Center replies** — use §4 when Apple asks Guideline 2.1 questions.
+3. **Demo restore wallet** — create once (§5): name `AppReviewDemo`, password `AppReview2026`, paste mnemonic into Connect notes only.
+
+Quick flow for reviewers:
+
+1. Install app → **Accounts** → dropdown → **Restore account from seed** (or **Create new account** first).
 2. Ensure **default remote nodes** (`node1`–`node4.arqma.com:19994`) are online during review.
-3. Optional: supply a **view-only** or low-value wallet address for screenshots consistency (never send mainnet high-value seeds in notes).
+3. Export seed: wallet menu → **Show Private Keys** (after opening a wallet).
 
-Offer **built-in demo mode** only if Apple requests it and legal/security allow it.
+Never send mainnet high-value seeds in review notes.
 
 ### 6.2 Reviewer notes (paste)
 
-Use the block in **[APP_STORE_PRIVACY_DISCLOSURE.md](./APP_STORE_PRIVACY_DISCLOSURE.md) §G**, plus:
+Use the full block in **[APP_STORE_REVIEW_INFORMATION.md](./APP_STORE_REVIEW_INFORMATION.md) §3** (includes Guideline 2.1 purchase/sale and restore/demo answers), plus:
 
 > Organization developer. App does not mine on device, operate a custodial exchange, or offer ICOs. Swap/staking are on-chain wallet features with user-held keys. Publisher does not receive wallet passwords or keys.
 
@@ -260,6 +266,7 @@ Use **App Store Connect → Pricing and Availability** to limit territories if n
 
 | Document | Use |
 |----------|-----|
+| [APP_STORE_REVIEW_INFORMATION.md](./APP_STORE_REVIEW_INFORMATION.md) | Guideline 2.1 answers, demo restore, Resolution Center replies |
 | [APP_STORE_PUBLICATION_REQUIREMENTS.md](./APP_STORE_PUBLICATION_REQUIREMENTS.md) | This checklist — publication & review |
 | [APP_STORE_PRIVACY_DISCLOSURE.md](./APP_STORE_PRIVACY_DISCLOSURE.md) | Privacy labels + technical disclosure |
 | [PRIVACY_POLICY.md](./PRIVACY_POLICY.md) | End-user policy (host publicly) |
@@ -271,4 +278,5 @@ Use **App Store Connect → Pricing and Availability** to limit territories if n
 
 | Date | Change |
 |------|--------|
+| 2026-06-03 | Link to APP_STORE_REVIEW_INFORMATION.md (Guideline 2.1 demo restore) |
 | 2026-05-27 | Initial publication requirements (Guideline 3.1.5 org wallet, Connect metadata, export, review, build pipeline) |

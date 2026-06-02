@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 
 import 'arqma_executable_resolve.dart';
 import 'arqma_paths.dart';
+import 'daemon_json_rpc.dart';
+import 'wallet_ffi_isolate.dart';
 import 'wallet_json_rpc.dart';
 import 'wallet_native_ffi.dart';
 
@@ -61,6 +63,53 @@ String? walletDaemonAddress(Map<String, dynamic> configData) {
   return '$h:$p';
 }
 
+/// Wallet `--daemon-address`: probe local daemon when configured, else use remote when local is down.
+Future<String?> resolveWalletDaemonAddress(
+    Map<String, dynamic> configData) async {
+  final String net =
+      (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  final Map<String, dynamic>? d =
+      (configData['daemons'] as Map?)?[net] as Map<String, dynamic>?;
+  if (d == null) {
+    return walletDaemonAddress(configData);
+  }
+  final String typ = '${d['type'] ?? 'remote'}';
+  if (typ == 'remote') {
+    return walletDaemonAddress(configData);
+  }
+  final ({String host, int port})? localEp = daemonRpcHostPort(configData);
+  if (localEp != null) {
+    final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(
+      localEp.host,
+      localEp.port,
+      connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+      requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+    );
+    if (DaemonJsonRpc.getInfoPayload(r) != null) {
+      return '${localEp.host}:${localEp.port}';
+    }
+  }
+  final String? rh = d['remote_host'] as String?;
+  final int? rp = (d['remote_port'] as num?)?.toInt();
+  if (rh != null && rp != null) {
+    final Map<String, dynamic>? remote = await DaemonJsonRpc.getInfo(
+      rh,
+      rp,
+      connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+      requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+    );
+    if (DaemonJsonRpc.getInfoPayload(remote) != null) {
+      debugPrint(
+          '[WalletRpc] local daemon RPC unavailable — wallet FFI using remote $rh:$rp');
+      return '$rh:$rp';
+    }
+  }
+  if (localEp != null) {
+    return '${localEp.host}:${localEp.port}';
+  }
+  return walletDaemonAddress(configData);
+}
+
 int walletRpcBindPort(Map<String, dynamic> configData) {
   final Object? raw = (configData['wallet'] as Map?)?['rpc_bind_port'];
   if (raw is int) {
@@ -86,50 +135,94 @@ int walletRpcLogLevel(Map<String, dynamic> configData) {
 String? resolveWalletRpcExecutable() =>
     resolveArqmaExecutable(ArqmaExecutableKind.walletRpc);
 
-/// Wallet JSON-RPC: **native** `Wallet2ApiClient` via `arqma_wallet_flutter_ffi` (`.dll` / `.so` / `.dylib`; default on desktop).
+void _setNativeLoadFailureDiagnosis() {
+  final String detail = WalletNativeFfi.lastLoadFailureDetail.trim();
+  final String detailSuffix = detail.isNotEmpty ? ' ($detail). ' : ' ';
+  if (!kIsWeb && Platform.isIOS) {
+    ArqmaWalletRpcSession.lastNativeStartupDiagnosis =
+        'Could not load `libarqma_wallet_flutter_ffi.framework` from Runner.app/Frameworks.$detailSuffix'
+        'Rebuild with `bash rust/tool/build_mobile_wallet_ffi_ios.sh` then `flutter build ipa`. '
+        'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to the framework binary.';
+  } else if (!kIsWeb && Platform.isAndroid) {
+    ArqmaWalletRpcSession.lastNativeStartupDiagnosis =
+        'Could not load Android wallet FFI library.$detailSuffix'
+        'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to `.so`.';
+  } else {
+    ArqmaWalletRpcSession.lastNativeStartupDiagnosis =
+        'Could not load `arqma_wallet_flutter_ffi` native library.$detailSuffix'
+        'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
+  }
+}
+
+/// Wallet JSON-RPC: native `Wallet2ApiClient` via `arqma_wallet_flutter_ffi` (default on mobile).
 ///
-/// There is **no** `arqma-wallet-rpc` subprocess unless you opt in with **`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`**
-/// (debug / migration only).
-///
-/// Build the FFI library: `bash rust/tool/build_wallet_flutter_ffi.sh` (needs Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
-/// Override discovery with **`ARQMA_FLUTTER_WALLET_FFI`**.
+/// Subprocess `arqma-wallet-rpc` only when **`ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`**.
 final class ArqmaWalletRpcSession {
   ArqmaWalletRpcSession._subprocess(
-      this.process, this.client, this.rpcPbkdf2SaltHex)
-      : _native = null;
+    this.process,
+    this.client,
+    this.rpcPbkdf2SaltHex,
+  )   : _native = null,
+        _isolateClient = null,
+        _ffiWalletDir = '',
+        _ffiDaemonAddress = '',
+        _ffiNetworkCode = 0,
+        _nativeFfiConfigured = true;
 
-  ArqmaWalletRpcSession._native(this._native, this.rpcPbkdf2SaltHex)
-      : process = null,
-        client = null;
+  ArqmaWalletRpcSession._native(
+    this._native,
+    this.rpcPbkdf2SaltHex,
+    this._ffiWalletDir,
+    this._ffiDaemonAddress,
+    this._ffiNetworkCode,
+  )   : process = null,
+        client = null,
+        _isolateClient = null;
+
+  ArqmaWalletRpcSession._nativeIsolate(
+    this._isolateClient,
+    this.rpcPbkdf2SaltHex,
+    this._ffiWalletDir,
+    this._ffiDaemonAddress,
+    this._ffiNetworkCode,
+  )   : process = null,
+        client = null,
+        _native = null;
 
   final Process? process;
   final WalletJsonRpcClient? client;
   final WalletNativeFfi? _native;
+  final WalletFfiIsolateClient? _isolateClient;
 
-  /// PBKDF2 salt for GUI password checks (same triple shape as RPC subprocess path).
+  final String _ffiWalletDir;
+  final String _ffiDaemonAddress;
+  final int _ffiNetworkCode;
+  bool _nativeFfiConfigured = true;
+
   final String rpcPbkdf2SaltHex;
 
-  /// True when [WalletNativeFfi] is active (no `arqma-wallet-rpc` subprocess).
-  bool get usesNativeFfi => _native != null;
+  Future<void> _callLane = Future<void>.value();
 
-  /// Drops the in-process FFI client (clears stranded background rescan state on iOS).
-  void resetNativeFfiClient() {
-    _native?.reset();
-  }
+  bool get usesNativeFfi => _native != null || _isolateClient != null;
 
-  /// Cleared when [tryStart] begins; explains why native mode did not activate (shown in UI instead of guessing "missing DLL").
   static String lastNativeStartupDiagnosis = '';
+
+  static String lastConfiguredWalletDaemonAddress = '';
+
+  Future<void> resetNativeFfiClient() => releaseNativeResources();
 
   static Future<ArqmaWalletRpcSession?> tryStart(
       Map<String, dynamic> configData) async {
     lastNativeStartupDiagnosis = '';
-    final String? daemonAddr = walletDaemonAddress(configData);
+    lastConfiguredWalletDaemonAddress = '';
+    final String? daemonAddr = await resolveWalletDaemonAddress(configData);
     if (daemonAddr == null || daemonAddr.isEmpty) {
       lastNativeStartupDiagnosis =
           'Configuration: daemon address missing (remote host/port or local bind not set — check gui/config.json / daemons).';
       debugPrint('[WalletRpc] missing daemon address in config');
       return null;
     }
+    lastConfiguredWalletDaemonAddress = daemonAddr;
     final String? wdir = walletFilesDir(configData);
     if (wdir == null || wdir.isEmpty) {
       lastNativeStartupDiagnosis =
@@ -149,69 +242,22 @@ final class ArqmaWalletRpcSession {
         Platform.environment[kArqmaFlutterWalletRpcModeEnv] == 'subprocess';
 
     if (!kIsWeb && !useSubprocessOnly) {
-      final WalletNativeFfi? ffi = WalletNativeFfi.tryLoad();
-      if (ffi != null) {
-        final int cfg = ffi.configure(wdir, daemonAddr, netCode);
-        if (cfg == 0) {
-          Map<String, dynamic>? lastLang;
-          for (int i = 0; i < 120; i++) {
-            await Future<void>.delayed(const Duration(milliseconds: 50));
-            final Map<String, dynamic>? r =
-                await ffi.callJsonRpc('get_languages', <String, dynamic>{});
-            lastLang = r;
-            if (walletJsonRpcNoError(r)) {
-              debugPrint(
-                  '[WalletRpc] native wallet2 FFI ready (get_languages OK)');
-              return ArqmaWalletRpcSession._native(ffi, saltHex);
-            }
-          }
-          lastNativeStartupDiagnosis =
-              'Native FFI loaded but `get_languages` did not succeed after retries '
-              '(last response: ${lastLang ?? "<null>"}). Check daemon address $daemonAddr '
-              'and wallet2 logs — this is usually not "missing DLL" if `.dll/.so` copied already. '
-              'Windows GNU: confirm `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` next to `Arqma-Wallet.exe` (flat Release; legacy `lib\\\\` still supported). '
-              'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
-          debugPrint(
-              '[WalletRpc] native FFI: get_languages not OK after retries; last=$lastLang '
-              '(Windows GNU: also copy libgcc_s_seh-1.dll, libstdc++-6.dll, libwinpthread-1.dll from '
-              'MSYS2 mingw64/bin next to Arqma-Wallet.exe). Not starting subprocess (set '
-              '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
-          ffi.reset();
-        } else {
-          lastNativeStartupDiagnosis =
-              'Native FFI `configure` returned error code=$cfg '
-              '(invalid wallet dir UTF-8, internal lock error, etc.). Daemon: $daemonAddr. '
-              'Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
-          debugPrint(
-              '[WalletRpc] native FFI configure failed (code=$cfg); not starting subprocess (set '
-              '$kArqmaFlutterWalletRpcModeEnv=subprocess to use arqma-wallet-rpc)');
-          ffi.reset();
-        }
-      } else {
-        final String detail = WalletNativeFfi.lastLoadFailureDetail.trim();
-        final String detailSuffix =
-            detail.isNotEmpty ? ' ($detail). ' : ' ';
-        if (!kIsWeb && Platform.isIOS) {
-          lastNativeStartupDiagnosis =
-              'Could not load `libarqma_wallet_flutter_ffi.framework` from Runner.app/Frameworks.$detailSuffix'
-              'Rebuild with `bash rust/tool/build_mobile_wallet_ffi_ios.sh` then `flutter build ipa`. '
-              'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to the framework binary.';
-        } else if (!kIsWeb && Platform.isAndroid) {
-          lastNativeStartupDiagnosis =
-              'Could not load Android wallet FFI library.$detailSuffix'
-              'Optional: `$kArqmaFlutterWalletFfiEnv` = absolute path to `.so`.';
-        } else {
-          lastNativeStartupDiagnosis =
-              'Could not load `arqma_wallet_flutter_ffi` native library.$detailSuffix'
-              'Run from the same folder as Arqma-Wallet.exe after `flutter build windows --release` '
-              'or set `$kArqmaFlutterWalletFfiEnv` to full path to DLL. '
-              'Windows GNU: MinGW DLLs beside the exe. Legacy: `$kArqmaFlutterWalletRpcModeEnv=subprocess`.';
-        }
-        debugPrint(
-            '[WalletRpc] native FFI library not loaded (see earlier [WalletNativeFfi] lines; '
-            'Windows: missing MinGW runtime DLLs next to the exe is common). Not starting subprocess (set '
-            '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
+      final ArqmaWalletRpcSession? fromIsolate =
+          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+      if (fromIsolate != null) {
+        return fromIsolate;
       }
+      final ArqmaWalletRpcSession? fromMain =
+          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+      if (fromMain != null) {
+        debugPrint(
+            '[WalletRpc] native wallet2 FFI on UI thread (worker isolate unavailable)');
+        return fromMain;
+      }
+      _setNativeLoadFailureDiagnosis();
+      debugPrint(
+          '[WalletRpc] native FFI startup failed (set '
+          '$kArqmaFlutterWalletRpcModeEnv=subprocess for legacy arqma-wallet-rpc)');
       return null;
     }
 
@@ -300,25 +346,179 @@ final class ArqmaWalletRpcSession {
     return null;
   }
 
-  Future<Map<String, dynamic>?> call(String method, Object params) {
-    final WalletNativeFfi? n = _native;
-    if (n != null) {
-      return n.callJsonRpc(method, params);
+  static Future<ArqmaWalletRpcSession?> _tryStartNativeFfiIsolate(
+    String wdir,
+    String daemonAddr,
+    int netCode,
+    String saltHex,
+  ) async {
+    if (kIsWeb) {
+      return null;
     }
-    return client!.call(method, params);
+    if (Platform.environment['ARQMA_FLUTTER_FFI_NO_ISOLATE'] == '1') {
+      return null;
+    }
+    final WalletFfiIsolateClient? isolate = await WalletFfiIsolateClient.start();
+    if (isolate == null) {
+      debugPrint(
+          '[WalletRpc] FFI worker isolate unavailable — using UI-thread FFI');
+      return null;
+    }
+    try {
+      if (!await isolate.load()) {
+        await isolate.dispose();
+        return null;
+      }
+      final int cfg = await isolate.configure(wdir, daemonAddr, netCode);
+      if (cfg != 0) {
+        await isolate.dispose();
+        return null;
+      }
+      Map<String, dynamic>? lastLang;
+      for (int i = 0; i < 120; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final Map<String, dynamic>? r =
+            await isolate.callJsonRpc('get_languages', <String, dynamic>{});
+        lastLang = r;
+        if (walletJsonRpcNoError(r)) {
+          debugPrint(
+              '[WalletRpc] native wallet2 FFI ready on worker isolate (get_languages OK)');
+          return ArqmaWalletRpcSession._nativeIsolate(
+            isolate,
+            saltHex,
+            wdir,
+            daemonAddr,
+            netCode,
+          );
+        }
+      }
+      debugPrint(
+          '[WalletRpc] FFI isolate: get_languages not OK after retries; last=$lastLang');
+      await isolate.dispose();
+      return null;
+    } catch (e, st) {
+      debugPrint('[WalletRpc] FFI isolate startup failed: $e\n$st');
+      await isolate.dispose();
+      return null;
+    }
   }
 
-  /// Closes the wallet session. Subprocess mode uses HTTP JSON-RPC only.
-  ///
-  /// Native FFI: `close_wallet` runs synchronously inside the C entrypoint and can block
-  /// the Dart UI isolate for a long time; [Future.timeout] does not preempt it. We spawn
-  /// a short-lived [Isolate] that sleeps then calls [WalletNativeFfi.reset] (see Rust
-  /// `arqma_wallet_ffi_call_json`: global `CLIENT` must not be held across `block_on`).
-  Future<void> closeWalletSession(
-      {int nativeCloseWatchdogMs = kNativeWalletCloseWatchdogMs}) async {
+  static Future<ArqmaWalletRpcSession?> _tryStartNativeFfiMain(
+    String wdir,
+    String daemonAddr,
+    int netCode,
+    String saltHex,
+  ) async {
+    final WalletNativeFfi? ffi = WalletNativeFfi.tryLoad();
+    if (ffi == null) {
+      return null;
+    }
+    final int cfg = ffi.configure(wdir, daemonAddr, netCode);
+    if (cfg != 0) {
+      ffi.reset();
+      return null;
+    }
+    for (int i = 0; i < 120; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final Map<String, dynamic>? r =
+          await ffi.callJsonRpc('get_languages', <String, dynamic>{});
+      if (walletJsonRpcNoError(r)) {
+        debugPrint('[WalletRpc] native wallet2 FFI ready (get_languages OK)');
+        return ArqmaWalletRpcSession._native(
+          ffi,
+          saltHex,
+          wdir,
+          daemonAddr,
+          netCode,
+        );
+      }
+    }
+    ffi.reset();
+    return null;
+  }
+
+  Future<bool> _reconfigureNativeFfi() async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      final int cfg = await iso.configure(
+        _ffiWalletDir,
+        _ffiDaemonAddress,
+        _ffiNetworkCode,
+      );
+      if (cfg != 0) {
+        debugPrint('[WalletRpc] FFI isolate re-configure failed (code=$cfg)');
+      }
+      return cfg == 0;
+    }
     final WalletNativeFfi? nat = _native;
     if (nat == null) {
+      return false;
+    }
+    final int cfg = nat.configure(
+      _ffiWalletDir,
+      _ffiDaemonAddress,
+      _ffiNetworkCode,
+    );
+    _nativeFfiConfigured = cfg == 0;
+    if (!_nativeFfiConfigured) {
+      debugPrint('[WalletRpc] native FFI re-configure failed (code=$cfg)');
+    }
+    return _nativeFfiConfigured;
+  }
+
+  Future<Map<String, dynamic>?> call(String method, Object params) {
+    if (client != null) {
+      return client!.call(method, params);
+    }
+    final Future<Map<String, dynamic>?> op = _callLane
+        .then((_) => _callUnserialized(method, params));
+    _callLane = op.then((_) {}, onError: (_) {});
+    return op;
+  }
+
+  Future<Map<String, dynamic>?> _callUnserialized(
+      String method, Object params) async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      return iso.callJsonRpc(method, params);
+    }
+    final WalletNativeFfi? n = _native;
+    if (n != null) {
+      if (!_nativeFfiConfigured) {
+        if (!await _reconfigureNativeFfi()) {
+          return null;
+        }
+      }
+      return n.callJsonRpc(method, params);
+    }
+    return null;
+  }
+
+  Future<void> closeWalletSession(
+      {int nativeCloseWatchdogMs = kNativeWalletCloseWatchdogMs}) async {
+    if (client != null) {
       await call('close_wallet', <String, dynamic>{});
+      return;
+    }
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      try {
+        await iso
+            .callJsonRpc('close_wallet', <String, dynamic>{})
+            .timeout(Duration(milliseconds: nativeCloseWatchdogMs));
+      } catch (_) {}
+      try {
+        await iso.reset().timeout(const Duration(seconds: 3));
+      } catch (_) {}
+      try {
+        await _reconfigureNativeFfi();
+      } catch (e, st) {
+        debugPrint('[WalletRpc] re-configure after closeWalletSession: $e\n$st');
+      }
+      return;
+    }
+    final WalletNativeFfi? nat = _native;
+    if (nat == null) {
       return;
     }
     if (kIsWeb) {
@@ -336,8 +536,61 @@ final class ArqmaWalletRpcSession {
       debugPrint('[WalletRpc] native close watchdog spawn failed: $e\n$st');
     }
     try {
-      await call('close_wallet', <String, dynamic>{});
+      await call('close_wallet', <String, dynamic>{}).timeout(
+        Duration(milliseconds: nativeCloseWatchdogMs),
+      );
+      try {
+        watchdog?.kill(priority: Isolate.immediate);
+      } catch (_) {}
+      watchdog = null;
     } catch (_) {
+      await Future<void>.delayed(
+        Duration(milliseconds: nativeCloseWatchdogMs + 200),
+      );
+    } finally {
+      try {
+        watchdog?.kill(priority: Isolate.immediate);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> forceResetNativeFfi({int watchdogMs = 0}) async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      if (watchdogMs <= 0) {
+        unawaited(iso.dispose());
+        return;
+      }
+      try {
+        await iso
+            .callJsonRpc('close_wallet', <String, dynamic>{})
+            .timeout(const Duration(milliseconds: 500));
+      } catch (_) {}
+      try {
+        await iso.reset().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      try {
+        await _reconfigureNativeFfi();
+      } catch (e, st) {
+        debugPrint('[WalletRpc] re-configure after forceResetNativeFfi: $e\n$st');
+      }
+      return;
+    }
+    if (_native == null || kIsWeb) {
+      return;
+    }
+    Isolate? watchdog;
+    try {
+      watchdog = await Isolate.spawn<int>(
+        _nativeWalletFfiResetWatchdogMain,
+        watchdogMs,
+        debugName: 'arqma_wallet_force_reset',
+      );
+      await Future<void>.delayed(Duration(milliseconds: watchdogMs + 400));
+      _nativeFfiConfigured = false;
+      await _reconfigureNativeFfi();
+    } catch (e, st) {
+      debugPrint('[WalletRpc] forceResetNativeFfi: $e\n$st');
     } finally {
       try {
         watchdog?.kill(priority: Isolate.immediate);
@@ -346,12 +599,19 @@ final class ArqmaWalletRpcSession {
   }
 
   Future<void> shutdown() async {
-    final WalletNativeFfi? n = _native;
-    if (n != null) {
+    lastConfiguredWalletDaemonAddress = '';
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
       try {
         await closeWalletSession();
       } catch (_) {}
-      n.reset();
+      try {
+        await iso.dispose();
+      } catch (_) {}
+      return;
+    }
+    if (_native != null) {
+      await forceResetNativeFfi(watchdogMs: 0);
       return;
     }
     try {
@@ -365,4 +625,6 @@ final class ArqmaWalletRpcSession {
           .timeout(const Duration(seconds: 4), onTimeout: () => 0);
     } catch (_) {}
   }
+
+  Future<void> releaseNativeResources() => forceResetNativeFfi(watchdogMs: 0);
 }

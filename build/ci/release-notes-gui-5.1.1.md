@@ -41,6 +41,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.14](https://gith
 - **Build 37:** Background `store` + session checkpoint before suspend; foreground recover (`refresh` / reopen); full rescan clears history only after RPC success; skip `store` during rescan.
 - **Build 38:** Screen stays awake while the wallet screen is open (no auto-lock during sync/rescan on the foreground UI).
 - **Build 39:** Foreground resume uses lightweight RPC nudge (history not cleared); interrupted full rescan restarts after wake; rescan retries when wallet is busy; failed rescan restores previous height and tx list.
+- **Build 44:** App Store review demo wallet documented (`AppReviewDemo` / `AppReview2026`); remote node picker keeps user selection (node1–node4); mobile wallet FFI worker isolate; Android wallet bootstrap/biometric parity.
 - **Build 43:** iOS session rebuild after background; sanitize `basic_string` open errors; `open_wallet` waits for background idle (FFI).
 - **Build 42:** FFI **1.0.12** (deferred refresh on open, `bad_alloc` user message) + open-password fix + responsive restore controls.
 - **Build 40:** Native wallet FFI **1.0.11** (background job safety in Rust FFI) + same Dart fixes as build 39.
@@ -68,7 +69,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.14](https://gith
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **43** (iOS resume + open fixes). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **44** (App Review demo wallet + node switch fix). |
 
 ### Solo pool quick start (desktop)
 

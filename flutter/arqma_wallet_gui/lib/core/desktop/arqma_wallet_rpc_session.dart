@@ -153,9 +153,13 @@ final class ArqmaWalletRpcSession {
   /// Cleared when [tryStart] begins; explains why native mode did not activate.
   static String lastNativeStartupDiagnosis = '';
 
+  /// Last `host:port` passed to wallet FFI (`resolveWalletDaemonAddress`); shown in footer when it differs from config local bind.
+  static String lastConfiguredWalletDaemonAddress = '';
+
   static Future<ArqmaWalletRpcSession?> tryStart(
       Map<String, dynamic> configData) async {
     lastNativeStartupDiagnosis = '';
+    lastConfiguredWalletDaemonAddress = '';
     if (kIsWeb) {
       return null;
     }
@@ -166,6 +170,7 @@ final class ArqmaWalletRpcSession {
       debugPrint('[WalletRpc] missing daemon address in config');
       return null;
     }
+    lastConfiguredWalletDaemonAddress = daemonAddr;
     final String? wdir = walletFilesDir(configData);
     if (wdir == null || wdir.isEmpty) {
       lastNativeStartupDiagnosis =
@@ -455,6 +460,7 @@ final class ArqmaWalletRpcSession {
   }
 
   Future<void> shutdown() async {
+    lastConfiguredWalletDaemonAddress = '';
     final WalletFfiIsolateClient? iso = _isolateClient;
     if (iso != null) {
       try {
