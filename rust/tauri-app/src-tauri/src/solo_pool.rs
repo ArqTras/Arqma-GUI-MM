@@ -2224,3 +2224,28 @@ pub fn stop(st: &mut WalletBackendState) {
         h.abort();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn assemble_block_blob_writes_four_bytes_at_offset() {
+        let mut raw = vec![0u8; 80];
+        raw[10..14].copy_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+        let template = hex::encode(&raw);
+        let patched =
+            assemble_block_blob_for_submit(&template, 10, "aabbccdd").expect("assemble");
+        let out = hex::decode(&patched).expect("hex");
+        assert_eq!(&out[10..14], &[0xaa, 0xbb, 0xcc, 0xdd]);
+        assert_eq!(&out[0..10], &raw[0..10]);
+        assert_eq!(&out[14..], &raw[14..]);
+    }
+
+    #[test]
+    fn assemble_block_blob_rejects_short_template_or_bad_nonce() {
+        let template = hex::encode([0u8; 76]);
+        assert!(assemble_block_blob_for_submit(&template, 70, "aabbccdd").is_err());
+        assert!(assemble_block_blob_for_submit(&template, 10, "aabb").is_err());
+    }
+}
