@@ -58,6 +58,24 @@ class _StatusFooterState extends State<StatusFooter> {
     });
   }
 
+  static String _configLocalDaemonBind(Map<String, dynamic> configDaemon) {
+    final String h = configDaemon['rpc_bind_ip'] as String? ?? '127.0.0.1';
+    final int p = (configDaemon['rpc_bind_port'] as num?)?.toInt() ?? 19994;
+    return '$h:$p';
+  }
+
+  static String? _walletEffectiveDaemonLabel(
+    Map<String, dynamic> app,
+    Map<String, dynamic> configDaemon,
+  ) {
+    final String configured = _configLocalDaemonBind(configDaemon);
+    final String? effective = app['wallet_daemon_address'] as String?;
+    if (effective == null || effective.isEmpty || effective == configured) {
+      return null;
+    }
+    return effective;
+  }
+
   static int _daemonChainTip(Map<String, dynamic> info) {
     final h = num.tryParse('${info['height']}') ?? 0;
     final th = num.tryParse('${info['target_height']}') ?? 0;
@@ -221,6 +239,8 @@ class _StatusFooterState extends State<StatusFooter> {
     }
 
     final String st = _statusText(loc, snap);
+    final String? walletNode =
+        _walletEffectiveDaemonLabel(snap.app, configDaemon);
     final num dh = daemonTip == 0
         ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
         : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
@@ -298,6 +318,10 @@ class _StatusFooterState extends State<StatusFooter> {
                       daemonTip > 0
                           ? '${loc.tr('components.footer.daemon')}: $dh / $daemonTip (${daemonPct.toStringAsFixed(1)}%)'
                           : '${loc.tr('components.footer.daemon')}: $dh / —',
+                    ),
+                  if (walletNode != null)
+                    Text(
+                      '${loc.tr('components.footer.remote')}: $walletNode',
                     ),
                   if (dtype != 'local')
                     Text(

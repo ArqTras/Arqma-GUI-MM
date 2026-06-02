@@ -1587,9 +1587,15 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     final ArqmaWalletRpcSession? s = _walletRpc;
     final String wb = s == null ? 'none' : 'ffi';
+    final Map<String, dynamic> payload = <String, dynamic>{'wallet_backend': wb};
+    final String daemonAddr =
+        ArqmaWalletRpcSession.lastConfiguredWalletDaemonAddress;
+    if (daemonAddr.isNotEmpty) {
+      payload['wallet_daemon_address'] = daemonAddr;
+    }
     _emit(<String, dynamic>{
       'event': 'set_app_data',
-      'data': <String, dynamic>{'wallet_backend': wb},
+      'data': payload,
     });
   }
 
