@@ -21,6 +21,25 @@ bool walletJsonRpcNoError(Map<String, dynamic>? v) {
   return false;
 }
 
+/// Human-readable JSON-RPC error for snackbars and dialogs.
+String walletJsonRpcErrorMessage(Map<String, dynamic>? v,
+    {String fallback = 'Unknown error'}) {
+  if (v == null) {
+    return fallback;
+  }
+  final Object? e = v['error'];
+  if (e is Map) {
+    final String? m = e['message'] as String?;
+    if (m != null && m.isNotEmpty) {
+      return m;
+    }
+  }
+  if (e is String && e.isNotEmpty) {
+    return e;
+  }
+  return fallback;
+}
+
 int? walletHeightFromGetheight(Map<String, dynamic>? v) {
   if (v == null || !walletJsonRpcNoError(v)) {
     return null;

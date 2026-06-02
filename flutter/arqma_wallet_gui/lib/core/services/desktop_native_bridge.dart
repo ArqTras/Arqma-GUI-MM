@@ -226,6 +226,9 @@ final class DesktopNativeBridge implements NativeBridge {
   /// Newest `height` field from the last successful `set_wallet_transactions` emit.
   int _whLastEmittedTxMaxHeight = 0;
 
+  /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
+  bool _walletTxListClearedForRescan = false;
+
   /// Limits `get_transfers` rate while [inScanRhythm] — height advances every tick during sync.
   DateTime? _walletXferScanThrottleUntil;
 
@@ -1866,7 +1869,16 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       final List<dynamic> list =
           _mergeWalletRpcTransfersList(Map<String, dynamic>.from(res));
+      if (list.isEmpty &&
+          !_walletTxListClearedForRescan &&
+          !_walletFullRescanUi &&
+          _whLastEmittedTxMaxHeight > 0) {
+        debugPrint(
+            '[DesktopNative] skip empty get_transfers emit (resume transient)');
+        return;
+      }
       _whLastEmittedTxMaxHeight = _maxTxHeightFromList(list);
+      _walletTxListClearedForRescan = false;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
         'data': <String, dynamic>{'tx_list': list},
@@ -1992,6 +2004,100 @@ final class DesktopNativeBridge implements NativeBridge {
     } catch (e, st) {
       debugPrint('[DesktopNative] wallet refresh: $e\n$st');
     }
+  }
+
+  Future<void> _storeWalletToDiskIfSafe({required String reason}) async {
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w == null || _openedWalletDisplayName.isEmpty) {
+      return;
+    }
+    if (_walletFullRescanUi) {
+      debugPrint('[DesktopNative] skip store during full rescan ($reason)');
+      return;
+    }
+    try {
+      final Map<String, dynamic>? st = await w
+          .call('store', <String, dynamic>{})
+          .timeout(const Duration(seconds: 28), onTimeout: () => null);
+      if (!walletJsonRpcNoError(st)) {
+        debugPrint(
+            '[DesktopNative] store ($reason): ${walletJsonRpcErrorMessage(st)}');
+      }
+    } catch (e, st) {
+      debugPrint('[DesktopNative] store ($reason): $e\n$st');
+    }
+  }
+
+  Future<Map<String, dynamic>?> _callRescanBlockchainWithRetry(
+    ArqmaWalletRpcSession w, {
+    required bool hard,
+  }) async {
+    Map<String, dynamic>? last;
+    for (int attempt = 0; attempt < 24; attempt++) {
+      try {
+        last = await w.call(
+          'rescan_blockchain',
+          <String, dynamic>{if (hard) 'hard': true},
+        );
+      } catch (e, st) {
+        debugPrint('[DesktopNative] rescan_blockchain attempt: $e\n$st');
+        last = null;
+      }
+      if (walletJsonRpcNoError(last)) {
+        return last;
+      }
+      final String msg = walletJsonRpcErrorMessage(last);
+      if (!msg.contains('background operation already running')) {
+        return last;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    return last;
+  }
+
+  void _restoreWalletUiAfterRescanFailure() {
+    final String name = _openedWalletDisplayName;
+    if (name.isEmpty) {
+      return;
+    }
+    final int restoreH = _rescanPreTipHeight > 0
+        ? _rescanPreTipHeight
+        : _whStoredHeight;
+    if (restoreH > 0) {
+      _whStoredHeight = restoreH;
+    }
+    _walletFullRescanUi = false;
+    _walletTxListClearedForRescan = false;
+    _rescanPreTipHeight = 0;
+    _rescanProgressPeak = 0;
+    _whFetchTxPending = true;
+    _emit(<String, dynamic>{
+      'event': 'set_wallet_info',
+      'data': <String, dynamic>{
+        'name': name,
+        'height': _whStoredHeight,
+        'balance': _whStoredBalance,
+        'unlocked_balance': _whStoredUnlocked,
+        'full_rescan_ui': false,
+        'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+      },
+    });
+  }
+
+  static const String _walletBusyUserMessage =
+      'Wallet is syncing or rescanning. Wait until the scan finishes before sending or saving.';
+
+  bool get _walletMutatingOpsBlocked => _walletFullRescanUi;
+
+  void _emitWalletBusyTxStatus() {
+    _emit(<String, dynamic>{
+      'event': 'set_tx_status',
+      'data': <String, dynamic>{
+        'code': -200,
+        'message': _walletBusyUserMessage,
+        'sending': false,
+      },
+    });
   }
 
   void _emitDesktopScanHeartbeatInfo({
@@ -2246,6 +2352,7 @@ final class DesktopNativeBridge implements NativeBridge {
       },
     });
     if (clearTransactions) {
+      _walletTxListClearedForRescan = true;
       _whLastEmittedTxMaxHeight = 0;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
@@ -3357,8 +3464,17 @@ final class DesktopNativeBridge implements NativeBridge {
     if (method == 'close_wallet') {
       _pendingTxRelay.clear();
       _stopWalletHeartbeat();
+      final ArqmaWalletRpcSession? wClose = _walletRpc;
+      final bool wasRescan = _walletFullRescanUi;
+      if (wClose != null && !wasRescan) {
+        await _storeWalletToDiskIfSafe(reason: 'close_wallet');
+      } else if (wasRescan) {
+        debugPrint(
+            '[DesktopNative] close_wallet during rescan — skip store; native close waits for background job');
+      }
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
+      _walletTxListClearedForRescan = false;
       _walletFullRescanUi = false;
       _rescanPreTipHeight = 0;
       _rescanProgressPeak = 0;
@@ -3366,7 +3482,7 @@ final class DesktopNativeBridge implements NativeBridge {
       _whStoredHeight = 0;
       _whStoredBalance = 0;
       _whStoredUnlocked = 0;
-      final ArqmaWalletRpcSession? w = _walletRpc;
+      final ArqmaWalletRpcSession? w = wClose;
       if (w != null) {
         await w.closeWalletSession();
       }
@@ -3398,13 +3514,18 @@ final class DesktopNativeBridge implements NativeBridge {
       if (!hasOpenWallet) {
         return <String, dynamic>{};
       }
-      final ArqmaWalletRpcSession? w = _walletRpc;
-      if (w != null) {
-        await w.call('store', <String, dynamic>{});
+      if (_walletMutatingOpsBlocked) {
+        _showNotification('negative', _walletBusyUserMessage, 6000);
+        return <String, dynamic>{};
       }
+      await _storeWalletToDiskIfSafe(reason: 'save_wallet');
       return <String, dynamic>{};
     }
     if (method == 'transfer') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         _emit(<String, dynamic>{
@@ -3510,14 +3631,26 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'relay_transfer') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relayTransferSplit();
       return <String, dynamic>{};
     }
     if (method == 'relay_stake') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relayStakeSplit(_coerceMap(data));
       return <String, dynamic>{};
     }
     if (method == 'relay_sweepAll') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relaySweepAllSplit(_coerceMap(data));
       return <String, dynamic>{};
     }
@@ -3533,23 +3666,14 @@ final class DesktopNativeBridge implements NativeBridge {
         _emitRescanStartingUi(clearTransactions: hard);
         await Future<void>.delayed(const Duration(milliseconds: 48));
         await WidgetsBinding.instance.endOfFrame;
-        try {
-          await w.call(
-            'rescan_blockchain',
-            <String, dynamic>{if (hard) 'hard': true},
-          );
-        } catch (e, st) {
-          debugPrint('[DesktopNative] rescan_blockchain: $e\n$st');
-          _walletFullRescanUi = false;
-          _rescanPreTipHeight = 0;
-          _rescanProgressPeak = 0;
-          _emit(<String, dynamic>{
-            'event': 'set_wallet_info',
-            'data': <String, dynamic>{
-              'full_rescan_ui': false,
-              'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
-            },
-          });
+        final Map<String, dynamic>? res =
+            await _callRescanBlockchainWithRetry(w, hard: hard);
+        if (!walletJsonRpcNoError(res)) {
+          final String msg = walletJsonRpcErrorMessage(res,
+              fallback: 'Rescan could not start');
+          _restoreWalletUiAfterRescanFailure();
+          _showNotification('negative', msg, 8000);
+          return <String, dynamic>{};
         }
         // Native rescan runs on a background thread; still push one RPC snapshot so the
         // footer height can drop immediately (allow_lower_height); xfer keeps txs flowing.

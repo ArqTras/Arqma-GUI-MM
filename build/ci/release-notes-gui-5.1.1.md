@@ -1,6 +1,6 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://github.com/ArqTras/FFI/releases/tag/1.0.10)** (full rescan live progress + async refresh/sync height polling). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.11](https://github.com/ArqTras/FFI/releases/tag/1.0.11)** (wallet file safety during background jobs + everything in 1.0.10). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
 ### Solo pool (desktop — Windows, Linux, macOS)
 
@@ -16,8 +16,8 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (39)** — fix resume-after-sleep (no tx wipe) and full blockchain rescan (restart after wake, retry busy, restore on failure); build **38**: keep screen on during wallet UI; build **37**: background persist + checkpoint; build **36**: footer Scanning/Synced.
-- **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.10** when rebuilt after tag **5.1.1**.
+- **iOS:** TestFlight build **5.1.1 (40)** — FFI **1.0.11** (safe `store`/`close`/transfers during background jobs) + Dart resume/rescan fixes; build **39**: resume-after-sleep (no tx wipe) and full blockchain rescan; build **38**: keep screen on during wallet UI.
+- **Android:** **5.1.1+12** — same Dart wallet guards as iOS (recover/rescan, block send/save/relay during full rescan); use FFI **1.0.11** prebuilts when rebuilding APK/AAB.
 
 ### Wallet scan progress (FFI 1.0.9 — desktop + mobile)
 
@@ -41,15 +41,16 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 - **Build 37:** Background `store` + session checkpoint before suspend; foreground recover (`refresh` / reopen); full rescan clears history only after RPC success; skip `store` during rescan.
 - **Build 38:** Screen stays awake while the wallet screen is open (no auto-lock during sync/rescan on the foreground UI).
 - **Build 39:** Foreground resume uses lightweight RPC nudge (history not cleared); interrupted full rescan restarts after wake; rescan retries when wallet is busy; failed rescan restores previous height and tx list.
+- **Build 40:** Native wallet FFI **1.0.11** (background job safety in Rust FFI) + same Dart fixes as build 39.
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
-### Desktop Flutter (5.1.1+3, release tag rebuild with FFI 1.0.10)
+### Desktop Flutter (5.1.1+4, FFI 1.0.11 recommended)
 
 - **Staking Pools:** Compact status filter dropdown (same as mobile filter field; wide tabular list unchanged on desktop).
 
 - Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
 - Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
-- Wallet RPC: rescan height poller fix in `wallet2_client` (shipped in FFI **1.0.10** prebuilts).
+- Wallet RPC: rescan/safe-store guards in `desktop_native_bridge` (Dart); native `wallet2_client` safety in FFI **1.0.11** prebuilts.
 - **macOS:** Optional Touch ID unlock (Keychain); tab navigation uses the same `IndexedStack` shell as mobile.
 - **All desktop OS:** `NoTransitionPage` wallet routes; lazy tab builds; deduplicated store notifications during daemon/wallet heartbeat.
 
@@ -61,7 +62,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **39** (resume + full rescan fixes). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **40** (FFI 1.0.11 + resume/rescan fixes). |
 
 ### Solo pool quick start (desktop)
 
