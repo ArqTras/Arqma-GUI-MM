@@ -1962,6 +1962,22 @@ final class MobileNativeBridge implements NativeBridge {
     });
   }
 
+  static const String _walletBusyUserMessage =
+      'Wallet is syncing or rescanning. Wait until the scan finishes before sending or saving.';
+
+  bool get _walletMutatingOpsBlocked => _walletFullRescanUi;
+
+  void _emitWalletBusyTxStatus() {
+    _emit(<String, dynamic>{
+      'event': 'set_tx_status',
+      'data': <String, dynamic>{
+        'code': -200,
+        'message': _walletBusyUserMessage,
+        'sending': false,
+      },
+    });
+  }
+
   /// Foreground resume: refresh RPC snapshot without wiping the tx list ([_emitWalletOpenedUi] does).
   Future<void> _nudgeWalletAfterResume(String name) async {
     final ArqmaWalletRpcSession? w = _walletRpc;
@@ -1969,12 +1985,14 @@ final class MobileNativeBridge implements NativeBridge {
       return;
     }
     _openedWalletDisplayName = name;
-    try {
-      await w
-          .call('refresh', <String, dynamic>{})
-          .timeout(const Duration(seconds: 45), onTimeout: () => null);
-    } catch (e, st) {
-      debugPrint('[MobileNative] nudge refresh: $e\n$st');
+    if (!_walletFullRescanUi) {
+      try {
+        await w
+            .call('refresh', <String, dynamic>{})
+            .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      } catch (e, st) {
+        debugPrint('[MobileNative] nudge refresh: $e\n$st');
+      }
     }
     Map<String, dynamic>? gh;
     Map<String, dynamic>? gb;
@@ -3668,6 +3686,9 @@ final class MobileNativeBridge implements NativeBridge {
       final bool wasRescan = _walletFullRescanUi;
       if (wClose != null && !wasRescan) {
         await _storeWalletToDiskIfSafe(reason: 'close_wallet');
+      } else if (wasRescan) {
+        debugPrint(
+            '[MobileNative] close_wallet during rescan — skip store; native close waits for background job');
       }
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
@@ -3706,11 +3727,19 @@ final class MobileNativeBridge implements NativeBridge {
       return _openWalletDesktop(data);
     }
     if (method == 'save_wallet') {
+      if (_walletMutatingOpsBlocked) {
+        _showNotification('negative', _walletBusyUserMessage, 6000);
+        return <String, dynamic>{};
+      }
       await _storeWalletToDiskIfSafe(reason: 'save_wallet');
       await _writeSessionCheckpoint();
       return <String, dynamic>{};
     }
     if (method == 'transfer') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         _emit(<String, dynamic>{
@@ -3816,14 +3845,26 @@ final class MobileNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'relay_transfer') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relayTransferSplit();
       return <String, dynamic>{};
     }
     if (method == 'relay_stake') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relayStakeSplit(_coerceMap(data));
       return <String, dynamic>{};
     }
     if (method == 'relay_sweepAll') {
+      if (_walletMutatingOpsBlocked) {
+        _emitWalletBusyTxStatus();
+        return <String, dynamic>{};
+      }
       await _relaySweepAllSplit(_coerceMap(data));
       return <String, dynamic>{};
     }
