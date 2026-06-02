@@ -37,18 +37,37 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
       if (!mounted) {
         return;
       }
-      final GatewayStore store = context.read<GatewayStore>();
-      final Map<String, dynamic>? merged = mergedFilesystemConfig(store.app);
-      unawaited(
-        context.read<AppApi>().send(
-              'wallet',
-              'list_wallets',
-              merged ?? <String, dynamic>{},
-            ),
-      );
+      unawaited(_bootstrapAccountsPage());
     });
     _gatewayListenTarget = context.read<GatewayStore>();
     _gatewayListenTarget!.addListener(_onWalletStatus);
+  }
+
+  /// Close any lingering FFI session before listing accounts (avoids open_wallet races).
+  Future<void> _bootstrapAccountsPage() async {
+    if (!mounted) {
+      return;
+    }
+    final GatewayStore store = context.read<GatewayStore>();
+    final AppApi api = context.read<AppApi>();
+    if (store.hasOpenWallet) {
+      unawaited(
+        api.send('wallet', 'close_wallet', <String, dynamic>{}).catchError(
+          (Object e, StackTrace st) {
+            debugPrint('[WalletSelect] close_wallet on index: $e\n$st');
+          },
+        ),
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    final Map<String, dynamic>? merged = mergedFilesystemConfig(store.app);
+    await api.send(
+      'wallet',
+      'list_wallets',
+      merged ?? <String, dynamic>{},
+    );
   }
 
   @override
@@ -316,13 +335,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         );
       }
       _deferWalletNavigation = false;
-      final BuildContext? navContext = appNavigatorKey.currentContext;
-      if (navContext != null && navContext.mounted) {
-        final String path = GoRouterState.of(navContext).uri.path;
-        if (path != '/wallet') {
-          GoRouter.of(navContext).go('/wallet');
-        }
-      }
+      // Navigation: [_onWalletStatus] reacts to reset_wallet_status code 0.
       return;
     }
     if (offerTouchIdAfterOpen) {

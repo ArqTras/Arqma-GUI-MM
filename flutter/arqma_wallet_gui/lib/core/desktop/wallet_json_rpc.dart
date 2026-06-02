@@ -21,6 +21,20 @@ bool walletJsonRpcNoError(Map<String, dynamic>? v) {
   return false;
 }
 
+/// Maps opaque C++ exception labels to user-facing text.
+String _sanitizeWalletRpcErrorMessage(String raw) {
+  final String m = raw.trim();
+  if (m.isEmpty) {
+    return raw;
+  }
+  if (m.contains('basic_string') ||
+      m.endsWith(': std::exception') ||
+      m == 'std::exception') {
+    return 'Wallet operation failed — close the account and try again, or restart the app.';
+  }
+  return m;
+}
+
 /// Human-readable JSON-RPC error for snackbars and dialogs.
 String walletJsonRpcErrorMessage(Map<String, dynamic>? v,
     {String fallback = 'Unknown error'}) {
@@ -31,11 +45,11 @@ String walletJsonRpcErrorMessage(Map<String, dynamic>? v,
   if (e is Map) {
     final String? m = e['message'] as String?;
     if (m != null && m.isNotEmpty) {
-      return m;
+      return _sanitizeWalletRpcErrorMessage(m);
     }
   }
   if (e is String && e.isNotEmpty) {
-    return e;
+    return _sanitizeWalletRpcErrorMessage(e);
   }
   return fallback;
 }

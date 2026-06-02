@@ -7,6 +7,7 @@ import 'dart:math' show Random;
 import 'package:flutter/foundation.dart';
 
 import 'arqma_paths.dart';
+import 'daemon_json_rpc.dart';
 import 'wallet_ffi_isolate.dart';
 import 'wallet_json_rpc.dart';
 import 'wallet_native_ffi.dart';
@@ -61,6 +62,56 @@ String? walletDaemonAddress(Map<String, dynamic> configData) {
   return '$h:$p';
 }
 
+/// Wallet `--daemon-address`: use live local JSON-RPC when configured for local mode, else fall back
+/// to `remote_host:remote_port` when local `arqmad` is not up yet (CLI users often point at remote).
+Future<String?> resolveWalletDaemonAddress(
+    Map<String, dynamic> configData) async {
+  final String net =
+      (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+  final Map<String, dynamic>? d =
+      (configData['daemons'] as Map?)?[net] as Map<String, dynamic>?;
+  if (d == null) {
+    return walletDaemonAddress(configData);
+  }
+  final String typ = '${d['type'] ?? 'remote'}';
+  if (typ == 'remote') {
+    return walletDaemonAddress(configData);
+  }
+  final ({String host, int port})? localEp = daemonRpcHostPort(configData);
+  if (localEp != null) {
+    final Map<String, dynamic>? r = await DaemonJsonRpc.getInfo(
+      localEp.host,
+      localEp.port,
+      connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+      requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+      quiet: true,
+    );
+    if (DaemonJsonRpc.getInfoPayload(r) != null) {
+      return '${localEp.host}:${localEp.port}';
+    }
+  }
+  final String? rh = d['remote_host'] as String?;
+  final int? rp = (d['remote_port'] as num?)?.toInt();
+  if (rh != null && rp != null) {
+    final Map<String, dynamic>? remote = await DaemonJsonRpc.getInfo(
+      rh,
+      rp,
+      connectTimeout: DaemonJsonRpc.probeConnectTimeout,
+      requestTimeout: DaemonJsonRpc.probeRequestTimeout,
+      quiet: true,
+    );
+    if (DaemonJsonRpc.getInfoPayload(remote) != null) {
+      debugPrint(
+          '[WalletRpc] local daemon RPC unavailable — wallet FFI using remote $rh:$rp');
+      return '$rh:$rp';
+    }
+  }
+  if (localEp != null) {
+    return '${localEp.host}:${localEp.port}';
+  }
+  return walletDaemonAddress(configData);
+}
+
 /// Wallet JSON-RPC via in-process `arqma_wallet_flutter_ffi` (`Wallet2ApiClient` / wallet2).
 ///
 /// Build: `rust/tool/build_wallet_flutter_ffi.sh` (Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
@@ -79,6 +130,8 @@ final class ArqmaWalletRpcSession {
   /// PBKDF2 salt for GUI password checks (same triple shape as legacy RPC auth).
   final String rpcPbkdf2SaltHex;
 
+  Future<void> _callLane = Future<void>.value();
+
   /// Always true — desktop wallet uses native FFI only (no `arqma-wallet-rpc` subprocess).
   bool get usesNativeFfi => true;
 
@@ -91,7 +144,7 @@ final class ArqmaWalletRpcSession {
     if (kIsWeb) {
       return null;
     }
-    final String? daemonAddr = walletDaemonAddress(configData);
+    final String? daemonAddr = await resolveWalletDaemonAddress(configData);
     if (daemonAddr == null || daemonAddr.isEmpty) {
       lastNativeStartupDiagnosis =
           'Configuration: daemon address missing (remote host/port or local bind not set — check gui/config.json / daemons).';
@@ -112,8 +165,8 @@ final class ArqmaWalletRpcSession {
         (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final int netCode = networkCodeForNetType(net);
 
-    // Worker isolate first on desktop — in-process FFI on the UI isolate blocks Flutter
-    // during open_wallet / scan / close (Future.timeout does not unblock the event loop).
+    // Worker isolate keeps the UI responsive; heavy wallet2 calls use a large-stack pthread in Rust FFI.
+    // `ARQMA_FLUTTER_FFI_NO_ISOLATE=1` forces UI-thread FFI (blocks Flutter during long calls).
     final ArqmaWalletRpcSession? fromIsolate =
         await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
     if (fromIsolate != null) {
@@ -122,6 +175,8 @@ final class ArqmaWalletRpcSession {
     final ArqmaWalletRpcSession? fromMain =
         await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
     if (fromMain != null) {
+      debugPrint(
+          '[WalletRpc] native wallet2 FFI on UI thread (worker isolate unavailable)');
       return fromMain;
     }
 
@@ -216,6 +271,14 @@ final class ArqmaWalletRpcSession {
   }
 
   Future<Map<String, dynamic>?> call(String method, Object params) {
+    final Future<Map<String, dynamic>?> op = _callLane
+        .then((_) => _callUnserialized(method, params));
+    _callLane = op.then((_) {}, onError: (_) {});
+    return op;
+  }
+
+  Future<Map<String, dynamic>?> _callUnserialized(
+      String method, Object params) {
     final WalletFfiIsolateClient? iso = _isolateClient;
     if (iso != null) {
       return iso.callJsonRpc(method, params);

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -26,7 +24,8 @@ class PendingBiometricEnable {
   final String failureMessage;
 }
 
-/// macOS Keychain + Touch ID (parity with mobile Face ID / Android biometrics).
+/// Keychain + local_auth helpers (used only when [isNativeBiometricPlatform] is true).
+/// Desktop GUI keeps biometrics off — Face ID / Touch ID remain mobile-only.
 class WalletBiometricUnlock {
   WalletBiometricUnlock._();
 
@@ -39,7 +38,7 @@ class WalletBiometricUnlock {
   static final LocalAuthentication _auth = LocalAuthentication();
   static PendingBiometricEnable? _pendingEnable;
 
-  static bool get isNativeBiometricPlatform => Platform.isMacOS;
+  static bool get isNativeBiometricPlatform => false;
 
   static String _passwordKey(String netType, String walletName) =>
       'arqma_wallet_pwd_${netType}_$walletName';
@@ -62,7 +61,7 @@ class WalletBiometricUnlock {
       return;
     }
     _pendingEnable = null;
-    if (!Platform.isMacOS || pending.password.isEmpty) {
+    if (!isNativeBiometricPlatform || pending.password.isEmpty) {
       return;
     }
     if (await isEnabled(pending.netType, pending.walletName)) {
@@ -96,7 +95,7 @@ class WalletBiometricUnlock {
   }
 
   static Future<bool> isPlatformSupported() async {
-    if (!Platform.isMacOS) {
+    if (!isNativeBiometricPlatform) {
       return false;
     }
     try {

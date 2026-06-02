@@ -1,6 +1,6 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.12](https://github.com/ArqTras/FFI/releases/tag/1.0.12)** (lower iOS open RAM peak, `bad_alloc` messaging, session close before open). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.13](https://github.com/ArqTras/FFI/releases/tag/1.0.13)** (deferred refresh on open, `bad_alloc` messaging, session close before open). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
 ### Solo pool (desktop — Windows, Linux, macOS)
 
@@ -46,14 +46,17 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.12](https://gith
 - **Build 40:** Native wallet FFI **1.0.11** (background job safety in Rust FFI) + same Dart fixes as build 39.
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
-### Desktop Flutter (5.1.1+4, FFI 1.0.11 recommended)
+### Desktop Flutter (5.1.1+5, FFI 1.0.13)
 
+- **macOS wallet open:** FFI worker isolate stays responsive; `open_wallet` / restore run on an **8 MiB stack pthread** (fixes crash on large wallet caches; CLI parity).
+- **Daemon target:** When local `arqmad` RPC is down, wallet FFI uses configured **remote** `host:port` (same path CLI users expect).
+- **Open flow:** Serialized in-process FFI; no `refresh_async_start` during `open_wallet`; post-open UI loads asynchronously; parallel `getheight` / `getbalance` / `get_address`.
+- **Accounts screen:** Non-blocking `close_wallet` before `list_wallets`; navigation via wallet status (no invalid `GoRouterState` after open).
+- **Biometrics:** Face ID / Touch ID **disabled on desktop** (mobile-only).
 - **Staking Pools:** Compact status filter dropdown (same as mobile filter field; wide tabular list unchanged on desktop).
-
 - Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
 - Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
-- Wallet RPC: rescan/safe-store guards in `desktop_native_bridge` (Dart); native `wallet2_client` safety in FFI **1.0.11** prebuilts.
-- **macOS:** Optional Touch ID unlock (Keychain); tab navigation uses the same `IndexedStack` shell as mobile.
+- Wallet RPC: rescan/safe-store guards in `desktop_native_bridge` (Dart); native `wallet2_client` safety in FFI **1.0.13** prebuilts.
 - **All desktop OS:** `NoTransitionPage` wallet routes; lazy tab builds; deduplicated store notifications during daemon/wallet heartbeat.
 
 ### Release assets (by platform)

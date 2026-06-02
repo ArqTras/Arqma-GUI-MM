@@ -33,7 +33,7 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sub = context.read<AppApi>().bridge.backendReceive.listen(_onBridge);
-      if (Platform.isMacOS) {
+      if (WalletBiometricUnlock.isNativeBiometricPlatform) {
         unawaited(_probeBiometricSupport());
       }
     });
@@ -249,7 +249,8 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
       if (!mounted) {
         return;
       }
-      if (Platform.isMacOS && _macBiometricSupported) {
+      if (WalletBiometricUnlock.isNativeBiometricPlatform &&
+          _macBiometricSupported) {
         final bool? reenable = await showDialog<bool>(
           context: context,
           builder: (BuildContext c) => AlertDialog(
@@ -846,7 +847,8 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             value: 'pw',
             enabled: ready,
             child: Text(loc.tr('components.wallet_settings.change_password'))),
-        if (Platform.isMacOS && _macBiometricSupported)
+        if (WalletBiometricUnlock.isNativeBiometricPlatform &&
+            _macBiometricSupported)
           PopupMenuItem(
             value: 'touchid',
             enabled: ready,

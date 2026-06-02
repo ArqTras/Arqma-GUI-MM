@@ -76,7 +76,9 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
       }
       context.read<NativeBridge>().backendSend('wallet', 'get_coin_price', {});
       _debouncedArmInactivity();
-      unawaited(WalletBiometricUnlock.flushPendingEnable());
+      if (WalletBiometricUnlock.isNativeBiometricPlatform) {
+        unawaited(WalletBiometricUnlock.flushPendingEnable());
+      }
     });
   }
 

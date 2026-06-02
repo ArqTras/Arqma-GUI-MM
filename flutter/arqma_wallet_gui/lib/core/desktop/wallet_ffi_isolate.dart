@@ -162,31 +162,37 @@ final class WalletFfiIsolateClient {
   }
 }
 
-void _walletFfiIsolateMain(SendPort replyToMain) {
-  WalletNativeFfi.prepareWindowsDllSearchPath();
-  final ReceivePort commands = ReceivePort();
-  replyToMain.send(commands.sendPort);
-  WalletNativeFfi? ffi;
+/// One wallet2 FFI op at a time — overlapping `call`/`close`/`open` corrupts native state.
+final class _WalletFfiWorker {
+  _WalletFfiWorker(this._replyToMain);
 
-  commands.listen((Object? raw) async {
+  final SendPort _replyToMain;
+  WalletNativeFfi? _ffi;
+  Future<void> _chain = Future<void>.value();
+
+  void handle(Object? raw) {
     if (raw is! Map) {
       return;
     }
+    _chain = _chain.then((_) => _handleOne(raw));
+  }
+
+  Future<void> _handleOne(Map raw) async {
     final int id = (raw['id'] as num?)?.toInt() ?? -1;
     final String op = '${raw['op'] ?? ''}';
     final Map<String, dynamic> reply = <String, dynamic>{'id': id};
     try {
       switch (op) {
         case 'load':
-          ffi = WalletNativeFfi.tryLoad();
-          reply['ok'] = ffi != null;
+          _ffi = WalletNativeFfi.tryLoad();
+          reply['ok'] = _ffi != null;
           break;
         case 'configure':
-          ffi ??= WalletNativeFfi.tryLoad();
-          if (ffi == null) {
+          _ffi ??= WalletNativeFfi.tryLoad();
+          if (_ffi == null) {
             reply['code'] = -1;
           } else {
-            reply['code'] = ffi!.configure(
+            reply['code'] = _ffi!.configure(
               '${raw['walletDir']}',
               '${raw['daemonAddress']}',
               (raw['network'] as num?)?.toInt() ?? 0,
@@ -194,24 +200,24 @@ void _walletFfiIsolateMain(SendPort replyToMain) {
           }
           break;
         case 'call':
-          ffi ??= WalletNativeFfi.tryLoad();
-          if (ffi == null) {
+          _ffi ??= WalletNativeFfi.tryLoad();
+          if (_ffi == null) {
             reply['result'] = null;
           } else {
             final Object? params = raw['params'];
-            reply['result'] = await ffi!.callJsonRpc(
+            reply['result'] = await _ffi!.callJsonRpc(
               '${raw['method']}',
               params ?? <String, dynamic>{},
             );
           }
           break;
         case 'reset':
-          ffi?.reset();
-          ffi = null;
+          _ffi?.reset();
+          _ffi = null;
           break;
         case 'shutdown':
-          ffi?.reset();
-          ffi = null;
+          _ffi?.reset();
+          _ffi = null;
           break;
         default:
           reply['error'] = 'unknown op: $op';
@@ -219,6 +225,14 @@ void _walletFfiIsolateMain(SendPort replyToMain) {
     } catch (e, st) {
       reply['error'] = '$e\n$st';
     }
-    replyToMain.send(reply);
-  });
+    _replyToMain.send(reply);
+  }
+}
+
+void _walletFfiIsolateMain(SendPort replyToMain) {
+  WalletNativeFfi.prepareWindowsDllSearchPath();
+  final ReceivePort commands = ReceivePort();
+  replyToMain.send(commands.sendPort);
+  final _WalletFfiWorker worker = _WalletFfiWorker(replyToMain);
+  commands.listen(worker.handle);
 }

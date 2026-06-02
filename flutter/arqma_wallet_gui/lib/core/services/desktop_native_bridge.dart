@@ -1951,7 +1951,7 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// Parity with Tauri `wallet_heartbeat`: never drop ticks — a slow `getheight` must not
   /// suppress later polls (that froze footer sync %). Heavy `get_transfers` runs via
-  /// [unawaited] + [_walletXferBusy]; native FFI serializes concurrent calls.
+  /// [unawaited] + [_walletXferBusy]; wallet RPC calls are serialized in [ArqmaWalletRpcSession.call].
   Future<void> _walletHeartbeatTick() async {
     if (_walletHbInFlight) {
       return;
@@ -2622,10 +2622,31 @@ final class DesktopNativeBridge implements NativeBridge {
     }
   }
 
+  /// Close stray FFI / background jobs before [open_wallet] (account switch, re-open).
+  Future<ArqmaWalletRpcSession?> _prepareWalletRpcForOpen(
+    ArqmaWalletRpcSession w,
+  ) async {
+    if (_openedWalletDisplayName.isEmpty) {
+      return w;
+    }
+    _traceWalletOpen(
+        'prepare: closing previous session "${_openedWalletDisplayName}"');
+    try {
+      await w
+          .closeWalletSession()
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+    } catch (e, st) {
+      debugPrint('[DesktopNative] prepare open closeWalletSession: $e\n$st');
+    }
+    _openedWalletDisplayName = '';
+    _stopWalletHeartbeat();
+    return _walletRpc;
+  }
+
   Future<dynamic> _openWalletDesktop(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
-    final ArqmaWalletRpcSession? w = _walletRpc;
+    ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
       _traceWalletOpen('abort: wallet RPC null', sw: sw);
       _showNotification(
@@ -2633,6 +2654,18 @@ final class DesktopNativeBridge implements NativeBridge {
         _walletFfiBackendOfflineHint(),
         12000,
       );
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Wallet RPC unavailable'
+        },
+      });
+      return <String, dynamic>{};
+    }
+    w = await _prepareWalletRpcForOpen(w);
+    if (w == null) {
+      _traceWalletOpen('abort: wallet RPC null after prepare', sw: sw);
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
         'data': <String, dynamic>{
@@ -2658,6 +2691,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'reset_wallet_error',
       'data': <String, dynamic>{}
     });
+    _stopWalletHeartbeat();
     // Let the UI paint [AppLoading] before the synchronous FFI `open_wallet` blocks the isolate.
     await Future<void>.delayed(Duration.zero);
     _traceWalletOpen('calling RPC open_wallet (may block isolate / UI)', sw: sw);
@@ -2688,9 +2722,9 @@ final class DesktopNativeBridge implements NativeBridge {
     _rescanPreTipHeight = 0;
     _rescanProgressPeak = 0;
     _refreshSessionPasswordDigest(password);
-    _traceWalletOpen('starting _emitWalletOpenedUi', sw: sw);
-    await _emitWalletOpenedUi(name);
-    _traceWalletOpen('done open_wallet flow', sw: sw);
+    _traceWalletOpen('scheduling _emitWalletOpenedUi (async)', sw: sw);
+    unawaited(_emitWalletOpenedUi(name));
+    _traceWalletOpen('done open_wallet flow (post-open UI continues async)', sw: sw);
     return <String, dynamic>{};
   }
 
@@ -2763,18 +2797,37 @@ final class DesktopNativeBridge implements NativeBridge {
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
 
-    final Map<String, dynamic>? gh = await w
-        .call('getheight', <String, dynamic>{}).timeout(
+    unawaited(
+      w
+          .call('refresh', <String, dynamic>{})
+          .timeout(const Duration(seconds: 8), onTimeout: () => null)
+          .catchError((Object e, StackTrace st) {
+        debugPrint('[DesktopNative] post-open refresh kick: $e\n$st');
+        return null;
+      }),
+    );
+
+    final List<Map<String, dynamic>?> postOpen = await Future.wait(
+      <Future<Map<String, dynamic>?>>[
+        w.call('getheight', <String, dynamic>{}).timeout(
             const Duration(seconds: 30),
-            onTimeout: () => null);
+            onTimeout: () => null),
+        w.call('getbalance', <String, dynamic>{'account_index': 0}).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => null),
+        w.call('get_address', <String, dynamic>{'account_index': 0}).timeout(
+            const Duration(seconds: 25),
+            onTimeout: () => null),
+      ],
+    );
+    final Map<String, dynamic>? gh = postOpen[0];
+    final Map<String, dynamic>? gb = postOpen[1];
+    final Map<String, dynamic>? ga = postOpen[2];
     _traceWalletOpen(
         'post-open getheight ok=${walletJsonRpcNoError(gh)} height=${walletHeightFromGetheight(gh)}',
         sw: sw);
-    final Map<String, dynamic>? gb = await w
-        .call('getbalance', <String, dynamic>{'account_index': 0}).timeout(
-            const Duration(seconds: 30),
-            onTimeout: () => null);
     _traceWalletOpen('post-open getbalance ok=${walletJsonRpcNoError(gb)}', sw: sw);
+    _traceWalletOpen('post-open get_address ok=${walletJsonRpcNoError(ga)}', sw: sw);
 
     final int openedHeight = walletHeightFromGetheight(gh) ?? 0;
     int bal = 0;
@@ -2791,11 +2844,6 @@ final class DesktopNativeBridge implements NativeBridge {
     }
 
     String? address;
-    final Map<String, dynamic>? ga = await w
-        .call('get_address', <String, dynamic>{'account_index': 0}).timeout(
-            const Duration(seconds: 25),
-            onTimeout: () => null);
-    _traceWalletOpen('post-open get_address ok=${walletJsonRpcNoError(ga)}', sw: sw);
     if (walletJsonRpcNoError(ga) && ga != null) {
       final Object? res = ga['result'];
       if (res is Map) {
@@ -2844,31 +2892,6 @@ final class DesktopNativeBridge implements NativeBridge {
       }
     }
 
-    if (address != null) {
-      await _persistWalletAddressFile(name, address);
-    }
-    await _persistWalletMetaFile(
-      name,
-      passwordProtected: _walletFilePasswordProtected(),
-      address: address,
-    );
-
-    bool viewOnly = false;
-    final Map<String, dynamic>? qk = await w
-        .call('query_key', <String, dynamic>{'key_type': 'spend_key'}).timeout(
-            const Duration(seconds: 20),
-            onTimeout: () => null);
-    _traceWalletOpen('post-open query_key(spend) ok=${walletJsonRpcNoError(qk)}', sw: sw);
-    if (walletJsonRpcNoError(qk) && qk != null) {
-      final Object? res = qk['result'];
-      if (res is Map) {
-        final String key = '${res['key'] ?? ''}';
-        if (key.isNotEmpty && key.split('').every((String c) => c == '0')) {
-          viewOnly = true;
-        }
-      }
-    }
-
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
@@ -2877,10 +2900,16 @@ final class DesktopNativeBridge implements NativeBridge {
         'height': openedHeight,
         'balance': bal,
         'unlocked_balance': unl,
-        'view_only': viewOnly,
+        'view_only': false,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       },
     });
+    unawaited(_finishWalletOpenedUiExtras(
+      name: name,
+      address: address,
+      w: w,
+      sw: sw,
+    ));
     _whLastEmittedTxMaxHeight = 0;
     _emit(<String, dynamic>{
       'event': 'set_wallet_transactions',
@@ -2902,6 +2931,48 @@ final class DesktopNativeBridge implements NativeBridge {
     _traceWalletOpen('_emitWalletOpenedUi starting wallet heartbeat', sw: sw);
     _startWalletHeartbeat();
     _traceWalletOpen('_emitWalletOpenedUi complete', sw: sw);
+  }
+
+  Future<void> _finishWalletOpenedUiExtras({
+    required String name,
+    required String? address,
+    required ArqmaWalletRpcSession w,
+    Stopwatch? sw,
+  }) async {
+    try {
+      if (address != null) {
+        await _persistWalletAddressFile(name, address);
+      }
+      await _persistWalletMetaFile(
+        name,
+        passwordProtected: _walletFilePasswordProtected(),
+        address: address,
+      );
+      final Map<String, dynamic>? qk = await w
+          .call('query_key', <String, dynamic>{'key_type': 'spend_key'})
+          .timeout(const Duration(seconds: 20), onTimeout: () => null);
+      _traceWalletOpen(
+          'post-open query_key(spend) ok=${walletJsonRpcNoError(qk)}',
+          sw: sw);
+      bool viewOnly = false;
+      if (walletJsonRpcNoError(qk) && qk != null) {
+        final Object? res = qk['result'];
+        if (res is Map) {
+          final String key = '${res['key'] ?? ''}';
+          if (key.isNotEmpty && key.split('').every((String c) => c == '0')) {
+            viewOnly = true;
+          }
+        }
+      }
+      if (viewOnly) {
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_info',
+          'data': <String, dynamic>{'name': name, 'view_only': true},
+        });
+      }
+    } catch (e, st) {
+      debugPrint('[DesktopNative] _finishWalletOpenedUiExtras: $e\n$st');
+    }
   }
 
   static const double _arqCoinUnits = 1e9;
