@@ -12,10 +12,17 @@ $ReleaseDir = (Resolve-Path $ReleaseDir).Path
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 
 function Copy-MingwDeps {
-    param([string]$DestDir, [string]$MingwBin)
+    param([string]$DestDir, [string]$MingwBin, [switch]$RequireRuntime)
     foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
         $src = Join-Path $MingwBin $n
-        if (-not (Test-Path $src)) { Write-Warning "missing MinGW runtime: $src"; continue }
+        if (-not (Test-Path $src)) {
+            $msg = "missing MinGW runtime: $src"
+            if ($RequireRuntime -or $env:CI -eq "true" -or $env:GITHUB_ACTIONS -eq "true") {
+                throw $msg
+            }
+            Write-Warning $msg
+            continue
+        }
         Copy-Item -Force $src $DestDir
     }
     $patterns = @(
@@ -66,12 +73,16 @@ if (-not $mingwBin) {
     throw "MinGW bin not found (pass -MsysRoot or set ARQMA_WALLET2_MSYS_ROOT)"
 }
 
-$n = Copy-MingwDeps -DestDir $ReleaseDir -MingwBin $mingwBin
+$requireRt = ($env:CI -eq "true") -or ($env:GITHUB_ACTIONS -eq "true")
+$n = Copy-MingwDeps -DestDir $ReleaseDir -MingwBin $mingwBin -RequireRuntime:$requireRt
 Write-Host "[bundle-windows-ffi] MinGW dependency DLLs: $n file(s) -> $ReleaseDir"
+if ($requireRt -and $n -lt 1) {
+    throw "no MinGW dependency DLLs copied from $mingwBin (wallet FFI will not load)"
+}
 
 # Legacy loader fallback: mirror under Release/lib/ (same prebuilt as root).
 $legacyLib = Join-Path $ReleaseDir "lib"
 New-Item -Force -ItemType Directory -Path $legacyLib | Out-Null
 Copy-Item -Force (Join-Path $ReleaseDir "arqma_wallet_flutter_ffi.dll") (Join-Path $legacyLib "arqma_wallet_flutter_ffi.dll")
-$nLib = Copy-MingwDeps -DestDir $legacyLib -MingwBin $mingwBin
+$nLib = Copy-MingwDeps -DestDir $legacyLib -MingwBin $mingwBin -RequireRuntime:$requireRt
 Write-Host "[bundle-windows-ffi] legacy lib/ mirror: $($nLib + 1) file(s)"

@@ -23,5 +23,20 @@ $pkgs = @(
   'git',
   'zip'
 ) -join ' '
-& $bash -lc "pacman -Syu --noconfirm && pacman -S --noconfirm --needed $pkgs"
-Write-Host "MSYS2 ready at $msys"
+
+# pacman -Syu may terminate the MSYS2 shell mid-run; use separate invocations.
+foreach ($cmd in @(
+    'pacman -Syu --noconfirm'
+    'pacman -Syu --noconfirm'
+    "pacman -S --noconfirm --needed $pkgs"
+)) {
+    & $bash -lc $cmd
+    if ($LASTEXITCODE -ne 0) { throw "MSYS2 command failed ($LASTEXITCODE): $cmd" }
+}
+
+$mingwBin = Join-Path $msys 'mingw64\bin'
+foreach ($dll in @('libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')) {
+    $p = Join-Path $mingwBin $dll
+    if (-not (Test-Path $p)) { throw "MinGW runtime missing after pacman: $p" }
+}
+Write-Host "MSYS2 ready at $msys (MinGW runtime verified)"

@@ -19,6 +19,9 @@ $failed = $false
 foreach ($rel in @(
         "Arqma-Wallet.exe",
         "arqma_wallet_flutter_ffi.dll",
+        "libgcc_s_seh-1.dll",
+        "libstdc++-6.dll",
+        "libwinpthread-1.dll",
         "flutter_windows.dll",
         "data\flutter_assets\AssetManifest.bin"
     )) {

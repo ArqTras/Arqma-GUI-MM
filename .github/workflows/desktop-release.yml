@@ -473,12 +473,10 @@ jobs:
           choco install innosetup -y --no-progress
           $rel = Join-Path $pwd "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
           if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $line = (Select-String -Path "flutter/arqma_wallet_gui/pubspec.yaml" -Pattern '^version:\s*(\S+)').Matches[0].Groups[1].Value
-          $ver = $line -replace '\+.*',''
-          $safe = $line -replace '\+', '-'
+          $safe = "${{ steps.pubver.outputs.safe }}"
           $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
-          & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$ver" "/DVersionSafe=$safe" "/DSrcRelease=$rel"
+          & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$safe" "/DVersionSafe=$safe" "/DSrcRelease=$rel"
           $setup = Join-Path $pwd "Arqma-Wallet-Flutter-${safe}-windows-x64-Setup.exe"
           if (-not (Test-Path $setup)) { throw "missing $setup" }
           Get-Item $setup | Format-List *
@@ -489,6 +487,7 @@ jobs:
           path: |
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-windows-x64.zip
             Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-windows-x64-Setup.exe
+          if-no-files-found: error
           retention-days: 30
 
   publish-release:
