@@ -348,10 +348,11 @@
             "status": "Status",
             "daemon": "Demon",
             "language": "Język",
-            "syncing": "synchronizowanie",
-            "scanning": "skanowanie",
-            "ready": "gotowy",
-            "blocks_left": "≈{n} bloków do przeskanowania"
+            "syncing": "Synchronizacja",
+            "scanning": "Skanowanie",
+            "ready": "Gotowy",
+            "blocks_left": "≈{n} bloków do przeskanowania",
+            "synced": "Zsynchronizowano"
         },
         "mainmenu": {
             "daemon_settings": "Ustawienia demona",

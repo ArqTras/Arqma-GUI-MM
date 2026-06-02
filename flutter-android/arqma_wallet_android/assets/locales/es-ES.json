@@ -382,9 +382,10 @@
             "status": "Estado",
             "daemon": "Daemon",
             "language": "Idioma",
-            "syncing": "sincronizando",
-            "scanning": "escaneando",
-            "ready": "listo",
+            "syncing": "Sincronizando",
+            "scanning": "Escaneando",
+            "synced": "Sincronizado",
+            "ready": "Listo",
             "blocks_left": "≈{n} bloques a escanear"
         },
         "mainmenu": {

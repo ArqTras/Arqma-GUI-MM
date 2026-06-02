@@ -414,6 +414,62 @@ final class MobileNativeBridge implements NativeBridge {
   /// next to the wallet (`{name}` + `{name}.keys`) when it's missing or empty,
   /// then re-emits `wallet_list`. Path uses [Platform.pathSeparator] so it works
   /// on Windows, Linux and macOS without changes.
+  bool _walletFilePasswordProtected() {
+    final String salt = _walletRpc?.rpcPbkdf2SaltHex ?? '';
+    if (salt.length != 64 || _walletPasswordHashHex == null) {
+      return false;
+    }
+    final String? emptyH = tryPbkdf2PasswordHex(password: '', saltHex: salt);
+    if (emptyH == null) {
+      return true;
+    }
+    return _walletPasswordHashHex != emptyH;
+  }
+
+  Future<void> _persistWalletMetaFile(
+    String name, {
+    required bool passwordProtected,
+    String? address,
+  }) async {
+    if (name.isEmpty) {
+      return;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg == null) {
+      return;
+    }
+    final String? wdir = walletFilesDir(cfg);
+    if (wdir == null || wdir.isEmpty) {
+      return;
+    }
+    try {
+      final File meta =
+          File('$wdir${Platform.pathSeparator}$name.meta.json');
+      Map<String, dynamic> mm = <String, dynamic>{};
+      if (meta.existsSync()) {
+        try {
+          final dynamic decoded = jsonDecode(meta.readAsStringSync());
+          if (decoded is Map) {
+            mm = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {
+          mm = <String, dynamic>{};
+        }
+      }
+      mm['password_protected'] = passwordProtected;
+      if (address != null && address.isNotEmpty) {
+        mm['address'] = address;
+      }
+      await meta.writeAsString(jsonEncode(mm), flush: true);
+      _emit(<String, dynamic>{
+        'event': 'wallet_list',
+        'data': listWalletFiles(wdir),
+      });
+    } catch (e, st) {
+      debugPrint('[MobileNative] write meta.json for "$name": $e\n$st');
+    }
+  }
+
   Future<void> _persistWalletAddressFile(String name, String address) async {
     if (name.isEmpty || address.isEmpty) {
       return;
@@ -2588,6 +2644,11 @@ final class MobileNativeBridge implements NativeBridge {
     if (address != null) {
       await _persistWalletAddressFile(name, address);
     }
+    await _persistWalletMetaFile(
+      name,
+      passwordProtected: _walletFilePasswordProtected(),
+      address: address,
+    );
 
     bool viewOnly = false;
     final Map<String, dynamic>? qk = await w
@@ -3199,6 +3260,9 @@ final class MobileNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'close_wallet') {
+      if (Platform.isIOS) {
+        unawaited(IosRescanLiveActivity.end());
+      }
       _pendingTxRelay.clear();
       _stopWalletHeartbeat();
       _openedWalletDisplayName = '';

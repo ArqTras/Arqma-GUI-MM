@@ -385,6 +385,7 @@
             "syncing": "جاري المزامنة",
             "scanning": "جاري المسح",
             "ready": "جاهز",
+            "synced": "متزامن",
             "blocks_left": "≈{n} بلوك متبقٍ"
         },
         "mainmenu": {

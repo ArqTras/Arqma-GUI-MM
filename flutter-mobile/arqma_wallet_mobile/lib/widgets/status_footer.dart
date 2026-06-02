@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/mobile/mobile_app_config.dart' as mobile_config;
-import '../core/services/native_bridge.dart';
+import '../core/mobile/mobile_version_label.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
@@ -18,21 +18,6 @@ class StatusFooter extends StatefulWidget {
 
 class _StatusFooterState extends State<StatusFooter> {
   String _version = '';
-
-  static String _walletBackendSuffix(String? wb) {
-    switch (wb) {
-      case 'ffi':
-        return '+wallet-ffi';
-      case 'subprocess':
-        return '+wallet-rpc';
-      case 'none':
-        return '+wallet-off';
-      case 'off':
-        return '+wallet-disabled';
-      default:
-        return '';
-    }
-  }
 
   static const List<Map<String, String>> _localeOptions = <Map<String, String>>[
     <String, String>{'value': 'en-US', 'label': 'English'},
@@ -53,16 +38,28 @@ class _StatusFooterState extends State<StatusFooter> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final Object? v =
-          await context.read<NativeBridge>().invoke('app_version_str');
+      final String v = await mobileVersionLabel();
       if (mounted) {
-        setState(() => _version = v?.toString() ?? '');
+        setState(() => _version = v);
       }
     });
   }
 
   static String _statusText(LocaleController loc, _FooterSnapshot snap) {
-    final String dtype = snap.daemonType;
+    if (!snap.hasOpenWallet) {
+      if (snap.daemonType == 'remote') {
+        if (!snap.remoteDaemonOk) {
+          final String node = snap.remoteNodeLabel;
+          if (node.isNotEmpty) {
+            return 'Connecting to $node…';
+          }
+          return loc.tr('pages.init.connecting_to_backend');
+        }
+        return loc.tr('components.footer.ready');
+      }
+      return '';
+    }
+
     final int daemonTip = snap.daemonChainTip;
     final num walletHeight = snap.walletHeight;
     final bool fullRescanUi = snap.fullRescanUi;
@@ -70,50 +67,32 @@ class _StatusFooterState extends State<StatusFooter> {
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
     if (displayTip == 0) {
-      if (dtype == 'remote') {
-        final bool ok = snap.remoteDaemonOk;
-        final String node = snap.remoteNodeLabel;
-        if (ok) {
-          return loc.tr('components.footer.syncing');
-        }
-        if (node.isNotEmpty) {
-          return 'Connecting to $node…';
-        }
-        return loc.tr('pages.init.connecting_to_backend');
-      }
-      return '';
+      return loc.tr('components.footer.scanning');
     }
-    final int tipGap = displayTip > 0
-        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 30)
-        : 0;
+    final int tipGap = (displayTip - walletHeight.toInt()).clamp(0, 1 << 30);
     final bool walletBehind =
         walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
-    final bool walletBehindOrRescan = walletBehind || fullRescanUi;
-    final num dwo = snap.daemonHeightWithoutBootstrap;
-    if (dtype == 'local') {
-      if (daemonTip > 0 && dwo < daemonTip) {
-        return loc.tr('components.footer.syncing');
-      }
-      if (walletBehindOrRescan) {
-        return loc.tr('components.footer.scanning');
-      }
-      if (daemonTip == 0 && walletHeight > 0) {
-        return loc.tr('components.footer.syncing');
-      }
-      return loc.tr('components.footer.ready');
-    }
-    if (walletBehindOrRescan) {
+    if (walletBehind || fullRescanUi) {
       return loc.tr('components.footer.scanning');
+    }
+    final String dtype = snap.daemonType;
+    final num dwo = snap.daemonHeightWithoutBootstrap;
+    if (dtype == 'local' && daemonTip > 0 && dwo < daemonTip) {
+      return loc.tr('components.footer.syncing');
     }
     if (dtype == 'local_remote' && daemonTip > 0 && dwo < daemonTip) {
       return loc.tr('components.footer.syncing');
     }
-    return loc.tr('components.footer.ready');
+    if (daemonTip == 0 && walletHeight > 0) {
+      return loc.tr('components.footer.syncing');
+    }
+    return loc.tr('components.footer.synced');
   }
 
   static Color _statusColor(String s, LocaleController loc) {
     final String ready = loc.tr('components.footer.ready');
-    if (s == ready) {
+    final String synced = loc.tr('components.footer.synced');
+    if (s == ready || s == synced) {
       return ArqmaColors.arqmaGreenSolid;
     }
     final String scan = loc.tr('components.footer.scanning');
@@ -200,8 +179,9 @@ class _StatusFooterState extends State<StatusFooter> {
           if (displayTip == 0) {
             return false;
           }
-          final bool walletNeeds = fullRescanUi ||
-              (!walletSyncedForFooter && walletHeight < displayTip);
+          final bool walletNeeds = snap.hasOpenWallet &&
+              (fullRescanUi ||
+                  (!walletSyncedForFooter && walletHeight < displayTip));
           if (dtype == 'remote') {
             return walletNeeds;
           }
@@ -213,7 +193,6 @@ class _StatusFooterState extends State<StatusFooter> {
         final num dh = daemonTip == 0
             ? snap.daemonHeightWithoutBootstrap
             : snap.daemonHeightWithoutBootstrap.clamp(0, daemonTip);
-        final String wb = snap.walletBackend;
         final num whDisp = displayTip == 0
             ? walletHeight
             : (walletSyncedForFooter
@@ -260,7 +239,7 @@ class _StatusFooterState extends State<StatusFooter> {
                         ],
                       ),
                       Text(
-                        '${loc.tr('components.footer.version')} $_version${_walletBackendSuffix(wb == 'pending' ? null : wb)}',
+                        '${loc.tr('components.footer.version')} $_version',
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -330,6 +309,7 @@ final class _FooterSnapshot {
     required this.daemonHeightWithoutBootstrap,
     required this.walletHeight,
     required this.fullRescanUi,
+    required this.hasOpenWallet,
     required this.walletBackend,
     required this.netType,
     required this.daemonType,
@@ -342,6 +322,7 @@ final class _FooterSnapshot {
   final int daemonHeightWithoutBootstrap;
   final num walletHeight;
   final bool fullRescanUi;
+  final bool hasOpenWallet;
   final String walletBackend;
   final String netType;
   final String daemonType;
@@ -366,6 +347,7 @@ final class _FooterSnapshot {
           (num.tryParse('${info['height_without_bootstrap']}') ?? 0).toInt(),
       walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
       fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
+      hasOpenWallet: store.hasOpenWallet,
       walletBackend: '${app['wallet_backend'] ?? 'pending'}',
       netType: net,
       daemonType: configDaemon['type'] as String? ?? 'remote',
@@ -388,6 +370,7 @@ final class _FooterSnapshot {
         other.daemonHeightWithoutBootstrap == daemonHeightWithoutBootstrap &&
         other.walletHeight == walletHeight &&
         other.fullRescanUi == fullRescanUi &&
+        other.hasOpenWallet == hasOpenWallet &&
         other.walletBackend == walletBackend &&
         other.netType == netType &&
         other.daemonType == daemonType &&
@@ -402,6 +385,7 @@ final class _FooterSnapshot {
         daemonHeightWithoutBootstrap,
         walletHeight,
         fullRescanUi,
+        hasOpenWallet,
         walletBackend,
         netType,
         daemonType,

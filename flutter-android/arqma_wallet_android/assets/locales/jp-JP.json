@@ -385,6 +385,7 @@
             "syncing": "同期中",
             "scanning": "スキャン中",
             "ready": "準備完了",
+            "synced": "同期済み",
             "blocks_left": "残り約 {n} ブロック"
         },
         "mainmenu": {

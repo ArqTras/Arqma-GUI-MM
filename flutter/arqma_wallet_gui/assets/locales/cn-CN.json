@@ -321,7 +321,7 @@
                 "scan_progress_title": "钱包正在扫描区块链",
                 "scan_progress_detail": "区块高度 {current} / {target} ({pct}%)。大约还剩 {left} 个区块待扫描。",
                 "scan_progress_hint": "早期区间通常没有匹配的转账——当你的钱包在此窗口内找到输出时，条目才会出现。",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "正在进行全链重扫。在钱包线程完成前区块计数不会更新（链尖约 {target}）。"
             }
         },
         "not_found": {
@@ -385,6 +385,7 @@
             "syncing": "同步中",
             "scanning": "扫描中",
             "ready": "准备就绪",
+            "synced": "已同步",
             "blocks_left": "约 {n} 个区块待扫描"
         },
         "mainmenu": {

@@ -351,7 +351,8 @@
             "syncing": "同期中",
             "scanning": "スキャン中",
             "ready": "準備完了",
-            "blocks_left": "残り約 {n} ブロック"
+            "blocks_left": "残り約 {n} ブロック",
+            "synced": "同期済み"
         },
         "mainmenu": {
             "daemon_settings": "デーモン設定",

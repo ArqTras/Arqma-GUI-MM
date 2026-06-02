@@ -321,7 +321,7 @@
                 "scan_progress_title": "ウォレットがブロックチェーンをスキャン中",
                 "scan_progress_detail": "ブロック高 {current} / {target} ({pct}%)。スキャンまであと約 {left} ブロック。",
                 "scan_progress_hint": "初期範囲では一致する送金がないことが多いです。ウォレットがこのウィンドウでアウトプットを見つけるとエントリが表示されます。",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "全チェーンの再スキャン中です。ウォレットの処理が終わるまでブロック数は更新されません（チェーン先端 約 {target}）。"
             }
         },
         "not_found": {
@@ -385,6 +385,7 @@
             "syncing": "同期中",
             "scanning": "スキャン中",
             "ready": "準備完了",
+            "synced": "同期済み",
             "blocks_left": "残り約 {n} ブロック"
         },
         "mainmenu": {

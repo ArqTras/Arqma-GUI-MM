@@ -348,10 +348,11 @@
             "status": "Status",
             "daemon": "Daemon",
             "language": "Language",
-            "syncing": "syncing",
-            "scanning": "scanning",
-            "ready": "ready",
-            "blocks_left": "≈{n} blocks to scan"
+            "syncing": "Syncing",
+            "scanning": "Scanning",
+            "ready": "Ready",
+            "blocks_left": "≈{n} blocks to scan",
+            "synced": "Synced"
         },
         "mainmenu": {
             "daemon_settings": "Daemon Settings",

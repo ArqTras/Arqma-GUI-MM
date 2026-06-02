@@ -347,10 +347,11 @@
             "status": "Status",
             "daemon": "Daemon",
             "language": "Idioma",
-            "syncing": "sincronizando",
+            "syncing": "Sincronizando",
             "scanning": "Escaneando",
-            "ready": "pronto",
-            "blocks_left": "≈{n} blocos a varrer"
+            "ready": "Pronto",
+            "blocks_left": "≈{n} blocos a varrer",
+            "synced": "Sincronizado"
         },
         "mainmenu": {
             "daemon_settings": "Configurações do Daemon",

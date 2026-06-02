@@ -321,7 +321,7 @@
                 "scan_progress_title": "La cartera está escaneando la cadena",
                 "scan_progress_detail": "Altura de bloque {current} / {target} ({pct}%). Quedan unos {left} bloques por escanear.",
                 "scan_progress_hint": "Los rangos tempranos a menudo no tienen transferencias coincidentes; las entradas aparecen cuando su monedero encuentra salidas en esta ventana.",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "Rescan completo de la cadena en curso. Los contadores no se actualizan hasta que termine el monedero (punta ~{target})."
             }
         },
         "not_found": {
@@ -382,9 +382,10 @@
             "status": "Estado",
             "daemon": "Daemon",
             "language": "Idioma",
-            "syncing": "sincronizando",
-            "scanning": "escaneando",
-            "ready": "listo",
+            "syncing": "Sincronizando",
+            "scanning": "Escaneando",
+            "synced": "Sincronizado",
+            "ready": "Listo",
             "blocks_left": "≈{n} bloques a escanear"
         },
         "mainmenu": {

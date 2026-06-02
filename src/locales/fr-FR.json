@@ -348,9 +348,10 @@
             "daemon": "Daemon",
             "language": "Langue",
             "syncing": "Synchronisation",
-            "scanning": "balayage",
-            "ready": "prêt",
-            "blocks_left": "≈{n} blocs à balayer"
+            "scanning": "Balayage",
+            "ready": "Prêt",
+            "blocks_left": "≈{n} blocs à balayer",
+            "synced": "Synchronisé"
         },
         "mainmenu": {
             "daemon_settings": "Configuration Daemon",

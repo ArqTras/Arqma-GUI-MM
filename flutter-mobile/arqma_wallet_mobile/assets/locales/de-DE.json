@@ -382,9 +382,10 @@
             "status": "Status",
             "daemon": "Dämon",
             "language": "Sprache",
-            "syncing": "zeitlich übereinstimmend",
-            "scanning": "Abtastung",
-            "ready": "fertig",
+            "syncing": "Synchronisierung",
+            "scanning": "Scannen",
+            "synced": "Synchronisiert",
+            "ready": "Bereit",
             "blocks_left": "≈{n} Blöcke zu scannen"
         },
         "mainmenu": {

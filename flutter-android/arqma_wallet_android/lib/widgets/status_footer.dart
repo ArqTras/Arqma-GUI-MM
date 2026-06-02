@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/mobile/mobile_app_config.dart';
-import '../core/services/native_bridge.dart';
+import '../core/mobile/mobile_app_config.dart' as mobile_config;
+import '../core/mobile/mobile_version_label.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
@@ -18,21 +18,6 @@ class StatusFooter extends StatefulWidget {
 
 class _StatusFooterState extends State<StatusFooter> {
   String _version = '';
-
-  static String _walletBackendSuffix(String? wb) {
-    switch (wb) {
-      case 'ffi':
-        return '+wallet-ffi';
-      case 'subprocess':
-        return '+wallet-rpc';
-      case 'none':
-        return '+wallet-off';
-      case 'off':
-        return '+wallet-disabled';
-      default:
-        return '';
-    }
-  }
 
   static const List<Map<String, String>> _localeOptions = <Map<String, String>>[
     <String, String>{'value': 'en-US', 'label': 'English'},
@@ -53,78 +38,61 @@ class _StatusFooterState extends State<StatusFooter> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final Object? v =
-          await context.read<NativeBridge>().invoke('app_version_str');
+      final String v = await mobileVersionLabel();
       if (mounted) {
-        setState(() => _version = v?.toString() ?? '');
+        setState(() => _version = v);
       }
     });
   }
 
-  static int _daemonChainTip(Map<String, dynamic> info) {
-    final h = num.tryParse('${info['height']}') ?? 0;
-    final th = num.tryParse('${info['target_height']}') ?? 0;
-    return (h > th ? h : th).toInt();
-  }
-
   static String _statusText(LocaleController loc, _FooterSnapshot snap) {
-    final Map<String, dynamic> cfg = effectiveAppConfig(snap.app);
-    final String net =
-        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-    final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
-    final String dtype = configDaemon['type'] as String? ?? 'remote';
-    final Map<String, dynamic> info = snap.daemonInfo;
-    final int daemonTip = _daemonChainTip(info);
+    if (!snap.hasOpenWallet) {
+      if (snap.daemonType == 'remote') {
+        if (!snap.remoteDaemonOk) {
+          final String node = snap.remoteNodeLabel;
+          if (node.isNotEmpty) {
+            return 'Connecting to $node…';
+          }
+          return loc.tr('pages.init.connecting_to_backend');
+        }
+        return loc.tr('components.footer.ready');
+      }
+      return '';
+    }
+
+    final int daemonTip = snap.daemonChainTip;
     final num walletHeight = snap.walletHeight;
     final bool fullRescanUi = snap.fullRescanUi;
     final int displayTip = daemonTip > 0
         ? daemonTip
         : (walletHeight > 0 ? walletHeight.toInt() : 0);
     if (displayTip == 0) {
-      if (dtype == 'remote') {
-        final bool ok = snap.app['remote_daemon_ok'] == true;
-        final String node = remoteNodeLabel(cfg);
-        if (ok) {
-          return loc.tr('components.footer.syncing');
-        }
-        if (node.isNotEmpty) {
-          return 'Connecting to $node…';
-        }
-        return loc.tr('pages.init.connecting_to_backend');
-      }
-      return '';
+      return loc.tr('components.footer.scanning');
     }
-    final int tipGap = displayTip > 0
-        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 30)
-        : 0;
+    final int tipGap = (displayTip - walletHeight.toInt()).clamp(0, 1 << 30);
     final bool walletBehind =
         walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
-    final bool walletBehindOrRescan = walletBehind || fullRescanUi;
-    final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
-    if (dtype == 'local') {
-      if (daemonTip > 0 && dwo < daemonTip) {
-        return loc.tr('components.footer.syncing');
-      }
-      if (walletBehindOrRescan) {
-        return loc.tr('components.footer.scanning');
-      }
-      if (daemonTip == 0 && walletHeight > 0) {
-        return loc.tr('components.footer.syncing');
-      }
-      return loc.tr('components.footer.ready');
-    }
-    if (walletBehindOrRescan) {
+    if (walletBehind || fullRescanUi) {
       return loc.tr('components.footer.scanning');
+    }
+    final String dtype = snap.daemonType;
+    final num dwo = snap.daemonHeightWithoutBootstrap;
+    if (dtype == 'local' && daemonTip > 0 && dwo < daemonTip) {
+      return loc.tr('components.footer.syncing');
     }
     if (dtype == 'local_remote' && daemonTip > 0 && dwo < daemonTip) {
       return loc.tr('components.footer.syncing');
     }
-    return loc.tr('components.footer.ready');
+    if (daemonTip == 0 && walletHeight > 0) {
+      return loc.tr('components.footer.syncing');
+    }
+    return loc.tr('components.footer.synced');
   }
 
   static Color _statusColor(String s, LocaleController loc) {
     final String ready = loc.tr('components.footer.ready');
-    if (s == ready) {
+    final String synced = loc.tr('components.footer.synced');
+    if (s == ready || s == synced) {
       return ArqmaColors.arqmaGreenSolid;
     }
     final String scan = loc.tr('components.footer.scanning');
@@ -141,17 +109,10 @@ class _StatusFooterState extends State<StatusFooter> {
     return Selector<GatewayStore, _FooterSnapshot>(
       selector: (_, GatewayStore store) => _FooterSnapshot.fromStore(store),
       builder: (BuildContext context, _FooterSnapshot snap, Widget? _) {
-        final Map<String, dynamic> app = snap.app;
-        final String wb = snap.walletBackend;
-        final Map<String, dynamic> cfg = effectiveAppConfig(app);
-        final String net =
-            (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
-        final Map<String, dynamic> configDaemon = daemonEntryForNet(cfg, net);
-        final String dtype = configDaemon['type'] as String? ?? 'remote';
-        final String nodeLabel = remoteNodeLabel(cfg);
+        final String dtype = snap.daemonType;
+        final String nodeLabel = snap.remoteNodeLabel;
 
-        final Map<String, dynamic> info = snap.daemonInfo;
-        final int daemonTip = _daemonChainTip(info);
+        final int daemonTip = snap.daemonChainTip;
         final num walletHeight = snap.walletHeight;
         final bool fullRescanUi = snap.fullRescanUi;
         final int displayTip = daemonTip > 0
@@ -171,8 +132,7 @@ class _StatusFooterState extends State<StatusFooter> {
           if (daemonTip == 0) {
             return 0;
           }
-          final num dwo =
-              num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+          final num dwo = snap.daemonHeightWithoutBootstrap;
           var pct = (100 * dwo) / daemonTip;
           if (dwo < daemonTip && (pct * 10).round() / 10 >= 100) {
             pct = 99.9;
@@ -219,21 +179,20 @@ class _StatusFooterState extends State<StatusFooter> {
           if (displayTip == 0) {
             return false;
           }
-          final bool walletNeeds = fullRescanUi ||
-              (!walletSyncedForFooter && walletHeight < displayTip);
+          final bool walletNeeds = snap.hasOpenWallet &&
+              (fullRescanUi ||
+                  (!walletSyncedForFooter && walletHeight < displayTip));
           if (dtype == 'remote') {
             return walletNeeds;
           }
-          final num dwo =
-              num.tryParse('${info['height_without_bootstrap']}') ?? 0;
+          final num dwo = snap.daemonHeightWithoutBootstrap;
           return (daemonTip > 0 && dwo < daemonTip) || walletNeeds;
         }
 
         final String st = _statusText(loc, snap);
         final num dh = daemonTip == 0
-            ? (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-            : (num.tryParse('${info['height_without_bootstrap']}') ?? 0)
-                .clamp(0, daemonTip);
+            ? snap.daemonHeightWithoutBootstrap
+            : snap.daemonHeightWithoutBootstrap.clamp(0, daemonTip);
         final num whDisp = displayTip == 0
             ? walletHeight
             : (walletSyncedForFooter
@@ -280,7 +239,7 @@ class _StatusFooterState extends State<StatusFooter> {
                         ],
                       ),
                       Text(
-                        '${loc.tr('components.footer.version')} $_version${_walletBackendSuffix(wb == 'pending' ? null : wb)}',
+                        '${loc.tr('components.footer.version')} $_version',
                       ),
                       Row(
                         mainAxisSize: MainAxisSize.min,
@@ -315,7 +274,7 @@ class _StatusFooterState extends State<StatusFooter> {
                       if (dtype != 'local' && nodeLabel.isNotEmpty)
                         Text(
                           daemonTip > 0
-                              ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${info['height'] ?? '—'}'
+                              ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${snap.daemonHeight > 0 ? snap.daemonHeight : '—'}'
                               : '${loc.tr('components.footer.remote')}: $nodeLabel',
                         ),
                       Text(walletLine),
@@ -344,43 +303,94 @@ class _StatusFooterState extends State<StatusFooter> {
 
 final class _FooterSnapshot {
   const _FooterSnapshot({
-    required this.app,
-    required this.daemonInfo,
+    required this.remoteDaemonOk,
+    required this.daemonHeight,
+    required this.daemonTargetHeight,
+    required this.daemonHeightWithoutBootstrap,
     required this.walletHeight,
     required this.fullRescanUi,
+    required this.hasOpenWallet,
     required this.walletBackend,
+    required this.netType,
+    required this.daemonType,
+    required this.remoteNodeLabel,
   });
 
-  final Map<String, dynamic> app;
-  final Map<String, dynamic> daemonInfo;
+  final bool remoteDaemonOk;
+  final int daemonHeight;
+  final int daemonTargetHeight;
+  final int daemonHeightWithoutBootstrap;
   final num walletHeight;
   final bool fullRescanUi;
+  final bool hasOpenWallet;
   final String walletBackend;
+  final String netType;
+  final String daemonType;
+  final String remoteNodeLabel;
 
   static _FooterSnapshot fromStore(GatewayStore store) {
+    final Map<String, dynamic> app = store.app;
+    final Map<String, dynamic> cfg = mobile_config.effectiveAppConfig(app);
+    final String net =
+        (cfg['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
+    final Map<String, dynamic> configDaemon =
+        mobile_config.daemonEntryForNet(cfg, net);
+    final Map<String, dynamic> info =
+        store.daemon['info'] as Map<String, dynamic>? ??
+            const <String, dynamic>{};
     return _FooterSnapshot(
-      app: store.app,
-      daemonInfo: store.daemon['info'] as Map<String, dynamic>? ??
-          const <String, dynamic>{},
+      remoteDaemonOk: app['remote_daemon_ok'] == true,
+      daemonHeight: (num.tryParse('${info['height']}') ?? 0).toInt(),
+      daemonTargetHeight:
+          (num.tryParse('${info['target_height']}') ?? 0).toInt(),
+      daemonHeightWithoutBootstrap:
+          (num.tryParse('${info['height_without_bootstrap']}') ?? 0).toInt(),
       walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
       fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
-      walletBackend: '${store.app['wallet_backend'] ?? 'pending'}',
+      hasOpenWallet: store.hasOpenWallet,
+      walletBackend: '${app['wallet_backend'] ?? 'pending'}',
+      netType: net,
+      daemonType: configDaemon['type'] as String? ?? 'remote',
+      remoteNodeLabel: mobile_config.remoteNodeLabel(cfg),
     );
+  }
+
+  int get daemonChainTip {
+    return daemonHeight > daemonTargetHeight
+        ? daemonHeight
+        : daemonTargetHeight;
   }
 
   @override
   bool operator ==(Object other) {
     return other is _FooterSnapshot &&
-        identical(other.app, app) &&
-        identical(other.daemonInfo, daemonInfo) &&
+        other.remoteDaemonOk == remoteDaemonOk &&
+        other.daemonHeight == daemonHeight &&
+        other.daemonTargetHeight == daemonTargetHeight &&
+        other.daemonHeightWithoutBootstrap == daemonHeightWithoutBootstrap &&
         other.walletHeight == walletHeight &&
         other.fullRescanUi == fullRescanUi &&
-        other.walletBackend == walletBackend;
+        other.hasOpenWallet == hasOpenWallet &&
+        other.walletBackend == walletBackend &&
+        other.netType == netType &&
+        other.daemonType == daemonType &&
+        other.remoteNodeLabel == remoteNodeLabel;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(app, daemonInfo, walletHeight, fullRescanUi, walletBackend);
+  int get hashCode => Object.hash(
+        remoteDaemonOk,
+        daemonHeight,
+        daemonTargetHeight,
+        daemonHeightWithoutBootstrap,
+        walletHeight,
+        fullRescanUi,
+        hasOpenWallet,
+        walletBackend,
+        netType,
+        daemonType,
+        remoteNodeLabel,
+      );
 }
 
 class _BarTrack extends StatelessWidget {

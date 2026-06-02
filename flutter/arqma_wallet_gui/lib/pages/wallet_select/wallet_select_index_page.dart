@@ -241,7 +241,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final GatewayStore store = context.read<GatewayStore>();
     final String name = '${wallet['name']}';
     final String netType = _netType(store);
-    final bool pwdProt = wallet['password_protected'] != false;
+    final bool pwdProt = wallet['password_protected'] == true;
     String? password;
     bool enableTouchIdAfterOpen = false;
     if (pwdProt) {

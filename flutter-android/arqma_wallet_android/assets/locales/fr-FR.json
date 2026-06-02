@@ -383,8 +383,9 @@
             "daemon": "Daemon",
             "language": "Langue",
             "syncing": "Synchronisation",
-            "scanning": "balayage",
-            "ready": "prêt",
+            "scanning": "Balayage",
+            "synced": "Synchronisé",
+            "ready": "Prêt",
             "blocks_left": "≈{n} blocs à balayer"
         },
         "mainmenu": {

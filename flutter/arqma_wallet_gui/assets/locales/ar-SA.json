@@ -321,7 +321,7 @@
                 "scan_progress_title": "المحفظة تفحص سلسلة الكتل",
                 "scan_progress_detail": "ارتفاع الكتلة {current} / {target} ({pct}%). يتبقى حوالي {left} كتلة للمسح.",
                 "scan_progress_hint": "غالبًا لا توجد تحويلات مطابقة للنطاقات المبكرة — تظهر الإدخالات عندما يجد محفظتك مخرجات في هذه النافذة.",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "جارٍ إعادة فحص كامل للسلسلة. تبقى أعداد الكتل ثابتة حتى ينتهي محفظتك (قمة السلسلة ~{target})."
             }
         },
         "not_found": {
@@ -385,6 +385,7 @@
             "syncing": "جاري المزامنة",
             "scanning": "جاري المسح",
             "ready": "جاهز",
+            "synced": "متزامن",
             "blocks_left": "≈{n} بلوك متبقٍ"
         },
         "mainmenu": {

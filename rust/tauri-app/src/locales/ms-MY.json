@@ -350,8 +350,9 @@
             "language": "Bahasa",
             "syncing": "Menyegerakkan",
             "scanning": "Mengimbas",
-            "ready": "sedia",
-            "blocks_left": "≈{n} blok tinggal"
+            "ready": "Sedia",
+            "blocks_left": "≈{n} blok tinggal",
+            "synced": "Disegerakkan"
         },
         "mainmenu": {
             "daemon_settings": "Tetapan Daemon",

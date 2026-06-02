@@ -321,7 +321,7 @@
                 "scan_progress_title": "Кошелёк сканирует блокчейн",
                 "scan_progress_detail": "Высота блока {current} / {target} ({pct}%). Осталось около {left} блоков для сканирования.",
                 "scan_progress_hint": "Ранние диапазоны часто без подходящих переводов — записи появляются, когда кошелёк находит выходы в этом окне.",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "Выполняется полный rescan блокчейна. Счётчики блоков не обновятся, пока поток кошелька не завершит работу (вершина цепи ~{target})."
             }
         },
         "not_found": {
@@ -382,9 +382,10 @@
             "status": "Статус",
             "daemon": "Демон",
             "language": "Язык",
-            "syncing": "синхронизация",
-            "scanning": "сканирование",
-            "ready": "готов",
+            "syncing": "Синхронизация",
+            "scanning": "Сканирование",
+            "synced": "Синхронизирован",
+            "ready": "Готов",
             "blocks_left": "≈{n} блоков в очереди сканирования"
         },
         "mainmenu": {

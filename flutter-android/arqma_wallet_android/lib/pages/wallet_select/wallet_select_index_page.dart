@@ -92,7 +92,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final LocaleController loc = context.read<LocaleController>();
     final AppApi api = context.read<AppApi>();
     final String name = '${wallet['name']}';
-    final bool pwdProt = wallet['password_protected'] != false;
+    final bool pwdProt = wallet['password_protected'] == true;
     String? password = '';
     if (pwdProt) {
       password = await showDialog<String>(

@@ -394,9 +394,10 @@
             "status": "Status",
             "daemon": "Daemon",
             "language": "Language",
-            "syncing": "syncing",
-            "scanning": "scanning",
-            "ready": "ready",
+            "syncing": "Syncing",
+            "scanning": "Scanning",
+            "synced": "Synced",
+            "ready": "Ready",
             "blocks_left": "≈{n} blocks to scan"
         },
         "mainmenu": {

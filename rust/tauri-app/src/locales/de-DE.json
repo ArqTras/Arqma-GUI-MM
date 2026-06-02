@@ -348,10 +348,11 @@
             "status": "Status",
             "daemon": "Dämon",
             "language": "Sprache",
-            "syncing": "zeitlich übereinstimmend",
-            "scanning": "Abtastung",
-            "ready": "fertig",
-            "blocks_left": "≈{n} Blöcke zu scannen"
+            "syncing": "Synchronisierung",
+            "scanning": "Scannen",
+            "ready": "Bereit",
+            "blocks_left": "≈{n} Blöcke zu scannen",
+            "synced": "Synchronisiert"
         },
         "mainmenu": {
             "daemon_settings": "Daemon-Einstellungen",

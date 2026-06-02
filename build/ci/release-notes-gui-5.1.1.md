@@ -16,7 +16,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 
 ### Mobile builds (this release refresh)
 
-- **iOS:** TestFlight build **5.1.1 (35)** — FFI **1.0.10**; Staking Pools compact UI (34); smoother tabs/tx refresh (35); tab performance (31–33).
+- **iOS:** TestFlight build **5.1.1 (36)** — footer status **Scanning** / **Synced** for open wallet only; version from pubspec; locale updates; password-protected restore fix; Live Activity ends on wallet close. Build **35**: deferred tx refresh; build **34**: Staking Pools compact UI.
 - **Android:** Rebuilt APK/AAB with tx-history poll every **5 s** (CI); FFI **1.0.10** when rebuilt after tag **5.1.1**.
 
 ### Wallet scan progress (FFI 1.0.9 — desktop + mobile)
@@ -58,7 +58,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **35** (Staking Pools UI + deferred tx refresh during tab switch/scroll). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **36** (footer status/version + locale + wallet meta fixes). |
 
 ### Solo pool quick start (desktop)
 

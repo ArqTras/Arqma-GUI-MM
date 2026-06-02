@@ -321,7 +321,7 @@
                 "scan_progress_title": "A carteira está escaneando a blockchain",
                 "scan_progress_detail": "Altura do bloco {current} / {target} ({pct}%). Cerca de {left} blocos restantes para escanear.",
                 "scan_progress_hint": "Intervalos iniciais frequentemente não têm transferências correspondentes — as entradas aparecem quando a carteira encontra saídas nesta janela.",
-                "scan_progress_rescan_detail": "Full blockchain rescan is running. Block height {current} / {target} ({pct}%). About {left} blocks left."
+                "scan_progress_rescan_detail": "Rescan completo da blockchain em andamento. Os contadores ficam congelados até a carteira terminar (ponta da cadeia ~{target})."
             }
         },
         "not_found": {
@@ -382,9 +382,10 @@
             "status": "Status",
             "daemon": "Daemon",
             "language": "Idioma",
-            "syncing": "sincronizando",
+            "syncing": "Sincronizando",
             "scanning": "Escaneando",
-            "ready": "pronto",
+            "synced": "Sincronizado",
+            "ready": "Pronto",
             "blocks_left": "≈{n} blocos a varrer"
         },
         "mainmenu": {

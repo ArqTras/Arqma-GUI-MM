@@ -350,7 +350,8 @@
             "syncing": "جاري المزامنة",
             "scanning": "جاري المسح",
             "ready": "جاهز",
-            "blocks_left": "≈{n} بلوك متبقٍ"
+            "blocks_left": "≈{n} بلوك متبقٍ",
+            "synced": "متزامن"
         },
         "mainmenu": {
             "daemon_settings": "إعدادات الواجهة الخلفية",
