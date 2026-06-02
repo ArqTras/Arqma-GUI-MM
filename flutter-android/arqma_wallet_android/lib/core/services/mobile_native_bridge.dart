@@ -2822,6 +2822,25 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
+  /// Close stray FFI / background jobs before [open_wallet] (account switch).
+  Future<ArqmaWalletRpcSession?> _prepareWalletRpcForOpen(
+    ArqmaWalletRpcSession w,
+  ) async {
+    if (_openedWalletDisplayName.isEmpty) {
+      return w;
+    }
+    try {
+      await w
+          .closeWalletSession()
+          .timeout(const Duration(seconds: 30), onTimeout: () => null);
+    } catch (e, st) {
+      debugPrint('[MobileNative] prepare open closeWalletSession: $e\n$st');
+    }
+    _openedWalletDisplayName = '';
+    _stopWalletHeartbeat();
+    return _walletRpc;
+  }
+
   Future<dynamic> _openWalletDesktop(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
@@ -2841,8 +2860,24 @@ final class MobileNativeBridge implements NativeBridge {
       });
       return <String, dynamic>{};
     }
-    final ArqmaWalletRpcSession? w = _walletRpc;
+    ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
+      return <String, dynamic>{};
+    }
+    w = await _prepareWalletRpcForOpen(w);
+    if (w == null) {
+      _showNotification(
+        'negative',
+        _walletFfiBackendOfflineHint(),
+        12000,
+      );
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Wallet RPC unavailable',
+        },
+      });
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
