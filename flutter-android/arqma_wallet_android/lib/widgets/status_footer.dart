@@ -277,7 +277,7 @@ class _StatusFooterState extends State<StatusFooter> {
                               ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${snap.daemonHeight > 0 ? snap.daemonHeight : '—'}'
                               : '${loc.tr('components.footer.remote')}: $nodeLabel',
                         ),
-                      Text(walletLine),
+                      if (snap.hasOpenWallet) Text(walletLine),
                     ],
                   ),
                 ),

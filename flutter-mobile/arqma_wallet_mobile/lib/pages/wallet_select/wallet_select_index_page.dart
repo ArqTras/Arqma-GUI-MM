@@ -50,6 +50,11 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
               merged ?? <String, dynamic>{},
             ),
       );
+      if (store.hasOpenWallet) {
+        unawaited(
+          context.read<AppApi>().send('wallet', 'close_wallet', <String, dynamic>{}),
+        );
+      }
     });
     _gatewayListenTarget = context.read<GatewayStore>();
     _gatewayListenTarget!.addListener(_onWalletStatus);
