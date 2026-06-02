@@ -14,8 +14,14 @@ Prebuilt **arqma-wallet-flutter-ffi** libraries for desktop and mobile builds.
 
 | Platform | Archive |
 |----------|---------|
+| Android (arm64) | `arqma-wallet-ffi-android-arm64-1.0.11.zip` |
+| Android (x86_64) | `arqma-wallet-ffi-android-x86_64-1.0.11.zip` |
 | iOS | `arqma-wallet-ffi-ios-1.0.11.zip` |
-
-Other platform zips may be added in a follow-up CI build from the same tag.
+| Linux (x86_64) | `arqma-wallet-ffi-linux-x86_64-1.0.11.zip` |
+| macOS (arm64) | `arqma-wallet-ffi-macos-arm64-1.0.11.zip` |
+| Windows (x86_64-gnu) | `arqma-wallet-ffi-windows-x86_64-gnu-1.0.11.zip` |
+| Solo pool (Linux) | `arqma-wallet-solo-pool-linux-x86_64-1.0.11.zip` |
+| Solo pool (macOS) | `arqma-wallet-solo-pool-macos-arm64-1.0.11.zip` |
+| Solo pool (Windows) | `arqma-wallet-solo-pool-windows-x86_64-gnu-1.0.11.zip` |
 
 Checksums: `SHA256SUMS-ffi-1.0.11.txt`.
