@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 
 import '../app_nav.dart';
 import '../core/services/native_bridge.dart';
+import '../core/mobile/wallet_activity.dart';
+import '../core/mobile/wallet_biometric_unlock.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -74,6 +76,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
       }
       context.read<NativeBridge>().backendSend('wallet', 'get_coin_price', {});
       _debouncedArmInactivity();
+      unawaited(WalletBiometricUnlock.flushPendingEnable());
     });
   }
 
@@ -275,6 +278,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     }
 
     void goToWalletTab(String route) {
+      WalletActivity.setActiveWalletTab(route);
       if (path != route) {
         setState(() => _displayedTabPath = route);
       }
@@ -282,6 +286,8 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
         context.go(route);
       }
     }
+
+    WalletActivity.setActiveWalletTab(path);
 
     final List<WalletMainTabItem> walletTabs = <WalletMainTabItem>[
       WalletMainTabItem(
@@ -313,8 +319,14 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
 
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _debouncedArmInactivity(),
-      onPointerMove: (_) => _debouncedArmInactivity(),
+      onPointerDown: (_) {
+        WalletActivity.markUserInteraction();
+        _debouncedArmInactivity();
+      },
+      onPointerMove: (_) {
+        WalletActivity.markUserInteraction();
+        _debouncedArmInactivity();
+      },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
@@ -351,7 +363,7 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   WalletMainMenu(),
-                  WalletSettingsButton(),
+                  WalletSettingsButton(stackedUnderMenu: true),
                 ],
               ),
             ),

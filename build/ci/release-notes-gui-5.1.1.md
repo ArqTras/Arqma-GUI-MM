@@ -37,6 +37,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.10](https://gith
 - **Build 32:** Instant tab switches on iOS (`IndexedStack`, `NoTransitionPage`, lazy tab bodies).
 - **Build 33:** Same tab performance stack on **iOS, Android, and desktop** (including Solo Pool tab on desktop).
 - **Build 34:** **Staking Pools** layout on phones: compact operator/status filter dropdown; pool list uses stacked cards (no column overlap) instead of forcing horizontal scroll on narrow screens. Android build **11** includes the same staking UI.
+- **Build 35:** Wallet heartbeat defers heavy `get_transfers` while switching tabs or scrolling tx history; inactive tabs skip rebuilds on 5 s polls (smoother UI during refresh).
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
 ### Desktop Flutter (5.1.1+3, release tag rebuild with FFI 1.0.10)

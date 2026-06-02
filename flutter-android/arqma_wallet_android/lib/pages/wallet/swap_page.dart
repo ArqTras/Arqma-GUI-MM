@@ -10,6 +10,7 @@ import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/arqma_field.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../widgets/format_arqma.dart';
 import '../../widgets/password_dialogs.dart';
 import '../../widgets/swap_signature_list.dart';
@@ -247,7 +248,7 @@ class _SwapPageState extends State<SwapPage>
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final bool viewOnly = store.walletInfo['view_only'] == true;
     final Map<String, dynamic> eth = Map<String, dynamic>.from(
         store.raw['ethereum'] as Map? ?? <String, dynamic>{});

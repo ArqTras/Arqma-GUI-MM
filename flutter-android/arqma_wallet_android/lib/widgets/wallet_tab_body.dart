@@ -7,6 +7,7 @@ import '../pages/wallet/staking_pools_page.dart';
 import '../pages/wallet/swap_page.dart';
 import '../pages/wallet/txhistory_page.dart';
 import 'wallet_keep_alive_tab.dart';
+import 'wallet_tab_visibility.dart';
 
 /// Main wallet tabs — [IndexedStack] + lazy first build + keep-alive.
 class WalletTabBody extends StatefulWidget {
@@ -45,7 +46,10 @@ class _WalletTabBodyState extends State<WalletTabBody> {
       return const SizedBox.expand();
     }
     _builtTabs[index] ??= WalletKeepAliveTab(child: _tabBuilders[index]());
-    return TickerMode(enabled: active, child: _builtTabs[index]!);
+    return WalletTabVisibility(
+      isActive: active,
+      child: TickerMode(enabled: active, child: _builtTabs[index]!),
+    );
   }
 
   @override

@@ -12,6 +12,7 @@ import '../mobile/ios_rescan_live_activity.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
+import '../mobile/wallet_activity.dart';
 import '../desktop/arqma_paths.dart';
 import '../desktop/daemon_heartbeat_extras.dart';
 import '../desktop/desktop_export_transactions.dart';
@@ -2070,8 +2071,15 @@ final class MobileNativeBridge implements NativeBridge {
     // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
     // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
+    final bool urgentXfer = _whFetchTxPending ||
+        hasBalanceChange ||
+        xferDuringScan ||
+        txListBehindTip;
+    final bool deferPeriodic = periodicAtTip &&
+        WalletActivity.shouldDeferPeriodicTxRefresh(urgent: urgentXfer);
     final bool canXfer = xferTrigger &&
         !_walletXferBusy &&
+        !deferPeriodic &&
         (gbOk ||
             (_whFetchTxPending && ghOk) ||
             (xferDuringScan && ghOk));

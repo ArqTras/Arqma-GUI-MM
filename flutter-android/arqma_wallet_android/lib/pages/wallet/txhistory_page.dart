@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
 import '../../core/mobile/mobile_responsive_layout.dart';
+import '../../core/mobile/wallet_activity.dart';
 import '../../widgets/arqma_field.dart';
 import '../../widgets/tx_list_widget.dart';
 import '../../core/theme/arqma_colors.dart';
@@ -247,7 +248,19 @@ class _TxHistoryPageState extends State<TxHistoryPage>
               final double maxListH = math.min(inner.maxHeight, capByVue);
               return ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxListH),
-                child: const TxListWidget(),
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (ScrollNotification n) {
+                    if (n is ScrollStartNotification ||
+                        n is ScrollUpdateNotification) {
+                      WalletActivity.setTxListScrolling(true);
+                      WalletActivity.markUserInteraction();
+                    } else if (n is ScrollEndNotification) {
+                      WalletActivity.setTxListScrolling(false);
+                    }
+                    return false;
+                  },
+                  child: const TxListWidget(),
+                ),
               );
             },
           ),
