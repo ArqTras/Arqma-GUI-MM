@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_api.dart';
 import '../core/mobile/mobile_defaults.dart';
+import '../core/mobile/mobile_remote_nodes.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -114,16 +115,51 @@ class SettingsGeneralPanelState extends State<SettingsGeneralPanel> {
     if (srcApp == null) {
       return;
     }
+    var changed = false;
     _pending.putIfAbsent('app', () => <String, dynamic>{});
     final Map<String, dynamic> app = _pending['app'] as Map<String, dynamic>;
     final String nextDataDir = '${srcApp['data_dir'] ?? ''}';
     final String nextWalletDir = '${srcApp['wallet_data_dir'] ?? ''}';
-    if ('${app['data_dir'] ?? ''}' == nextDataDir &&
-        '${app['wallet_data_dir'] ?? ''}' == nextWalletDir) {
-      return;
+    if ('${app['data_dir'] ?? ''}' != nextDataDir ||
+        '${app['wallet_data_dir'] ?? ''}' != nextWalletDir) {
+      _syncStoragePathsFromGateway(store);
+      changed = true;
     }
-    _syncStoragePathsFromGateway(store);
-    setState(() {});
+    if (_mobileRemoteOnly && _syncRemoteDaemonFromGateway(full)) {
+      changed = true;
+    }
+    if (changed) {
+      setState(() {});
+    }
+  }
+
+  /// Keeps settings UI aligned with backend after `apply_remote_node` / startup restart.
+  bool _syncRemoteDaemonFromGateway(Map<String, dynamic> full) {
+    final String net = '${(_pending['app'] as Map?)?['net_type'] ?? 'mainnet'}';
+    final Map<String, dynamic>? srcDaemons = full['daemons'] as Map<String, dynamic>?;
+    final Map<String, dynamic>? srcEntry =
+        srcDaemons?[net] as Map<String, dynamic>?;
+    if (srcEntry == null) {
+      return false;
+    }
+    final Map<String, dynamic> daemons = Map<String, dynamic>.from(
+        _pending['daemons'] as Map? ?? <String, dynamic>{});
+    final Map<String, dynamic> entry = Map<String, dynamic>.from(
+        daemons[net] as Map? ?? <String, dynamic>{'type': 'remote'});
+    final String nextHost = '${srcEntry['remote_host'] ?? ''}'.trim();
+    final int nextPort =
+        int.tryParse('${srcEntry['remote_port']}') ?? kArqmaMainnetRemotePort;
+    if ('${entry['remote_host'] ?? ''}'.trim() == nextHost &&
+        (int.tryParse('${entry['remote_port']}') ?? kArqmaMainnetRemotePort) ==
+            nextPort) {
+      return false;
+    }
+    entry['type'] = 'remote';
+    entry['remote_host'] = nextHost;
+    entry['remote_port'] = nextPort;
+    daemons[net] = entry;
+    _pending['daemons'] = daemons;
+    return true;
   }
 
   bool _didBoot = false;

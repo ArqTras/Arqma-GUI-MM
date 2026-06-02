@@ -1,6 +1,6 @@
 # App Store Connect — screenshots (English)
 
-**Docs:** [Publication checklist](../docs/APP_STORE_PUBLICATION_REQUIREMENTS.md) · [Privacy policy](../docs/PRIVACY_POLICY.md) · [Privacy labels & review](../docs/APP_STORE_PRIVACY_DISCLOSURE.md)
+**Docs:** [Publication checklist](../docs/APP_STORE_PUBLICATION_REQUIREMENTS.md) · [App Review / Guideline 2.1](../docs/APP_STORE_REVIEW_INFORMATION.md) · [Privacy policy](../docs/PRIVACY_POLICY.md) · [Privacy labels & review](../docs/APP_STORE_PRIVACY_DISCLOSURE.md)
 
 ## iPhone 6.5" Display
 
