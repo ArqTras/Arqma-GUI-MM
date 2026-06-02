@@ -3,7 +3,8 @@
 **Purpose:** Copy-paste answers for **App Store Connect → App Review Information** and replies when Apple asks **Guideline 2.1 — Information Needed**. Keeps review notes consistent across resubmissions.
 
 **App:** Arqma Wallet Mobile · **Bundle ID:** `com.arqma.arqmaWalletMobile`  
-**Related:** [APP_STORE_PUBLICATION_REQUIREMENTS.md](./APP_STORE_PUBLICATION_REQUIREMENTS.md) · [APP_STORE_PRIVACY_DISCLOSURE.md](./APP_STORE_PRIVACY_DISCLOSURE.md)
+**Related:** [APP_STORE_PUBLICATION_REQUIREMENTS.md](./APP_STORE_PUBLICATION_REQUIREMENTS.md) · [APP_STORE_PRIVACY_DISCLOSURE.md](./APP_STORE_PRIVACY_DISCLOSURE.md)  
+**Public mirror:** synced to [arqma/Flutter-Wallet](https://github.com/arqma/Flutter-Wallet/tree/main/docs) on each release (`build/ci/mirror-flutter-wallet-release.sh`).
 
 **Last updated:** 2026-06-03
 

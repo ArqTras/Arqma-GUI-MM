@@ -34,6 +34,7 @@ Checksum files: \`SHA256SUMS-android-${TAG}.txt\`, \`SHA256SUMS-ios.txt\` (when 
 - [Privacy Policy](docs/PRIVACY_POLICY.md)
 - [App Store privacy disclosure](docs/APP_STORE_PRIVACY_DISCLOSURE.md)
 - [App Store publication requirements](docs/APP_STORE_PUBLICATION_REQUIREMENTS.md)
+- [App Store review information](docs/APP_STORE_REVIEW_INFORMATION.md) — Guideline 2.1 notes, demo restore wallet, Resolution Center replies
 
 ## Release notes
 

@@ -75,10 +75,16 @@ if [[ "${n_assets}" -lt 1 ]]; then
   exit 1
 fi
 
-echo "==> Copy documentation"
+echo "==> Copy documentation (incl. APP_STORE_REVIEW_INFORMATION.md → arqma/Flutter-Wallet/docs/)"
 MOBILE_DOCS="${ROOT}/flutter-mobile/arqma_wallet_mobile/docs"
 if [[ -d "${MOBILE_DOCS}" ]]; then
-  cp -f "${MOBILE_DOCS}"/*.md "${DOCS}/" 2>/dev/null || true
+  for doc in README.md PRIVACY_POLICY.md APP_STORE_PRIVACY_DISCLOSURE.md \
+    APP_STORE_PUBLICATION_REQUIREMENTS.md APP_STORE_REVIEW_INFORMATION.md; do
+    if [[ -f "${MOBILE_DOCS}/${doc}" ]]; then
+      cp -f "${MOBILE_DOCS}/${doc}" "${DOCS}/"
+      echo "  ok docs/${doc}"
+    fi
+  done
 fi
 NOTES="${ROOT}/build/ci/release-notes-gui-${TAG}.md"
 if [[ -f "${NOTES}" ]]; then
