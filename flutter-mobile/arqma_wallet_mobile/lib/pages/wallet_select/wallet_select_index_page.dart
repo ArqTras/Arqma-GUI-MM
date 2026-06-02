@@ -252,8 +252,8 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final GatewayStore store = context.read<GatewayStore>();
     final String name = '${wallet['name']}';
     final String netType = _netType(store);
-    // null / missing meta must not prompt — only explicit true means password set.
-    final bool pwdProt = wallet['password_protected'] == true;
+    // Tauri parity: prompt unless meta explicitly has password_protected: false.
+    final bool pwdProt = wallet['password_protected'] != false;
     String? password;
     bool enableFaceIdAfterOpen = false;
     if (pwdProt) {

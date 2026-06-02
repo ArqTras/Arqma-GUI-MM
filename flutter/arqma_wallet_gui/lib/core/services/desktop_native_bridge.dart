@@ -2669,8 +2669,17 @@ final class DesktopNativeBridge implements NativeBridge {
     );
     _traceWalletOpen('RPC open_wallet returned ok=${walletJsonRpcNoError(opened)}', sw: sw);
     if (!walletJsonRpcNoError(opened)) {
-      final String msg = '${opened?['error'] ?? 'open_wallet failed'}';
+      final String msg = walletJsonRpcErrorMessage(opened,
+          fallback: 'open_wallet failed');
       _traceWalletOpen('open_wallet error: $msg', sw: sw);
+      try {
+        await w.closeWalletSession();
+      } catch (e, st) {
+        debugPrint('[DesktopNative] close after open_wallet error: $e\n$st');
+      }
+      _openedWalletDisplayName = '';
+      _walletPasswordHashHex = null;
+      _stopWalletHeartbeat();
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
         'data': <String, dynamic>{'code': -1, 'message': msg},

@@ -6,6 +6,7 @@ import '../../i18n/locale_controller.dart';
 import '../../mixins/wallet_flow_listener_mixin.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/arqma_field.dart';
+import '../../widgets/wallet_restore_refresh_controls.dart';
 
 /// Parity with `pages/wallet-select/import-view-only.vue`.
 class WalletSelectImportViewOnlyPage extends StatefulWidget {
@@ -205,52 +206,21 @@ class _WalletSelectImportViewOnlyPageState
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: _refreshType == 'date'
-                    ? ArqmaField(
-                        label: loc.tr(
-                            'pages.wallet_select.import_view_only.restore_from_date'),
-                        child: Row(
-                          children: [
-                            Expanded(child: Text(_refreshStartDate)),
-                            IconButton(
-                                icon: const Icon(Icons.calendar_today),
-                                onPressed: _pickDate),
-                          ],
-                        ),
-                      )
-                    : ArqmaField(
-                        label: loc.tr(
-                            'pages.wallet_select.import_view_only.restore_from_height'),
-                        child: TextField(
-                          controller: _refreshHeight,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(border: InputBorder.none),
-                        ),
-                      ),
-              ),
-              const SizedBox(width: 8),
-              if (_refreshType == 'date')
-                ElevatedButton(
-                  onPressed: () => setState(() => _refreshType = 'height'),
-                  child: Text(
-                      loc.tr(
-                          'pages.wallet_select.import_view_only.switch_to_height_select'),
-                      textAlign: TextAlign.center),
-                )
-              else
-                ElevatedButton(
-                  onPressed: () => setState(() => _refreshType = 'date'),
-                  child: Text(
-                      loc.tr(
-                          'pages.wallet_select.import_view_only.switch_to_date_select'),
-                      textAlign: TextAlign.center),
-                ),
-            ],
+          WalletRestoreRefreshControls(
+            refreshType: _refreshType,
+            refreshStartDate: _refreshStartDate,
+            refreshHeightController: _refreshHeight,
+            dateLabel: loc.tr(
+                'pages.wallet_select.import_view_only.restore_from_date'),
+            heightLabel: loc.tr(
+                'pages.wallet_select.import_view_only.restore_from_height'),
+            switchToHeightLabel: loc.tr(
+                'pages.wallet_select.import_view_only.switch_to_height_select'),
+            switchToDateLabel: loc.tr(
+                'pages.wallet_select.import_view_only.switch_to_date_select'),
+            onPickDate: _pickDate,
+            onSwitchToHeight: () => setState(() => _refreshType = 'height'),
+            onSwitchToDate: () => setState(() => _refreshType = 'date'),
           ),
           const SizedBox(height: 12),
           ArqmaField(

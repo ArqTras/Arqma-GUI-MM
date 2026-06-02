@@ -602,6 +602,9 @@ impl Wallet2ApiClient {
         match method {
             "open_wallet" => {
                 self.wallet_background_busy.store(false, Ordering::SeqCst);
+                if let Some(mut old) = g.take() {
+                    let _ = old.close();
+                }
                 let filename = _params
                     .get("filename")
                     .or_else(|| _params.get("name"))
@@ -620,13 +623,16 @@ impl Wallet2ApiClient {
                         )
                     })?;
                 let path = resolve_wallet_path(&self.cfg.wallet_dir, filename);
-                let session = Wallet2Session::open(&Wallet2OpenConfig {
+                let mut session = Wallet2Session::open(&Wallet2OpenConfig {
                     wallet_path: path,
                     password: password.to_string(),
                     daemon_address: self.cfg.daemon_address.clone(),
                     network: self.cfg.network.clone(),
                 })
                 .map_err(|e| WalletRpcError::Transport(e.to_string()))?;
+                if let Err(e) = session.refresh_async_start(None) {
+                    eprintln!("[wallet2] open_wallet refresh_async_start: {e}");
+                }
                 *g = Some(session);
                 Ok(json!({ "result": {} }))
             }
