@@ -56,3 +56,11 @@ package-lock.json
 /rust/tauri-app/src-tauri/bin/*.exe
 /rust/tauri-app/src-tauri/bin/arqmad
 /rust/tauri-app/src-tauri/bin/arqma-wallet-rpc
+
+# Local CI/release binaries and checksum sidecars (never commit secrets or signed builds)
+build/ci/*.ipa
+build/ci/*.apk
+build/ci/*.aab
+build/ci/SHA256SUMS-*.txt
+build/ci/Arqma-Wallet-*-manifest.txt
+build/ci/Arqma-Wallet-*-testflight.ipa

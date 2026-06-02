@@ -42,7 +42,7 @@ final class WalletFfiIsolateClient {
           }
           return;
         }
-        client!._onWorkerMessage(message);
+        client._onWorkerMessage(message);
       });
       final SendPort commands = await handshake.future.timeout(
         const Duration(seconds: 30),

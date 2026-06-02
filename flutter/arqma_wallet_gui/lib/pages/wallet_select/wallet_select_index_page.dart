@@ -51,13 +51,11 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     final GatewayStore store = context.read<GatewayStore>();
     final AppApi api = context.read<AppApi>();
     if (store.hasOpenWallet) {
-      unawaited(
-        api.send('wallet', 'close_wallet', <String, dynamic>{}).catchError(
-          (Object e, StackTrace st) {
-            debugPrint('[WalletSelect] close_wallet on index: $e\n$st');
-          },
-        ),
-      );
+      try {
+        await api.send('wallet', 'close_wallet', <String, dynamic>{});
+      } catch (e, st) {
+        debugPrint('[WalletSelect] close_wallet on index: $e\n$st');
+      }
     }
     if (!mounted) {
       return;

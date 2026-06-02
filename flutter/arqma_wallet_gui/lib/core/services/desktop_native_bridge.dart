@@ -2630,7 +2630,7 @@ final class DesktopNativeBridge implements NativeBridge {
       return w;
     }
     _traceWalletOpen(
-        'prepare: closing previous session "${_openedWalletDisplayName}"');
+        'prepare: closing previous session "$_openedWalletDisplayName"');
     try {
       await w
           .closeWalletSession()
