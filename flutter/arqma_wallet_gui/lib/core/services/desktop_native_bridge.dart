@@ -2147,9 +2147,7 @@ final class DesktopNativeBridge implements NativeBridge {
     final int dh = _daemonChainTipHeight;
     final bool inScanRhythm = dh == 0 || h0 < dh;
     final Duration ghCap = inScanRhythm
-        ? (Platform.isWindows
-            ? const Duration(seconds: 60)
-            : const Duration(seconds: 120))
+        ? const Duration(seconds: 60)
         : const Duration(seconds: 45);
     final Duration abCap = inScanRhythm
         ? const Duration(seconds: 30)

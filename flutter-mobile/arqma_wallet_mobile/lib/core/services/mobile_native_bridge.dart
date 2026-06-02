@@ -215,6 +215,9 @@ final class MobileNativeBridge implements NativeBridge {
   /// In-memory only — used to reopen the wallet after iOS suspend stranded the FFI session.
   String? _sessionWalletPassword;
 
+  /// iOS: set when the app backgrounds so [recoverWalletSessionAfterForeground] reopens FFI.
+  bool _iosWalletSessionStale = false;
+
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
   bool _walletTxListClearedForRescan = false;
 
@@ -1809,6 +1812,9 @@ final class MobileNativeBridge implements NativeBridge {
       return;
     }
     debugPrint('[MobileNative] persistWalletBeforeSuspend ($reason)');
+    if (Platform.isIOS) {
+      _iosWalletSessionStale = true;
+    }
     await _writeSessionCheckpoint();
     if (!_walletFullRescanUi) {
       await _storeWalletToDiskIfSafe(reason: reason);
@@ -1871,13 +1877,17 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   Future<bool> _walletRpcHealthy(ArqmaWalletRpcSession w) async {
+    if (Platform.isIOS && _iosWalletSessionStale) {
+      return false;
+    }
     try {
       final Map<String, dynamic>? gh = await w
           .call('getheight', <String, dynamic>{})
           .timeout(const Duration(seconds: 20), onTimeout: () => null);
       if (!walletJsonRpcNoError(gh)) {
         final String err = walletJsonRpcErrorMessage(gh);
-        if (err.contains('background operation already running')) {
+        if (!Platform.isIOS &&
+            err.contains('background operation already running')) {
           return true;
         }
         return false;
@@ -2042,6 +2052,32 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   /// After iOS foreground: refresh / reopen wallet and continue sync (no recover while backgrounded).
+  /// Close stray FFI / background jobs before [open_wallet] (account switch, post-sleep).
+  Future<ArqmaWalletRpcSession?> _prepareWalletRpcForOpen(
+    ArqmaWalletRpcSession w,
+  ) async {
+    final bool hadSession = _openedWalletDisplayName.isNotEmpty;
+    if (hadSession) {
+      try {
+        await w
+            .closeWalletSession()
+            .timeout(const Duration(seconds: 30), onTimeout: () => null);
+      } catch (e, st) {
+        debugPrint('[MobileNative] prepare open closeWalletSession: $e\n$st');
+      }
+      _openedWalletDisplayName = '';
+      _stopWalletHeartbeat();
+    }
+    if (Platform.isIOS && w.usesNativeFfi && (hadSession || _iosWalletSessionStale)) {
+      w.resetNativeFfiClient();
+      _walletRpc = null;
+      if (!await _ensureWalletRpcStarted()) {
+        return null;
+      }
+    }
+    return _walletRpc;
+  }
+
   Future<void> recoverWalletSessionAfterForeground() async {
     final ArqmaWalletRpcSession? w = _walletRpc;
     final String name = _openedWalletDisplayName;
@@ -2051,7 +2087,7 @@ final class MobileNativeBridge implements NativeBridge {
 
     await _restoreUiFromCheckpointIfNeeded();
 
-    if (await _walletRpcHealthy(w)) {
+    if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
       _walletTxListClearedForRescan = false;
       _whFetchTxPending = true;
       unawaited(_walletHeartbeatTick());
@@ -2066,10 +2102,11 @@ final class MobileNativeBridge implements NativeBridge {
     } catch (e, st) {
       debugPrint('[MobileNative] recover refresh: $e\n$st');
     }
-    if (await _walletRpcHealthy(w)) {
+    if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
       _walletTxListClearedForRescan = false;
       _whFetchTxPending = true;
       unawaited(_walletHeartbeatTick());
+      _iosWalletSessionStale = false;
       return;
     }
 
@@ -2146,6 +2183,7 @@ final class MobileNativeBridge implements NativeBridge {
     } else {
       await _nudgeWalletAfterResume(name);
     }
+    _iosWalletSessionStale = false;
     await _writeSessionCheckpoint();
   }
 
@@ -2841,8 +2879,24 @@ final class MobileNativeBridge implements NativeBridge {
       });
       return <String, dynamic>{};
     }
-    final ArqmaWalletRpcSession? w = _walletRpc;
+    ArqmaWalletRpcSession? w = _walletRpc;
     if (w == null) {
+      return <String, dynamic>{};
+    }
+    w = await _prepareWalletRpcForOpen(w);
+    if (w == null) {
+      _showNotification(
+        'negative',
+        _walletFfiBackendOfflineHint(),
+        12000,
+      );
+      _emit(<String, dynamic>{
+        'event': 'reset_wallet_status',
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Wallet RPC unavailable',
+        },
+      });
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
@@ -2900,6 +2954,7 @@ final class MobileNativeBridge implements NativeBridge {
     }
     _walletFullRescanUi = false;
     _sessionWalletPassword = password;
+    _iosWalletSessionStale = false;
     _refreshSessionPasswordDigest(password);
     _traceWalletOpen('starting _emitWalletOpenedUi', sw: sw);
     await _emitWalletOpenedUi(name);

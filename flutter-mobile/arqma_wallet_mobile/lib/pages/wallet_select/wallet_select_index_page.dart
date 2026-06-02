@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
@@ -41,23 +42,35 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
       if (!mounted) {
         return;
       }
-      final GatewayStore store = context.read<GatewayStore>();
-      final Map<String, dynamic>? merged = mergedFilesystemConfig(store.app);
-      unawaited(
-        context.read<AppApi>().send(
-              'wallet',
-              'list_wallets',
-              merged ?? <String, dynamic>{},
-            ),
-      );
-      if (store.hasOpenWallet) {
-        unawaited(
-          context.read<AppApi>().send('wallet', 'close_wallet', <String, dynamic>{}),
-        );
-      }
+      unawaited(_bootstrapAccountsPage());
     });
     _gatewayListenTarget = context.read<GatewayStore>();
     _gatewayListenTarget!.addListener(_onWalletStatus);
+  }
+
+  /// Close any lingering FFI session before listing accounts (avoids open_wallet races).
+  Future<void> _bootstrapAccountsPage() async {
+    if (!mounted) {
+      return;
+    }
+    final GatewayStore store = context.read<GatewayStore>();
+    final AppApi api = context.read<AppApi>();
+    if (store.hasOpenWallet) {
+      try {
+        await api.send('wallet', 'close_wallet', <String, dynamic>{});
+      } catch (e, st) {
+        debugPrint('[WalletSelect] close_wallet on index: $e\n$st');
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    final Map<String, dynamic>? merged = mergedFilesystemConfig(store.app);
+    await api.send(
+      'wallet',
+      'list_wallets',
+      merged ?? <String, dynamic>{},
+    );
   }
 
   @override

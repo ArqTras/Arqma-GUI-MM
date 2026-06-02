@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import 'wallet_native_ffi.dart';
 
-/// Runs [WalletNativeFfi] on a background isolate so Windows UI stays responsive during
-/// long `wallet2` FFI calls (scan, refresh, close_wallet).
+/// Runs [WalletNativeFfi] on a background isolate so desktop UI stays responsive during
+/// long `wallet2` FFI calls (open, scan, refresh, close_wallet).
 final class WalletFfiIsolateClient {
   WalletFfiIsolateClient._(this._commands, this._isolate, this._replies);
 
@@ -27,15 +27,31 @@ final class WalletFfiIsolateClient {
         errorsAreFatal: false,
         debugName: 'arqma_wallet_ffi',
       );
-      final Object? first = await replies.first.timeout(const Duration(seconds: 30));
-      if (first is! SendPort) {
-        isolate.kill(priority: Isolate.immediate);
-        replies.close();
-        return null;
-      }
-      final WalletFfiIsolateClient client =
-          WalletFfiIsolateClient._(first, isolate, replies);
-      client._sub = replies.listen(client._onWorkerMessage);
+      final Completer<SendPort> handshake = Completer<SendPort>();
+      WalletFfiIsolateClient? client;
+      final StreamSubscription<dynamic> sub = replies.listen((Object? message) {
+        if (client == null) {
+          if (message is SendPort) {
+            if (!handshake.isCompleted) {
+              handshake.complete(message);
+            }
+          } else if (!handshake.isCompleted) {
+            handshake.completeError(
+              StateError('FFI isolate handshake expected SendPort, got $message'),
+            );
+          }
+          return;
+        }
+        client!._onWorkerMessage(message);
+      });
+      final SendPort commands = await handshake.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('FFI isolate handshake');
+        },
+      );
+      client = WalletFfiIsolateClient._(commands, isolate, replies);
+      client._sub = sub;
       return client;
     } catch (e, st) {
       debugPrint('[WalletFfiIsolate] start failed: $e\n$st');

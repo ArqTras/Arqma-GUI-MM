@@ -112,32 +112,17 @@ final class ArqmaWalletRpcSession {
         (configData['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
     final int netCode = networkCodeForNetType(net);
 
-    ArqmaWalletRpcSession? fromMain;
-    ArqmaWalletRpcSession? fromIsolate;
-    if (Platform.isWindows) {
-      // Worker isolate first — UI-thread FFI blocks the event loop during scan/close and
-      // prevents Exit / window close from running (Future.timeout does not help).
-      fromIsolate =
-          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
-      if (fromIsolate != null) {
-        return fromIsolate;
-      }
-      fromMain =
-          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-      if (fromMain != null) {
-        return fromMain;
-      }
-    } else {
-      fromIsolate =
-          await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
-      if (fromIsolate != null) {
-        return fromIsolate;
-      }
-      fromMain =
-          await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
-      if (fromMain != null) {
-        return fromMain;
-      }
+    // Worker isolate first on desktop — in-process FFI on the UI isolate blocks Flutter
+    // during open_wallet / scan / close (Future.timeout does not unblock the event loop).
+    final ArqmaWalletRpcSession? fromIsolate =
+        await _tryStartNativeFfiIsolate(wdir, daemonAddr, netCode, saltHex);
+    if (fromIsolate != null) {
+      return fromIsolate;
+    }
+    final ArqmaWalletRpcSession? fromMain =
+        await _tryStartNativeFfiMain(wdir, daemonAddr, netCode, saltHex);
+    if (fromMain != null) {
+      return fromMain;
     }
 
     lastNativeStartupDiagnosis =
@@ -157,7 +142,7 @@ final class ArqmaWalletRpcSession {
     int netCode,
     String saltHex,
   ) async {
-    if (kIsWeb || !Platform.isWindows) {
+    if (kIsWeb) {
       return null;
     }
     if (Platform.environment['ARQMA_FLUTTER_FFI_NO_ISOLATE'] == '1') {
@@ -166,7 +151,7 @@ final class ArqmaWalletRpcSession {
     final WalletFfiIsolateClient? isolate = await WalletFfiIsolateClient.start();
     if (isolate == null) {
       debugPrint(
-          '[WalletRpc] Windows FFI isolate unavailable — using UI-thread FFI');
+          '[WalletRpc] FFI worker isolate unavailable — using UI-thread FFI');
       return null;
     }
     try {
