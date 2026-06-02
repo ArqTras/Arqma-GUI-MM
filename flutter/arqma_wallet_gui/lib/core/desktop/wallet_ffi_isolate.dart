@@ -168,7 +168,32 @@ final class _WalletFfiWorker {
 
   final SendPort _replyToMain;
   WalletNativeFfi? _ffi;
+  String? _walletDir;
+  String? _daemonAddress;
+  int _network = 0;
+  bool _configured = false;
   Future<void> _chain = Future<void>.value();
+
+  bool _ensureReady() {
+    _ffi ??= WalletNativeFfi.tryLoad();
+    if (_ffi == null) {
+      return false;
+    }
+    if (_configured) {
+      return true;
+    }
+    final String? wdir = _walletDir;
+    final String? daemon = _daemonAddress;
+    if (wdir == null || daemon == null) {
+      return false;
+    }
+    final int code = _ffi!.configure(wdir, daemon, _network);
+    _configured = code == 0;
+    if (!_configured) {
+      debugPrint('[WalletFfiIsolate] re-configure failed (code=$code)');
+    }
+    return _configured;
+  }
 
   void handle(Object? raw) {
     if (raw is! Map) {
@@ -192,16 +217,19 @@ final class _WalletFfiWorker {
           if (_ffi == null) {
             reply['code'] = -1;
           } else {
+            _walletDir = '${raw['walletDir']}';
+            _daemonAddress = '${raw['daemonAddress']}';
+            _network = (raw['network'] as num?)?.toInt() ?? 0;
             reply['code'] = _ffi!.configure(
-              '${raw['walletDir']}',
-              '${raw['daemonAddress']}',
-              (raw['network'] as num?)?.toInt() ?? 0,
+              _walletDir!,
+              _daemonAddress!,
+              _network,
             );
+            _configured = (reply['code'] as int? ?? -1) == 0;
           }
           break;
         case 'call':
-          _ffi ??= WalletNativeFfi.tryLoad();
-          if (_ffi == null) {
+          if (!_ensureReady()) {
             reply['result'] = null;
           } else {
             final Object? params = raw['params'];
@@ -214,10 +242,14 @@ final class _WalletFfiWorker {
         case 'reset':
           _ffi?.reset();
           _ffi = null;
+          _configured = false;
           break;
         case 'shutdown':
           _ffi?.reset();
           _ffi = null;
+          _configured = false;
+          _walletDir = null;
+          _daemonAddress = null;
           break;
         default:
           reply['error'] = 'unknown op: $op';

@@ -48,6 +48,7 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.14](https://gith
 
 ### Desktop Flutter (5.1.1+5, FFI 1.0.14)
 
+- **Open wallet retry:** After a failed `open_wallet` or account switch, desktop FFI **re-configures** the native client (fixes spurious `open_wallet failed` / `call_json code=-4` on retry without restarting the app).
 - **macOS wallet open:** FFI worker isolate stays responsive; `open_wallet` / restore run on an **8 MiB stack pthread** (fixes crash on large wallet caches; CLI parity).
 - **Daemon target:** When local `arqmad` RPC is down, wallet FFI uses configured **remote** `host:port` (same path CLI users expect).
 - **Open flow:** Serialized in-process FFI; no `refresh_async_start` during `open_wallet`; post-open UI loads asynchronously; parallel `getheight` / `getbalance` / `get_address`.

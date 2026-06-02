@@ -117,15 +117,30 @@ Future<String?> resolveWalletDaemonAddress(
 /// Build: `rust/tool/build_wallet_flutter_ffi.sh` (Arqma upstream per `rust/docs/NATIVE_WALLET2.md`).
 /// Override library path with **`ARQMA_FLUTTER_WALLET_FFI`**.
 final class ArqmaWalletRpcSession {
-  ArqmaWalletRpcSession._native(this._native, this.rpcPbkdf2SaltHex)
-      : _isolateClient = null;
+  ArqmaWalletRpcSession._native(
+    this._native,
+    this.rpcPbkdf2SaltHex,
+    this._ffiWalletDir,
+    this._ffiDaemonAddress,
+    this._ffiNetworkCode,
+  ) : _isolateClient = null;
 
   ArqmaWalletRpcSession._nativeIsolate(
-      this._isolateClient, this.rpcPbkdf2SaltHex)
-      : _native = null;
+    this._isolateClient,
+    this.rpcPbkdf2SaltHex,
+    this._ffiWalletDir,
+    this._ffiDaemonAddress,
+    this._ffiNetworkCode,
+  ) : _native = null;
 
   final WalletNativeFfi? _native;
   final WalletFfiIsolateClient? _isolateClient;
+
+  /// Saved for FFI re-[configure] after [closeWalletSession] / worker [reset].
+  final String _ffiWalletDir;
+  final String _ffiDaemonAddress;
+  final int _ffiNetworkCode;
+  bool _nativeFfiConfigured = true;
 
   /// PBKDF2 salt for GUI password checks (same triple shape as legacy RPC auth).
   final String rpcPbkdf2SaltHex;
@@ -228,7 +243,13 @@ final class ArqmaWalletRpcSession {
         if (walletJsonRpcNoError(r)) {
           debugPrint(
               '[WalletRpc] native wallet2 FFI ready on worker isolate (get_languages OK)');
-          return ArqmaWalletRpcSession._nativeIsolate(isolate, saltHex);
+          return ArqmaWalletRpcSession._nativeIsolate(
+            isolate,
+            saltHex,
+            wdir,
+            daemonAddr,
+            netCode,
+          );
         }
       }
       debugPrint(
@@ -263,11 +284,46 @@ final class ArqmaWalletRpcSession {
           await ffi.callJsonRpc('get_languages', <String, dynamic>{});
       if (walletJsonRpcNoError(r)) {
         debugPrint('[WalletRpc] native wallet2 FFI ready (get_languages OK)');
-        return ArqmaWalletRpcSession._native(ffi, saltHex);
+        return ArqmaWalletRpcSession._native(
+          ffi,
+          saltHex,
+          wdir,
+          daemonAddr,
+          netCode,
+        );
       }
     }
     ffi.reset();
     return null;
+  }
+
+  Future<bool> _reconfigureNativeFfi() async {
+    final WalletFfiIsolateClient? iso = _isolateClient;
+    if (iso != null) {
+      final int cfg = await iso.configure(
+        _ffiWalletDir,
+        _ffiDaemonAddress,
+        _ffiNetworkCode,
+      );
+      if (cfg != 0) {
+        debugPrint('[WalletRpc] FFI isolate re-configure failed (code=$cfg)');
+      }
+      return cfg == 0;
+    }
+    final WalletNativeFfi? nat = _native;
+    if (nat == null) {
+      return false;
+    }
+    final int cfg = nat.configure(
+      _ffiWalletDir,
+      _ffiDaemonAddress,
+      _ffiNetworkCode,
+    );
+    _nativeFfiConfigured = cfg == 0;
+    if (!_nativeFfiConfigured) {
+      debugPrint('[WalletRpc] native FFI re-configure failed (code=$cfg)');
+    }
+    return _nativeFfiConfigured;
   }
 
   Future<Map<String, dynamic>?> call(String method, Object params) {
@@ -278,16 +334,21 @@ final class ArqmaWalletRpcSession {
   }
 
   Future<Map<String, dynamic>?> _callUnserialized(
-      String method, Object params) {
+      String method, Object params) async {
     final WalletFfiIsolateClient? iso = _isolateClient;
     if (iso != null) {
       return iso.callJsonRpc(method, params);
     }
     final WalletNativeFfi? n = _native;
     if (n != null) {
+      if (!_nativeFfiConfigured) {
+        if (!await _reconfigureNativeFfi()) {
+          return null;
+        }
+      }
       return n.callJsonRpc(method, params);
     }
-    return Future<Map<String, dynamic>?>.value(null);
+    return null;
   }
 
   Future<void> closeWalletSession(
@@ -302,6 +363,11 @@ final class ArqmaWalletRpcSession {
       try {
         await iso.reset().timeout(const Duration(seconds: 3));
       } catch (_) {}
+      try {
+        await _reconfigureNativeFfi();
+      } catch (e, st) {
+        debugPrint('[WalletRpc] re-configure after closeWalletSession: $e\n$st');
+      }
       return;
     }
     final WalletNativeFfi? nat = _native;
@@ -359,6 +425,11 @@ final class ArqmaWalletRpcSession {
       try {
         await iso.reset().timeout(const Duration(seconds: 2));
       } catch (_) {}
+      try {
+        await _reconfigureNativeFfi();
+      } catch (e, st) {
+        debugPrint('[WalletRpc] re-configure after forceResetNativeFfi: $e\n$st');
+      }
       return;
     }
     if (_native == null || kIsWeb) {
@@ -372,6 +443,8 @@ final class ArqmaWalletRpcSession {
         debugName: 'arqma_wallet_force_reset',
       );
       await Future<void>.delayed(Duration(milliseconds: watchdogMs + 400));
+      _nativeFfiConfigured = false;
+      await _reconfigureNativeFfi();
     } catch (e, st) {
       debugPrint('[WalletRpc] forceResetNativeFfi: $e\n$st');
     } finally {
