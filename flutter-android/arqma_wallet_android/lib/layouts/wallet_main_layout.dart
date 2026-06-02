@@ -9,6 +9,7 @@ import '../app_nav.dart';
 import '../core/services/native_bridge.dart';
 import '../core/mobile/wallet_activity.dart';
 import '../core/mobile/wallet_biometric_unlock.dart';
+import '../core/mobile/wallet_screen_wakelock.dart';
 import '../core/theme/arqma_colors.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
@@ -96,8 +97,12 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
         _pauseInactivityForBackground();
+        unawaited(WalletScreenWakelock.disable());
       case AppLifecycleState.resumed:
         _resumeInactivityAfterForeground();
+        if (mounted) {
+          unawaited(WalletScreenWakelock.enable());
+        }
       case AppLifecycleState.detached:
         break;
     }
