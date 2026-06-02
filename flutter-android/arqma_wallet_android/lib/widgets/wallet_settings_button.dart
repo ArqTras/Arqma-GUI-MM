@@ -15,7 +15,10 @@ import '../core/theme/arqma_colors.dart';
 
 /// Parity with `components/wallet_settings.vue` (menu + core wallet operations).
 class WalletSettingsButton extends StatefulWidget {
-  const WalletSettingsButton({super.key});
+  const WalletSettingsButton({super.key, this.stackedUnderMenu = false});
+
+  /// Centered column under the AppBar hamburger (account name + chevron).
+  final bool stackedUnderMenu;
 
   @override
   State<WalletSettingsButton> createState() => _WalletSettingsButtonState();
@@ -589,19 +592,52 @@ class _WalletSettingsButtonState extends State<WalletSettingsButton> {
             ? loc.tr('components.wallet_settings.settings')
             : snap.label;
 
+        final Widget menuChild = widget.stackedUnderMenu
+            ? Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 96),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: ArqmaColors.textSecondary,
+                          fontSize: 11,
+                          height: 1.1,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        color: ArqmaColors.textSecondary,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label,
+                        style:
+                            const TextStyle(color: ArqmaColors.textSecondary)),
+                    const Icon(Icons.arrow_drop_down,
+                        color: ArqmaColors.textSecondary),
+                  ],
+                ),
+              );
+
         return PopupMenuButton<String>(
       useRootNavigator: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label,
-                style: const TextStyle(color: ArqmaColors.textSecondary)),
-            const Icon(Icons.arrow_drop_down, color: ArqmaColors.textSecondary),
-          ],
-        ),
-      ),
+      child: menuChild,
       onSelected: (String v) async {
         switch (v) {
           case 'keys':
