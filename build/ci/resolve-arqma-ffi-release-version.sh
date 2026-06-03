@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Print the ArqTras/FFI release tag to use for prebuilt downloads.
-# Default: GitHub Latest ArqTras/FFI release.
-# Desktop GUI (Windows/Linux/macOS) always uses Latest via ensure-desktop-latest-ffi.* (ignores pin).
 # Mobile/Android CI may pin: ARQMA_FFI_RELEASE_VERSION=1.0.x
+# Project policy: always Latest via ensure-latest-ffi.* (Windows/Linux/macOS/Android/iOS).
+# Emergency override only: ARQMA_FFI_ALLOW_PIN=1 or legacy ARQMA_FFI_DESKTOP_ALLOW_PIN=1
 set -euo pipefail
 
 REPO="${ARQMA_FFI_REPO:-ArqTras/FFI}"

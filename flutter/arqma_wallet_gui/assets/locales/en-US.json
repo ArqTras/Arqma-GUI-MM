@@ -398,7 +398,8 @@
             "scanning": "Scanning",
             "synced": "Synced",
             "ready": "Ready",
-            "blocks_left": "≈{n} blocks to scan"
+            "blocks_left": "≈{n} blocks to scan",
+            "cleartext_remote_warning": "Remote daemon sync uses unencrypted HTTP — avoid untrusted networks"
         },
         "mainmenu": {
             "daemon_settings": "Daemon Settings",

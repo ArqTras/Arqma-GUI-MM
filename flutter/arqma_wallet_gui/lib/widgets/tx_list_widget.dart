@@ -6,6 +6,7 @@ import '../core/app_api.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../i18n/locale_controller.dart';
 import '../store/gateway_store.dart';
+import 'wallet_tab_visibility.dart';
 import 'format_arqma.dart';
 import 'tx_details_dialog.dart';
 import 'tx_type_icon.dart';
@@ -260,7 +261,7 @@ class TxListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final List<dynamic> txs = _transactionsForDisplay(
       store,
       filterAddress: filterAddress,

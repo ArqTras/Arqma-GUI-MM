@@ -56,6 +56,9 @@ Future<String> readHttpResponseBodyUtf8(HttpClientResponse resp) async {
 
 /// Minimal JSON-RPC client for `arqmad` (`get_info`), same wire format as Tauri `daemon_post`.
 ///
+/// Uses plain HTTP (`http://host:port/json_rpc`) — Arqma reference daemons do not expose
+/// TLS on the default RPC port. UI surfaces a cleartext warning for remote nodes.
+///
 /// **Tauri parity:** `tauri-app/src-tauri/src/lib.rs` builds the shared `reqwest::Client` with
 /// **`.timeout(Duration::from_secs(120))`** for daemon + wallet HTTP. The daemon heartbeat uses
 /// `get_info` only (see `daemon_heartbeat.rs`). Wallet **`getheight`** is **wallet-rpc**, not `arqmad`.

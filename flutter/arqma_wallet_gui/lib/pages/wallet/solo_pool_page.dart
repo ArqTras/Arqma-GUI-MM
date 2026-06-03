@@ -13,6 +13,7 @@ import '../../core/services/native_bridge.dart';
 import '../../core/utils/deep_merge.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../core/theme/arqma_colors.dart';
 
 // --- Parity helpers with `pages/wallet/solo-pool.vue` (chart + VarDiff snapshot) ---
@@ -624,7 +625,7 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final Map<String, dynamic> poolState = Map<String, dynamic>.from(
         store.raw['pool'] as Map? ?? <String, dynamic>{});
     final int status = (poolState['status'] as num?)?.toInt() ?? 0;
