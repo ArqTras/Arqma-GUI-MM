@@ -2,6 +2,18 @@
 
 Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.14](https://github.com/ArqTras/FFI/releases/tag/1.0.14)** (large-stack `open_wallet`, serialized FFI, deferred refresh on open). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
 
+### Release refresh (2026-06-03)
+
+Desktop bundles rebuilt from `main` after the Flutter multi-platform audit ([#14](https://github.com/ArqTras/Arqma-GUI-MM/pull/14)):
+
+- Release/debug env guard blocks unsafe `String.fromEnvironment` overrides in store builds.
+- Bridge log redaction, remote node validation, wallet sync lane hardening (iOS background/foreground).
+- CI: Flutter tests for desktop, mobile (iOS tree), and Android; pinned `pubspec.lock` in all three app trees.
+- Android release signing wired in Gradle + CI (Play/AAB builds require repo signing secrets).
+- FFI **Latest** policy in CI via `ensure-latest-ffi` scripts.
+
+Android and iOS assets on this release page are unchanged unless you trigger **Android release** / **iOS release** workflows separately.
+
 ### Solo pool (desktop — Windows, Linux, macOS)
 
 - **Block submission:** Detect network-valid blocks using the same difficulty rule as universal nodejs-pool (`hashDiff`), not only a compact 4-byte target approximation.
