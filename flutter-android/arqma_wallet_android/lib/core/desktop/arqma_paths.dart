@@ -171,11 +171,10 @@ String? sanitizeWalletBaseName(String raw) {
   }
   String base = normalized;
   if (normalized.contains('/')) {
-    final bool absolute = Platform.isWindows
-        ? RegExp(r'^[A-Za-z]:/').hasMatch(normalized) ||
-            normalized.startsWith('//')
-        : normalized.startsWith('/');
-    if (!absolute) {
+    final bool windowsAbsolute = RegExp(r'^[A-Za-z]:/').hasMatch(normalized) ||
+        normalized.startsWith('//');
+    final bool unixAbsolute = normalized.startsWith('/');
+    if (!windowsAbsolute && !unixAbsolute) {
       return null;
     }
     base = normalized.substring(normalized.lastIndexOf('/') + 1);

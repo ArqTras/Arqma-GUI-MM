@@ -7,6 +7,7 @@ void main() {
     expect(sanitizeWalletBaseName('wallet-1.test'), 'wallet-1.test');
     expect(sanitizeWalletBaseName('  MyWallet  '), 'MyWallet');
     expect(sanitizeWalletBaseName(r'C:\wallets\ArqTras'), 'ArqTras');
+    expect(sanitizeWalletBaseName('/home/user/wallets/ArqTras'), 'ArqTras');
   });
 
   test('sanitizeWalletBaseName rejects traversal and separators', () {
