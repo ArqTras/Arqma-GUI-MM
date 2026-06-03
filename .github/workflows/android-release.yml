@@ -1,5 +1,5 @@
 # Wallet FFI: always GitHub Latest [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest) (all platforms).
-# Release signing: secrets ARQMA_ANDROID_KEYSTORE_* (see android/app/build.gradle.kts).
+# Release builds use debug signing (no keystore secrets in CI). Play Store upload needs a separately signed AAB.
 # Attaches to GitHub Release tag 5.1.1 / v5.1.1 (workflow_dispatch or tag push).
 # Re-runs overwrite existing APK/AAB/manifest/checksums on that release (overwrite_files: true).
 name: Android release (Flutter)
@@ -90,36 +90,9 @@ jobs:
             sed -i '/^org\.gradle\.java\.home=/d' "$f"
           fi
 
-      - name: Require Android release signing secrets
-        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-        env:
-          KEYSTORE_B64: ${{ secrets.ARQMA_ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          set -eu
-          if [ -z "${KEYSTORE_B64}" ]; then
-            echo "::error::Set GitHub secrets ARQMA_ANDROID_KEYSTORE_BASE64, ARQMA_ANDROID_KEYSTORE_PASSWORD, ARQMA_ANDROID_KEY_ALIAS, ARQMA_ANDROID_KEY_PASSWORD"
-            exit 1
-          fi
-
-      - name: Configure Android release keystore
-        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
-        env:
-          KEYSTORE_B64: ${{ secrets.ARQMA_ANDROID_KEYSTORE_BASE64 }}
-          ARQMA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ARQMA_ANDROID_KEYSTORE_PASSWORD }}
-          ARQMA_ANDROID_KEY_ALIAS: ${{ secrets.ARQMA_ANDROID_KEY_ALIAS }}
-          ARQMA_ANDROID_KEY_PASSWORD: ${{ secrets.ARQMA_ANDROID_KEY_PASSWORD }}
-        run: |
-          set -eu
-          KS="/tmp/arqma-release.keystore"
-          echo "${KEYSTORE_B64}" | base64 -d > "${KS}"
-          echo "ARQMA_ANDROID_KEYSTORE_PATH=${KS}" >> "${GITHUB_ENV}"
-
       - name: Package Android release (FFI prebuilt + APK + AAB)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ARQMA_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ARQMA_ANDROID_KEYSTORE_PASSWORD }}
-          ARQMA_ANDROID_KEY_ALIAS: ${{ secrets.ARQMA_ANDROID_KEY_ALIAS }}
-          ARQMA_ANDROID_KEY_PASSWORD: ${{ secrets.ARQMA_ANDROID_KEY_PASSWORD }}
         run: bash build/ci/package-flutter-android-release.sh
 
       - name: Upload Android artifacts

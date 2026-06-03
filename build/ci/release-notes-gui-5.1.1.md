@@ -9,7 +9,7 @@ Desktop bundles rebuilt from `main` after the Flutter multi-platform audit ([#14
 - Release/debug env guard blocks unsafe `String.fromEnvironment` overrides in store builds.
 - Bridge log redaction, remote node validation, wallet sync lane hardening (iOS background/foreground).
 - CI: Flutter tests for desktop, mobile (iOS tree), and Android; pinned `pubspec.lock` in all three app trees.
-- Android release signing wired in Gradle + CI (Play/AAB builds require repo signing secrets).
+- Android CI/release builds use debug signing (no keystore secrets); sideload APK from GitHub Release.
 - FFI **Latest** policy in CI via `ensure-latest-ffi` scripts.
 
 Android and iOS assets on this release page are unchanged unless you trigger **Android release** / **iOS release** workflows separately.
