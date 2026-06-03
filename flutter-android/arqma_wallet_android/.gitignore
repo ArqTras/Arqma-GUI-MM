@@ -9,3 +9,4 @@ tool/.venv-screenshots/
 *.iml
 .idea/
 *.lock
+!pubspec.lock

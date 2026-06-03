@@ -77,7 +77,7 @@ GitHub Actions warns `actions/checkout@v4` on Node 20 until Sept 2026. Informati
 
 | ID | Item | Status after fixes |
 |----|------|-------------------|
-| N-002 | pubspec.lock | Artifact upload + commit locks |
+| N-002 | pubspec.lock | **Closed** — committed from CI |
 | N-004 | Debug env in release | **Closed** (full guard coverage) |
 | N-006 | iOS sync overlap | **Mitigated** (`_walletSyncLane`) |
 | N-009 | Dependabot | Open |

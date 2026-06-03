@@ -67,7 +67,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 | ID | Area | Severity | Status | Description | Evidence | Recommendation |
 |----|------|----------|--------|-------------|----------|----------------|
 | N-001 | CI | Medium | **FIXED** | Mobile/Android not in `flutter-test.yml` | Matrix: desktop + mobile (iOS tree) + android | — |
-| N-002 | CI | Medium | **OPEN** | No `pubspec.lock` committed | 0 lock files in repo | Run `flutter pub get` locally and commit locks |
+| N-002 | CI | Medium | **FIXED** | No `pubspec.lock` committed | Lock files from CI run 26879372063 | Keep in sync on pubspec.yaml changes |
 | N-003 | CI | — | **WON'T FIX** | iOS build not in GitHub Actions | Manual `package_mobile_release.sh` | **By design** — no macOS/iOS Actions workflow; iOS tree covered by unit tests |
 | N-004 | Security | Medium | **FIXED** | Debug env vars honored in release | Bridges + `arqma_executable_resolve` now use `flutter_env_guard` | — |
 | N-005 | Security | Medium | **DOCUMENTED** | Biometric unlock stores session password | Threat model comment in `wallet_biometric_unlock.dart` | Token-based unlock optional future work |
@@ -191,7 +191,7 @@ Wszystkie issue audytu **#2–#13 zamknięte**.
 | ID | Opis | Priorytet |
 |----|------|-----------|
 | N-001 | CI nie testuje mobile/android | **Naprawione** — matrix w Actions |
-| N-002 | Brak pubspec.lock | **Otwarte** — wymaga lokalnego `flutter pub get` |
+| N-002 | Brak pubspec.lock | **Naprawione** — locki z CI |
 | N-003 | Brak iOS w Actions | **Zamierzone** — bez workflow iOS; testy iOS tree w CI |
 | N-004 | Debug env w release | **Naprawione** (pełne pokrycie guard) |
 | N-006 | iOS bg/fg overlap | **Złagodzone** (`_walletSyncLane`) |
