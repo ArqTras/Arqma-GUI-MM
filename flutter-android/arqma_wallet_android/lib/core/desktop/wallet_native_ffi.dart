@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
-import 'bridge_log_redact.dart';
 import 'flutter_env_guard.dart';
 
 /// Optional absolute path to `libarqma_wallet_flutter_ffi.{dylib,so}` or `arqma_wallet_flutter_ffi.dll`.
