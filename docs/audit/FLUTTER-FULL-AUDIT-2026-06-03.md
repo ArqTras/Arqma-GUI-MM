@@ -66,18 +66,18 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 
 | ID | Area | Severity | Status | Description | Evidence | Recommendation |
 |----|------|----------|--------|-------------|----------|----------------|
-| N-001 | CI | Medium | **OPEN** | Mobile/Android not in `flutter-test.yml` | Only `flutter/arqma_wallet_gui` job | Add matrix jobs or shared melos script |
-| N-002 | CI | Medium | **OPEN** | No `pubspec.lock` committed | 0 lock files in repo | Commit locks per app; dependabot audit |
-| N-003 | CI | Medium | **OPEN** | iOS build not in GitHub Actions | `package_mobile_release.sh` manual | macOS runner job or release gate doc |
-| N-004 | Security | Medium | **OPEN** | Debug env vars still honored in **release** | `ARQMA_FLUTTER_NO_WALLET_RPC`, `ARQMA_FLUTTER_DEBUG_WALLET`, `ARQMA_DAEMON` in bridges | Gate via `flutter_env_guard` like stub/FFI |
-| N-005 | Security | Medium | **OPEN** | Biometric unlock stores session password | `wallet_biometric_unlock.dart` + secure storage | Document threat model; optional token-based unlock |
+| N-001 | CI | Medium | **FIXED** | Mobile/Android not in `flutter-test.yml` | Matrix: desktop + mobile (iOS tree) + android | — |
+| N-002 | CI | Medium | **OPEN** | No `pubspec.lock` committed | 0 lock files in repo | Run `flutter pub get` locally and commit locks |
+| N-003 | CI | — | **WON'T FIX** | iOS build not in GitHub Actions | Manual `package_mobile_release.sh` | **By design** — no macOS/iOS Actions workflow; iOS tree covered by unit tests |
+| N-004 | Security | Medium | **FIXED** | Debug env vars honored in release | Bridges + `arqma_executable_resolve` now use `flutter_env_guard` | — |
+| N-005 | Security | Medium | **DOCUMENTED** | Biometric unlock stores session password | Threat model comment in `wallet_biometric_unlock.dart` | Token-based unlock optional future work |
 | N-006 | Stability | Medium | **OPEN** | iOS background + foreground recovery overlap | `mobile_background_wallet_sync.dart`, `_iosWalletSessionStale` | Single coordinator mutex (R-015 carry-over) |
 | N-007 | Performance | Low | **OPEN** | Non-tab widgets still `watch<GatewayStore>` | `swap_signature_list.dart`, dialogs, wallet-select pages | OK outside tabs; optional `Selector` |
 | N-008 | Performance | Low | **OPEN** | UI double-tap open_wallet before bridge lane | `wallet_select_index_page.dart:255` — no UI `_openInFlight` | Optional UI debounce (bridge lane sufficient) |
 | N-009 | Supply chain | Medium | **OPEN** | GitHub Dependabot: 23 vulnerabilities (default branch) | Push notifications from GitHub | Triage `file_picker`, transitive deps |
 | N-010 | Maintainability | Medium | **OPEN** | Three duplicated trees (desktop/mobile/android) | ~59 files changed in review span 3 copies | Shared package / melos long-term |
 | N-011 | Testing | High | **OPEN** | No integration / e2e tests | No `integration_test/` | `integration_test` smoke with stub FFI |
-| N-012 | Dependencies | Low | **OPEN** | `file_picker` skew desktop `^8.1.4` vs mobile `^10.3.8` | `pubspec.yaml` files | Align major versions when safe |
+| N-012 | Dependencies | Low | **FIXED** | `file_picker` skew desktop `^8.1.4` vs mobile `^10.3.8` | Desktop aligned to `^10.3.8` | — |
 
 ---
 
@@ -96,7 +96,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 | Cleartext RPC warning | ✓ footer | ✓ | ✓ | ✓ banner | ✓ banner |
 | Local arqmad / solo pool | ✓ | ✓ | ✓ | — | — |
 | Release signing | Desktop unsigned zip/dmg | same | same | ✓ keystore CI | App Store manual |
-| CI automated test | ✓ ubuntu | ✓ | ✓ | — | — |
+| CI automated test | ✓ ubuntu | ✓ | ✓ | ✓ | ✓ (iOS tree, no device build) |
 
 ---
 
@@ -104,7 +104,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 
 | Workflow | Trigger | FFI policy | Tests | Notes |
 |----------|---------|------------|-------|-------|
-| `flutter-test.yml` | push/PR `main`, `review` | n/a | analyze + test desktop | **Gate before merge** |
+| `flutter-test.yml` | push/PR `main`, `review` | n/a | analyze + test **desktop + mobile (iOS tree) + android** | **Gate before merge**; no iOS build job |
 | `desktop-release.yml` | tag / `main` | `ensure-latest-ffi` | none (relies on flutter-test) | Win/Linux/macOS artifacts |
 | `android-release.yml` | tag / dispatch | `ensure-latest-ffi` via package script | none | Requires `ARQMA_ANDROID_KEYSTORE_*` secrets |
 
@@ -116,9 +116,9 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 
 | App | Test files | Real tests | Placeholder |
 |-----|------------|------------|-------------|
-| Desktop | 4 files | 5 cases (PBKDF2, address book, smoke, safe name ×2) | — |
-| Mobile | 1 file | 0 | `expect(true, isTrue)` |
-| Android | 1 file | 0 | same placeholder |
+| Desktop | 5 files | 7 cases (PBKDF2, address book, smoke, safe name ×2, redact ×2) | — |
+| Mobile | 3 files | 8 cases (safe name ×2, remote nodes ×4, redact ×2) | — |
+| Android | 3 files | 8 cases (same as mobile) | — |
 
 **Gap:** no tests for `sanitizeWalletBaseName`, `isValidMobileRemoteHost`, `redactBridgeArgs`, bridge password logic in mobile tree.
 
@@ -139,7 +139,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 ### Medium-term
 1. **Melos / shared package** for `core/desktop`, bridges, `gateway_store` (reduce triplication).
 2. **integration_test** smoke (wallet select → stub open).
-3. **iOS CI** on macOS runner (build only, no device farm).
+3. **iOS CI** on macOS runner — **not planned**; iOS release stays manual; iOS Dart code tested via `flutter-mobile` job.
 4. TLS termination documentation for node operators (reverse proxy); optional `https://` probe fallback when daemons support it.
 
 ---
@@ -190,11 +190,11 @@ Wszystkie issue audytu **#2–#13 zamknięte**.
 
 | ID | Opis | Priorytet |
 |----|------|-----------|
-| N-001 | CI nie testuje mobile/android | Średni |
-| N-002 | Brak pubspec.lock | Średni |
-| N-003 | Brak iOS w Actions | Średni |
-| N-004 | Debug env w release (NO_WALLET_RPC, DEBUG_WALLET) | Średni |
-| N-005 | Hasło w Keychain przy biometrii | Średni |
+| N-001 | CI nie testuje mobile/android | **Naprawione** — matrix w Actions |
+| N-002 | Brak pubspec.lock | **Otwarte** — wymaga lokalnego `flutter pub get` |
+| N-003 | Brak iOS w Actions | **Zamierzone** — bez workflow iOS; testy iOS tree w CI |
+| N-004 | Debug env w release | **Naprawione** |
+| N-005 | Hasło w Keychain przy biometrii | **Udokumentowane** (threat model) |
 | N-011 | Brak integration_test | Wysoki |
 | N-009 | Dependabot 23 alertów | Średni |
 

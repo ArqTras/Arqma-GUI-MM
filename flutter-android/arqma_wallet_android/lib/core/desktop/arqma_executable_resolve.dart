@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'flutter_env_guard.dart';
+
 /// Same resolution order as [arqma_wallet_rpc::upstream_paths::resolve_arqma_executable]
 /// plus bundle-style paths from [native_bin::bundled_exe_candidates] (without Tauri `resource_dir`).
 enum ArqmaExecutableKind {
@@ -31,10 +33,10 @@ String _pickExeName(ArqmaExecutableKind k) =>
 
 String? _directEnvPath(ArqmaExecutableKind k) {
   final String? v = switch (k) {
-    ArqmaExecutableKind.daemon => Platform.environment['ARQMA_DAEMON'],
+    ArqmaExecutableKind.daemon => flutterDebugEnvPath('ARQMA_DAEMON'),
     ArqmaExecutableKind.flutterSoloPool =>
-      Platform.environment['ARQMA_FLUTTER_SOLO_POOL'],
-    ArqmaExecutableKind.walletRpc => Platform.environment['ARQMA_WALLET_RPC'],
+      flutterDebugEnvPath('ARQMA_FLUTTER_SOLO_POOL'),
+    ArqmaExecutableKind.walletRpc => flutterDebugEnvPath('ARQMA_WALLET_RPC'),
   };
   if (v == null || v.trim().isEmpty) {
     return null;
@@ -226,14 +228,14 @@ String? resolveArqmaExecutable(ArqmaExecutableKind kind) {
   if (nearCheckout != null) {
     return nearCheckout;
   }
-  final String? build = Platform.environment['ARQMA_BUILD_DIR'];
+  final String? build = flutterDebugEnvPath('ARQMA_BUILD_DIR');
   if (build != null && build.isNotEmpty) {
     final String? p = _exeInBinRoot(build, kind);
     if (p != null) {
       return p;
     }
   }
-  final String? prefix = Platform.environment['ARQMA_INSTALL_PREFIX'];
+  final String? prefix = flutterDebugEnvPath('ARQMA_INSTALL_PREFIX');
   if (prefix != null && prefix.isNotEmpty) {
     final String? p = _exeInBinRoot(prefix, kind);
     if (p != null) {

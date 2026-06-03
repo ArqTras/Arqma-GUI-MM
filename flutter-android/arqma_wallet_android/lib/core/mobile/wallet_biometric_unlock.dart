@@ -28,6 +28,11 @@ class PendingFaceIdEnable {
 }
 
 /// Stores wallet passwords in the iOS Keychain / Android Keystore and unlocks via biometrics.
+///
+/// **Threat model:** the full wallet password is stored in OS secure storage, keyed per
+/// wallet. Anyone who can unlock the device (biometrics or device PIN) can read it;
+/// backups/restores may expose Keychain data depending on OS settings. This trades
+/// convenience for offline unlock — users with higher threat models should skip biometrics.
 class WalletBiometricUnlock {
   WalletBiometricUnlock._();
 

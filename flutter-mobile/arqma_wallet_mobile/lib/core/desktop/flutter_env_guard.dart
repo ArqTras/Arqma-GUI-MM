@@ -3,6 +3,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 /// True only in debug/profile when [name]=1. Release builds ignore env overrides.
+///
+/// Gated vars include: `ARQMA_FLUTTER_USE_STUB`, `ARQMA_FLUTTER_WALLET_FFI`,
+/// `ARQMA_FLUTTER_FFI_NO_ISOLATE`, `ARQMA_FLUTTER_NO_WALLET_RPC`,
+/// `ARQMA_FLUTTER_DEBUG_WALLET`, `ARQMA_DAEMON`, `ARQMA_WALLET_RPC`,
+/// `ARQMA_BUILD_DIR`, `ARQMA_INSTALL_PREFIX`.
 bool flutterDebugEnvFlag(String name) {
   if (kReleaseMode) {
     return false;

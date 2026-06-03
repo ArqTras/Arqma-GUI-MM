@@ -1,4 +1,5 @@
-# Run Flutter unit tests before desktop/mobile release builds merge.
+# Run Flutter analyze + unit tests for desktop, mobile (iOS tree), and Android.
+# iOS build/signing stays manual — no macOS runner job here.
 name: Flutter test
 
 on:
@@ -26,13 +27,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  desktop-unit-tests:
-    name: Desktop unit tests
+  flutter-unit-tests:
+    name: ${{ matrix.label }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Desktop
+            working-directory: flutter/arqma_wallet_gui
+          - label: Mobile (iOS tree)
+            working-directory: flutter-mobile/arqma_wallet_mobile
+          - label: Android
+            working-directory: flutter-android/arqma_wallet_android
     defaults:
       run:
-        working-directory: flutter/arqma_wallet_gui
+        working-directory: ${{ matrix.working-directory }}
     steps:
       - uses: actions/checkout@v4
 

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../desktop/flutter_env_guard.dart';
 import '../desktop/arqma_daemon_launcher.dart';
 import '../desktop/arqma_desktop_defaults.dart';
 import '../desktop/arqma_executable_resolve.dart';
@@ -32,12 +33,9 @@ import '../wallet_daemon_tip_tolerance.dart';
 import '../utils/deep_merge.dart';
 import 'native_bridge.dart';
 
-/// Timeline logs for “open wallet” / post-open RPCs. Enable in **release** with:
-/// `ARQMA_FLUTTER_DEBUG_WALLET=1` (PowerShell: `$env:ARQMA_FLUTTER_DEBUG_WALLET='1'`).
-/// Always on in **debug** (`flutter run`). Capture: console or `flutter run -d windows -v`.
+/// Timeline logs for “open wallet” / post-open RPCs (debug/profile only).
 bool _walletOpenTraceEnabled() =>
-    kDebugMode ||
-    (!kIsWeb && Platform.environment['ARQMA_FLUTTER_DEBUG_WALLET'] == '1');
+    kDebugMode || flutterDebugEnvFlag('ARQMA_FLUTTER_DEBUG_WALLET');
 
 void _traceWalletOpen(String phase, {Stopwatch? sw}) {
   if (!_walletOpenTraceEnabled()) {
@@ -1565,7 +1563,7 @@ final class DesktopNativeBridge implements NativeBridge {
     await _syncSoloPoolSidecar(configData);
     _startHeartbeat(configData);
 
-    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
+    if (!flutterDebugEnvFlag('ARQMA_FLUTTER_NO_WALLET_RPC')) {
       _walletRpc = await ArqmaWalletRpcSession.tryStart(configData);
       if (_walletRpc == null) {
         _showNotification(
@@ -1584,7 +1582,7 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   void _emitWalletBackendState() {
-    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {
+    if (flutterDebugEnvFlag('ARQMA_FLUTTER_NO_WALLET_RPC')) {
       return;
     }
     final ArqmaWalletRpcSession? s = _walletRpc;
@@ -1605,7 +1603,7 @@ final class DesktopNativeBridge implements NativeBridge {
   /// open wallet can work when the node comes back, and the footer shows `wallet_backend`.
   Future<void> _bestEffortWalletRpcAfterFailure(
       Map<String, dynamic> configData) async {
-    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] == '1') {
+    if (flutterDebugEnvFlag('ARQMA_FLUTTER_NO_WALLET_RPC')) {
       _emit(<String, dynamic>{
         'event': 'set_app_data',
         'data': <String, dynamic>{'wallet_backend': 'off'},
@@ -4372,7 +4370,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'event': 'return_to_wallet_select',
       'data': <String, dynamic>{}
     });
-    if (Platform.environment['ARQMA_FLUTTER_NO_WALLET_RPC'] != '1') {
+    if (!flutterDebugEnvFlag('ARQMA_FLUTTER_NO_WALLET_RPC')) {
       _walletRpc = await ArqmaWalletRpcSession.tryStart(cfg);
       _emitWalletBackendState();
     }
