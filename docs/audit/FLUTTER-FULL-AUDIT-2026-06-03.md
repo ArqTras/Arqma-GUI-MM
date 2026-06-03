@@ -134,7 +134,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 1. Extend **flutter-test** to mobile/android (at least analyze + placeholder replacement tests).
 2. Commit **pubspec.lock** for all three apps.
 3. Gate remaining debug env vars in release (`N-004`).
-4. Triage **Dependabot** alerts.
+4. ~~Triage **Dependabot** alerts.~~ Flutter-only policy applied (see `.github/dependabot.yml`).
 
 ### Medium-term
 1. **Melos / shared package** for `core/desktop`, bridges, `gateway_store` (reduce triplication).
@@ -152,7 +152,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 - Users informed that remote daemon sync uses **unencrypted HTTP** unless infra provides TLS.
 - FFI builds always track **Latest** ArqTras/FFI — acceptable per project policy; manifest records resolved version.
 
-Not claimed: “maximum security” until N-004, N-005, N-011 addressed and Dependabot triaged.
+Not claimed: “maximum security” until N-005, N-011 addressed. Dependabot scoped to Flutter pub only.
 
 ---
 
@@ -197,7 +197,7 @@ Wszystkie issue audytu **#2–#13 zamknięte**.
 | N-006 | iOS bg/fg overlap | **Złagodzone** (`_walletSyncLane`) |
 | N-005 | Hasło w Keychain przy biometrii | **Udokumentowane** (threat model) |
 | N-011 | Brak integration_test | Wysoki |
-| N-009 | Dependabot 23 alertów | Średni |
+| N-009 | Dependabot | **Polityka Flutter-only** — npm/electron/tauri poza zakresem |
 
 ## 4. Werdykt
 
