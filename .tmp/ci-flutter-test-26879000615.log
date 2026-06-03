@@ -1,0 +1,1269 @@
+﻿Android	Set up job	´╗┐2026-06-03T10:30:09.8593082Z Current runner version: '2.334.0'
+Android	Set up job	2026-06-03T10:30:09.8620520Z ##[group]Runner Image Provisioner
+Android	Set up job	2026-06-03T10:30:09.8621455Z Hosted Compute Agent
+Android	Set up job	2026-06-03T10:30:09.8622214Z Version: 20260520.533
+Android	Set up job	2026-06-03T10:30:09.8622896Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Android	Set up job	2026-06-03T10:30:09.8623690Z Build Date: 2026-05-20T17:44:04Z
+Android	Set up job	2026-06-03T10:30:09.8624513Z Worker ID: {39b6f4da-c438-42f0-8728-5faa9b112a56}
+Android	Set up job	2026-06-03T10:30:09.8625251Z Azure Region: eastus2
+Android	Set up job	2026-06-03T10:30:09.8626218Z ##[endgroup]
+Android	Set up job	2026-06-03T10:30:09.8627672Z ##[group]Operating System
+Android	Set up job	2026-06-03T10:30:09.8628337Z Ubuntu
+Android	Set up job	2026-06-03T10:30:09.8629009Z 24.04.4
+Android	Set up job	2026-06-03T10:30:09.8629552Z LTS
+Android	Set up job	2026-06-03T10:30:09.8630067Z ##[endgroup]
+Android	Set up job	2026-06-03T10:30:09.8630715Z ##[group]Runner Image
+Android	Set up job	2026-06-03T10:30:09.8631339Z Image: ubuntu-24.04
+Android	Set up job	2026-06-03T10:30:09.8631967Z Version: 20260525.161.1
+Android	Set up job	2026-06-03T10:30:09.8633105Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+Android	Set up job	2026-06-03T10:30:09.8634939Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+Android	Set up job	2026-06-03T10:30:09.8636156Z ##[endgroup]
+Android	Set up job	2026-06-03T10:30:09.8637413Z ##[group]GITHUB_TOKEN Permissions
+Android	Set up job	2026-06-03T10:30:09.8639308Z Contents: read
+Android	Set up job	2026-06-03T10:30:09.8640526Z Metadata: read
+Android	Set up job	2026-06-03T10:30:09.8641149Z ##[endgroup]
+Android	Set up job	2026-06-03T10:30:09.8643392Z Secret source: Actions
+Android	Set up job	2026-06-03T10:30:09.8644874Z Prepare workflow directory
+Android	Set up job	2026-06-03T10:30:09.9162278Z Prepare all required actions
+Android	Set up job	2026-06-03T10:30:09.9199685Z Getting action download info
+Android	Set up job	2026-06-03T10:30:10.3168876Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Android	Set up job	2026-06-03T10:30:10.4987173Z Complete job name: Android
+Android	Run actions/checkout@v4	´╗┐2026-06-03T10:30:10.5766632Z ##[group]Run actions/checkout@v4
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5767626Z with:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5768131Z   repository: ArqTras/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5772894Z   token: ***
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5773502Z   ssh-strict: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5774279Z   ssh-user: git
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5774802Z   persist-credentials: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5775349Z   clean: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5775846Z   sparse-checkout-cone-mode: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5776657Z   fetch-depth: 1
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5777159Z   fetch-tags: false
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5777662Z   show-progress: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5778171Z   lfs: false
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5778662Z   submodules: false
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5779168Z   set-safe-directory: true
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.5779952Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.6948247Z Syncing repository: ArqTras/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.6950738Z ##[group]Getting Git version info
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.6951753Z Working directory is '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.6953212Z [command]/usr/bin/git version
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7010963Z git version 2.54.0
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7036568Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7052586Z Temporarily overriding HOME='/home/runner/work/_temp/1bb171a3-5b86-45b0-a357-3b69f04371c1' before making global git config changes
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7055283Z Adding repository directory to the temporary git global config as a safe directory
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7068148Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7117389Z Deleting the contents of '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7121505Z ##[group]Initializing the repository
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7126938Z [command]/usr/bin/git init /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7238254Z hint: Using 'master' as the name for the initial branch. This default branch name
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7239858Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7240964Z hint: to use in all of your new repositories, which will suppress this warning,
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7241893Z hint: call:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7242632Z hint:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7243597Z hint: 	git config --global init.defaultBranch <name>
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7245039Z hint:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7246252Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7247402Z hint: 'development'. The just-created branch can be renamed via this command:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7248239Z hint:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7248759Z hint: 	git branch -m <name>
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7249352Z hint:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7250037Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7251733Z Initialized empty Git repository in /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/.git/
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7257089Z [command]/usr/bin/git remote add origin https://github.com/ArqTras/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7303219Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7304097Z ##[group]Disabling automatic garbage collection
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7307006Z [command]/usr/bin/git config --local gc.auto 0
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7337322Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7338159Z ##[group]Setting up auth
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7343750Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7376670Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7739035Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.7770190Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8000396Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8031390Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8277607Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8317677Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8319087Z ##[group]Fetching the repository
+Android	Run actions/checkout@v4	2026-06-03T10:30:10.8327880Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +be9ea1110f79c1fe411b738f020c06f934334a40:refs/remotes/origin/review
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5088023Z From https://github.com/ArqTras/Arqma-GUI-MM
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5090658Z  * [new ref]         be9ea1110f79c1fe411b738f020c06f934334a40 -> origin/review
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5128359Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5129644Z ##[group]Determining the checkout info
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5131378Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5135193Z [command]/usr/bin/git sparse-checkout disable
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5180996Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5209241Z ##[group]Checking out the ref
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.5212365Z [command]/usr/bin/git checkout --progress --force -B review refs/remotes/origin/review
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.6841407Z Switched to a new branch 'review'
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.6843203Z branch 'review' set up to track 'origin/review'.
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.6854807Z ##[endgroup]
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.6897071Z [command]/usr/bin/git log -1 --format=%H
+Android	Run actions/checkout@v4	2026-06-03T10:30:11.6920511Z be9ea1110f79c1fe411b738f020c06f934334a40
+Android	Install Flutter (pinned)	´╗┐2026-06-03T10:30:11.7153269Z ##[group]Run bash build/ci/setup-flutter-stable-ci.sh
+Android	Install Flutter (pinned)	2026-06-03T10:30:11.7155129Z [36;1mbash build/ci/setup-flutter-stable-ci.sh[0m
+Android	Install Flutter (pinned)	2026-06-03T10:30:11.7190821Z shell: /usr/bin/bash -e {0}
+Android	Install Flutter (pinned)	2026-06-03T10:30:11.7192046Z ##[endgroup]
+Android	Install Flutter (pinned)	2026-06-03T10:30:11.7342543Z Cloning into '/home/runner/work/_temp/flutter'...
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1544505Z Note: switching to '00b0c91f06209d9e4a41f71b7a512d6eb3b9c694'.
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1545131Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1545462Z You are in 'detached HEAD' state. You can look around, make experimental
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1546500Z changes and commit them, and you can discard any commits you make in this
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1547785Z state without impacting any branches by switching back to a branch.
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1548254Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1548566Z If you want to create a new branch to retain commits you create, you may
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1549307Z do so (now or later) by using -c with the switch command. Example:
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1549730Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1549932Z   git switch -c <new-branch-name>
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1550308Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1550493Z Or undo this operation with:
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1550764Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1550944Z   git switch -
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1551150Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1551568Z Turn off this advice by setting config variable advice.detachedHead to false
+Android	Install Flutter (pinned)	2026-06-03T10:30:18.1552093Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.1810368Z Updating files:  96% (14761/15361)
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.1933044Z Updating files:  97% (14901/15361)
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2027490Z Updating files:  98% (15054/15361)
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2107546Z Updating files:  99% (15208/15361)
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2746386Z Updating files: 100% (15361/15361)
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2746986Z Updating files: 100% (15361/15361), done.
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2747734Z Downloading Linux x64 Dart SDK from Flutter engine 42d3d75a56efe1a2e9902f52dc8006099c45d937...
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2845007Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2845704Z                                  Dload  Upload   Total   Spent    Left  Speed
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.2846285Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:19.8092961Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Android	Install Flutter (pinned)	2026-06-03T10:30:20.4340432Z  36  218M   36 79.3M    0     0   151M      0  0:00:01 --:--:--  0:00:01  151M
+Android	Install Flutter (pinned)	2026-06-03T10:30:20.4341333Z 100  218M  100  218M    0     0   190M      0  0:00:01  0:00:01 --:--:--  190M
+Android	Install Flutter (pinned)	2026-06-03T10:30:25.6117697Z Building flutter tool...
+Android	Install Flutter (pinned)	2026-06-03T10:30:25.6298428Z Resolving dependencies...
+Android	Install Flutter (pinned)	2026-06-03T10:30:26.0190463Z Downloading packages...
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2985544Z + _fe_analyzer_shared 92.0.0 (100.0.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2986429Z + analyzer 9.0.0 (13.0.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2986911Z + archive 3.6.1 (4.0.9 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2987598Z + args 2.7.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2987947Z + async 2.13.0 (2.13.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2988432Z + boolean_selector 2.1.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2988858Z + browser_launcher 1.1.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2989292Z + built_collection 5.1.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2989723Z + built_value 8.12.1 (8.12.6 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2990209Z + checked_yaml 2.0.4
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2990590Z + cli_config 0.2.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2990963Z + clock 1.1.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2991346Z + code_assets 1.0.0 (1.2.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2991836Z + code_builder 4.11.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2992225Z + collection 1.19.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2992623Z + completion 1.0.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2992989Z + convert 3.1.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2993345Z + coverage 1.15.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2993705Z + crypto 3.0.7
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2994049Z + csslib 1.0.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2994402Z + dap 1.4.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2994765Z + dart_service_protocol_shared 0.0.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2995227Z + dart_style 3.1.3 (3.1.9 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2995690Z + data_assets 0.19.6 (0.20.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2996338Z + dds 5.1.0 (5.3.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2996766Z + dds_service_extensions 2.1.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2997579Z + devtools_shared 12.0.0 (13.0.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2998045Z + dtd 4.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2998381Z + dwds 26.2.3 (27.1.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2998794Z + extension_discovery 2.1.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2999187Z + fake_async 1.3.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2999555Z + ffi 2.1.4 (2.2.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.2999935Z + file 7.0.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3000249Z + file_testing 3.0.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3000584Z + fixnum 1.1.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3000915Z + flutter_template_images 5.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3001305Z + frontend_server_client 4.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3001702Z + glob 2.1.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3002221Z + graphs 2.3.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3002530Z + hooks 1.0.0 (2.0.2 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3002903Z + hooks_runner 1.0.1 (1.4.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3003281Z + html 0.15.6
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3003579Z + http 1.6.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3003943Z + http_multi_server 3.2.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3004345Z + http_parser 4.1.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3004697Z + intl 0.20.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3005039Z + io 1.0.5
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3005380Z + js 0.7.2 (discontinued)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3005788Z + json_annotation 4.9.0 (4.12.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3006413Z + json_rpc_2 4.0.0 (4.1.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3006846Z + logging 1.3.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3007210Z + matcher 0.12.19 (0.12.20 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3007646Z + meta 1.17.0 (1.18.2 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3008067Z + mime 2.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3008409Z + multicast_dns 0.3.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3008795Z + mustache_template 2.0.2 (2.0.4 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3009266Z + native_stack_traces 0.6.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3009669Z + node_preamble 2.0.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3010037Z + package_config 2.2.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3010391Z + path 1.9.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3010732Z + petitparser 7.0.1 (7.0.2 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3011149Z + platform 3.1.6
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3011476Z + pool 1.5.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3011792Z + process 5.0.5
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3012180Z + pub_semver 2.2.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3012564Z + pubspec_parse 1.5.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3012957Z + shelf 1.4.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3013299Z + shelf_packages_handler 3.0.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3013750Z + shelf_proxy 1.0.4 (1.0.5 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3014240Z + shelf_static 1.1.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3014644Z + shelf_web_socket 3.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3015077Z + source_map_stack_trace 2.1.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3015510Z + source_maps 0.10.13
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3016140Z + source_span 1.10.1 (1.10.2 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3016606Z + sprintf 7.0.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3016996Z + sse 4.1.8 (4.2.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3017424Z + stack_trace 1.12.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3017834Z + standard_message_codec 0.0.1+4
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3018286Z + stream_channel 2.1.4
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3018684Z + string_scanner 1.4.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3019123Z + sync_http 0.3.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3019501Z + term_glyph 1.2.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3019887Z + test 1.30.0 (1.31.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3020344Z + test_api 0.7.10 (0.7.12 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3020830Z + test_core 0.6.16 (0.6.18 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3021288Z + typed_data 1.4.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3021705Z + unified_analytics 8.0.10 (8.0.14 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3022247Z + usage 4.1.1 (discontinued)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3022677Z + uuid 4.5.2 (4.5.3 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3023118Z + vm_service 15.0.2 (15.2.0 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3023602Z + vm_service_interface 2.0.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3024011Z + vm_snapshot_analysis 0.7.6
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3024397Z + watcher 1.2.0 (1.2.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3024872Z + web 1.1.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3025240Z + web_socket 1.0.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3025615Z + web_socket_channel 3.0.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3026196Z + webdriver 3.1.0
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3026581Z + webkit_inspection_protocol 1.2.1
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3027022Z + xml 6.6.1 (7.0.1 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3027407Z + yaml 3.1.3
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3027739Z + yaml_edit 2.2.3 (2.2.4 available)
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3028404Z Changed 101 dependencies!
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3028826Z 2 packages are discontinued.
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3029442Z 32 packages have newer versions incompatible with dependency constraints.
+Android	Install Flutter (pinned)	2026-06-03T10:30:28.3030165Z Try `dart pub outdated` for more information.
+Android	Install Flutter (pinned)	2026-06-03T10:30:42.9799931Z Analytics reporting disabled.
+Android	Install Flutter (pinned)	2026-06-03T10:30:42.9804622Z 
+Android	Install Flutter (pinned)	2026-06-03T10:30:42.9805254Z You may need to restart any open editors for them to read new settings.
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.0816314Z Flutter 3.41.9 ÔÇó channel [user-branch] ÔÇó unknown source
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.0817242Z Framework ÔÇó revision 00b0c91f06 (5 weeks ago) ÔÇó 2026-04-29 10:03:19 -0700
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.0819039Z Engine ÔÇó hash 9161402dc0e134b3fb5adee5046b6e84b1a5e1c1 (revision 42d3d75a56) (1 months ago) ÔÇó 2026-04-28 17:31:55.000Z
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.0819677Z Tools ÔÇó Dart 3.11.5 ÔÇó DevTools 2.54.2
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.4036204Z Downloading Material fonts...                                      215ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.4673480Z Downloading Gradle Wrapper...                                       11ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.6917117Z Downloading android-arm-profile/linux-x64 tools...                 210ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:43.8786638Z Downloading android-arm-release/linux-x64 tools...                 110ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:44.1034903Z Downloading android-arm64-profile/linux-x64 tools...               156ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:44.3665243Z Downloading android-arm64-release/linux-x64 tools...               185ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:44.5742004Z Downloading android-x64-profile/linux-x64 tools...                 138ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:44.8211483Z Downloading android-x64-release/linux-x64 tools...                 167ms
+Android	Install Flutter (pinned)	2026-06-03T10:30:48.2944142Z Downloading android-x86 tools...                                    3.4s
+Android	Install Flutter (pinned)	2026-06-03T10:30:52.5189281Z Downloading android-x64 tools...                                    3.5s
+Android	Install Flutter (pinned)	2026-06-03T10:30:56.6558014Z Downloading android-arm tools...                                    3.4s
+Android	Install Flutter (pinned)	2026-06-03T10:30:58.6804387Z Downloading android-arm-profile tools...                         1,301ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:00.2096676Z Downloading android-arm-release tools...                         1,248ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:05.7250895Z Downloading android-arm64 tools...                                  5.3s
+Android	Install Flutter (pinned)	2026-06-03T10:31:08.2364248Z Downloading android-arm64-profile tools...                       1,355ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:09.7377262Z Downloading android-arm64-release tools...                       1,209ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:11.2829548Z Downloading android-x64-profile tools...                         1,273ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:12.7819182Z Downloading android-x64-release tools...                         1,209ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:14.1202640Z Downloading Web SDK...                                             929ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:14.9875308Z Downloading package sky_engine...                                   84ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:15.0945469Z Downloading package flutter_gpu...                                  35ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:15.2748988Z Downloading flutter_patched_sdk tools...                           167ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:15.5339128Z Downloading flutter_patched_sdk_product tools...                   159ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:16.5280399Z Downloading linux-x64 tools...                                     894ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:18.3466933Z Downloading linux-x64-debug/linux-x64-flutter-gtk tools...       1,152ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:19.8446721Z Downloading linux-x64-profile/linux-x64-flutter-gtk tools...        662ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:20.8936877Z Downloading linux-x64-release/linux-x64-flutter-gtk tools...        584ms
+Android	Install Flutter (pinned)	2026-06-03T10:31:21.4298302Z Downloading linux-x64/font-subset tools...                         108ms
+Android	Run flutter pub get	´╗┐2026-06-03T10:31:21.5537702Z ##[group]Run flutter pub get
+Android	Run flutter pub get	2026-06-03T10:31:21.5538040Z [36;1mflutter pub get[0m
+Android	Run flutter pub get	2026-06-03T10:31:21.5568182Z shell: /usr/bin/bash -e {0}
+Android	Run flutter pub get	2026-06-03T10:31:21.5568476Z ##[endgroup]
+Android	Run flutter pub get	2026-06-03T10:31:21.7476739Z Resolving dependencies...
+Android	Run flutter pub get	2026-06-03T10:31:22.1077249Z Downloading packages...
+Android	Run flutter pub get	2026-06-03T10:31:25.9571753Z + args 2.7.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9572255Z + async 2.13.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9572613Z + boolean_selector 2.1.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9573025Z + characters 1.4.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9573367Z + clock 1.1.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9573680Z + code_assets 1.2.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9574009Z + collection 1.19.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9574329Z + cross_file 0.3.5+2
+Android	Run flutter pub get	2026-06-03T10:31:25.9574681Z + crypto 3.0.7
+Android	Run flutter pub get	2026-06-03T10:31:25.9574995Z + dbus 0.7.13
+Android	Run flutter pub get	2026-06-03T10:31:25.9575305Z + fake_async 1.3.3
+Android	Run flutter pub get	2026-06-03T10:31:25.9575632Z + ffi 2.2.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9576165Z + file 7.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9576513Z + file_picker 10.3.10 (11.0.2 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9576973Z + flutter 0.0.0 from sdk flutter
+Android	Run flutter pub get	2026-06-03T10:31:25.9577799Z + flutter_lints 6.0.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9578219Z + flutter_localizations 0.0.0 from sdk flutter
+Android	Run flutter pub get	2026-06-03T10:31:25.9578721Z + flutter_plugin_android_lifecycle 2.0.35
+Android	Run flutter pub get	2026-06-03T10:31:25.9579174Z + flutter_secure_storage 10.3.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9579653Z + flutter_secure_storage_darwin 0.3.2 (0.4.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9580167Z + flutter_secure_storage_linux 3.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9580647Z + flutter_secure_storage_platform_interface 2.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9581119Z + flutter_secure_storage_web 2.1.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9581640Z + flutter_secure_storage_windows 4.1.0 (4.2.2 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9582167Z + flutter_test 0.0.0 from sdk flutter
+Android	Run flutter pub get	2026-06-03T10:31:25.9582627Z + flutter_web_plugins 0.0.0 from sdk flutter
+Android	Run flutter pub get	2026-06-03T10:31:25.9583092Z + go_router 14.8.1 (17.3.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9583506Z + hooks 2.0.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9583822Z + http 1.6.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9584145Z + http_parser 4.1.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9584492Z + intl 0.20.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9584810Z + jni 1.0.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9585118Z + jni_flutter 1.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9585450Z + leak_tracker 11.0.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9585831Z + leak_tracker_flutter_testing 3.0.10
+Android	Run flutter pub get	2026-06-03T10:31:25.9586448Z + leak_tracker_testing 3.0.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9586828Z + lints 6.1.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9587143Z + local_auth 3.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9587513Z + local_auth_android 2.0.8 (2.0.9 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9587972Z + local_auth_darwin 2.0.3
+Android	Run flutter pub get	2026-06-03T10:31:25.9588373Z + local_auth_platform_interface 1.1.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9588805Z + local_auth_windows 2.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9589175Z + logging 1.3.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9589513Z + matcher 0.12.19 (0.12.20 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9589946Z + material_color_utilities 0.13.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9590360Z + meta 1.17.0 (1.18.2 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9590752Z + nested 1.0.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9591065Z + objective_c 9.4.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9591415Z + package_config 2.2.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9591815Z + package_info_plus 8.3.1 (10.1.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9592371Z + package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9592855Z + path 1.9.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9593172Z + path_provider 2.1.5
+Android	Run flutter pub get	2026-06-03T10:31:25.9593541Z + path_provider_android 2.3.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9593950Z + path_provider_foundation 2.6.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9594361Z + path_provider_linux 2.2.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9594757Z + path_provider_platform_interface 2.1.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9595211Z + path_provider_windows 2.3.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9595622Z + petitparser 7.0.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9596092Z + platform 3.1.6
+Android	Run flutter pub get	2026-06-03T10:31:25.9596416Z + plugin_platform_interface 2.1.8
+Android	Run flutter pub get	2026-06-03T10:31:25.9596804Z + provider 6.1.5+1
+Android	Run flutter pub get	2026-06-03T10:31:25.9597126Z + pub_semver 2.2.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9597433Z + qr 3.0.2 (4.0.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9597769Z + qr_flutter 4.1.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9598088Z + record_use 0.6.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9598414Z + shared_preferences 2.5.5
+Android	Run flutter pub get	2026-06-03T10:31:25.9598871Z + shared_preferences_android 2.4.23 (2.4.25 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9599633Z + shared_preferences_foundation 2.5.6
+Android	Run flutter pub get	2026-06-03T10:31:25.9600067Z + shared_preferences_linux 2.4.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9600511Z + shared_preferences_platform_interface 2.4.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9600991Z + shared_preferences_web 2.4.3
+Android	Run flutter pub get	2026-06-03T10:31:25.9601401Z + shared_preferences_windows 2.4.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9601827Z + sky_engine 0.0.0 from sdk flutter
+Android	Run flutter pub get	2026-06-03T10:31:25.9602230Z + source_span 1.10.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9602575Z + stack_trace 1.12.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9602918Z + stream_channel 2.1.4
+Android	Run flutter pub get	2026-06-03T10:31:25.9603272Z + string_scanner 1.4.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9603609Z + term_glyph 1.2.2
+Android	Run flutter pub get	2026-06-03T10:31:25.9603943Z + test_api 0.7.10 (0.7.12 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9604357Z + timeago 3.7.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9604664Z + typed_data 1.4.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9604999Z + vector_math 2.2.0 (2.3.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9605400Z + vm_service 15.2.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9606231Z + wakelock_plus 1.3.3 (1.6.1 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9606692Z + wakelock_plus_platform_interface 1.5.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9607119Z + web 1.1.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9607434Z + win32 5.15.0 (6.3.0 available)
+Android	Run flutter pub get	2026-06-03T10:31:25.9607825Z + xdg_directories 1.1.0
+Android	Run flutter pub get	2026-06-03T10:31:25.9608160Z + xml 7.0.1
+Android	Run flutter pub get	2026-06-03T10:31:25.9608460Z + yaml 3.1.3
+Android	Run flutter pub get	2026-06-03T10:31:25.9608780Z Changed 91 dependencies!
+Android	Run flutter pub get	2026-06-03T10:31:25.9609325Z 15 packages have newer versions incompatible with dependency constraints.
+Android	Run flutter pub get	2026-06-03T10:31:25.9610033Z Try `flutter pub outdated` for more information.
+Android	flutter analyze	´╗┐2026-06-03T10:31:26.2684221Z ##[group]Run flutter analyze --no-fatal-infos
+Android	flutter analyze	2026-06-03T10:31:26.2684636Z [36;1mflutter analyze --no-fatal-infos[0m
+Android	flutter analyze	2026-06-03T10:31:26.2712254Z shell: /usr/bin/bash -e {0}
+Android	flutter analyze	2026-06-03T10:31:26.2712538Z ##[endgroup]
+Android	flutter analyze	2026-06-03T10:31:47.2552436Z Analyzing arqma_wallet_android...                               
+Android	flutter analyze	2026-06-03T10:31:47.2560147Z 
+Android	flutter analyze	2026-06-03T10:31:47.2618122Z    info ÔÇó The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' ÔÇó lib/core/mobile/wallet_biometric_unlock.dart:3:8 ÔÇó unnecessary_import
+Android	flutter analyze	2026-06-03T10:31:47.2620771Z    info ÔÇó 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:146:13 ÔÇó deprecated_member_use
+Android	flutter analyze	2026-06-03T10:31:47.2622742Z    info ÔÇó Use 'const' with the constructor to improve performance ÔÇó lib/widgets/mobile_remote_node_picker.dart:148:23 ÔÇó prefer_const_constructors
+Android	flutter analyze	2026-06-03T10:31:47.2627896Z    info ÔÇó 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:149:13 ÔÇó deprecated_member_use
+Android	flutter analyze	2026-06-03T10:31:47.2630410Z    info ÔÇó 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:159:11 ÔÇó deprecated_member_use
+Android	flutter analyze	2026-06-03T10:31:47.2647733Z    info ÔÇó 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:161:11 ÔÇó deprecated_member_use
+Android	flutter analyze	2026-06-03T10:31:47.2664969Z 
+Android	flutter analyze	2026-06-03T10:31:47.2790936Z 6 issues found. (ran in 20.3s)
+Android	flutter test	´╗┐2026-06-03T10:31:47.2905223Z ##[group]Run flutter test
+Android	flutter test	2026-06-03T10:31:47.2905540Z [36;1mflutter test[0m
+Android	flutter test	2026-06-03T10:31:47.2933200Z shell: /usr/bin/bash -e {0}
+Android	flutter test	2026-06-03T10:31:47.2933473Z ##[endgroup]
+Android	flutter test	2026-06-03T10:31:49.3069734Z 
+Android	flutter test	2026-06-03T10:31:57.2957259Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost accepts preset nodes
+Android	flutter test	2026-06-03T10:31:57.2971479Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/wallet_safe_name_test.dart: sanitizeWalletBaseName accepts safe basenames
+Android	flutter test	2026-06-03T10:31:57.2987750Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost accepts valid custom hostnames
+Android	flutter test	2026-06-03T10:31:57.2994717Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/wallet_safe_name_test.dart: sanitizeWalletBaseName rejects traversal and separators
+Android	flutter test	2026-06-03T10:31:57.3055487Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost rejects traversal and unsafe hosts
+Android	flutter test	2026-06-03T10:31:57.3084805Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/mobile_remote_nodes_test.dart: isValidMobileRemotePort accepts mainnet RPC only
+Android	flutter test	2026-06-03T10:31:57.7462553Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/bridge_log_redact_test.dart: redactBridgeArgs masks sensitive keys
+Android	flutter test	2026-06-03T10:31:57.7482283Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-android/arqma_wallet_android/test/bridge_log_redact_test.dart: redactBridgeArgs handles null and empty
+Android	flutter test	2026-06-03T10:31:57.7601769Z 
+Android	flutter test	2026-06-03T10:31:57.7607442Z ­čÄë 8 tests passed.
+Android	Post Run actions/checkout@v4	´╗┐2026-06-03T10:31:57.8377476Z Post job cleanup.
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9353155Z [command]/usr/bin/git version
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9390417Z git version 2.54.0
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9431940Z Temporarily overriding HOME='/home/runner/work/_temp/b88193db-7370-4021-a0da-2d5af31cdfc2' before making global git config changes
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9432992Z Adding repository directory to the temporary git global config as a safe directory
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9437903Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9475651Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9509398Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9748101Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9772693Z http.https://github.com/.extraheader
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9786542Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:57.9820944Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:58.0053150Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Android	Post Run actions/checkout@v4	2026-06-03T10:31:58.0085386Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Android	Complete job	´╗┐2026-06-03T10:31:58.0477631Z Cleaning up orphan processes
+Android	Complete job	2026-06-03T10:31:58.0819619Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 16th, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Mobile (iOS tree)	Set up job	´╗┐2026-06-03T10:30:10.1627336Z Current runner version: '2.334.0'
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1662031Z ##[group]Runner Image Provisioner
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1663248Z Hosted Compute Agent
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1663998Z Version: 20260520.533
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1664663Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1665397Z Build Date: 2026-05-20T17:44:04Z
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1666170Z Worker ID: {5265ad22-ecf7-4d8c-8836-8762e37d9aba}
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1666937Z Azure Region: northcentralus
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1667626Z ##[endgroup]
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1669159Z ##[group]Operating System
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1669827Z Ubuntu
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1670740Z 24.04.4
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1671290Z LTS
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1671847Z ##[endgroup]
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1672487Z ##[group]Runner Image
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1673118Z Image: ubuntu-24.04
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1673809Z Version: 20260525.161.1
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1674946Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1676873Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1677880Z ##[endgroup]
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1679040Z ##[group]GITHUB_TOKEN Permissions
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1681482Z Contents: read
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1682505Z Metadata: read
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1683152Z ##[endgroup]
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1685316Z Secret source: Actions
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.1686411Z Prepare workflow directory
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.2201380Z Prepare all required actions
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.2238210Z Getting action download info
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.5608297Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Mobile (iOS tree)	Set up job	2026-06-03T10:30:10.7486959Z Complete job name: Mobile (iOS tree)
+Mobile (iOS tree)	Run actions/checkout@v4	´╗┐2026-06-03T10:30:10.8266054Z ##[group]Run actions/checkout@v4
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8266972Z with:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8267485Z   repository: ArqTras/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8272757Z   token: ***
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8273239Z   ssh-strict: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8273765Z   ssh-user: git
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8274276Z   persist-credentials: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8274828Z   clean: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8275322Z   sparse-checkout-cone-mode: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8275905Z   fetch-depth: 1
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8276387Z   fetch-tags: false
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8276879Z   show-progress: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8277388Z   lfs: false
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8277863Z   submodules: false
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8278359Z   set-safe-directory: true
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.8279100Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9390337Z Syncing repository: ArqTras/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9392480Z ##[group]Getting Git version info
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9393344Z Working directory is '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9394583Z [command]/usr/bin/git version
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9473393Z git version 2.54.0
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9498510Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9520607Z Temporarily overriding HOME='/home/runner/work/_temp/934f8eed-5a65-4481-bdad-4673e9543de8' before making global git config changes
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9522212Z Adding repository directory to the temporary git global config as a safe directory
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9527785Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9575152Z Deleting the contents of '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9578539Z ##[group]Initializing the repository
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9583006Z [command]/usr/bin/git init /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9672397Z hint: Using 'master' as the name for the initial branch. This default branch name
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9673942Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9675023Z hint: to use in all of your new repositories, which will suppress this warning,
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9675977Z hint: call:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9676698Z hint:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9677574Z hint: 	git config --global init.defaultBranch <name>
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9678957Z hint:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9680224Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9681399Z hint: 'development'. The just-created branch can be renamed via this command:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9682227Z hint:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9682706Z hint: 	git branch -m <name>
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9683235Z hint:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9683906Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9685502Z Initialized empty Git repository in /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/.git/
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9691338Z [command]/usr/bin/git remote add origin https://github.com/ArqTras/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9732313Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9733212Z ##[group]Disabling automatic garbage collection
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9735717Z [command]/usr/bin/git config --local gc.auto 0
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9765074Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9765893Z ##[group]Setting up auth
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9771637Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:10.9807645Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0139401Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0169298Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0396311Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0431144Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0665997Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0702146Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0703588Z ##[group]Fetching the repository
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.0711756Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +be9ea1110f79c1fe411b738f020c06f934334a40:refs/remotes/origin/review
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8933817Z From https://github.com/ArqTras/Arqma-GUI-MM
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8936727Z  * [new ref]         be9ea1110f79c1fe411b738f020c06f934334a40 -> origin/review
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8972306Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8974021Z ##[group]Determining the checkout info
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8975873Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.8980600Z [command]/usr/bin/git sparse-checkout disable
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.9026152Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.9055327Z ##[group]Checking out the ref
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:11.9058605Z [command]/usr/bin/git checkout --progress --force -B review refs/remotes/origin/review
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:12.0678326Z Switched to a new branch 'review'
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:12.0680644Z branch 'review' set up to track 'origin/review'.
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:12.0692310Z ##[endgroup]
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:12.0735276Z [command]/usr/bin/git log -1 --format=%H
+Mobile (iOS tree)	Run actions/checkout@v4	2026-06-03T10:30:12.0758522Z be9ea1110f79c1fe411b738f020c06f934334a40
+Mobile (iOS tree)	Install Flutter (pinned)	´╗┐2026-06-03T10:30:12.0987025Z ##[group]Run bash build/ci/setup-flutter-stable-ci.sh
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:12.0988824Z [36;1mbash build/ci/setup-flutter-stable-ci.sh[0m
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:12.1022538Z shell: /usr/bin/bash -e {0}
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:12.1023724Z ##[endgroup]
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:12.1172044Z Cloning into '/home/runner/work/_temp/flutter'...
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1742097Z Note: switching to '00b0c91f06209d9e4a41f71b7a512d6eb3b9c694'.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1742702Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1743058Z You are in 'detached HEAD' state. You can look around, make experimental
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1743852Z changes and commit them, and you can discard any commits you make in this
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1745083Z state without impacting any branches by switching back to a branch.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1745374Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1745592Z If you want to create a new branch to retain commits you create, you may
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1746094Z do so (now or later) by using -c with the switch command. Example:
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1746359Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1746487Z   git switch -c <new-branch-name>
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1746740Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1746872Z Or undo this operation with:
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1747053Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1747156Z   git switch -
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1747300Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1747584Z Turn off this advice by setting config variable advice.detachedHead to false
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:18.1747903Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.1995311Z Updating files:  97% (14917/15361)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2088422Z Updating files:  98% (15054/15361)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2179087Z Updating files:  99% (15208/15361)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2179580Z Updating files: 100% (15361/15361)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2180585Z Updating files: 100% (15361/15361), done.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2817690Z Downloading Linux x64 Dart SDK from Flutter engine 42d3d75a56efe1a2e9902f52dc8006099c45d937...
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2924899Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2925852Z                                  Dload  Upload   Total   Spent    Left  Speed
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:19.2926427Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:20.1672263Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:20.8252025Z  50  218M   50  110M    0     0   125M      0  0:00:01 --:--:--  0:00:01  125M
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:20.8252856Z 100  218M  100  218M    0     0   142M      0  0:00:01  0:00:01 --:--:--  142M
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:25.9661299Z Building flutter tool...
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:25.9837188Z Resolving dependencies...
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:26.4659546Z Downloading packages...
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8560547Z + _fe_analyzer_shared 92.0.0 (100.0.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8561452Z + analyzer 9.0.0 (13.0.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8561980Z + archive 3.6.1 (4.0.9 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8562375Z + args 2.7.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8562707Z + async 2.13.0 (2.13.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8563135Z + boolean_selector 2.1.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8563586Z + browser_launcher 1.1.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8563942Z + built_collection 5.1.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8564335Z + built_value 8.12.1 (8.12.6 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8564795Z + checked_yaml 2.0.4
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8565141Z + cli_config 0.2.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8565462Z + clock 1.1.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8565802Z + code_assets 1.0.0 (1.2.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8566234Z + code_builder 4.11.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8566623Z + collection 1.19.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8566970Z + completion 1.0.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8567324Z + convert 3.1.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8567651Z + coverage 1.15.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8567971Z + crypto 3.0.7
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8568291Z + csslib 1.0.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8568602Z + dap 1.4.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8568950Z + dart_service_protocol_shared 0.0.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8569396Z + dart_style 3.1.3 (3.1.9 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8569797Z + data_assets 0.19.6 (0.20.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8570406Z + dds 5.1.0 (5.3.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8570807Z + dds_service_extensions 2.1.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8571242Z + devtools_shared 12.0.0 (13.0.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8572066Z + dtd 4.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8572396Z + dwds 26.2.3 (27.1.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8572812Z + extension_discovery 2.1.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8573205Z + fake_async 1.3.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8573566Z + ffi 2.1.4 (2.2.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8573948Z + file 7.0.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8574274Z + file_testing 3.0.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8574619Z + fixnum 1.1.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8574970Z + flutter_template_images 5.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8575399Z + frontend_server_client 4.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8575788Z + glob 2.1.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8576109Z + graphs 2.3.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8576680Z + hooks 1.0.0 (2.0.2 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8577099Z + hooks_runner 1.0.1 (1.4.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8577531Z + html 0.15.6
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8577850Z + http 1.6.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8578186Z + http_multi_server 3.2.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8578568Z + http_parser 4.1.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8578916Z + intl 0.20.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8579237Z + io 1.0.5
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8579563Z + js 0.7.2 (discontinued)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8580170Z + json_annotation 4.9.0 (4.12.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8580651Z + json_rpc_2 4.0.0 (4.1.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8581080Z + logging 1.3.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8581391Z + matcher 0.12.19 (0.12.20 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8581800Z + meta 1.17.0 (1.18.2 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8582199Z + mime 2.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8582515Z + multicast_dns 0.3.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8582905Z + mustache_template 2.0.2 (2.0.4 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8583372Z + native_stack_traces 0.6.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8583754Z + node_preamble 2.0.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8584128Z + package_config 2.2.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8584461Z + path 1.9.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8584788Z + petitparser 7.0.1 (7.0.2 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8585187Z + platform 3.1.6
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8585505Z + pool 1.5.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8585818Z + process 5.0.5
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8586147Z + pub_semver 2.2.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8586511Z + pubspec_parse 1.5.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8586951Z + shelf 1.4.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8587290Z + shelf_packages_handler 3.0.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8587711Z + shelf_proxy 1.0.4 (1.0.5 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8588132Z + shelf_static 1.1.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8588491Z + shelf_web_socket 3.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8588879Z + source_map_stack_trace 2.1.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8589280Z + source_maps 0.10.13
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8589642Z + source_span 1.10.1 (1.10.2 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8590270Z + sprintf 7.0.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8590590Z + sse 4.1.8 (4.2.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8590956Z + stack_trace 1.12.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8591312Z + standard_message_codec 0.0.1+4
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8591729Z + stream_channel 2.1.4
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8592079Z + string_scanner 1.4.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8592459Z + sync_http 0.3.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8592785Z + term_glyph 1.2.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8593125Z + test 1.30.0 (1.31.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8593517Z + test_api 0.7.10 (0.7.12 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8593939Z + test_core 0.6.16 (0.6.18 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8594355Z + typed_data 1.4.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8594725Z + unified_analytics 8.0.10 (8.0.14 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8595236Z + usage 4.1.1 (discontinued)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8595633Z + uuid 4.5.2 (4.5.3 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8596026Z + vm_service 15.0.2 (15.2.0 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8596447Z + vm_service_interface 2.0.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8596839Z + vm_snapshot_analysis 0.7.6
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8597227Z + watcher 1.2.0 (1.2.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8597619Z + web 1.1.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8597927Z + web_socket 1.0.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8598289Z + web_socket_channel 3.0.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8598657Z + webdriver 3.1.0
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8599009Z + webkit_inspection_protocol 1.2.1
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8599472Z + xml 6.6.1 (7.0.1 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8600094Z + yaml 3.1.3
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8600421Z + yaml_edit 2.2.3 (2.2.4 available)
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8600865Z Changed 101 dependencies!
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8601257Z 2 packages are discontinued.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8602106Z 32 packages have newer versions incompatible with dependency constraints.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:28.8602815Z Try `dart pub outdated` for more information.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.2236599Z Analytics reporting disabled.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.2237524Z 
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.2237879Z You may need to restart any open editors for them to read new settings.
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.3199106Z Flutter 3.41.9 ÔÇó channel [user-branch] ÔÇó unknown source
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.3200240Z Framework ÔÇó revision 00b0c91f06 (5 weeks ago) ÔÇó 2026-04-29 10:03:19 -0700
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.3201402Z Engine ÔÇó hash 9161402dc0e134b3fb5adee5046b6e84b1a5e1c1 (revision 42d3d75a56) (1 months ago) ÔÇó 2026-04-28 17:31:55.000Z
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.3202547Z Tools ÔÇó Dart 3.11.5 ÔÇó DevTools 2.54.2
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.6197767Z Downloading Material fonts...                                      201ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.6791610Z Downloading Gradle Wrapper...                                        7ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:43.9003265Z Downloading android-arm-profile/linux-x64 tools...                 206ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:44.1591650Z Downloading android-arm-release/linux-x64 tools...                 173ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:44.3881224Z Downloading android-arm64-profile/linux-x64 tools...               161ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:44.6183590Z Downloading android-arm64-release/linux-x64 tools...               153ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:44.8499679Z Downloading android-x64-profile/linux-x64 tools...                 162ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:45.0686797Z Downloading android-x64-release/linux-x64 tools...                 141ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:48.7243443Z Downloading android-x86 tools...                                    3.6s
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:52.9441821Z Downloading android-x64 tools...                                    3.5s
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:57.2976299Z Downloading android-arm tools...                                    3.6s
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:30:59.3868676Z Downloading android-arm-profile tools...                         1,369ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:01.1272144Z Downloading android-arm-release tools...                         1,461ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:06.8185526Z Downloading android-arm64 tools...                                  5.4s
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:09.4777364Z Downloading android-arm64-profile tools...                       1,505ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:11.1193789Z Downloading android-arm64-release tools...                       1,352ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:12.7831833Z Downloading android-x64-profile tools...                         1,393ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:14.4668015Z Downloading android-x64-release tools...                         1,396ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:16.1236528Z Downloading Web SDK...                                           1,189ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:16.9587935Z Downloading package sky_engine...                                   53ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:17.0358615Z Downloading package flutter_gpu...                                   6ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:17.1836060Z Downloading flutter_patched_sdk tools...                           134ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:17.4154636Z Downloading flutter_patched_sdk_product tools...                   133ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:18.6093525Z Downloading linux-x64 tools...                                   1,095ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:20.6223827Z Downloading linux-x64-debug/linux-x64-flutter-gtk tools...       1,343ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:22.2456591Z Downloading linux-x64-profile/linux-x64-flutter-gtk tools...        800ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:23.4788539Z Downloading linux-x64-release/linux-x64-flutter-gtk tools...        772ms
+Mobile (iOS tree)	Install Flutter (pinned)	2026-06-03T10:31:23.9801971Z Downloading linux-x64/font-subset tools...                          78ms
+Mobile (iOS tree)	Run flutter pub get	´╗┐2026-06-03T10:31:24.1013731Z ##[group]Run flutter pub get
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:24.1014073Z [36;1mflutter pub get[0m
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:24.1044930Z shell: /usr/bin/bash -e {0}
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:24.1045225Z ##[endgroup]
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:24.2982813Z Resolving dependencies...
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:24.7365829Z Downloading packages...
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8590170Z + archive 4.0.9
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8590622Z + args 2.7.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8590913Z + async 2.13.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8591222Z + boolean_selector 2.1.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8591601Z + characters 1.4.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8591919Z + clock 1.1.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8592202Z + code_assets 1.2.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8592521Z + collection 1.19.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8592806Z + cross_file 0.3.5+2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8593135Z + crypto 3.0.7
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8593437Z + dbus 0.7.13
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8593732Z + fake_async 1.3.3
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8594056Z + ffi 2.2.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8594349Z + file 7.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8594675Z + file_picker 10.3.10 (11.0.2 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8595210Z + flutter 0.0.0 from sdk flutter
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8595937Z + flutter_app_group_directory 1.1.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8596342Z + flutter_lints 6.0.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8596720Z + flutter_localizations 0.0.0 from sdk flutter
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8597194Z + flutter_plugin_android_lifecycle 2.0.35
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8597709Z + flutter_secure_storage 10.3.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8598176Z + flutter_secure_storage_darwin 0.3.2 (0.4.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8598685Z + flutter_secure_storage_linux 3.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8599141Z + flutter_secure_storage_platform_interface 2.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8599617Z + flutter_secure_storage_web 2.1.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8600243Z + flutter_secure_storage_windows 4.1.0 (4.2.2 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8600744Z + flutter_test 0.0.0 from sdk flutter
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8601180Z + flutter_web_plugins 0.0.0 from sdk flutter
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8601618Z + go_router 14.8.1 (17.3.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8602012Z + hooks 2.0.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8602320Z + http 1.6.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8602623Z + http_parser 4.1.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8602933Z + image 4.9.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8603218Z + intl 0.20.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8603495Z + jni 1.0.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8603778Z + jni_flutter 1.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8604094Z + leak_tracker 11.0.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8604446Z + leak_tracker_flutter_testing 3.0.10
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8604870Z + leak_tracker_testing 3.0.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8605223Z + lints 6.1.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8605517Z + live_activities 2.4.9
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8605848Z + local_auth 3.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8606187Z + local_auth_android 2.0.8 (2.0.9 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8606613Z + local_auth_darwin 2.0.3
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8606920Z + local_auth_platform_interface 1.1.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8607184Z + local_auth_windows 2.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8607413Z + logging 1.3.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8607627Z + matcher 0.12.19 (0.12.20 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8607890Z + material_color_utilities 0.13.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8608153Z + meta 1.17.0 (1.18.2 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8608413Z + nested 1.0.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8608624Z + objective_c 9.4.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8608853Z + package_config 2.2.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8609137Z + package_info_plus 8.3.1 (10.1.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8609512Z + package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8610027Z + path 1.9.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8610298Z + path_provider 2.1.5
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8610540Z + path_provider_android 2.3.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8610799Z + path_provider_foundation 2.6.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8611055Z + path_provider_linux 2.2.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8611313Z + path_provider_platform_interface 2.1.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8611594Z + path_provider_windows 2.3.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8611839Z + permission_handler 12.0.3
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8612084Z + permission_handler_android 13.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8612362Z + permission_handler_apple 9.4.9
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8612618Z + permission_handler_html 0.1.3+5
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8612900Z + permission_handler_platform_interface 4.3.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8613456Z + permission_handler_windows 0.2.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8613717Z + petitparser 7.0.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8613936Z + platform 3.1.6
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8614158Z + plugin_platform_interface 2.1.8
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8614400Z + posix 6.5.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8614597Z + provider 6.1.5+1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8614807Z + pub_semver 2.2.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8615018Z + qr 3.0.2 (4.0.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8615248Z + qr_flutter 4.1.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8615447Z + record_use 0.6.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8615659Z + shared_preferences 2.5.5
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8615939Z + shared_preferences_android 2.4.23 (2.4.25 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8616261Z + shared_preferences_foundation 2.5.6
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8616537Z + shared_preferences_linux 2.4.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8616812Z + shared_preferences_platform_interface 2.4.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8617106Z + shared_preferences_web 2.4.3
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8617361Z + shared_preferences_windows 2.4.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8617778Z + sky_engine 0.0.0 from sdk flutter
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8618030Z + source_span 1.10.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8618247Z + stack_trace 1.12.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8618459Z + stream_channel 2.1.4
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8618677Z + string_scanner 1.4.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8618888Z + term_glyph 1.2.2
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8619108Z + test_api 0.7.10 (0.7.12 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8619363Z + timeago 3.7.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8619569Z + typed_data 1.4.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8619785Z + vector_math 2.2.0 (2.3.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8620303Z + vm_service 15.2.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8620527Z + wakelock_plus 1.3.3 (1.6.1 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8620806Z + wakelock_plus_platform_interface 1.5.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8621070Z + web 1.1.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8621272Z + win32 5.15.0 (6.3.0 available)
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8621516Z + xdg_directories 1.1.0
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8621738Z + xml 7.0.1
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8621928Z + yaml 3.1.3
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8622140Z Changed 102 dependencies!
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8622495Z 15 packages have newer versions incompatible with dependency constraints.
+Mobile (iOS tree)	Run flutter pub get	2026-06-03T10:31:29.8622980Z Try `flutter pub outdated` for more information.
+Mobile (iOS tree)	flutter analyze	´╗┐2026-06-03T10:31:30.1898312Z ##[group]Run flutter analyze --no-fatal-infos
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:30.1898724Z [36;1mflutter analyze --no-fatal-infos[0m
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:30.1925947Z shell: /usr/bin/bash -e {0}
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:30.1926219Z ##[endgroup]
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9551038Z Analyzing arqma_wallet_mobile...                                
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9558212Z 
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9589534Z    info ÔÇó The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' ÔÇó lib/core/mobile/wallet_biometric_unlock.dart:3:8 ÔÇó unnecessary_import
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9592719Z    info ÔÇó 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:146:13 ÔÇó deprecated_member_use
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9595004Z    info ÔÇó Use 'const' with the constructor to improve performance ÔÇó lib/widgets/mobile_remote_node_picker.dart:148:23 ÔÇó prefer_const_constructors
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9601222Z    info ÔÇó 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:149:13 ÔÇó deprecated_member_use
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9604233Z    info ÔÇó 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:159:11 ÔÇó deprecated_member_use
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9607187Z    info ÔÇó 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre ÔÇó lib/widgets/mobile_remote_node_picker.dart:161:11 ÔÇó deprecated_member_use
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9611591Z 
+Mobile (iOS tree)	flutter analyze	2026-06-03T10:31:51.9708292Z 6 issues found. (ran in 21.1s)
+Mobile (iOS tree)	flutter test	´╗┐2026-06-03T10:31:51.9815506Z ##[group]Run flutter test
+Mobile (iOS tree)	flutter test	2026-06-03T10:31:51.9815817Z [36;1mflutter test[0m
+Mobile (iOS tree)	flutter test	2026-06-03T10:31:51.9842787Z shell: /usr/bin/bash -e {0}
+Mobile (iOS tree)	flutter test	2026-06-03T10:31:51.9843065Z ##[endgroup]
+Mobile (iOS tree)	flutter test	2026-06-03T10:31:53.9738575Z 
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.1861350Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/wallet_safe_name_test.dart: sanitizeWalletBaseName accepts safe basenames
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.1885685Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/wallet_safe_name_test.dart: sanitizeWalletBaseName rejects traversal and separators
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.3174058Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost accepts preset nodes
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.3218125Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost accepts valid custom hostnames
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.3244215Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/mobile_remote_nodes_test.dart: isValidMobileRemoteHost rejects traversal and unsafe hosts
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.3274491Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/mobile_remote_nodes_test.dart: isValidMobileRemotePort accepts mainnet RPC only
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.6513527Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/bridge_log_redact_test.dart: redactBridgeArgs masks sensitive keys
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.6531640Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter-mobile/arqma_wallet_mobile/test/bridge_log_redact_test.dart: redactBridgeArgs handles null and empty
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.6648098Z 
+Mobile (iOS tree)	flutter test	2026-06-03T10:32:01.6654080Z ­čÄë 8 tests passed.
+Mobile (iOS tree)	Post Run actions/checkout@v4	´╗┐2026-06-03T10:32:01.7401908Z Post job cleanup.
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8373247Z [command]/usr/bin/git version
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8408604Z git version 2.54.0
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8448742Z Temporarily overriding HOME='/home/runner/work/_temp/65453fa0-b889-4f4d-913b-f21af2366256' before making global git config changes
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8449640Z Adding repository directory to the temporary git global config as a safe directory
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8454407Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8489344Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8522318Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8760938Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8784086Z http.https://github.com/.extraheader
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8796142Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.8827278Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.9059061Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Mobile (iOS tree)	Post Run actions/checkout@v4	2026-06-03T10:32:01.9089799Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Mobile (iOS tree)	Complete job	´╗┐2026-06-03T10:32:01.9435463Z Cleaning up orphan processes
+Mobile (iOS tree)	Complete job	2026-06-03T10:32:01.9740833Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 16th, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+Desktop	Set up job	´╗┐2026-06-03T10:30:09.8520027Z Current runner version: '2.334.0'
+Desktop	Set up job	2026-06-03T10:30:09.8558919Z ##[group]Runner Image Provisioner
+Desktop	Set up job	2026-06-03T10:30:09.8560784Z Hosted Compute Agent
+Desktop	Set up job	2026-06-03T10:30:09.8561791Z Version: 20260520.533
+Desktop	Set up job	2026-06-03T10:30:09.8562918Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+Desktop	Set up job	2026-06-03T10:30:09.8564105Z Build Date: 2026-05-20T17:44:04Z
+Desktop	Set up job	2026-06-03T10:30:09.8565228Z Worker ID: {12e4137d-aac2-4d51-b22f-36c99be35ae6}
+Desktop	Set up job	2026-06-03T10:30:09.8566506Z Azure Region: eastus
+Desktop	Set up job	2026-06-03T10:30:09.8567415Z ##[endgroup]
+Desktop	Set up job	2026-06-03T10:30:09.8570410Z ##[group]Operating System
+Desktop	Set up job	2026-06-03T10:30:09.8571530Z Ubuntu
+Desktop	Set up job	2026-06-03T10:30:09.8572393Z 24.04.4
+Desktop	Set up job	2026-06-03T10:30:09.8573267Z LTS
+Desktop	Set up job	2026-06-03T10:30:09.8574098Z ##[endgroup]
+Desktop	Set up job	2026-06-03T10:30:09.8575149Z ##[group]Runner Image
+Desktop	Set up job	2026-06-03T10:30:09.8576255Z Image: ubuntu-24.04
+Desktop	Set up job	2026-06-03T10:30:09.8577161Z Version: 20260525.161.1
+Desktop	Set up job	2026-06-03T10:30:09.8579165Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+Desktop	Set up job	2026-06-03T10:30:09.8582438Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+Desktop	Set up job	2026-06-03T10:30:09.8584151Z ##[endgroup]
+Desktop	Set up job	2026-06-03T10:30:09.8586590Z ##[group]GITHUB_TOKEN Permissions
+Desktop	Set up job	2026-06-03T10:30:09.8589726Z Contents: read
+Desktop	Set up job	2026-06-03T10:30:09.8590890Z Metadata: read
+Desktop	Set up job	2026-06-03T10:30:09.8591829Z ##[endgroup]
+Desktop	Set up job	2026-06-03T10:30:09.8594911Z Secret source: Actions
+Desktop	Set up job	2026-06-03T10:30:09.8596660Z Prepare workflow directory
+Desktop	Set up job	2026-06-03T10:30:09.9285895Z Prepare all required actions
+Desktop	Set up job	2026-06-03T10:30:09.9322624Z Getting action download info
+Desktop	Set up job	2026-06-03T10:30:10.3184432Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Desktop	Set up job	2026-06-03T10:30:10.5035273Z Complete job name: Desktop
+Desktop	Run actions/checkout@v4	´╗┐2026-06-03T10:30:10.5852386Z ##[group]Run actions/checkout@v4
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5853384Z with:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5853895Z   repository: ArqTras/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5858609Z   token: ***
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5859091Z   ssh-strict: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5859849Z   ssh-user: git
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5860371Z   persist-credentials: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5860921Z   clean: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5861412Z   sparse-checkout-cone-mode: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5861986Z   fetch-depth: 1
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5862468Z   fetch-tags: false
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5862960Z   show-progress: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5863463Z   lfs: false
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5863937Z   submodules: false
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5864434Z   set-safe-directory: true
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.5865241Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.6983467Z Syncing repository: ArqTras/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.6985791Z ##[group]Getting Git version info
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.6986691Z Working directory is '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.6987896Z [command]/usr/bin/git version
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7063748Z git version 2.54.0
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7091655Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7105683Z Temporarily overriding HOME='/home/runner/work/_temp/969da91e-79f2-4f7e-82a9-4d35a1185e41' before making global git config changes
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7108433Z Adding repository directory to the temporary git global config as a safe directory
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7119720Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7167784Z Deleting the contents of '/home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM'
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7171609Z ##[group]Initializing the repository
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7175436Z [command]/usr/bin/git init /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7286286Z hint: Using 'master' as the name for the initial branch. This default branch name
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7287578Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7288672Z hint: to use in all of your new repositories, which will suppress this warning,
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7289923Z hint: call:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7290397Z hint:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7291193Z hint: 	git config --global init.defaultBranch <name>
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7292853Z hint:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7293629Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7294678Z hint: 'development'. The just-created branch can be renamed via this command:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7295503Z hint:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7295983Z hint: 	git branch -m <name>
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7296527Z hint:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7297642Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7298848Z Initialized empty Git repository in /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/.git/
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7303374Z [command]/usr/bin/git remote add origin https://github.com/ArqTras/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7345453Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7346356Z ##[group]Disabling automatic garbage collection
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7349169Z [command]/usr/bin/git config --local gc.auto 0
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7378378Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7379216Z ##[group]Setting up auth
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7385217Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7428714Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7774301Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.7804600Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8020317Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8051956Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8294495Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8327470Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8335434Z ##[group]Fetching the repository
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:10.8336938Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +be9ea1110f79c1fe411b738f020c06f934334a40:refs/remotes/origin/review
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4420478Z From https://github.com/ArqTras/Arqma-GUI-MM
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4423792Z  * [new ref]         be9ea1110f79c1fe411b738f020c06f934334a40 -> origin/review
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4459996Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4461903Z ##[group]Determining the checkout info
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4463871Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4465885Z [command]/usr/bin/git sparse-checkout disable
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4507554Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4533683Z ##[group]Checking out the ref
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.4539021Z [command]/usr/bin/git checkout --progress --force -B review refs/remotes/origin/review
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.6085075Z Switched to a new branch 'review'
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.6092029Z branch 'review' set up to track 'origin/review'.
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.6099969Z ##[endgroup]
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.6140509Z [command]/usr/bin/git log -1 --format=%H
+Desktop	Run actions/checkout@v4	2026-06-03T10:30:11.6163852Z be9ea1110f79c1fe411b738f020c06f934334a40
+Desktop	Install Flutter (pinned)	´╗┐2026-06-03T10:30:11.6396497Z ##[group]Run bash build/ci/setup-flutter-stable-ci.sh
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:11.6398365Z [36;1mbash build/ci/setup-flutter-stable-ci.sh[0m
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:11.6431231Z shell: /usr/bin/bash -e {0}
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:11.6432450Z ##[endgroup]
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:11.6574725Z Cloning into '/home/runner/work/_temp/flutter'...
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0506592Z Note: switching to '00b0c91f06209d9e4a41f71b7a512d6eb3b9c694'.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0507190Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0507531Z You are in 'detached HEAD' state. You can look around, make experimental
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0508311Z changes and commit them, and you can discard any commits you make in this
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0509901Z state without impacting any branches by switching back to a branch.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0510263Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0510493Z If you want to create a new branch to retain commits you create, you may
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0510997Z do so (now or later) by using -c with the switch command. Example:
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0511277Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0511388Z   git switch -c <new-branch-name>
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0511644Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0511764Z Or undo this operation with:
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0511934Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0512027Z   git switch -
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0512154Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0512415Z Turn off this advice by setting config variable advice.detachedHead to false
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:18.0512736Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.0683742Z Updating files:  97% (14992/15361)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.0778040Z Updating files:  98% (15054/15361)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.0869262Z Updating files:  99% (15208/15361)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.0870569Z Updating files: 100% (15361/15361)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.0871528Z Updating files: 100% (15361/15361), done.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.1481808Z Downloading Linux x64 Dart SDK from Flutter engine 42d3d75a56efe1a2e9902f52dc8006099c45d937...
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.1587045Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.1592606Z                                  Dload  Upload   Total   Spent    Left  Speed
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.1593308Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.7310678Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.9344755Z  66  218M   66  146M    0     0   255M      0 --:--:-- --:--:-- --:--:--  254M
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:19.9345866Z 100  218M  100  218M    0     0   281M      0 --:--:-- --:--:-- --:--:--  281M
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:24.5358135Z Building flutter tool...
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:24.5522370Z Resolving dependencies...
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:24.9468998Z Downloading packages...
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3335500Z + _fe_analyzer_shared 92.0.0 (100.0.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3336381Z + analyzer 9.0.0 (13.0.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3337154Z + archive 3.6.1 (4.0.9 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3337756Z + args 2.7.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3338342Z + async 2.13.0 (2.13.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3338970Z + boolean_selector 2.1.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3339782Z + browser_launcher 1.1.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3340377Z + built_collection 5.1.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3340959Z + built_value 8.12.1 (8.12.6 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3341601Z + checked_yaml 2.0.4
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3342132Z + cli_config 0.2.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3342643Z + clock 1.1.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3343156Z + code_assets 1.0.0 (1.2.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3343779Z + code_builder 4.11.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3344475Z + collection 1.19.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3345012Z + completion 1.0.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3345545Z + convert 3.1.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3346046Z + coverage 1.15.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3346561Z + crypto 3.0.7
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3347081Z + csslib 1.0.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3347587Z + dap 1.4.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3348115Z + dart_service_protocol_shared 0.0.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3348750Z + dart_style 3.1.3 (3.1.9 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3349368Z + data_assets 0.19.6 (0.20.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3350181Z + dds 5.1.0 (5.3.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3350802Z + dds_service_extensions 2.1.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3351425Z + devtools_shared 12.0.0 (13.0.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3352421Z + dtd 4.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3352923Z + dwds 26.2.3 (27.1.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3353515Z + extension_discovery 2.1.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3354081Z + fake_async 1.3.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3354609Z + ffi 2.1.4 (2.2.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3355166Z + file 7.0.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3355711Z + file_testing 3.0.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3356233Z + fixnum 1.1.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3356751Z + flutter_template_images 5.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3357357Z + frontend_server_client 4.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3357921Z + glob 2.1.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3358473Z + graphs 2.3.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3358981Z + hooks 1.0.0 (2.0.2 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3360097Z + hooks_runner 1.0.1 (1.4.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3360670Z + html 0.15.6
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3361004Z + http 1.6.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3361340Z + http_multi_server 3.2.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3361752Z + http_parser 4.1.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3362120Z + intl 0.20.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3362458Z + io 1.0.5
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3362817Z + js 0.7.2 (discontinued)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3363247Z + json_annotation 4.9.0 (4.12.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3363737Z + json_rpc_2 4.0.0 (4.1.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3364180Z + logging 1.3.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3364543Z + matcher 0.12.19 (0.12.20 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3364991Z + meta 1.17.0 (1.18.2 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3365398Z + mime 2.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3365730Z + multicast_dns 0.3.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3366145Z + mustache_template 2.0.2 (2.0.4 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3366633Z + native_stack_traces 0.6.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3367041Z + node_preamble 2.0.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3367429Z + package_config 2.2.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3367816Z + path 1.9.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3368184Z + petitparser 7.0.1 (7.0.2 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3368639Z + platform 3.1.6
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3368973Z + pool 1.5.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3369309Z + process 5.0.5
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3369935Z + pub_semver 2.2.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3370335Z + pubspec_parse 1.5.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3370795Z + shelf 1.4.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3371158Z + shelf_packages_handler 3.0.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3371619Z + shelf_proxy 1.0.4 (1.0.5 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3372065Z + shelf_static 1.1.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3372441Z + shelf_web_socket 3.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3372847Z + source_map_stack_trace 2.1.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3373270Z + source_maps 0.10.13
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3373660Z + source_span 1.10.1 (1.10.2 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3374110Z + sprintf 7.0.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3374465Z + sse 4.1.8 (4.2.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3374873Z + stack_trace 1.12.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3375256Z + standard_message_codec 0.0.1+4
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3375703Z + stream_channel 2.1.4
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3376081Z + string_scanner 1.4.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3376466Z + sync_http 0.3.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3376822Z + term_glyph 1.2.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3377201Z + test 1.30.0 (1.31.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3377637Z + test_api 0.7.10 (0.7.12 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3378099Z + test_core 0.6.16 (0.6.18 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3378558Z + typed_data 1.4.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3378967Z + unified_analytics 8.0.10 (8.0.14 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3379689Z + usage 4.1.1 (discontinued)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3380138Z + uuid 4.5.2 (4.5.3 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3380573Z + vm_service 15.0.2 (15.2.0 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3381045Z + vm_service_interface 2.0.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3381476Z + vm_snapshot_analysis 0.7.6
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3381897Z + watcher 1.2.0 (1.2.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3382318Z + web 1.1.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3382642Z + web_socket 1.0.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3383013Z + web_socket_channel 3.0.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3383444Z + webdriver 3.1.0
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3383824Z + webkit_inspection_protocol 1.2.1
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3384279Z + xml 6.6.1 (7.0.1 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3384676Z + yaml 3.1.3
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3385023Z + yaml_edit 2.2.3 (2.2.4 available)
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3385492Z Changed 101 dependencies!
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3385914Z 2 packages are discontinued.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3386832Z 32 packages have newer versions incompatible with dependency constraints.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:27.3387589Z Try `dart pub outdated` for more information.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.8675578Z Analytics reporting disabled.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.8680126Z 
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.8680605Z You may need to restart any open editors for them to read new settings.
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.9603444Z Flutter 3.41.9 ÔÇó channel [user-branch] ÔÇó unknown source
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.9604589Z Framework ÔÇó revision 00b0c91f06 (5 weeks ago) ÔÇó 2026-04-29 10:03:19 -0700
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.9606057Z Engine ÔÇó hash 9161402dc0e134b3fb5adee5046b6e84b1a5e1c1 (revision 42d3d75a56) (1 months ago) ÔÇó 2026-04-28 17:31:55.000Z
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:42.9607367Z Tools ÔÇó Dart 3.11.5 ÔÇó DevTools 2.54.2
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:43.2698397Z Downloading Material fonts...                                      210ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:43.3264220Z Downloading Gradle Wrapper...                                        9ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:43.4869175Z Downloading android-arm-profile/linux-x64 tools...                 147ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:43.6725705Z Downloading android-arm-release/linux-x64 tools...                 117ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:43.8523981Z Downloading android-arm64-profile/linux-x64 tools...               118ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:44.0333567Z Downloading android-arm64-release/linux-x64 tools...               111ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:44.2370897Z Downloading android-x64-profile/linux-x64 tools...                 141ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:44.4149158Z Downloading android-x64-release/linux-x64 tools...                 107ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:48.2043044Z Downloading android-x86 tools...                                    3.7s
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:52.3681482Z Downloading android-x64 tools...                                    3.5s
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:56.4410678Z Downloading android-arm tools...                                    3.4s
+Desktop	Install Flutter (pinned)	2026-06-03T10:30:58.4144635Z Downloading android-arm-profile tools...                         1,326ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:00.1172529Z Downloading android-arm-release tools...                         1,448ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:05.9879374Z Downloading android-arm64 tools...                                  5.6s
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:08.4275227Z Downloading android-arm64-profile tools...                       1,379ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:09.9442919Z Downloading android-arm64-release tools...                       1,255ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:11.5123913Z Downloading android-x64-profile tools...                         1,325ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:13.0013589Z Downloading android-x64-release tools...                         1,229ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:14.3663154Z Downloading Web SDK...                                             989ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:15.1296554Z Downloading package sky_engine...                                   61ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:15.2078039Z Downloading package flutter_gpu...                                  12ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:15.3548412Z Downloading flutter_patched_sdk tools...                           134ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:15.5739099Z Downloading flutter_patched_sdk_product tools...                   130ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:16.6583858Z Downloading linux-x64 tools...                                     987ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:18.4464341Z Downloading linux-x64-debug/linux-x64-flutter-gtk tools...       1,200ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:19.8697237Z Downloading linux-x64-profile/linux-x64-flutter-gtk tools...        675ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:20.8724221Z Downloading linux-x64-release/linux-x64-flutter-gtk tools...        588ms
+Desktop	Install Flutter (pinned)	2026-06-03T10:31:21.3345740Z Downloading linux-x64/font-subset tools...                          79ms
+Desktop	Run flutter pub get	´╗┐2026-06-03T10:31:21.4571849Z ##[group]Run flutter pub get
+Desktop	Run flutter pub get	2026-06-03T10:31:21.4572218Z [36;1mflutter pub get[0m
+Desktop	Run flutter pub get	2026-06-03T10:31:21.4600582Z shell: /usr/bin/bash -e {0}
+Desktop	Run flutter pub get	2026-06-03T10:31:21.4600870Z ##[endgroup]
+Desktop	Run flutter pub get	2026-06-03T10:31:21.6624157Z Resolving dependencies...
+Desktop	Run flutter pub get	2026-06-03T10:31:21.9878000Z Downloading packages...
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7290057Z + args 2.7.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7290580Z + async 2.13.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7290982Z + boolean_selector 2.1.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7291458Z + characters 1.4.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7291862Z + clock 1.1.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7292257Z + code_assets 1.2.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7292658Z + collection 1.19.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7293043Z + cross_file 0.3.5+2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7293449Z + crypto 3.0.7
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7293821Z + dbus 0.7.13
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7294181Z + fake_async 1.3.3
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7294568Z + ffi 2.2.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7294894Z + file 7.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7295273Z + file_picker 10.3.10 (11.0.2 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7295821Z + flutter 0.0.0 from sdk flutter
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7296468Z + flutter_lints 6.0.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7297257Z + flutter_localizations 0.0.0 from sdk flutter
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7297850Z + flutter_plugin_android_lifecycle 2.0.35
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7298432Z + flutter_secure_storage 10.3.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7299034Z + flutter_secure_storage_darwin 0.3.2 (0.4.0 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7299842Z + flutter_secure_storage_linux 3.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7300336Z + flutter_secure_storage_platform_interface 2.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7300871Z + flutter_secure_storage_web 2.1.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7301414Z + flutter_secure_storage_windows 4.1.0 (4.2.2 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7301989Z + flutter_test 0.0.0 from sdk flutter
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7302488Z + flutter_web_plugins 0.0.0 from sdk flutter
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7302993Z + go_router 14.8.1 (17.3.0 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7303430Z + hooks 2.0.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7303760Z + intl 0.20.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7304081Z + jni 1.0.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7304405Z + jni_flutter 1.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7304783Z + leak_tracker 11.0.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7305200Z + leak_tracker_flutter_testing 3.0.10
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7305686Z + leak_tracker_testing 3.0.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7306101Z + lints 6.1.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7306438Z + local_auth 3.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7306844Z + local_auth_android 2.0.8 (2.0.9 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7307348Z + local_auth_darwin 2.0.3
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7307780Z + local_auth_platform_interface 1.1.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7308255Z + local_auth_windows 2.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7308660Z + logging 1.3.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7309023Z + matcher 0.12.19 (0.12.20 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7309705Z + material_color_utilities 0.13.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7310219Z + meta 1.17.0 (1.18.2 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7310643Z + nested 1.0.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7310993Z + objective_c 9.4.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7311370Z + package_config 2.2.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7311760Z + path 1.9.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7312088Z + path_provider 2.1.5
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7312470Z + path_provider_android 2.3.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7312935Z + path_provider_foundation 2.6.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7313381Z + path_provider_linux 2.2.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7313824Z + path_provider_platform_interface 2.1.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7314307Z + path_provider_windows 2.3.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7314718Z + petitparser 7.0.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7315077Z + platform 3.1.6
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7315465Z + plugin_platform_interface 2.1.8
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7315919Z + provider 6.1.5+1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7316285Z + pub_semver 2.2.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7316661Z + qr 3.0.2 (4.0.0 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7317069Z + qr_flutter 4.1.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7317428Z + record_use 0.6.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7317797Z + shared_preferences 2.5.5
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7318306Z + shared_preferences_android 2.4.23 (2.4.25 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7318892Z + shared_preferences_foundation 2.5.6
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7319388Z + shared_preferences_linux 2.4.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7320118Z + shared_preferences_platform_interface 2.4.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7320978Z + shared_preferences_web 2.4.3
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7321460Z + shared_preferences_windows 2.4.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7321938Z + sky_engine 0.0.0 from sdk flutter
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7322396Z + source_span 1.10.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7322767Z + stack_trace 1.12.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7323143Z + stream_channel 2.1.4
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7323535Z + string_scanner 1.4.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7323916Z + term_glyph 1.2.2
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7324296Z + test_api 0.7.10 (0.7.12 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7324803Z + timeago 3.7.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7325156Z + typed_data 1.4.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7325533Z + vector_math 2.2.0 (2.3.0 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7325987Z + vm_service 15.2.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7326342Z + web 1.1.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7326679Z + win32 5.15.0 (6.3.0 available)
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7327115Z + xdg_directories 1.1.0
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7327494Z + xml 7.0.1
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7327825Z + yaml 3.1.3
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7328171Z Changed 85 dependencies!
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7328799Z 12 packages have newer versions incompatible with dependency constraints.
+Desktop	Run flutter pub get	2026-06-03T10:31:25.7330052Z Try `flutter pub outdated` for more information.
+Desktop	flutter analyze	´╗┐2026-06-03T10:31:26.0602463Z ##[group]Run flutter analyze --no-fatal-infos
+Desktop	flutter analyze	2026-06-03T10:31:26.0602888Z [36;1mflutter analyze --no-fatal-infos[0m
+Desktop	flutter analyze	2026-06-03T10:31:26.0628074Z shell: /usr/bin/bash -e {0}
+Desktop	flutter analyze	2026-06-03T10:31:26.0628357Z ##[endgroup]
+Desktop	flutter analyze	2026-06-03T10:31:43.5279726Z Analyzing arqma_wallet_gui...                                   
+Desktop	flutter analyze	2026-06-03T10:31:43.5294585Z No issues found! (ran in 16.8s)
+Desktop	flutter test	´╗┐2026-06-03T10:31:43.5473241Z ##[group]Run flutter test
+Desktop	flutter test	2026-06-03T10:31:43.5473721Z [36;1mflutter test[0m
+Desktop	flutter test	2026-06-03T10:31:43.5507864Z shell: /usr/bin/bash -e {0}
+Desktop	flutter test	2026-06-03T10:31:43.5508290Z ##[endgroup]
+Desktop	flutter test	2026-06-03T10:31:45.6711389Z 
+Desktop	flutter test	2026-06-03T10:31:53.5678116Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/wallet_safe_name_test.dart: sanitizeWalletBaseName accepts safe basenames
+Desktop	flutter test	2026-06-03T10:31:53.5680586Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/smoke_test.dart: default gateway state is cloneable
+Desktop	flutter test	2026-06-03T10:31:53.5768507Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/wallet_safe_name_test.dart: sanitizeWalletBaseName rejects traversal and separators
+Desktop	flutter test	2026-06-03T10:31:54.1119017Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/desktop_wallet_address_book_test.dart: buildWalletAddressBookFromRpc splits starred::name::notes
+Desktop	flutter test	2026-06-03T10:31:54.3461778Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/wallet_password_pbkdf2_test.dart: PBKDF2-HMAC-SHA512 matches Node/Rust (password test, salt 0x41*32)
+Desktop	flutter test	2026-06-03T10:31:54.7105950Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/bridge_log_redact_test.dart: redactBridgeArgs masks sensitive keys
+Desktop	flutter test	2026-06-03T10:31:54.7129389Z Ôťů /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM/flutter/arqma_wallet_gui/test/bridge_log_redact_test.dart: redactBridgeArgs handles null and empty
+Desktop	flutter test	2026-06-03T10:31:54.7239344Z 
+Desktop	flutter test	2026-06-03T10:31:54.7245466Z ­čÄë 7 tests passed.
+Desktop	Post Run actions/checkout@v4	´╗┐2026-06-03T10:31:54.7940898Z Post job cleanup.
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.8931939Z [command]/usr/bin/git version
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.8967485Z git version 2.54.0
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9012316Z Temporarily overriding HOME='/home/runner/work/_temp/abfd10ff-8331-4e58-bf86-3660be81fce9' before making global git config changes
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9013730Z Adding repository directory to the temporary git global config as a safe directory
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9025281Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Arqma-GUI-MM/Arqma-GUI-MM
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9059233Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9091148Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9310802Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9334183Z http.https://github.com/.extraheader
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9346415Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9376864Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9591078Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Desktop	Post Run actions/checkout@v4	2026-06-03T10:31:54.9620438Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Desktop	Complete job	´╗┐2026-06-03T10:31:54.9942971Z Cleaning up orphan processes
+Desktop	Complete job	2026-06-03T10:31:55.0236842Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4. Actions will be forced to run with Node.js 24 by default starting June 16th, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

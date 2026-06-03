@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 ///
 /// Gated vars include: `ARQMA_FLUTTER_USE_STUB`, `ARQMA_FLUTTER_WALLET_FFI`,
 /// `ARQMA_FLUTTER_FFI_NO_ISOLATE`, `ARQMA_FLUTTER_NO_WALLET_RPC`,
-/// `ARQMA_FLUTTER_DEBUG_WALLET`, `ARQMA_DAEMON`, `ARQMA_WALLET_RPC`,
-/// `ARQMA_BUILD_DIR`, `ARQMA_INSTALL_PREFIX`.
+/// `ARQMA_FLUTTER_DEBUG_WALLET`, `ARQMA_FLUTTER_WALLET_RPC_MODE`, `ARQMA_DAEMON`,
+/// `ARQMA_WALLET_RPC`, `ARQMA_BUILD_DIR`, `ARQMA_INSTALL_PREFIX`.
 bool flutterDebugEnvFlag(String name) {
   if (kReleaseMode) {
     return false;
@@ -26,3 +26,6 @@ String? flutterDebugEnvPath(String name) {
   }
   return v;
 }
+
+/// Raw env value in debug/profile only (e.g. `ARQMA_FLUTTER_WALLET_RPC_MODE=subprocess`).
+String? flutterDebugEnvValue(String name) => flutterDebugEnvPath(name);

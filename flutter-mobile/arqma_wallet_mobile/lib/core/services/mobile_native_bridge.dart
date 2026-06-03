@@ -231,6 +231,7 @@ final class MobileNativeBridge implements NativeBridge {
   Timer? _walletHeartbeat;
   bool _walletHbInFlight = false;
   Future<void> _walletOpenLane = Future<void>.value();
+  Future<void> _walletSyncLane = Future<void>.value();
   int _daemonChainTipHeight = 0;
   int _whStoredHeight = 0;
   int _whStoredBalance = 0;
@@ -1766,20 +1767,28 @@ final class MobileNativeBridge implements NativeBridge {
   bool get isWalletOpenForBackgroundSync =>
       _walletRpc != null && _openedWalletDisplayName.isNotEmpty;
 
+  Future<void> _runWalletSyncLane(Future<void> Function() body) {
+    final Future<void> op = _walletSyncLane.then((_) => body());
+    _walletSyncLane = op.then((_) {}, onError: (_) {});
+    return op;
+  }
+
   /// One daemon tip poll + wallet heartbeat tick (used when screen is off).
-  Future<void> pulseBackgroundWalletSync() async {
-    if (!isWalletOpenForBackgroundSync) {
-      return;
-    }
-    _backgroundPulseCount++;
-    if (_backgroundPulseCount % 6 == 0 && !_walletFullRescanUi) {
-      await _storeWalletToDiskIfSafe(reason: 'background_pulse');
-    }
-    final Map<String, dynamic>? cfg = _runtimeConfig;
-    if (cfg != null) {
-      await _heartbeatTick(cfg);
-    }
-    await _walletHeartbeatTick();
+  Future<void> pulseBackgroundWalletSync() {
+    return _runWalletSyncLane(() async {
+      if (!isWalletOpenForBackgroundSync) {
+        return;
+      }
+      _backgroundPulseCount++;
+      if (_backgroundPulseCount % 6 == 0 && !_walletFullRescanUi) {
+        await _storeWalletToDiskIfSafe(reason: 'background_pulse');
+      }
+      final Map<String, dynamic>? cfg = _runtimeConfig;
+      if (cfg != null) {
+        await _heartbeatTick(cfg);
+      }
+      await _walletHeartbeatTick();
+    });
   }
 
   String _sessionNetType() {
@@ -1806,18 +1815,20 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   /// Flush wallet + prefs snapshot before iOS suspends the app (keeps `.keys` / wallet file safe).
-  Future<void> persistWalletBeforeSuspend({required String reason}) async {
-    if (!isWalletOpenForBackgroundSync) {
-      return;
-    }
-    debugPrint('[MobileNative] persistWalletBeforeSuspend ($reason)');
-    if (Platform.isIOS) {
-      _iosWalletSessionStale = true;
-    }
-    await _writeSessionCheckpoint();
-    if (!_walletFullRescanUi) {
-      await _storeWalletToDiskIfSafe(reason: reason);
-    }
+  Future<void> persistWalletBeforeSuspend({required String reason}) {
+    return _runWalletSyncLane(() async {
+      if (!isWalletOpenForBackgroundSync) {
+        return;
+      }
+      debugPrint('[MobileNative] persistWalletBeforeSuspend ($reason)');
+      if (Platform.isIOS) {
+        _iosWalletSessionStale = true;
+      }
+      await _writeSessionCheckpoint();
+      if (!_walletFullRescanUi) {
+        await _storeWalletToDiskIfSafe(reason: reason);
+      }
+    });
   }
 
   Future<void> _storeWalletToDiskIfSafe({required String reason}) async {
@@ -2077,113 +2088,115 @@ final class MobileNativeBridge implements NativeBridge {
     return _walletRpc;
   }
 
-  Future<void> recoverWalletSessionAfterForeground() async {
-    final ArqmaWalletRpcSession? w = _walletRpc;
-    final String name = _openedWalletDisplayName;
-    if (w == null || name.isEmpty) {
-      return;
-    }
-
-    await _restoreUiFromCheckpointIfNeeded();
-
-    if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
-      _walletTxListClearedForRescan = false;
-      _whFetchTxPending = true;
-      unawaited(_walletHeartbeatTick());
-      return;
-    }
-
-    debugPrint('[MobileNative] recover: wallet RPC unhealthy after foreground');
-    try {
-      await w
-          .call('refresh', <String, dynamic>{})
-          .timeout(const Duration(seconds: 45), onTimeout: () => null);
-    } catch (e, st) {
-      debugPrint('[MobileNative] recover refresh: $e\n$st');
-    }
-    if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
-      _walletTxListClearedForRescan = false;
-      _whFetchTxPending = true;
-      unawaited(_walletHeartbeatTick());
-      _iosWalletSessionStale = false;
-      return;
-    }
-
-    final String? pwd = _sessionWalletPassword;
-    if (pwd == null) {
-      return;
-    }
-    final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
-    final bool resumeRescan =
-        cp?.walletName == name && cp!.fullRescanUi == true;
-
-    debugPrint('[MobileNative] recover: reopening wallet "$name"');
-    try {
-      await w.closeWalletSession();
-    } catch (e, st) {
-      debugPrint('[MobileNative] recover closeWalletSession: $e\n$st');
-    }
-    if (w.usesNativeFfi) {
-      await w.resetNativeFfiClient();
-      _walletRpc = null;
-      if (!await _ensureWalletRpcStarted()) {
-        _showNotification(
-          'negative',
-          'Wallet backend unavailable after resume',
-          8000,
-        );
+  Future<void> recoverWalletSessionAfterForeground() {
+    return _runWalletSyncLane(() async {
+      final ArqmaWalletRpcSession? w = _walletRpc;
+      final String name = _openedWalletDisplayName;
+      if (w == null || name.isEmpty) {
         return;
       }
-    }
-    final ArqmaWalletRpcSession? session = _walletRpc;
-    if (session == null) {
-      return;
-    }
-    if (!resumeRescan) {
-      _walletFullRescanUi = false;
-      _walletTxListClearedForRescan = false;
-      _rescanPreTipHeight = 0;
-      _rescanProgressPeak = 0;
-      if (Platform.isIOS) {
-        unawaited(IosRescanLiveActivity.end());
-      }
-    }
-    final Map<String, dynamic>? opened = await session.call(
-      'open_wallet',
-      <String, dynamic>{'filename': name, 'password': pwd},
-    );
-    if (!walletJsonRpcNoError(opened)) {
-      final String msg = walletJsonRpcErrorMessage(opened,
-          fallback: 'Could not reopen wallet after resume');
-      _showNotification('negative', msg, 8000);
-      return;
-    }
-    _refreshSessionPasswordDigest(pwd);
-    if (resumeRescan) {
-      _walletFullRescanUi = true;
-      _whStoredHeight = cp.height;
-      _emitRescanStartingUi(clearTransactions: false);
-      final Map<String, dynamic>? res = await _callRescanBlockchainWithRetry(
-        session,
-        hard: true,
-      );
-      if (!walletJsonRpcNoError(res)) {
-        final String msg = walletJsonRpcErrorMessage(res,
-            fallback: 'Rescan could not resume after wake');
-        _restoreWalletUiAfterRescanFailure();
-        _showNotification('negative', msg, 8000);
-      } else {
-        _walletTxListClearedForRescan = true;
-        _whLastEmittedTxMaxHeight = 0;
+
+      await _restoreUiFromCheckpointIfNeeded();
+
+      if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
+        _walletTxListClearedForRescan = false;
         _whFetchTxPending = true;
-        unawaited(_refreshWalletUiAfterRescan(clearTransactions: false));
+        unawaited(_walletHeartbeatTick());
+        return;
       }
-      _startWalletHeartbeat();
-    } else {
-      await _nudgeWalletAfterResume(name);
-    }
-    _iosWalletSessionStale = false;
-    await _writeSessionCheckpoint();
+
+      debugPrint('[MobileNative] recover: wallet RPC unhealthy after foreground');
+      try {
+        await w
+            .call('refresh', <String, dynamic>{})
+            .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      } catch (e, st) {
+        debugPrint('[MobileNative] recover refresh: $e\n$st');
+      }
+      if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
+        _walletTxListClearedForRescan = false;
+        _whFetchTxPending = true;
+        unawaited(_walletHeartbeatTick());
+        _iosWalletSessionStale = false;
+        return;
+      }
+
+      final String? pwd = _sessionWalletPassword;
+      if (pwd == null) {
+        return;
+      }
+      final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
+      final bool resumeRescan =
+          cp?.walletName == name && cp!.fullRescanUi == true;
+
+      debugPrint('[MobileNative] recover: reopening wallet "$name"');
+      try {
+        await w.closeWalletSession();
+      } catch (e, st) {
+        debugPrint('[MobileNative] recover closeWalletSession: $e\n$st');
+      }
+      if (w.usesNativeFfi) {
+        await w.resetNativeFfiClient();
+        _walletRpc = null;
+        if (!await _ensureWalletRpcStarted()) {
+          _showNotification(
+            'negative',
+            'Wallet backend unavailable after resume',
+            8000,
+          );
+          return;
+        }
+      }
+      final ArqmaWalletRpcSession? session = _walletRpc;
+      if (session == null) {
+        return;
+      }
+      if (!resumeRescan) {
+        _walletFullRescanUi = false;
+        _walletTxListClearedForRescan = false;
+        _rescanPreTipHeight = 0;
+        _rescanProgressPeak = 0;
+        if (Platform.isIOS) {
+          unawaited(IosRescanLiveActivity.end());
+        }
+      }
+      final Map<String, dynamic>? opened = await session.call(
+        'open_wallet',
+        <String, dynamic>{'filename': name, 'password': pwd},
+      );
+      if (!walletJsonRpcNoError(opened)) {
+        final String msg = walletJsonRpcErrorMessage(opened,
+            fallback: 'Could not reopen wallet after resume');
+        _showNotification('negative', msg, 8000);
+        return;
+      }
+      _refreshSessionPasswordDigest(pwd);
+      if (resumeRescan) {
+        _walletFullRescanUi = true;
+        _whStoredHeight = cp.height;
+        _emitRescanStartingUi(clearTransactions: false);
+        final Map<String, dynamic>? res = await _callRescanBlockchainWithRetry(
+          session,
+          hard: true,
+        );
+        if (!walletJsonRpcNoError(res)) {
+          final String msg = walletJsonRpcErrorMessage(res,
+              fallback: 'Rescan could not resume after wake');
+          _restoreWalletUiAfterRescanFailure();
+          _showNotification('negative', msg, 8000);
+        } else {
+          _walletTxListClearedForRescan = true;
+          _whLastEmittedTxMaxHeight = 0;
+          _whFetchTxPending = true;
+          unawaited(_refreshWalletUiAfterRescan(clearTransactions: false));
+        }
+        _startWalletHeartbeat();
+      } else {
+        await _nudgeWalletAfterResume(name);
+      }
+      _iosWalletSessionStale = false;
+      await _writeSessionCheckpoint();
+    });
   }
 
   /// Same bucket merge + sort as `wallet_heartbeat::merge_transfers_list`.

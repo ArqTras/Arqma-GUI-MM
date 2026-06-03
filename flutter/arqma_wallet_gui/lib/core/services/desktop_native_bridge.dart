@@ -343,7 +343,7 @@ final class DesktopNativeBridge implements NativeBridge {
   /// Runs the Rust `arqma_flutter_solo_pool` binary (Stratum solo pool); stdout JSON lines → [`_emit`].
   Future<void> _syncSoloPoolSidecar(Map<String, dynamic> configData) async {
     await _stopSoloPoolSidecar();
-    if (Platform.environment['ARQMA_FLUTTER_NO_SOLO_POOL'] == '1') {
+    if (flutterDebugEnvFlag('ARQMA_FLUTTER_NO_SOLO_POOL')) {
       return;
     }
     if (!poolServerEnabled(configData)) {

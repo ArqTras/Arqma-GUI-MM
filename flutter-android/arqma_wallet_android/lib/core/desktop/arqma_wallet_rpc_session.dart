@@ -240,7 +240,7 @@ final class ArqmaWalletRpcSession {
     final int netCode = networkCodeForNetType(net);
 
     final bool useSubprocessOnly = !kIsWeb &&
-        Platform.environment[kArqmaFlutterWalletRpcModeEnv] == 'subprocess';
+        flutterDebugEnvValue(kArqmaFlutterWalletRpcModeEnv) == 'subprocess';
 
     if (!kIsWeb && !useSubprocessOnly) {
       final ArqmaWalletRpcSession? fromIsolate =

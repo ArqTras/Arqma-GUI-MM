@@ -71,7 +71,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 | N-003 | CI | — | **WON'T FIX** | iOS build not in GitHub Actions | Manual `package_mobile_release.sh` | **By design** — no macOS/iOS Actions workflow; iOS tree covered by unit tests |
 | N-004 | Security | Medium | **FIXED** | Debug env vars honored in release | Bridges + `arqma_executable_resolve` now use `flutter_env_guard` | — |
 | N-005 | Security | Medium | **DOCUMENTED** | Biometric unlock stores session password | Threat model comment in `wallet_biometric_unlock.dart` | Token-based unlock optional future work |
-| N-006 | Stability | Medium | **OPEN** | iOS background + foreground recovery overlap | `mobile_background_wallet_sync.dart`, `_iosWalletSessionStale` | Single coordinator mutex (R-015 carry-over) |
+| N-006 | Stability | Medium | **MITIGATED** | iOS background + foreground recovery overlap | `_walletSyncLane` serializes pulse/persist/recover | Monitor on device |
 | N-007 | Performance | Low | **OPEN** | Non-tab widgets still `watch<GatewayStore>` | `swap_signature_list.dart`, dialogs, wallet-select pages | OK outside tabs; optional `Selector` |
 | N-008 | Performance | Low | **OPEN** | UI double-tap open_wallet before bridge lane | `wallet_select_index_page.dart:255` — no UI `_openInFlight` | Optional UI debounce (bridge lane sufficient) |
 | N-009 | Supply chain | Medium | **OPEN** | GitHub Dependabot: 23 vulnerabilities (default branch) | Push notifications from GitHub | Triage `file_picker`, transitive deps |
@@ -193,7 +193,8 @@ Wszystkie issue audytu **#2–#13 zamknięte**.
 | N-001 | CI nie testuje mobile/android | **Naprawione** — matrix w Actions |
 | N-002 | Brak pubspec.lock | **Otwarte** — wymaga lokalnego `flutter pub get` |
 | N-003 | Brak iOS w Actions | **Zamierzone** — bez workflow iOS; testy iOS tree w CI |
-| N-004 | Debug env w release | **Naprawione** |
+| N-004 | Debug env w release | **Naprawione** (pełne pokrycie guard) |
+| N-006 | iOS bg/fg overlap | **Złagodzone** (`_walletSyncLane`) |
 | N-005 | Hasło w Keychain przy biometrii | **Udokumentowane** (threat model) |
 | N-011 | Brak integration_test | Wysoki |
 | N-009 | Dependabot 23 alertów | Średni |
