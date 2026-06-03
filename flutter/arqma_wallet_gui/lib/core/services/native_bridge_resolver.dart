@@ -3,18 +3,19 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../desktop/flutter_env_guard.dart';
 import 'desktop_native_bridge.dart';
 import 'native_bridge.dart';
 
 /// Prefer the platform **MethodChannel** embedder (`com.arqma.wallet/native`) when it
 /// responds to [kArqmaNativePingMethod]; otherwise use [DesktopNativeBridge] on desktop OS.
 ///
-/// Set `ARQMA_FLUTTER_USE_STUB=1` to force [StubNativeBridge] for UI-only work.
+/// Set `ARQMA_FLUTTER_USE_STUB=1` to force [StubNativeBridge] for UI-only work (debug/profile only).
 Future<NativeBridge> resolveAppNativeBridge() async {
   if (kIsWeb) {
     return StubNativeBridge();
   }
-  if (Platform.environment['ARQMA_FLUTTER_USE_STUB'] == '1') {
+  if (flutterDebugEnvFlag('ARQMA_FLUTTER_USE_STUB')) {
     return StubNativeBridge();
   }
   if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {

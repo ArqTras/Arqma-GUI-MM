@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
+import 'bridge_log_redact.dart';
+import 'flutter_env_guard.dart';
+
 /// Optional absolute path to `libarqma_wallet_flutter_ffi.{dylib,so}` or `arqma_wallet_flutter_ffi.dll`.
 const String kArqmaFlutterWalletFfiEnv = 'ARQMA_FLUTTER_WALLET_FFI';
 
@@ -215,8 +218,7 @@ final class WalletNativeFfi {
   }
 
   static List<String> _candidateLibraryPaths() {
-    final String? fromEnv =
-        Platform.environment[kArqmaFlutterWalletFfiEnv]?.trim();
+    final String? fromEnv = flutterDebugEnvPath(kArqmaFlutterWalletFfiEnv);
     final List<String> out = <String>[];
     if (fromEnv != null && fromEnv.isNotEmpty) {
       out.add(fromEnv);

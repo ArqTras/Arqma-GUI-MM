@@ -12,6 +12,7 @@ import '../desktop/arqma_daemon_launcher.dart';
 import '../desktop/arqma_desktop_defaults.dart';
 import '../desktop/arqma_executable_resolve.dart';
 import '../desktop/arqma_paths.dart';
+import '../desktop/bridge_log_redact.dart';
 import '../desktop/daemon_heartbeat_extras.dart';
 import '../desktop/desktop_export_transactions.dart';
 import '../desktop/config_validate.dart';
@@ -212,6 +213,7 @@ final class DesktopNativeBridge implements NativeBridge {
   /// Parity with Tauri `wallet_heartbeat` / Electron `wallet-rpc.js` — `getheight` + balance + `get_transfers`.
   Timer? _walletHeartbeat;
   bool _walletHbInFlight = false;
+  Future<void> _walletOpenLane = Future<void>.value();
   /// Windows: detect wallet height stuck below daemon tip (native refresh needs a kick).
   int _windowsScanHbLastHeight = -1;
   int _windowsScanStallTicks = 0;
@@ -617,7 +619,7 @@ final class DesktopNativeBridge implements NativeBridge {
   @override
   Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) async {
     if (cmd == 'app_log_info' || cmd == 'app_log_error') {
-      debugPrint('[$cmd] ${args ?? {}}');
+      debugPrint('[$cmd] ${redactBridgeArgs(args)}');
       return null;
     }
     if (cmd == 'clip_write_text') {
@@ -2649,7 +2651,14 @@ final class DesktopNativeBridge implements NativeBridge {
     return _walletRpc;
   }
 
-  Future<dynamic> _openWalletDesktop(Object? data) async {
+  Future<dynamic> _openWalletDesktop(Object? data) {
+    final Future<dynamic> op =
+        _walletOpenLane.then((_) => _openWalletDesktopBody(data));
+    _walletOpenLane = op.then((_) {}, onError: (_) {});
+    return op;
+  }
+
+  Future<dynamic> _openWalletDesktopBody(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
     ArqmaWalletRpcSession? w = _walletRpc;
@@ -2682,14 +2691,19 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
-    final String name = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+    final String rawName = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+    final String? name = sanitizeWalletBaseName(rawName);
     final String password = '${p['password'] ?? ''}';
-    _traceWalletOpen('wallet name="${name.isEmpty ? '<empty>' : name}" ffi=${w.usesNativeFfi}',
+    _traceWalletOpen(
+        'wallet name="${name ?? (rawName.isEmpty ? '<empty>' : rawName)}" ffi=${w.usesNativeFfi}',
         sw: sw);
-    if (name.isEmpty) {
+    if (name == null) {
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
-        'data': <String, dynamic>{'code': -1, 'message': 'Missing wallet name'},
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Invalid wallet name',
+        },
       });
       return <String, dynamic>{};
     }
@@ -2750,14 +2764,11 @@ final class DesktopNativeBridge implements NativeBridge {
         tryPbkdf2PasswordHex(password: password, saltHex: saltHex);
   }
 
-  bool _promptPasswordEnabled() =>
-      (_runtimeConfig?['app'] as Map?)?['promptForPassword'] == true;
-
   /// `wallet_handler::wallet_password_matches` — always enforced when salt + hash exist (e.g. `unlock_stake`).
   bool _walletPasswordMatches(String password) {
     final String salt = _walletRpc?.rpcPbkdf2SaltHex ?? '';
     if (salt.isEmpty || salt.length != 64) {
-      return true;
+      return false;
     }
     final String? want = _walletPasswordHashHex;
     if (want == null) {
@@ -2767,11 +2778,8 @@ final class DesktopNativeBridge implements NativeBridge {
     return got != null && got == want;
   }
 
-  /// `wallet_handler::wallet_password_ok_for_tx` — skips check when `promptForPassword` is false.
+  /// `wallet_handler::wallet_password_ok_for_tx` — always verify session digest when configured.
   bool _walletPasswordOkForTx(String password) {
-    if (!_promptPasswordEnabled()) {
-      return true;
-    }
     return _walletPasswordMatches(password);
   }
 
@@ -4384,7 +4392,17 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     final Map<String, dynamic> p = _coerceMap(data);
     if (method == 'create_wallet') {
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'reset_wallet_status',
+          'data': <String, dynamic>{
+            'code': -1,
+            'message': 'Invalid wallet name',
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       final String language = '${p['language'] ?? 'English'}';
       final Map<String, dynamic>? r = await w.call(
@@ -4444,7 +4462,19 @@ final class DesktopNativeBridge implements NativeBridge {
       _stopWalletHeartbeat();
       await w.closeWalletSession();
       final String seed = _normalizeRestoreSeed('${p['seed'] ?? ''}');
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Invalid wallet name',
+            },
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       final Map<String, dynamic>? r = await w.call(
         'restore_deterministic_wallet',
@@ -4507,7 +4537,19 @@ final class DesktopNativeBridge implements NativeBridge {
       }
       _stopWalletHeartbeat();
       await w.closeWalletSession();
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Invalid wallet name',
+            },
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       final Map<String, dynamic>? r = await w.call(
         'generate_from_keys',
@@ -4535,10 +4577,14 @@ final class DesktopNativeBridge implements NativeBridge {
         'event': 'reset_wallet_error',
         'data': <String, dynamic>{}
       });
-      final String filename = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+      final String rawFilename =
+          '${p['name'] ?? p['filename'] ?? ''}'.trim();
+      final String? filename = sanitizeWalletBaseName(rawFilename);
       final String? importPathRaw = p['path'] as String?;
       final String password = '${p['password'] ?? ''}';
-      if (filename.isEmpty || importPathRaw == null || importPathRaw.isEmpty) {
+      if (filename == null ||
+          importPathRaw == null ||
+          importPathRaw.isEmpty) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
           'data': <String, dynamic>{

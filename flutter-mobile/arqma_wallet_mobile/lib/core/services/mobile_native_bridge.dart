@@ -15,6 +15,7 @@ import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
 import '../mobile/wallet_activity.dart';
 import '../desktop/arqma_paths.dart';
+import '../desktop/bridge_log_redact.dart';
 import '../desktop/daemon_heartbeat_extras.dart';
 import '../desktop/desktop_export_transactions.dart';
 import '../desktop/config_validate.dart';
@@ -230,6 +231,8 @@ final class MobileNativeBridge implements NativeBridge {
 
   /// Parity with Tauri `wallet_heartbeat` / Electron `wallet-rpc.js` — `getheight` + balance + `get_transfers`.
   Timer? _walletHeartbeat;
+  bool _walletHbInFlight = false;
+  Future<void> _walletOpenLane = Future<void>.value();
   int _daemonChainTipHeight = 0;
   int _whStoredHeight = 0;
   int _whStoredBalance = 0;
@@ -550,7 +553,7 @@ final class MobileNativeBridge implements NativeBridge {
   @override
   Future<dynamic> invoke(String cmd, [Map<String, dynamic>? args]) async {
     if (cmd == 'app_log_info' || cmd == 'app_log_error') {
-      debugPrint('[$cmd] ${args ?? {}}');
+      debugPrint('[$cmd] ${redactBridgeArgs(args)}');
       return null;
     }
     if (cmd == 'clip_write_text') {
@@ -1076,7 +1079,9 @@ final class MobileNativeBridge implements NativeBridge {
         final String host = '${params['host'] ?? ''}'.trim();
         final int port = int.tryParse('${params['port'] ?? kArqmaMainnetRemotePort}') ??
             kArqmaMainnetRemotePort;
-        if (host.isEmpty) {
+        if (host.isEmpty ||
+            !isValidMobileRemoteHost(host) ||
+            !isValidMobileRemotePort(port)) {
           return false;
         }
         final Map<String, dynamic> mergedRemote =
@@ -2390,7 +2395,15 @@ final class MobileNativeBridge implements NativeBridge {
   /// suppress later polls (that froze footer sync %). Heavy `get_transfers` runs via
   /// [unawaited] + [_walletXferBusy]; native FFI serializes concurrent calls.
   Future<void> _walletHeartbeatTick() async {
-    await _walletHeartbeatTickBody();
+    if (_walletHbInFlight) {
+      return;
+    }
+    _walletHbInFlight = true;
+    try {
+      await _walletHeartbeatTickBody();
+    } finally {
+      _walletHbInFlight = false;
+    }
   }
 
   Future<void> _walletHeartbeatTickBody() async {
@@ -2844,7 +2857,14 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
-  Future<dynamic> _openWalletDesktop(Object? data) async {
+  Future<dynamic> _openWalletDesktop(Object? data) {
+    final Future<dynamic> op =
+        _walletOpenLane.then((_) => _openWalletDesktopBody(data));
+    _walletOpenLane = op.then((_) {}, onError: (_) {});
+    return op;
+  }
+
+  Future<dynamic> _openWalletDesktopBody(Object? data) async {
     final Stopwatch sw = Stopwatch()..start();
     _traceWalletOpen('begin open_wallet flow', sw: sw);
     if (_walletRpc == null && !await _ensureWalletRpcStarted()) {
@@ -2884,14 +2904,19 @@ final class MobileNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     final Map<String, dynamic> p = _coerceMap(data);
-    final String name = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+    final String rawName = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+    final String? name = sanitizeWalletBaseName(rawName);
     final String password = '${p['password'] ?? ''}';
-    _traceWalletOpen('wallet name="${name.isEmpty ? '<empty>' : name}" ffi=${w.usesNativeFfi}',
+    _traceWalletOpen(
+        'wallet name="${name ?? (rawName.isEmpty ? '<empty>' : rawName)}" ffi=${w.usesNativeFfi}',
         sw: sw);
-    if (name.isEmpty) {
+    if (name == null) {
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
-        'data': <String, dynamic>{'code': -1, 'message': 'Missing wallet name'},
+        'data': <String, dynamic>{
+          'code': -1,
+          'message': 'Invalid wallet name',
+        },
       });
       return <String, dynamic>{};
     }
@@ -2962,14 +2987,11 @@ final class MobileNativeBridge implements NativeBridge {
         tryPbkdf2PasswordHex(password: password, saltHex: saltHex);
   }
 
-  bool _promptPasswordEnabled() =>
-      (_runtimeConfig?['app'] as Map?)?['promptForPassword'] == true;
-
   /// `wallet_handler::wallet_password_matches` — always enforced when salt + hash exist (e.g. `unlock_stake`).
   bool _walletPasswordMatches(String password) {
     final String salt = _walletRpc?.rpcPbkdf2SaltHex ?? '';
     if (salt.isEmpty || salt.length != 64) {
-      return true;
+      return false;
     }
     final String? want = _walletPasswordHashHex;
     if (want == null) {
@@ -2979,11 +3001,8 @@ final class MobileNativeBridge implements NativeBridge {
     return got != null && got == want;
   }
 
-  /// `wallet_handler::wallet_password_ok_for_tx` — skips check when `promptForPassword` is false.
+  /// `wallet_handler::wallet_password_ok_for_tx` — always verify session digest when configured.
   bool _walletPasswordOkForTx(String password) {
-    if (!_promptPasswordEnabled()) {
-      return true;
-    }
     return _walletPasswordMatches(password);
   }
 
@@ -4594,7 +4613,17 @@ final class MobileNativeBridge implements NativeBridge {
     }
     final Map<String, dynamic> p = _coerceMap(data);
     if (method == 'create_wallet') {
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'reset_wallet_status',
+          'data': <String, dynamic>{
+            'code': -1,
+            'message': 'Invalid wallet name',
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       final String language = '${p['language'] ?? 'English'}';
       final Map<String, dynamic>? r = await w.call(
@@ -4654,7 +4683,19 @@ final class MobileNativeBridge implements NativeBridge {
       _stopWalletHeartbeat();
       await w.closeWalletSession();
       final String seed = _normalizeRestoreSeed('${p['seed'] ?? ''}');
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Invalid wallet name',
+            },
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       Map<String, dynamic>? r;
       try {
@@ -4732,7 +4773,19 @@ final class MobileNativeBridge implements NativeBridge {
       }
       _stopWalletHeartbeat();
       await w.closeWalletSession();
-      final String name = '${p['name'] ?? ''}';
+      final String? name = sanitizeWalletBaseName('${p['name'] ?? ''}');
+      if (name == null) {
+        _emit(<String, dynamic>{
+          'event': 'set_wallet_error',
+          'data': <String, dynamic>{
+            'status': <String, dynamic>{
+              'code': -1,
+              'message': 'Invalid wallet name',
+            },
+          },
+        });
+        return <String, dynamic>{};
+      }
       final String password = '${p['password'] ?? ''}';
       final Map<String, dynamic>? r = await w.call(
         'generate_from_keys',
@@ -4760,10 +4813,14 @@ final class MobileNativeBridge implements NativeBridge {
         'event': 'reset_wallet_error',
         'data': <String, dynamic>{}
       });
-      final String filename = '${p['name'] ?? p['filename'] ?? ''}'.trim();
+      final String rawFilename =
+          '${p['name'] ?? p['filename'] ?? ''}'.trim();
+      final String? filename = sanitizeWalletBaseName(rawFilename);
       final String? importPathRaw = p['path'] as String?;
       final String password = '${p['password'] ?? ''}';
-      if (filename.isEmpty || importPathRaw == null || importPathRaw.isEmpty) {
+      if (filename == null ||
+          importPathRaw == null ||
+          importPathRaw.isEmpty) {
         _emit(<String, dynamic>{
           'event': 'set_wallet_error',
           'data': <String, dynamic>{

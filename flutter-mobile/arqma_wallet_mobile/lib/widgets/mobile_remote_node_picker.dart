@@ -113,7 +113,9 @@ class _MobileRemoteNodePickerState extends State<MobileRemoteNodePicker> {
     final String host = _customHost.text.trim();
     final int port =
         int.tryParse(_customPort.text.trim()) ?? kArqmaMainnetRemotePort;
-    if (host.isEmpty) {
+    if (host.isEmpty ||
+        !isValidMobileRemoteHost(host) ||
+        !isValidMobileRemotePort(port)) {
       return;
     }
     _applyRemote(host, port);

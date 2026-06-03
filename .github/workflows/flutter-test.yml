@@ -1,0 +1,46 @@
+# Run Flutter unit tests before desktop/mobile release builds merge.
+name: Flutter test
+
+on:
+  push:
+    branches:
+      - main
+      - review
+    paths:
+      - "flutter/**"
+      - "flutter-mobile/**"
+      - "flutter-android/**"
+      - ".github/workflows/flutter-test.yml"
+  pull_request:
+    paths:
+      - "flutter/**"
+      - "flutter-mobile/**"
+      - "flutter-android/**"
+      - ".github/workflows/flutter-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-unit-tests:
+    name: Desktop unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: flutter/arqma_wallet_gui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flutter (pinned)
+        working-directory: ${{ github.workspace }}
+        run: bash build/ci/setup-flutter-stable-ci.sh
+
+      - run: flutter pub get
+
+      - name: flutter test
+        run: flutter test
