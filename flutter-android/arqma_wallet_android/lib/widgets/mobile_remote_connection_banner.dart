@@ -57,6 +57,14 @@ class MobileRemoteConnectionBanner extends StatelessWidget {
                     status,
                     style: TextStyle(fontSize: 12, color: dot),
                   ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Unencrypted HTTP JSON-RPC — use trusted networks only',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: ArqmaColors.warning,
+                    ),
+                  ),
                 ],
               ),
             ),

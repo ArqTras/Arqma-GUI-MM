@@ -158,3 +158,32 @@ Map<String, dynamic>? mergedFilesystemConfig(
   final int p = (d['rpc_bind_port'] as num?)?.toInt() ?? 19994;
   return (host: h, port: p);
 }
+
+/// Safe wallet account basename for filesystem paths (blocks `..`, separators, odd chars).
+String? sanitizeWalletBaseName(String raw) {
+  final String trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  final String normalized = trimmed.replaceAll('\\', '/');
+  if (normalized.contains('..')) {
+    return null;
+  }
+  String base = normalized;
+  if (normalized.contains('/')) {
+    final bool windowsAbsolute = RegExp(r'^[A-Za-z]:/').hasMatch(normalized) ||
+        normalized.startsWith('//');
+    final bool unixAbsolute = normalized.startsWith('/');
+    if (!windowsAbsolute && !unixAbsolute) {
+      return null;
+    }
+    base = normalized.substring(normalized.lastIndexOf('/') + 1);
+  }
+  if (base.isEmpty || base == '.' || base == '..') {
+    return null;
+  }
+  if (!RegExp(r'^[A-Za-z0-9._-]+$').hasMatch(base)) {
+    return null;
+  }
+  return base;
+}

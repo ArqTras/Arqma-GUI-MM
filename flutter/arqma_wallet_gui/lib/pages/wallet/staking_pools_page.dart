@@ -10,6 +10,7 @@ import '../../core/app_api.dart';
 import '../../core/theme/arqma_colors.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../widgets/arqma_field.dart';
 import '../../widgets/password_dialogs.dart';
 
@@ -1036,7 +1037,7 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final Map<String, dynamic> stake = Map<String, dynamic>.from(
         ((store.poolsRoot['staker'] as Map?)?['stake'] as Map?) ??
             <String, dynamic>{});

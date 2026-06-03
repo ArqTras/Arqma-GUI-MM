@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/desktop/daemon_rpc_transport.dart';
 import '../core/services/native_bridge.dart';
 import '../core/wallet_daemon_tip_tolerance.dart';
 import '../core/theme/arqma_colors.dart';
@@ -322,6 +323,14 @@ class _StatusFooterState extends State<StatusFooter> {
                   if (walletNode != null)
                     Text(
                       '${loc.tr('components.footer.remote')}: $walletNode',
+                    ),
+                  if (configUsesRemoteCleartextRpc(configDaemon))
+                    Text(
+                      loc.tr('components.footer.cleartext_remote_warning'),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: ArqmaColors.warning,
+                      ),
                     ),
                   if (dtype != 'local')
                     Text(

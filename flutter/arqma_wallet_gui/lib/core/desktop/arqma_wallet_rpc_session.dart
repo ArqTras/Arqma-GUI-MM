@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'arqma_paths.dart';
 import 'daemon_json_rpc.dart';
+import 'flutter_env_guard.dart';
 import 'wallet_ffi_isolate.dart';
 import 'wallet_json_rpc.dart';
 import 'wallet_native_ffi.dart';
@@ -220,7 +221,7 @@ final class ArqmaWalletRpcSession {
     if (kIsWeb) {
       return null;
     }
-    if (Platform.environment['ARQMA_FLUTTER_FFI_NO_ISOLATE'] == '1') {
+    if (flutterDebugEnvFlag('ARQMA_FLUTTER_FFI_NO_ISOLATE')) {
       return null;
     }
     final WalletFfiIsolateClient? isolate = await WalletFfiIsolateClient.start();

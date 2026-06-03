@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../widgets/address_book_details_dialog.dart';
 import '../../widgets/address_identicon.dart';
 import '../../core/theme/arqma_colors.dart';
@@ -136,7 +137,7 @@ class AddressBookPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final bool viewOnly = store.walletInfo['view_only'] == true;
     final List<Map<String, dynamic>> entries = _combined(store);
 

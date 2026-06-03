@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'bridge_log_redact.dart';
+
 /// Same success rule as `json_util::json_rpc_no_error`.
 bool walletJsonRpcNoError(Map<String, dynamic>? v) {
   if (v == null) {
@@ -117,7 +119,9 @@ final class WalletJsonRpcClient {
       final HttpClientResponse resp = await req.close();
       final String text = await utf8.decoder.bind(resp).join();
       if (resp.statusCode != 200) {
-        debugPrint('[WalletJsonRpc] HTTP ${resp.statusCode} $text');
+        debugPrint(
+          '[WalletJsonRpc] HTTP ${resp.statusCode} ${truncateLogText(text)}',
+        );
         return null;
       }
       final Object? decoded = jsonDecode(text);

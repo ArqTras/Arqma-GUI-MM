@@ -38,11 +38,27 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val storePath = System.getenv("ARQMA_ANDROID_KEYSTORE_PATH")?.trim()
+            if (!storePath.isNullOrEmpty()) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("ARQMA_ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ARQMA_ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ARQMA_ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val storePath = System.getenv("ARQMA_ANDROID_KEYSTORE_PATH")?.trim()
+            signingConfig = if (!storePath.isNullOrEmpty()) {
+                signingConfigs.getByName("release")
+            } else {
+                // Local `flutter run --release` without keystore env vars.
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../widgets/app_loading.dart';
 import '../../widgets/arqma_field.dart';
 import '../../widgets/password_dialogs.dart';
@@ -318,7 +319,7 @@ class _SendPageState extends State<SendPage> {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final bool viewOnly = store.walletInfo['view_only'] == true;
     final String prefix =
         (store.walletInfo['address']?.toString().isNotEmpty == true)

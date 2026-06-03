@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/wallet_tab_visibility.dart';
 import '../../widgets/address_identicon.dart';
 import '../../widgets/receive_address_details_dialog.dart';
 import '../../widgets/receive_common.dart';
@@ -130,7 +131,7 @@ class _ReceivePageState extends State<ReceivePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
-    final GatewayStore store = context.watch<GatewayStore>();
+    final GatewayStore store = context.watchGatewayStore();
     final List<Map<String, dynamic>> primary = _primaryList(store);
     final List<Map<String, dynamic>> used = _asMapList('used', store);
     final List<Map<String, dynamic>> unused = _asMapList('unused', store);

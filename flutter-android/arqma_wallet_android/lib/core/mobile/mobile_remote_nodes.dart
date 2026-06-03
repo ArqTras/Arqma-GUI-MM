@@ -37,8 +37,37 @@ bool isPresetMobileRemoteHost(String host) {
   return kMobileRemoteNodeHosts.contains(host.trim());
 }
 
+/// Validates preset or custom remote daemon hostnames (blocks paths, traversal, localhost).
+bool isValidMobileRemoteHost(String host) {
+  final String h = host.trim().toLowerCase();
+  if (h.isEmpty || h.length > 253) {
+    return false;
+  }
+  if (isPresetMobileRemoteHost(h)) {
+    return true;
+  }
+  if (h.contains('..') ||
+      h.contains('/') ||
+      h.contains('\\') ||
+      h.contains(':') ||
+      h.contains(' ') ||
+      h.contains('\t')) {
+    return false;
+  }
+  if (h == 'localhost' || h.endsWith('.local')) {
+    return false;
+  }
+  const String label = r'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)';
+  final RegExp hostname = RegExp('^$label(?:\\.$label)*\$');
+  return hostname.hasMatch(h);
+}
+
+bool isValidMobileRemotePort(int port) {
+  return port == kArqmaMainnetRemotePort;
+}
+
 bool isAllowedMobileRemoteHost(String host) {
-  return isPresetMobileRemoteHost(host);
+  return isValidMobileRemoteHost(host);
 }
 
 /// Returns true when [host]:[port] answers `get_info`.
@@ -103,14 +132,23 @@ Future<bool> ensureReachableMobileRemoteInConfig(Map<String, dynamic> config) as
       int.tryParse('${entry['remote_port']}') ?? kArqmaMainnetRemotePort;
 
   if (configuredHost.isNotEmpty &&
+      isValidMobileRemoteHost(configuredHost) &&
+      isValidMobileRemotePort(configuredPort) &&
       await probeMobileRemoteReachable(configuredHost, configuredPort)) {
     _writeMobileRemoteDaemonEntry(config, configuredHost, configuredPort);
     return true;
   }
   if (configuredHost.isNotEmpty) {
-    debugPrint(
-      '[mobile_remote] configured $configuredHost:$configuredPort unreachable, probing fallbacks',
-    );
+    if (!isValidMobileRemoteHost(configuredHost) ||
+        !isValidMobileRemotePort(configuredPort)) {
+      debugPrint(
+        '[mobile_remote] configured $configuredHost:$configuredPort invalid, probing fallbacks',
+      );
+    } else {
+      debugPrint(
+        '[mobile_remote] configured $configuredHost:$configuredPort unreachable, probing fallbacks',
+      );
+    }
   }
 
   final ({String host, int port})? picked =

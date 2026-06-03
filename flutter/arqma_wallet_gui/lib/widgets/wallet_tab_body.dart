@@ -8,6 +8,7 @@ import '../pages/wallet/staking_pools_page.dart';
 import '../pages/wallet/swap_page.dart';
 import '../pages/wallet/txhistory_page.dart';
 import 'wallet_keep_alive_tab.dart';
+import 'wallet_tab_visibility.dart';
 
 /// Desktop wallet tabs — [IndexedStack] + lazy first build + keep-alive.
 class WalletTabBody extends StatefulWidget {
@@ -47,14 +48,20 @@ class _WalletTabBodyState extends State<WalletTabBody> {
       return const SizedBox.expand();
     }
     _builtTabs[index] ??= WalletKeepAliveTab(child: _tabBuilders[index]());
-    return TickerMode(enabled: active, child: _builtTabs[index]!);
+    return WalletTabVisibility(
+      isActive: active,
+      child: TickerMode(enabled: active, child: _builtTabs[index]!),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.activePath == '/wallet/swap') {
       _swapTab ??= const WalletKeepAliveTab(child: SwapPage());
-      return _swapTab!;
+      return WalletTabVisibility(
+        isActive: true,
+        child: _swapTab!,
+      );
     }
 
     final int index = _tabIndex(widget.activePath);

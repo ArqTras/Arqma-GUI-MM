@@ -113,7 +113,9 @@ class _MobileRemoteNodePickerState extends State<MobileRemoteNodePicker> {
     final String host = _customHost.text.trim();
     final int port =
         int.tryParse(_customPort.text.trim()) ?? kArqmaMainnetRemotePort;
-    if (host.isEmpty) {
+    if (host.isEmpty ||
+        !isValidMobileRemoteHost(host) ||
+        !isValidMobileRemotePort(port)) {
       return;
     }
     _applyRemote(host, port);
@@ -137,33 +139,40 @@ class _MobileRemoteNodePickerState extends State<MobileRemoteNodePicker> {
               ),
         ),
         const SizedBox(height: 8),
-        ...kMobileRemoteNodeHosts.map((String host) {
-          return RadioListTile<String>(
-            dense: true,
-            value: host,
-            groupValue: groupValue,
-            title: Text(host),
-            subtitle: Text('RPC :$kArqmaMainnetRemotePort'),
-            onChanged: (String? v) {
-              if (v != null) {
-                _selectPreset(v);
-              }
-            },
-          );
-        }),
-        RadioListTile<String>(
-          dense: true,
-          value: MobileRemoteNodePicker.customNodeKey,
+        RadioGroup<String>(
           groupValue: groupValue,
-          title: Text(loc.tr('components.general_settings.custom_remote_node')),
           onChanged: (String? v) {
-            if (v != null) {
+            if (v == null) {
+              return;
+            }
+            if (v == MobileRemoteNodePicker.customNodeKey) {
               setState(() {});
               if (_customHost.text.trim().isNotEmpty) {
                 _applyCustomFromFields();
               }
+            } else {
+              _selectPreset(v);
             }
           },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ...kMobileRemoteNodeHosts.map((String host) {
+                return RadioListTile<String>(
+                  dense: true,
+                  value: host,
+                  title: Text(host),
+                  subtitle: Text('RPC :$kArqmaMainnetRemotePort'),
+                );
+              }),
+              RadioListTile<String>(
+                dense: true,
+                value: MobileRemoteNodePicker.customNodeKey,
+                title: Text(
+                    loc.tr('components.general_settings.custom_remote_node')),
+              ),
+            ],
+          ),
         ),
         if (_usingCustom()) ...[
           const SizedBox(height: 4),
