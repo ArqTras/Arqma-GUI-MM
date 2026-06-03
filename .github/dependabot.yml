@@ -1,0 +1,64 @@
+# Flutter-only dependency monitoring policy.
+# Electron (root package.json), Tauri (rust/tauri-app), npm sidecars, and Cargo
+# are legacy/out-of-scope for Dependabot alerts — see dismissed alerts on GitHub.
+version: 2
+updates:
+  - package-ecosystem: "pub"
+    directory: "/flutter/arqma_wallet_gui"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "flutter"
+
+  - package-ecosystem: "pub"
+    directory: "/flutter-mobile/arqma_wallet_mobile"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "flutter"
+
+  - package-ecosystem: "pub"
+    directory: "/flutter-android/arqma_wallet_android"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "flutter"
+
+  # --- Out of scope: no version or security PRs for legacy Electron / Tauri / npm ---
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directory: "/rust/tauri-app"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "npm"
+    directory: "/www/arqma-solo-blocks"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+
+  - package-ecosystem: "cargo"
+    directory: "/rust"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"

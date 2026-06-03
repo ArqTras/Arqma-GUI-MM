@@ -74,7 +74,7 @@ All GitHub audit issues **#2–#13 are CLOSED**. This re-audit tracks **residual
 | N-006 | Stability | Medium | **MITIGATED** | iOS background + foreground recovery overlap | `_walletSyncLane` serializes pulse/persist/recover | Monitor on device |
 | N-007 | Performance | Low | **OPEN** | Non-tab widgets still `watch<GatewayStore>` | `swap_signature_list.dart`, dialogs, wallet-select pages | OK outside tabs; optional `Selector` |
 | N-008 | Performance | Low | **OPEN** | UI double-tap open_wallet before bridge lane | `wallet_select_index_page.dart:255` — no UI `_openInFlight` | Optional UI debounce (bridge lane sufficient) |
-| N-009 | Supply chain | Medium | **OPEN** | GitHub Dependabot: 23 vulnerabilities (default branch) | Push notifications from GitHub | Triage `file_picker`, transitive deps |
+| N-009 | Supply chain | Medium | **POLICY** | GitHub Dependabot alerts | Flutter-only `.github/dependabot.yml`; npm/rust/electron dismissed | Monitor pub only |
 | N-010 | Maintainability | Medium | **OPEN** | Three duplicated trees (desktop/mobile/android) | ~59 files changed in review span 3 copies | Shared package / melos long-term |
 | N-011 | Testing | High | **OPEN** | No integration / e2e tests | No `integration_test/` | `integration_test` smoke with stub FFI |
 | N-012 | Dependencies | Low | **FIXED** | `file_picker` skew desktop `^8.1.4` vs mobile `^10.3.8` | Desktop aligned to `^10.3.8` | — |
