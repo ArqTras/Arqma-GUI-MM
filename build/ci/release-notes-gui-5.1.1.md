@@ -14,6 +14,12 @@ Desktop bundles rebuilt from `main` after the Flutter multi-platform audit ([#14
 
 Android and iOS assets on this release page are unchanged unless you trigger **Android release** / **iOS release** workflows separately.
 
+### Release refresh (2026-06-07, build 49)
+
+- **View on explorer (iOS + Android):** `open_url` now uses `url_launcher` on mobile (Safari / system browser). Previously only desktop `Process.run` handlers ran — taps on **View on explorer** were a silent no-op on iOS/Android.
+- **Android:** Manifest declares `http`/`https` intent queries (Android 11+ package visibility).
+- **iOS:** TestFlight build **5.1.1 (49)** — explorer links fix; GitHub Release IPA refreshed from local App Store export.
+
 ### Release refresh (2026-06-07, build 48)
 
 - **Wallet safety (desktop + mobile):** Desktop exit flushes with `save_wallet` / `close_wallet` before teardown; Android background persist + recover parity with iOS; mutating RPC blocked during full rescan (`sweepAll`, `stake`, address book, etc.); `replace_tx_list` after rescan avoids stale tx merge.
@@ -98,7 +104,7 @@ Android and iOS assets on this release page are unchanged unless you trigger **A
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **48** (wallet safety + staking pools filter fix). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **49** (View on explorer fix). |
 
 ### Solo pool quick start (desktop)
 
