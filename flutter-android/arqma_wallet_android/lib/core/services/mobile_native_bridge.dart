@@ -14,6 +14,7 @@ import '../mobile/wallet_session_checkpoint.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
+import '../mobile/open_external_url.dart';
 import '../mobile/wallet_activity.dart';
 import '../desktop/arqma_paths.dart';
 import '../desktop/bridge_log_redact.dart';
@@ -695,12 +696,13 @@ final class MobileNativeBridge implements NativeBridge {
       if (url.isEmpty) {
         return <String, dynamic>{};
       }
-      if (Platform.isMacOS) {
-        await Process.run('open', <String>[url]);
-      } else if (Platform.isLinux) {
-        await Process.run('xdg-open', <String>[url]);
-      } else if (Platform.isWindows) {
-        await Process.run('cmd', <String>['/c', 'start', '', url]);
+      final bool ok = await openExternalUrl(url);
+      if (!ok) {
+        _showNotification(
+          'negative',
+          'Could not open link in browser',
+          4000,
+        );
       }
       return <String, dynamic>{};
     }
