@@ -145,16 +145,56 @@ class GatewayStore extends ChangeNotifier {
     return token;
   }
 
+  static List<dynamic> _mergeTxLists(List<dynamic> cur, List<dynamic> next) {
+    final Map<String, Map<String, dynamic>> byTxid = <String, Map<String, dynamic>>{};
+    final List<Map<String, dynamic>> noTxid = <Map<String, dynamic>>[];
+    void ingest(List<dynamic> list) {
+      for (final Object? x in list) {
+        if (x is! Map) {
+          continue;
+        }
+        final Map<String, dynamic> row = Map<String, dynamic>.from(x);
+        final String txid = '${row['txid'] ?? ''}'.trim();
+        if (txid.isEmpty) {
+          noTxid.add(row);
+          continue;
+        }
+        byTxid[txid] = row;
+      }
+    }
+
+    ingest(cur);
+    ingest(next);
+    final List<dynamic> out = <dynamic>[
+      ...byTxid.values,
+      ...noTxid,
+    ];
+    out.sort((Object? a, Object? b) {
+      final int ta =
+          int.tryParse('${(a as Map?)?['timestamp'] ?? 0}') ?? 0;
+      final int tb =
+          int.tryParse('${(b as Map?)?['timestamp'] ?? 0}') ?? 0;
+      return tb.compareTo(ta);
+    });
+    return out;
+  }
+
   void setWalletTransactions(Map<String, dynamic> data) {
     final List<dynamic> next =
         (data['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
     final List<dynamic> cur =
         ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ??
             const <dynamic>[];
-    if (_txListChangeToken(next) == _txListChangeToken(cur)) {
+    // Height-window fetches at chain tip can return empty while older rows remain valid.
+    if (next.isEmpty && cur.isNotEmpty) {
       return;
     }
-    wallet['transactions'] = data;
+    final List<dynamic> merged =
+        next.isNotEmpty && cur.isNotEmpty ? _mergeTxLists(cur, next) : next;
+    if (_txListChangeToken(merged) == _txListChangeToken(cur)) {
+      return;
+    }
+    wallet['transactions'] = <String, dynamic>{'tx_list': merged};
     _transactionsRevision++;
     _invalidateFilteredTransactionsCache();
     _notify();

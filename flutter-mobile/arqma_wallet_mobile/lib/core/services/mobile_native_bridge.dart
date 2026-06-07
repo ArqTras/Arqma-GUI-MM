@@ -2285,6 +2285,15 @@ final class MobileNativeBridge implements NativeBridge {
     return out;
   }
 
+  /// First pending fetch after open uses `min_height: 0` so history is not clipped to the
+  /// last [daysOfTransactions] window when the wallet opens already synced at tip.
+  int _walletXferMinHeight(int curH, int daysWindowBlocks) {
+    if (_whFetchTxPending && _whLastEmittedTxMaxHeight == 0) {
+      return 0;
+    }
+    return curH > daysWindowBlocks ? curH - daysWindowBlocks : 0;
+  }
+
   static int _maxTxHeightFromList(List<dynamic> list) {
     int maxH = 0;
     for (final Object? x in list) {
@@ -2311,8 +2320,7 @@ final class MobileNativeBridge implements NativeBridge {
       if (w == null || _openedWalletDisplayName != walletNameAtStart) {
         return;
       }
-      final int minHeight =
-          curH > daysWindowBlocks ? curH - daysWindowBlocks : 0;
+      final int minHeight = _walletXferMinHeight(curH, daysWindowBlocks);
       // Include all buckets merged in [_mergeWalletRpcTransfersList]; otherwise
       // UI filters (e.g. service node / stake) see an empty list even when txs exist.
       final Map<String, dynamic> p = <String, dynamic>{
@@ -3815,6 +3823,12 @@ final class MobileNativeBridge implements NativeBridge {
       _emit(<String, dynamic>{
         'event': 'reset_wallet_status',
         'data': <String, dynamic>{'code': 1, 'message': null},
+      });
+      _whLastEmittedTxMaxHeight = 0;
+      _whScanGapAboveTolerance = null;
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_transactions',
+        'data': <String, dynamic>{'tx_list': <dynamic>[]},
       });
       return <String, dynamic>{};
     }

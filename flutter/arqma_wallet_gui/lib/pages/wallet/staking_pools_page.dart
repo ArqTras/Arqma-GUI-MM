@@ -73,9 +73,7 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
   Timer? _debounceOp;
   Timer? _uptimeTick;
 
-  /// Tied to [Scrollbar] + nested [SingleChildScrollView]s (desktop needs explicit controllers).
   final ScrollController _poolHorizontalScroll = ScrollController();
-  final ScrollController _poolVerticalScroll = ScrollController();
 
   static double _round2(num v) => double.parse((v + 1e-12).toStringAsFixed(2));
 
@@ -174,7 +172,6 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
     _nodeId.dispose();
     _operatorId.dispose();
     _poolHorizontalScroll.dispose();
-    _poolVerticalScroll.dispose();
     final GatewayStore? store = _store;
     if (store != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1295,9 +1292,9 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
             ),
           )
         else
-          SliverFillRemaining(
-            hasScrollBody: true,
-            child: LayoutBuilder(
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
+            sliver: LayoutBuilder(
               builder: (BuildContext ctx, BoxConstraints c) {
                 final double availW = c.maxWidth.isFinite && c.maxWidth > 0
                     ? c.maxWidth
@@ -1306,29 +1303,20 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
                   _kPoolTableMinWidth,
                   math.max(0.0, availW - _kPoolTableScrollHPadding),
                 );
-                return Scrollbar(
-                  controller: _poolHorizontalScroll,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
+                return SliverToBoxAdapter(
+                  child: Scrollbar(
                     controller: _poolHorizontalScroll,
-                    scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
-                    child: Scrollbar(
-                      controller: _poolVerticalScroll,
-                      thumbVisibility: true,
-                      child: SingleChildScrollView(
-                        controller: _poolVerticalScroll,
-                        clipBehavior: Clip.none,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
-                          child: SizedBox(
-                            width: tableW,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              mainAxisSize: MainAxisSize.min,
-                              children: poolRows,
-                            ),
-                          ),
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _poolHorizontalScroll,
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.hardEdge,
+                      child: SizedBox(
+                        width: tableW,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: poolRows,
                         ),
                       ),
                     ),

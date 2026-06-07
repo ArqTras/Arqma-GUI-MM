@@ -215,6 +215,7 @@ class AppReceiver {
         final dynamic payload = data;
         scheduleMicrotask(() {
           store.applyBackendEvent(ev, payload);
+          WidgetsBinding.instance.scheduleFrame();
         });
         break;
       default:
