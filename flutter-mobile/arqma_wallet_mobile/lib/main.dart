@@ -94,8 +94,12 @@ Future<void> _launchFullWalletApp() async {
     router: router,
     locale: locale,
   );
-  if (!kIsWeb && Platform.isIOS && bridge is MobileNativeBridge) {
-    unawaited(IosRescanLiveActivity.init());
+  if (!kIsWeb &&
+      (Platform.isIOS || Platform.isAndroid) &&
+      bridge is MobileNativeBridge) {
+    if (Platform.isIOS) {
+      unawaited(IosRescanLiveActivity.init());
+    }
     MobileBackgroundWalletSync.install(bridge);
   }
   runApp(

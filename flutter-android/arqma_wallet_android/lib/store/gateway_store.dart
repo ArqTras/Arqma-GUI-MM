@@ -179,17 +179,20 @@ class GatewayStore extends ChangeNotifier {
   }
 
   void setWalletTransactions(Map<String, dynamic> data) {
+    final bool replace =
+        data['replace_tx_list'] == true;
     final List<dynamic> next =
         (data['tx_list'] as List<dynamic>?) ?? const <dynamic>[];
     final List<dynamic> cur =
         ((wallet['transactions'] as Map?)?['tx_list'] as List<dynamic>?) ??
             const <dynamic>[];
     // Height-window fetches at chain tip can return empty while older rows remain valid.
-    if (next.isEmpty && cur.isNotEmpty) {
+    if (!replace && next.isEmpty && cur.isNotEmpty) {
       return;
     }
-    final List<dynamic> merged =
-        next.isNotEmpty && cur.isNotEmpty ? _mergeTxLists(cur, next) : next;
+    final List<dynamic> merged = replace || cur.isEmpty || next.isEmpty
+        ? next
+        : _mergeTxLists(cur, next);
     if (_txListChangeToken(merged) == _txListChangeToken(cur)) {
       return;
     }

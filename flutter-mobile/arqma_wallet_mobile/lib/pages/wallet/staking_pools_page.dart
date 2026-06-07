@@ -1305,6 +1305,9 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
             loc: loc, store: store, item: item, operatorSection: false),
       ),
     ];
+    final bool compactPools = MobileResponsiveLayout.useCompactStakingPools(
+      MediaQuery.sizeOf(context).width,
+    );
 
     /// Parity with `staking-pools.vue`: stats + filters scroll; `.scroller` holds the tabular list.
     return CustomScrollView(
@@ -1492,34 +1495,30 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
               ),
             ),
           )
+        else if (compactPools)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (BuildContext context, int index) => poolRows[index],
+                childCount: poolRows.length,
+              ),
+            ),
+          )
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
-            sliver: LayoutBuilder(
-              builder: (BuildContext ctx, BoxConstraints c) {
-                final double availW = c.maxWidth.isFinite && c.maxWidth > 0
-                    ? c.maxWidth
-                    : _kPoolTableMinWidth;
-                final bool compactPools =
-                    MobileResponsiveLayout.useCompactStakingPools(
-                  MobileResponsiveLayout.contentWidth(ctx),
-                );
-                final double tableW = compactPools
-                    ? math.max(0.0, availW)
-                    : math.max(
-                        _kPoolTableMinWidth,
-                        math.max(0.0, availW - _kPoolTableScrollHPadding),
-                      );
-                if (compactPools) {
-                  return SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (BuildContext context, int index) => poolRows[index],
-                      childCount: poolRows.length,
-                    ),
+            sliver: SliverToBoxAdapter(
+              child: LayoutBuilder(
+                builder: (BuildContext ctx, BoxConstraints c) {
+                  final double availW = c.maxWidth.isFinite && c.maxWidth > 0
+                      ? c.maxWidth
+                      : _kPoolTableMinWidth;
+                  final double tableW = math.max(
+                    _kPoolTableMinWidth,
+                    math.max(0.0, availW - _kPoolTableScrollHPadding),
                   );
-                }
-                return SliverToBoxAdapter(
-                  child: Scrollbar(
+                  return Scrollbar(
                     controller: _poolHorizontalScroll,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
@@ -1535,9 +1534,9 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
       ],

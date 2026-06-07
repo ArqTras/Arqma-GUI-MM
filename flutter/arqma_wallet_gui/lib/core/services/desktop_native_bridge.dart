@@ -1915,11 +1915,15 @@ final class DesktopNativeBridge implements NativeBridge {
             '[DesktopNative] skip empty get_transfers emit (resume transient)');
         return;
       }
+      final bool replaceList = _walletTxListClearedForRescan;
       _whLastEmittedTxMaxHeight = _maxTxHeightFromList(list);
       _walletTxListClearedForRescan = false;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
-        'data': <String, dynamic>{'tx_list': list},
+        'data': <String, dynamic>{
+          'tx_list': list,
+          if (replaceList) 'replace_tx_list': true,
+        },
       });
       emittedOk = true;
       _whFetchTxPending = false;
@@ -2136,6 +2140,25 @@ final class DesktopNativeBridge implements NativeBridge {
         'sending': false,
       },
     });
+  }
+
+  bool _rejectWalletMutatingOps({bool txStatus = false, Object? origin}) {
+    if (!_walletMutatingOpsBlocked) {
+      return false;
+    }
+    _showNotification('negative', _walletBusyUserMessage, 6000);
+    if (txStatus) {
+      _emit(<String, dynamic>{
+        'event': 'set_tx_status',
+        'data': <String, dynamic>{
+          'code': -200,
+          'message': _walletBusyUserMessage,
+          'sending': false,
+          if (origin != null) 'origin': origin,
+        },
+      });
+    }
+    return true;
   }
 
   void _emitDesktopScanHeartbeatInfo({
@@ -2394,7 +2417,10 @@ final class DesktopNativeBridge implements NativeBridge {
       _whLastEmittedTxMaxHeight = 0;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
-        'data': <String, dynamic>{'tx_list': <dynamic>[]},
+        'data': <String, dynamic>{
+          'tx_list': <dynamic>[],
+          'replace_tx_list': true,
+        },
       });
     }
     _emit(<String, dynamic>{
@@ -2462,7 +2488,10 @@ final class DesktopNativeBridge implements NativeBridge {
     if (clearTransactions) {
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
-        'data': <String, dynamic>{'tx_list': <dynamic>[]},
+        'data': <String, dynamic>{
+          'tx_list': <dynamic>[],
+          'replace_tx_list': true,
+        },
       });
     }
     _emit(<String, dynamic>{
@@ -2671,6 +2700,9 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     _traceWalletOpen(
         'prepare: closing previous session "$_openedWalletDisplayName"');
+    if (!_walletFullRescanUi) {
+      await _storeWalletToDiskIfSafe(reason: 'prepare_open');
+    }
     try {
       await w
           .closeWalletSession()
@@ -2959,7 +2991,10 @@ final class DesktopNativeBridge implements NativeBridge {
     _whLastEmittedTxMaxHeight = 0;
     _emit(<String, dynamic>{
       'event': 'set_wallet_transactions',
-      'data': <String, dynamic>{'tx_list': <dynamic>[]},
+      'data': <String, dynamic>{
+        'tx_list': <dynamic>[],
+        'replace_tx_list': true,
+      },
     });
     final bool deferHeavyOnOpen = _desktopDeferHeavyWalletRpcDuringScan(
       walletHeight: openedHeight,
@@ -3636,7 +3671,10 @@ final class DesktopNativeBridge implements NativeBridge {
       _whLastEmittedTxMaxHeight = 0;
       _emit(<String, dynamic>{
         'event': 'set_wallet_transactions',
-        'data': <String, dynamic>{'tx_list': <dynamic>[]},
+        'data': <String, dynamic>{
+          'tx_list': <dynamic>[],
+          'replace_tx_list': true,
+        },
       });
       return <String, dynamic>{};
     }
@@ -3815,6 +3853,9 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'rescan_spent') {
+      if (_rejectWalletMutatingOps()) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w != null) {
         try {
@@ -3827,11 +3868,15 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'sweepAll') {
+      final Map<String, dynamic> p = _coerceMap(data);
+      if (_rejectWalletMutatingOps(
+          txStatus: true, origin: p['origin'])) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};
       }
-      final Map<String, dynamic> p = _coerceMap(data);
       final Map<String, dynamic>? addrR =
           await w.call('get_address', <String, dynamic>{'account_index': 0});
       if (!walletJsonRpcNoError(addrR)) {
@@ -3901,6 +3946,9 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'add_address_book') {
+      if (_rejectWalletMutatingOps()) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};
@@ -3939,13 +3987,16 @@ final class DesktopNativeBridge implements NativeBridge {
             'negative', 'Wallet RPC Error, Address Rejected', 3000);
         return <String, dynamic>{};
       }
-      await w.call('store', <String, dynamic>{});
+      await _storeWalletToDiskIfSafe(reason: 'address_book');
       await _emitWalletAddressBookFromRpc(w);
       _showNotification(
           'positive', 'Address Book updated with ${p['address'] ?? ''}', 3000);
       return <String, dynamic>{};
     }
     if (method == 'delete_address_book') {
+      if (_rejectWalletMutatingOps()) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};
@@ -3957,12 +4008,15 @@ final class DesktopNativeBridge implements NativeBridge {
       final Map<String, dynamic>? r = await w
           .call('delete_address_book', <String, dynamic>{'index': idx.toInt()});
       if (walletJsonRpcNoError(r)) {
-        await w.call('store', <String, dynamic>{});
+        await _storeWalletToDiskIfSafe(reason: 'address_book');
         await _emitWalletAddressBookFromRpc(w);
       }
       return <String, dynamic>{};
     }
     if (method == 'stake') {
+      if (_rejectWalletMutatingOps(txStatus: true)) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};
@@ -4019,6 +4073,9 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'unlock_stake') {
+      if (_rejectWalletMutatingOps()) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};
@@ -4151,6 +4208,9 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'register_service_node') {
+      if (_rejectWalletMutatingOps()) {
+        return <String, dynamic>{};
+      }
       final ArqmaWalletRpcSession? w = _walletRpc;
       if (w == null) {
         return <String, dynamic>{};

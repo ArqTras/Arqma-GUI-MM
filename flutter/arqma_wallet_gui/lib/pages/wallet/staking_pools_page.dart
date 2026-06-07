@@ -1294,17 +1294,17 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
         else
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 0, 18, 24),
-            sliver: LayoutBuilder(
-              builder: (BuildContext ctx, BoxConstraints c) {
-                final double availW = c.maxWidth.isFinite && c.maxWidth > 0
-                    ? c.maxWidth
-                    : _kPoolTableMinWidth;
-                final double tableW = math.max(
-                  _kPoolTableMinWidth,
-                  math.max(0.0, availW - _kPoolTableScrollHPadding),
-                );
-                return SliverToBoxAdapter(
-                  child: Scrollbar(
+            sliver: SliverToBoxAdapter(
+              child: LayoutBuilder(
+                builder: (BuildContext ctx, BoxConstraints c) {
+                  final double availW = c.maxWidth.isFinite && c.maxWidth > 0
+                      ? c.maxWidth
+                      : _kPoolTableMinWidth;
+                  final double tableW = math.max(
+                    _kPoolTableMinWidth,
+                    math.max(0.0, availW - _kPoolTableScrollHPadding),
+                  );
+                  return Scrollbar(
                     controller: _poolHorizontalScroll,
                     thumbVisibility: true,
                     child: SingleChildScrollView(
@@ -1320,9 +1320,9 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
       ],

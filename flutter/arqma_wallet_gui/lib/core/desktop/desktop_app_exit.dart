@@ -34,20 +34,43 @@ void scheduleQuitPage() {
   });
 }
 
-/// Kill the process immediately; teardown runs in the background (must not block UI).
+/// Flush wallet, close session, then native teardown — bounded by exit watchdog.
 void hardExitFromApp(NativeBridge bridge) {
-  unawaited(startAppExitWatchdog(maxSeconds: 2));
-  pauseBridgeTimersForExit(bridge);
   unawaited(Future<void>(() async {
+    AppExitWatchdog? watchdog;
     try {
-      await bridge
-          .invoke('confirm_close', <String, dynamic>{'restart': false})
-          .timeout(const Duration(milliseconds: 800));
-    } catch (e, st) {
-      debugPrint('[DesktopAppExit] confirm_close: $e\n$st');
+      watchdog = await startAppExitWatchdog(maxSeconds: 16);
+      pauseBridgeTimersForExit(bridge);
+      if (bridge is DesktopNativeBridge && bridge.hasOpenWallet) {
+        if (!bridge.shouldSkipSaveOnExit) {
+          try {
+            await bridge
+                .backendSend('wallet', 'save_wallet', <String, dynamic>{})
+                .timeout(const Duration(seconds: 4));
+          } catch (e, st) {
+            debugPrint('[DesktopAppExit] save_wallet: $e\n$st');
+          }
+        }
+        try {
+          await bridge
+              .backendSend('wallet', 'close_wallet', <String, dynamic>{})
+              .timeout(const Duration(seconds: 8));
+        } catch (e, st) {
+          debugPrint('[DesktopAppExit] close_wallet: $e\n$st');
+        }
+      }
+      try {
+        await bridge
+            .invoke('confirm_close', <String, dynamic>{'restart': false})
+            .timeout(const Duration(seconds: 4));
+      } catch (e, st) {
+        debugPrint('[DesktopAppExit] confirm_close: $e\n$st');
+      }
+    } finally {
+      watchdog?.cancel();
+      terminateDesktopProcessNow();
     }
   }));
-  terminateDesktopProcessNow();
 }
 
 void terminateDesktopProcessNow() {
