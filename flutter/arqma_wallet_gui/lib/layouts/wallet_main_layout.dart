@@ -279,11 +279,17 @@ class _WalletMainLayoutState extends State<WalletMainLayout>
     }
 
     void goToWalletTab(String route) {
+      final String prev = path;
       if (path != route) {
         setState(() => _displayedTabPath = route);
       }
       if (GoRouterState.of(context).uri.path != route) {
         context.go(route);
+      }
+      if (route == '/wallet' && prev != '/wallet') {
+        unawaited(context
+            .read<NativeBridge>()
+            .backendSend('wallet', 'refresh_transactions', {}));
       }
     }
 

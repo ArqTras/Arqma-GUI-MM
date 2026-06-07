@@ -14,6 +14,10 @@ Desktop bundles rebuilt from `main` after the Flutter multi-platform audit ([#14
 
 Android and iOS assets on this release page are unchanged unless you trigger **Android release** / **iOS release** workflows separately.
 
+### Release refresh (2026-06-07)
+
+- **Transaction history after sync:** Desktop and mobile refresh `get_transfers` when the wallet enters the footer **Ready** band (2880-block tolerance), when switching to the **Transactions** tab, and when desktop heavy RPC defer ends near chain tip — fixes stale or empty history after open-wallet sync and partial catch-up.
+
 ### Solo pool (desktop — Windows, Linux, macOS)
 
 - **Block submission:** Detect network-valid blocks using the same difficulty rule as universal nodejs-pool (`hashDiff`), not only a compact 4-byte target approximation.

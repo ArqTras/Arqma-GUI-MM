@@ -80,11 +80,11 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
-/// Blocks behind daemon tip before running heavy wallet RPC on desktop (see [_desktopDeferHeavyWalletRpcDuringScan]).
+/// Blocks behind daemon tip before Windows [ _maybeKickDesktopWalletRefresh ] stall kick.
 const int _desktopWalletScanXferDeferBlocks = 64;
 
 /// Desktop FFI: in-process calls block the UI isolate; `get_transfers` can freeze footer scan % for a long time.
-/// Defer heavy RPC until the wallet height is near the daemon tip so `getheight` keeps updating progress.
+/// Defer heavy RPC until the wallet is within [kWalletDaemonTipToleranceBlocks] of the daemon tip (footer Ready band).
 bool _desktopDeferHeavyWalletRpcDuringScan({
   required int walletHeight,
   required int daemonTip,
@@ -97,10 +97,7 @@ bool _desktopDeferHeavyWalletRpcDuringScan({
   if (daemonTip <= 0) {
     return true;
   }
-  if (walletHeight >= daemonTip) {
-    return false;
-  }
-  return daemonTip - walletHeight > _desktopWalletScanXferDeferBlocks;
+  return !walletHeightNearDaemonTip(walletHeight, daemonTip);
 }
 
 /// User-visible text when [ArqmaWalletRpcSession.tryStart] fails (missing FFI / load error).
@@ -234,6 +231,9 @@ final class DesktopNativeBridge implements NativeBridge {
 
   /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
   DateTime? _walletXferTipCatchUpThrottleUntil;
+
+  /// Previous tick: wallet gap to daemon tip was above [kWalletDaemonTipToleranceBlocks].
+  bool? _whScanGapAboveTolerance;
 
   /// True after [rescan_blockchain] UI priming until the wallet height reaches the daemon tip band again.
   bool _walletFullRescanUi = false;
@@ -1721,9 +1721,33 @@ final class DesktopNativeBridge implements NativeBridge {
     _walletHeartbeat?.cancel();
     _walletHeartbeat = null;
     _walletXferScanThrottleUntil = null;
+    _walletXferTipCatchUpThrottleUntil = null;
+    _whScanGapAboveTolerance = null;
     _windowsScanHbLastHeight = -1;
     _windowsScanStallTicks = 0;
     _windowsWalletLastRefreshAt = null;
+  }
+
+  /// Queue `get_transfers`; [immediate] runs a heartbeat tick now (tab switch / relay / new block).
+  void _requestWalletTransactionsRefresh({bool immediate = false}) {
+    _whFetchTxPending = true;
+    if (immediate) {
+      unawaited(_walletHeartbeatTick());
+    }
+  }
+
+  /// When the footer enters the Ready band, force one xfer (parity with tip cross).
+  void _noteWalletScanGapForXfer(int walletHeight, int daemonTip) {
+    if (daemonTip <= 0) {
+      return;
+    }
+    final bool above =
+        walletDaemonTipGapBlocks(walletHeight, daemonTip) >
+            kWalletDaemonTipToleranceBlocks;
+    if (_whScanGapAboveTolerance == true && !above) {
+      _whFetchTxPending = true;
+    }
+    _whScanGapAboveTolerance = above;
   }
 
   /// Called before the exit confirmation dialog so polling does not start new FFI work.
@@ -2175,6 +2199,8 @@ final class DesktopNativeBridge implements NativeBridge {
         newH = _walletHeightForHeartbeat(parsed, dh);
       }
     }
+
+    _noteWalletScanGapForXfer(newH, dh);
 
     final bool deferHeavyXfer = _desktopDeferHeavyWalletRpcDuringScan(
       walletHeight: newH,
@@ -3526,6 +3552,10 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     if (method == 'get_coin_price') {
       unawaited(fetchCoinPriceAndConversion(_emit));
+      return <String, dynamic>{};
+    }
+    if (method == 'refresh_transactions') {
+      _requestWalletTransactionsRefresh(immediate: true);
       return <String, dynamic>{};
     }
     if (method == 'begin_Stake_Acquisition') {

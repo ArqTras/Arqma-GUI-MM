@@ -248,6 +248,9 @@ final class MobileNativeBridge implements NativeBridge {
   /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
   DateTime? _walletXferTipCatchUpThrottleUntil;
 
+  /// Previous tick: wallet gap to daemon tip was above [kWalletDaemonTipToleranceBlocks].
+  bool? _whScanGapAboveTolerance;
+
   /// Mobile: poll wallet height/balance/tx list every 5s (remote daemon; faster than desktop 60s).
   static const Duration _kMobileWalletHeartbeatInterval =
       Duration(seconds: 5);
@@ -521,6 +524,9 @@ final class MobileNativeBridge implements NativeBridge {
 
   @override
   Future<void> start() async {
+    WalletActivity.onTransactionsTabActivated = () {
+      _requestWalletTransactionsRefresh(immediate: true);
+    };
     unawaited(
       Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (!_controller.isClosed) {
@@ -1739,6 +1745,7 @@ final class MobileNativeBridge implements NativeBridge {
     _walletHeartbeat = null;
     _walletXferScanThrottleUntil = null;
     _walletXferTipCatchUpThrottleUntil = null;
+    _whScanGapAboveTolerance = null;
   }
 
   /// Queue `get_transfers`; [immediate] runs a heartbeat tick now (after relay / new block).
@@ -1747,6 +1754,20 @@ final class MobileNativeBridge implements NativeBridge {
     if (immediate) {
       unawaited(_walletHeartbeatTick());
     }
+  }
+
+  /// When the footer enters the Ready band, force one xfer (parity with tip cross).
+  void _noteWalletScanGapForXfer(int walletHeight, int daemonTip) {
+    if (daemonTip <= 0) {
+      return;
+    }
+    final bool above =
+        walletDaemonTipGapBlocks(walletHeight, daemonTip) >
+            kWalletDaemonTipToleranceBlocks;
+    if (_whScanGapAboveTolerance == true && !above) {
+      _whFetchTxPending = true;
+    }
+    _whScanGapAboveTolerance = above;
   }
 
   /// Mobile wallet heartbeat: 5 s (tx history at tip + height/balance), not desktop 60 s remote.
@@ -2483,6 +2504,7 @@ final class MobileNativeBridge implements NativeBridge {
         unawaited(IosRescanLiveActivity.end());
       }
     }
+    _noteWalletScanGapForXfer(newH, dh);
     _syncIosWalletScanLiveActivity(
       walletHeight: newH,
       daemonTip: dh,
@@ -3720,6 +3742,10 @@ final class MobileNativeBridge implements NativeBridge {
     }
     if (method == 'get_coin_price') {
       unawaited(fetchCoinPriceAndConversion(_emit));
+      return <String, dynamic>{};
+    }
+    if (method == 'refresh_transactions') {
+      _requestWalletTransactionsRefresh(immediate: true);
       return <String, dynamic>{};
     }
     if (method == 'begin_Stake_Acquisition') {
