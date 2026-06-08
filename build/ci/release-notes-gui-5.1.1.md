@@ -1,6 +1,15 @@
 ## Arqma Wallet 5.1.1
 
-Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.14](https://github.com/ArqTras/FFI/releases/tag/1.0.14)** (large-stack `open_wallet`, serialized FFI, deferred refresh on open). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.15](https://github.com/ArqTras/FFI/releases/tag/1.0.15)** (`getheight` scan flags, warm balance cache during background refresh, safer `get_transfers` during sync). Desktop includes **`arqma_flutter_solo_pool`** built from this repo (solo-pool fixes below).
+
+### Release refresh (2026-06-08)
+
+- **Wallet sync (desktop + mobile + Android):** FFI **1.0.15** adds `daemon_height` and `background_busy` to `getheight`; Flutter bridges surface `wallet_syncing` in the footer and transaction list.
+- **Scan progress:** Footer uses **1-block** tip tolerance so the progress bar tracks catch-up until the wallet is one block from the daemon tip (replaces the previous 2880-block ready band for UI progress).
+- **Transaction history:** Refresh on **balance change** during catch-up instead of every block; empty `get_transfers` snapshots no longer clear visible history mid-scan.
+- **Desktop:** Heartbeat emits height before balance; keeps saldo updates during deferred scan; post-open `refresh` kick unchanged.
+- **Mobile / Android:** Post-open `refresh`; **1 s** heartbeat while scanning, **5 s** at tip; immediate height snapshot after `getheight`.
+- **Desktop bundles:** Rebuilt from this tag with FFI **Latest** (**1.0.15**). Android / iOS assets unchanged unless you run the mobile release workflows.
 
 ### Release refresh (2026-06-03)
 
@@ -82,7 +91,7 @@ Android and iOS assets on this release page are unchanged unless you trigger **A
 - **Build 40:** Native wallet FFI **1.0.11** (background job safety in Rust FFI) + same Dart fixes as build 39.
 - **Build 29:** Native wallet FFI **1.0.10** (rescan poller + `getheight` during background jobs).
 
-### Desktop Flutter (5.1.1+5, FFI 1.0.14)
+### Desktop Flutter (5.1.1+6, FFI 1.0.15)
 
 - **Open wallet retry:** After a failed `open_wallet` or account switch, desktop FFI **re-configures** the native client (fixes spurious `open_wallet failed` / `call_json code=-4` on retry without restarting the app).
 - **macOS wallet open:** FFI worker isolate stays responsive; `open_wallet` / restore run on an **8 MiB stack pthread** (fixes crash on large wallet caches; CLI parity).
@@ -93,7 +102,7 @@ Android and iOS assets on this release page are unchanged unless you trigger **A
 - **Staking Pools:** Compact status filter dropdown (same as mobile filter field; wide tabular list unchanged on desktop).
 - Full rescan / sync footer progress: ignore stale pre-rescan `getheight` tip; complete only after real sub-tip catch-up (same logic as mobile).
 - Inactivity auto-logout: paused when the app window is inactive/minimized and during `full_rescan_ui`.
-- Wallet RPC: rescan/safe-store guards in `desktop_native_bridge` (Dart); native `wallet2_client` safety in FFI **1.0.14** prebuilts.
+- Wallet RPC: rescan/safe-store guards in `desktop_native_bridge` (Dart); native `wallet2_client` sync visibility in FFI **1.0.15** prebuilts.
 - **All desktop OS:** `NoTransitionPage` wallet routes; lazy tab builds; deduplicated store notifications during daemon/wallet heartbeat.
 
 ### Release assets (by platform)

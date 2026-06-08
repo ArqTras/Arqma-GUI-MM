@@ -69,10 +69,9 @@ class _StatusFooterState extends State<StatusFooter> {
     if (displayTip == 0) {
       return loc.tr('components.footer.scanning');
     }
-    final int tipGap = (displayTip - walletHeight.toInt()).clamp(0, 1 << 30);
-    final bool walletBehind =
-        walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
-    if (walletBehind || fullRescanUi) {
+    if (walletHeightScanningBehind(walletHeight.toInt(), displayTip) ||
+        fullRescanUi ||
+        snap.walletSyncing) {
       return loc.tr('components.footer.scanning');
     }
     final String dtype = snap.daemonType;
@@ -121,9 +120,11 @@ class _StatusFooterState extends State<StatusFooter> {
         final int gapBlocks = displayTip > 0
             ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
             : 0;
+        final bool walletSyncing = snap.walletSyncing;
         final bool walletSyncedForFooter = displayTip > 0 &&
             gapBlocks <= kWalletDaemonTipToleranceBlocks &&
-            !fullRescanUi;
+            !fullRescanUi &&
+            !walletSyncing;
 
         double daemonLocalPct() {
           if (dtype == 'remote') {
@@ -181,6 +182,7 @@ class _StatusFooterState extends State<StatusFooter> {
           }
           final bool walletNeeds = snap.hasOpenWallet &&
               (fullRescanUi ||
+                  walletSyncing ||
                   (!walletSyncedForFooter && walletHeight < displayTip));
           if (dtype == 'remote') {
             return walletNeeds;
@@ -309,6 +311,7 @@ final class _FooterSnapshot {
     required this.daemonHeightWithoutBootstrap,
     required this.walletHeight,
     required this.fullRescanUi,
+    required this.walletSyncing,
     required this.hasOpenWallet,
     required this.walletBackend,
     required this.netType,
@@ -322,6 +325,7 @@ final class _FooterSnapshot {
   final int daemonHeightWithoutBootstrap;
   final num walletHeight;
   final bool fullRescanUi;
+  final bool walletSyncing;
   final bool hasOpenWallet;
   final String walletBackend;
   final String netType;
@@ -347,6 +351,7 @@ final class _FooterSnapshot {
           (num.tryParse('${info['height_without_bootstrap']}') ?? 0).toInt(),
       walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
       fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
+      walletSyncing: store.walletInfo['wallet_syncing'] == true,
       hasOpenWallet: store.hasOpenWallet,
       walletBackend: '${app['wallet_backend'] ?? 'pending'}',
       netType: net,
@@ -370,6 +375,7 @@ final class _FooterSnapshot {
         other.daemonHeightWithoutBootstrap == daemonHeightWithoutBootstrap &&
         other.walletHeight == walletHeight &&
         other.fullRescanUi == fullRescanUi &&
+        other.walletSyncing == walletSyncing &&
         other.hasOpenWallet == hasOpenWallet &&
         other.walletBackend == walletBackend &&
         other.netType == netType &&
@@ -385,6 +391,7 @@ final class _FooterSnapshot {
         daemonHeightWithoutBootstrap,
         walletHeight,
         fullRescanUi,
+        walletSyncing,
         hasOpenWallet,
         walletBackend,
         netType,

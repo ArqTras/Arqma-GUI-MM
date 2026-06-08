@@ -23,6 +23,7 @@ const List<String> _kWalletInfoUiKeys = <String>[
   'unlocked_balance',
   'name',
   'full_rescan_ui',
+  'wallet_syncing',
   'address',
   'view_only',
 ];

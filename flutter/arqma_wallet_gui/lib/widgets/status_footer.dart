@@ -104,12 +104,14 @@ class _StatusFooterState extends State<StatusFooter> {
     if (displayTip == 0) {
       return '';
     }
-    final int tipGap = displayTip > 0
-        ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 30)
-        : 0;
-    final bool walletBehind =
-        walletHeight < displayTip && tipGap > kWalletDaemonTipToleranceBlocks;
-    final bool walletBehindOrRescan = walletBehind || fullRescanUi;
+    final bool walletSyncing = snap.walletSyncing;
+    final bool walletBehind = walletHeightScanningBehind(
+          walletHeight.toInt(),
+          displayTip,
+        ) ||
+        fullRescanUi ||
+        walletSyncing;
+    final bool walletBehindOrRescan = walletBehind;
     final num dwo = num.tryParse('${info['height_without_bootstrap']}') ?? 0;
     if (dtype == 'local') {
       if (daemonTip > 0 && dwo < daemonTip) {
@@ -173,9 +175,11 @@ class _StatusFooterState extends State<StatusFooter> {
     final int gapBlocks = displayTip > 0
         ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
         : 0;
+    final bool walletSyncing = snap.walletSyncing;
     final bool walletSyncedForFooter = displayTip > 0 &&
         gapBlocks <= kWalletDaemonTipToleranceBlocks &&
-        !fullRescanUi;
+        !fullRescanUi &&
+        !walletSyncing;
 
     double daemonLocalPct() {
       if (dtype == 'remote') {
@@ -231,6 +235,7 @@ class _StatusFooterState extends State<StatusFooter> {
         return false;
       }
       final bool walletNeeds = fullRescanUi ||
+          walletSyncing ||
           (!walletSyncedForFooter && walletHeight < displayTip);
       if (dtype == 'remote') {
         return walletNeeds;
@@ -365,6 +370,7 @@ final class _FooterSnapshot {
     required this.daemonInfo,
     required this.walletHeight,
     required this.fullRescanUi,
+    required this.walletSyncing,
     required this.walletBackend,
   });
 
@@ -372,6 +378,7 @@ final class _FooterSnapshot {
   final Map<String, dynamic> daemonInfo;
   final num walletHeight;
   final bool fullRescanUi;
+  final bool walletSyncing;
   final String walletBackend;
 
   static _FooterSnapshot fromStore(GatewayStore store) {
@@ -381,6 +388,7 @@ final class _FooterSnapshot {
           const <String, dynamic>{},
       walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
       fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
+      walletSyncing: store.walletInfo['wallet_syncing'] == true,
       walletBackend: '${store.app['wallet_backend'] ?? 'pending'}',
     );
   }
@@ -392,12 +400,13 @@ final class _FooterSnapshot {
         identical(other.daemonInfo, daemonInfo) &&
         other.walletHeight == walletHeight &&
         other.fullRescanUi == fullRescanUi &&
+        other.walletSyncing == walletSyncing &&
         other.walletBackend == walletBackend;
   }
 
   @override
   int get hashCode => Object.hash(
-      app, daemonInfo, walletHeight, fullRescanUi, walletBackend);
+      app, daemonInfo, walletHeight, fullRescanUi, walletSyncing, walletBackend);
 }
 
 class _BarTrack extends StatelessWidget {

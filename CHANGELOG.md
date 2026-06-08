@@ -15,6 +15,7 @@
 - **iOS (build 28):** Background wallet sync pulse; no inactivity logout on screen lock; rescan progress UI fixes when tapping Live Activity.
 - **iOS (build 29) / desktop release rebuild:** Wallet FFI **1.0.10** (full rescan native progress; `getheight` during background rescan/refresh).
 - **Desktop (Flutter 5.1.1+5):** Re-configure native wallet FFI after `closeWalletSession` / worker reset so `open_wallet` retry works without restarting the app (Dart fix; FFI **1.0.14** unchanged).
+- **Desktop + mobile + Android (5.1.1+6):** FFI **1.0.15** — `getheight` reports `daemon_height` / `background_busy`; footer scan progress uses 1-block tip tolerance; transaction history refreshes on balance change during catch-up; `wallet_syncing` in UI; mobile post-open `refresh` and faster scan heartbeat.
 
 ## 5.1.0 — 2026-05-11
 

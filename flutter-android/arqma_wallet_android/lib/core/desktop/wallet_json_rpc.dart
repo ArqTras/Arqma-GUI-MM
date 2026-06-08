@@ -55,17 +55,39 @@ String walletJsonRpcErrorMessage(Map<String, dynamic>? v, {String fallback = 'Un
   return fallback;
 }
 
-int? walletHeightFromGetheight(Map<String, dynamic>? v) {
+Map<String, dynamic>? _walletGetheightResult(Map<String, dynamic>? v) {
   if (v == null || !walletJsonRpcNoError(v)) {
     return null;
   }
   final Object? r = v['result'];
   if (r is Map) {
-    final Map<String, dynamic> rm = Map<String, dynamic>.from(r);
-    final Object? h = rm['height'];
-    return jsonRpcLooseInt(h);
+    return Map<String, dynamic>.from(r);
   }
   return null;
+}
+
+int? walletHeightFromGetheight(Map<String, dynamic>? v) {
+  final Map<String, dynamic>? rm = _walletGetheightResult(v);
+  if (rm == null) {
+    return null;
+  }
+  return jsonRpcLooseInt(rm['height']);
+}
+
+int? walletDaemonHeightFromGetheight(Map<String, dynamic>? v) {
+  final Map<String, dynamic>? rm = _walletGetheightResult(v);
+  if (rm == null) {
+    return null;
+  }
+  return jsonRpcLooseInt(rm['daemon_height']);
+}
+
+bool walletBackgroundBusyFromGetheight(Map<String, dynamic>? v) {
+  final Map<String, dynamic>? rm = _walletGetheightResult(v);
+  if (rm == null) {
+    return false;
+  }
+  return rm['background_busy'] == true;
 }
 
 /// Integer fields from JSON-RPC (`height`, fee counts, …) — often `int`, `num`, or decimal string.

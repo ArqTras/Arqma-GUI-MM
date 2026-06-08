@@ -487,12 +487,9 @@ final class _TxListUiSnapshot {
     }();
     final int walletH =
         (num.tryParse('${store.walletInfo['height']}') ?? 0).round();
-    final int gapBlocks = daemonTip > 0
-        ? (daemonTip - walletH).clamp(0, 1 << 62)
-        : 0;
     final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
-    final bool scanningBehind =
-        daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
+    final bool walletSyncing = store.walletInfo['wallet_syncing'] == true;
+    final bool scanningBehind = walletHeightScanningBehind(walletH, daemonTip);
     final Map<String, dynamic> tf =
         store.raw['transactions_filter'] as Map<String, dynamic>? ??
             const <String, dynamic>{};
@@ -504,7 +501,7 @@ final class _TxListUiSnapshot {
       walletHeight: walletH,
       daemonTip: daemonTip,
       fullRescanUi: fullRescanUi,
-      showScanProgress: scanningBehind || fullRescanUi,
+      showScanProgress: scanningBehind || fullRescanUi || walletSyncing,
       transactionsRevision: store.transactionsRevision,
       filterIndex: tf['index'] as int? ?? 0,
       tidFilter: '${tid['value'] ?? ''}',

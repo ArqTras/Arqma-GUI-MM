@@ -220,14 +220,14 @@ final class DesktopNativeBridge implements NativeBridge {
   bool _whFetchTxPending = false;
   bool _walletXferBusy = false;
 
+  /// Last `getheight` reported native `refresh` / `rescan_*` still running.
+  bool _whWalletBackgroundBusy = false;
+
   /// Newest `height` field from the last successful `set_wallet_transactions` emit.
   int _whLastEmittedTxMaxHeight = 0;
 
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
   bool _walletTxListClearedForRescan = false;
-
-  /// Limits `get_transfers` rate while [inScanRhythm] — height advances every tick during sync.
-  DateTime? _walletXferScanThrottleUntil;
 
   /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
   DateTime? _walletXferTipCatchUpThrottleUntil;
@@ -1720,7 +1720,6 @@ final class DesktopNativeBridge implements NativeBridge {
   void _stopWalletHeartbeat() {
     _walletHeartbeat?.cancel();
     _walletHeartbeat = null;
-    _walletXferScanThrottleUntil = null;
     _walletXferTipCatchUpThrottleUntil = null;
     _whScanGapAboveTolerance = null;
     _windowsScanHbLastHeight = -1;
@@ -1737,6 +1736,61 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   /// When the footer enters the Ready band, force one xfer (parity with tip cross).
+  void _applyGetheightFlags(Map<String, dynamic>? gh) {
+    _whWalletBackgroundBusy = walletBackgroundBusyFromGetheight(gh);
+  }
+
+  bool get _walletSyncingForUi =>
+      _whWalletBackgroundBusy || _walletFullRescanUi;
+
+  /// Oxen `wallet-rpc.js::heartbeatAction` + Tauri `wallet_heartbeat.rs`: during chain catch-up
+  /// refresh tx list on **balance_change** (and pending open); after tip also on height ticks.
+  void _maybeWalletXfer({
+    required ArqmaWalletRpcSession w,
+    required String name,
+    required Map<String, dynamic> cfg,
+    required int h0,
+    required int newH,
+    required int dh,
+    required bool hasBalanceChange,
+    required bool ghOk,
+    required bool gbOk,
+    required bool inScanRhythm,
+  }) {
+    final int daysWt =
+        (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ?? 1)
+            .clamp(1, 365);
+    final int daysWindowBlocks = daysWt * 720;
+    final DateTime now = DateTime.now();
+    bool txListBehindTip = false;
+    if (!inScanRhythm &&
+        newH > 0 &&
+        _whLastEmittedTxMaxHeight > 0 &&
+        newH - _whLastEmittedTxMaxHeight > 64) {
+      if (_walletXferTipCatchUpThrottleUntil == null ||
+          !now.isBefore(_walletXferTipCatchUpThrottleUntil!)) {
+        txListBehindTip = true;
+        _walletXferTipCatchUpThrottleUntil =
+            now.add(const Duration(seconds: 90));
+      }
+    }
+    final bool periodicAtTip = !inScanRhythm;
+    final bool xferTrigger = _whFetchTxPending ||
+        hasBalanceChange ||
+        (!inScanRhythm && newH != h0) ||
+        txListBehindTip ||
+        periodicAtTip;
+    final bool canXfer = xferTrigger &&
+        !_walletXferBusy &&
+        (gbOk || (_whFetchTxPending && ghOk));
+    if (canXfer) {
+      unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
+    }
+    if (_whAddressBookPending && ghOk) {
+      unawaited(_emitWalletAddressBookFromRpc(w));
+    }
+  }
+
   void _noteWalletScanGapForXfer(int walletHeight, int daemonTip) {
     if (daemonTip <= 0) {
       return;
@@ -2165,6 +2219,8 @@ final class DesktopNativeBridge implements NativeBridge {
     required String name,
     required int newH,
     required int daemonTip,
+    int? balance,
+    int? unlocked,
   }) {
     if (_walletFullRescanCaughtUp(newH, daemonTip)) {
       _walletFullRescanUi = false;
@@ -2172,15 +2228,22 @@ final class DesktopNativeBridge implements NativeBridge {
       _rescanProgressPeak = 0;
     }
     _whStoredHeight = newH;
+    if (balance != null) {
+      _whStoredBalance = balance;
+    }
+    if (unlocked != null) {
+      _whStoredUnlocked = unlocked;
+    }
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
         'name': name,
         'height': newH,
-        'balance': _whStoredBalance,
-        'unlocked_balance': _whStoredUnlocked,
+        'balance': balance ?? _whStoredBalance,
+        'unlocked_balance': unlocked ?? _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'full_rescan_ui': _walletFullRescanUi,
+        'wallet_syncing': _walletSyncingForUi,
         if (_walletFullRescanUi) 'allow_lower_height': true,
       },
     });
@@ -2206,7 +2269,8 @@ final class DesktopNativeBridge implements NativeBridge {
     final int b0 = _whStoredBalance;
     final int u0 = _whStoredUnlocked;
     final int dh = _daemonChainTipHeight;
-    final bool inScanRhythm = dh == 0 || h0 < dh;
+    final bool inScanRhythm =
+        dh == 0 || h0 < dh || _whWalletBackgroundBusy;
     final Duration ghCap = inScanRhythm
         ? const Duration(seconds: 60)
         : const Duration(seconds: 45);
@@ -2222,6 +2286,7 @@ final class DesktopNativeBridge implements NativeBridge {
       gh = null;
     }
     final bool ghOk = gh != null && walletJsonRpcNoError(gh);
+    _applyGetheightFlags(gh);
 
     int newH = h0;
     if (ghOk) {
@@ -2239,17 +2304,59 @@ final class DesktopNativeBridge implements NativeBridge {
     );
     if (deferHeavyXfer) {
       if (ghOk) {
+        Map<String, dynamic>? gbDefer;
+        try {
+          gbDefer = await w
+              .call('getbalance', <String, dynamic>{'account_index': 0})
+              .timeout(abCap);
+        } catch (e, st) {
+          debugPrint('[DesktopNative] wallet hb getbalance (defer): $e\n$st');
+          gbDefer = null;
+        }
+        bool hasBalanceChange = false;
+        int emitBal = _whStoredBalance;
+        int emitUnl = _whStoredUnlocked;
+        final bool gbDeferOk =
+            gbDefer != null && walletJsonRpcNoError(gbDefer);
+        if (gbDeferOk) {
+          final Object? res = gbDefer['result'];
+          if (res is Map) {
+            final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
+            final int bal = (rm['balance'] as num?)?.toInt() ?? 0;
+            final int unl = (rm['unlocked_balance'] as num?)?.toInt() ??
+                (rm['unlocked'] as num?)?.toInt() ??
+                0;
+            hasBalanceChange = !(b0 == bal && u0 == unl);
+            emitBal = bal;
+            emitUnl = unl;
+            _whStoredBalance = bal;
+            _whStoredUnlocked = unl;
+          }
+        }
         _emitDesktopScanHeartbeatInfo(
           name: name,
           newH: newH,
           daemonTip: dh,
+          balance: emitBal,
+          unlocked: emitUnl,
         );
         unawaited(_maybeKickDesktopWalletRefresh(
           w,
           walletHeight: newH,
           daemonTip: dh,
         ));
-        // Do not run get_transfers/xfer here — FFI on the UI isolate freezes scan progress.
+        _maybeWalletXfer(
+          w: w,
+          name: name,
+          cfg: cfg,
+          h0: h0,
+          newH: newH,
+          dh: dh,
+          hasBalanceChange: hasBalanceChange,
+          ghOk: ghOk,
+          gbOk: gbDeferOk,
+          inScanRhythm: dh == 0 || h0 < dh || _whWalletBackgroundBusy,
+        );
       }
       return;
     }
@@ -2287,6 +2394,7 @@ final class DesktopNativeBridge implements NativeBridge {
       'height': newH,
       'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       'full_rescan_ui': _walletFullRescanUi,
+      'wallet_syncing': _walletSyncingForUi,
       if (_walletFullRescanUi) 'allow_lower_height': true,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
@@ -2331,60 +2439,19 @@ final class DesktopNativeBridge implements NativeBridge {
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
 
-    final int daysWt =
-        (((cfg['app'] as Map?)?['daysOfTransactions'] as num?)?.toInt() ?? 1)
-            .clamp(1, 365);
-    final int daysWindowBlocks = daysWt * 720;
-    // Match Tauri `wallet_heartbeat`: xfer on pending open, balance change, or (once caught up)
-    // each height tick — see `wallet_heartbeat.rs`. Additionally refresh txs periodically **during**
-    // chain scan (Electron only refreshed on balance_change; that misses rows until balance moves).
-    final DateTime now = DateTime.now();
-    bool xferDuringScan = false;
-    if (inScanRhythm && newH != h0) {
-      if (_walletXferScanThrottleUntil == null ||
-          !now.isBefore(_walletXferScanThrottleUntil!)) {
-        xferDuringScan = true;
-      }
-    }
-    // Footer can sit at daemon tip while the last `get_transfers` snapshot is days behind
-    // (flat `newH == h0`, no balance change). Re-poll until tx max height catches up.
-    bool txListBehindTip = false;
-    if (!inScanRhythm &&
-        newH > 0 &&
-        _whLastEmittedTxMaxHeight > 0 &&
-        newH - _whLastEmittedTxMaxHeight > 64) {
-      if (_walletXferTipCatchUpThrottleUntil == null ||
-          !now.isBefore(_walletXferTipCatchUpThrottleUntil!)) {
-        txListBehindTip = true;
-        _walletXferTipCatchUpThrottleUntil =
-            now.add(const Duration(seconds: 90));
-      }
-    }
-    final bool periodicAtTip = !inScanRhythm;
-    final bool xferTrigger = _whFetchTxPending ||
-        hasBalanceChange ||
-        (!inScanRhythm && newH != h0) ||
-        xferDuringScan ||
-        txListBehindTip ||
-        periodicAtTip;
-    // Start xfer when `getbalance` succeeded (Tauri parity), **or** when `getbalance` is flaky
-    // during scan but `getheight` works — otherwise open-wallet pending xfer never runs.
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
-    final bool canXfer = xferTrigger &&
-        !_walletXferBusy &&
-        (gbOk ||
-            (_whFetchTxPending && ghOk) ||
-            (xferDuringScan && ghOk));
-    if (canXfer) {
-      if (xferDuringScan) {
-        _walletXferScanThrottleUntil =
-            now.add(const Duration(seconds: 45));
-      }
-      unawaited(_walletXferHeavy(name, newH, daysWindowBlocks));
-    }
-    if (_whAddressBookPending && ghOk) {
-      unawaited(_emitWalletAddressBookFromRpc(w));
-    }
+    _maybeWalletXfer(
+      w: w,
+      name: name,
+      cfg: cfg,
+      h0: h0,
+      newH: newH,
+      dh: dh,
+      hasBalanceChange: hasBalanceChange,
+      ghOk: ghOk,
+      gbOk: gbOk,
+      inScanRhythm: inScanRhythm,
+    );
   }
 
   /// Before `rescan_blockchain`: force footer/list into “scanning from scratch” so the UI paints before the RPC returns.
@@ -2860,6 +2927,7 @@ final class DesktopNativeBridge implements NativeBridge {
     }
     _openedWalletDisplayName = name;
     final int ts = DateTime.now().millisecondsSinceEpoch;
+    _whWalletBackgroundBusy = false;
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
@@ -2868,6 +2936,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'balance': 0,
         'unlocked_balance': 0,
         'scan_poll_ts': ts,
+        'wallet_syncing': true,
       },
     });
     _emit(<String, dynamic>{
@@ -2980,6 +3049,7 @@ final class DesktopNativeBridge implements NativeBridge {
         'unlocked_balance': unl,
         'view_only': false,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        'wallet_syncing': _walletSyncingForUi,
       },
     });
     unawaited(_finishWalletOpenedUiExtras(

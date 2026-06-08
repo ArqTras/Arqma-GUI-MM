@@ -277,13 +277,11 @@ class TxListWidget extends StatelessWidget {
     }();
     final int walletH =
         (num.tryParse('${store.walletInfo['height']}') ?? 0).round();
-    final int gapBlocks = daemonTip > 0
-        ? (daemonTip - walletH).clamp(0, 1 << 62)
-        : 0;
     final bool fullRescanUi = store.walletInfo['full_rescan_ui'] == true;
-    final bool scanningBehind =
-        daemonTip > 0 && gapBlocks > kWalletDaemonTipToleranceBlocks;
-    final bool showScanProgress = scanningBehind || fullRescanUi;
+    final bool walletSyncing = store.walletInfo['wallet_syncing'] == true;
+    final bool scanningBehind = walletHeightScanningBehind(walletH, daemonTip);
+    final bool showScanProgress =
+        scanningBehind || fullRescanUi || walletSyncing;
 
     if (txs.isEmpty && !showScanProgress) {
       return Padding(
