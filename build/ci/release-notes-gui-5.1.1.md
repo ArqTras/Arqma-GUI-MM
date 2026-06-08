@@ -9,7 +9,8 @@ Desktop and mobile bundles for tag **5.1.1**. Wallet FFI **[1.0.15](https://gith
 - **Transaction history:** Refresh on **balance change** during catch-up instead of every block; empty `get_transfers` snapshots no longer clear visible history mid-scan.
 - **Desktop:** Heartbeat emits height before balance; keeps saldo updates during deferred scan; post-open `refresh` kick unchanged.
 - **Mobile / Android:** Post-open `refresh`; **1 s** heartbeat while scanning, **5 s** at tip; immediate height snapshot after `getheight`.
-- **Desktop bundles:** Rebuilt from this tag with FFI **Latest** (**1.0.15**). Android / iOS assets unchanged unless you run the mobile release workflows.
+- **iOS:** TestFlight build **5.1.1 (50)** — FFI **1.0.15** + same wallet sync / tx refresh as desktop; GitHub Release IPA refreshed.
+- **Desktop bundles:** Rebuilt from this tag with FFI **Latest** (**1.0.15**). Android assets unchanged unless you run the Android release workflow.
 
 ### Release refresh (2026-06-03)
 
@@ -113,7 +114,7 @@ Android and iOS assets on this release page are unchanged unless you trigger **A
 | **Linux** | `Arqma-Wallet-Flutter-5.1.1-linux-x64.tar.gz` and/or `Arqma-Wallet-Flutter-5.1.1-linux-x64.AppImage` | **tar.gz:** `tar xzf …tar.gz`, `cd` into folder, `./Arqma-Wallet` (or documented launcher). **AppImage:** `chmod +x *.AppImage`, `./Arqma-Wallet-Flutter-….AppImage`. |
 | **macOS** | `Arqma-Wallet-Flutter-5.1.1-macos.zip` and/or `Arqma-Wallet-Flutter-5.1.1-macos.dmg` | Open **DMG**, drag **Arqma-Wallet.app** to Applications. If Gatekeeper blocks: `xattr -cr "/Applications/Arqma-Wallet.app"`. |
 | **Android** | `Arqma-Wallet-Android-5.1.1-*.apk` (sideload), `Arqma-Wallet-Android-5.1.1-*.aab` (Play) | Install APK on device (unknown sources if needed). AAB is for Play Console upload only. |
-| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **49** (View on explorer fix). |
+| **iOS** | `Arqma-Wallet-Mobile-5.1.1-ios-testflight.ipa` (or development IPA) | TestFlight / Xcode install per your signing profile; build **50** (FFI **1.0.15**, wallet sync progress + tx refresh). |
 
 ### Solo pool quick start (desktop)
 
