@@ -15,7 +15,6 @@ import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
 import '../mobile/mobile_remote_nodes.dart';
 import '../mobile/open_external_url.dart';
-import '../mobile/wallet_activity.dart';
 import '../desktop/arqma_paths.dart';
 import '../desktop/bridge_log_redact.dart';
 import '../desktop/daemon_heartbeat_extras.dart';
