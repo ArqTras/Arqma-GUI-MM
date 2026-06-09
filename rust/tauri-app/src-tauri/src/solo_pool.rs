@@ -197,9 +197,10 @@ struct JobState {
     blob: String,
     /// Full `blocktemplate_blob` (optional; not sent to miner — used if we later rebuild blocks for `submit_block`).
     template_blob: String,
-    /// Byte offset into decoded `blocktemplate_blob` where the 4-byte Stratum nonce is written (`get_block_template`).
+    /// `reserved_offset` from `get_block_template`: pool extra-nonce area inside the miner tx `tx_extra`
+    /// (informational/validation only — the miner Stratum nonce goes into the block-header nonce field).
     reserved_offset: u64,
-    /// `reserve_size` from `get_block_template` (informational; nonce patch uses 4 bytes at `reserved_offset`).
+    /// `reserve_size` from `get_block_template` (informational).
     reserve_size: u64,
     target: String,
     height: u64,
@@ -563,14 +564,44 @@ fn blocktemplate_blob_ok(blob: &str) -> bool {
     hex::decode(blob).is_ok()
 }
 
-/// Patch the 4-byte Stratum `nonce` (8 hex chars, same byte order as in `blockhashing_blob`) into the full
-/// `blocktemplate_blob` at `reserved_offset`, then re-encode hex for `submit_block`.
+/// Byte offset of the 4-byte block-header `nonce` inside `blocktemplate_blob` (same header prefix as
+/// `blockhashing_blob`): varint(major_version) + varint(minor_version) + varint(timestamp) + 32-byte prev_id.
+/// Currently 39 for mainnet timestamps (5-byte varint), but computed from the varints to stay correct.
+fn block_header_nonce_offset(block_bytes: &[u8]) -> Result<usize, String> {
+    let mut off = 0usize;
+    for field in ["major_version", "minor_version", "timestamp"] {
+        let start = off;
+        loop {
+            let b = *block_bytes
+                .get(off)
+                .ok_or_else(|| format!("template too short while reading varint {field}"))?;
+            off += 1;
+            if b & 0x80 == 0 {
+                break;
+            }
+            if off - start >= 10 {
+                return Err(format!("varint overflow in {field}"));
+            }
+        }
+    }
+    off += 32; // prev_id
+    if off + 4 > block_bytes.len() {
+        return Err(format!(
+            "template too short for header nonce: off={off} len={}",
+            block_bytes.len()
+        ));
+    }
+    Ok(off)
+}
+
+/// Patch the 4-byte Stratum `nonce` (8 hex chars, same byte order as in `blockhashing_blob`) into the
+/// **block-header nonce field** of the full `blocktemplate_blob`, then re-encode hex for `submit_block`.
+/// Equivalent of `construct_block_blob` / `b.nonce = nonce` in ryo-core-js (arqma-electron-wallet) and
+/// MoneroOcean node-blocktemplate. The `reserved_offset` area in `tx_extra` is for a pool extra nonce and
+/// must stay untouched — this pool never writes one, so the daemon `blockhashing_blob` sent to miners
+/// matches the template and only the header nonce differs on submit.
 /// XMRig does not send `blob` on `submit` — this path relays solo-found blocks to `arqmad`.
-fn assemble_block_blob_for_submit(
-    template_hex: &str,
-    reserved_offset: u64,
-    nonce_hex: &str,
-) -> Result<String, String> {
+fn assemble_block_blob_for_submit(template_hex: &str, nonce_hex: &str) -> Result<String, String> {
     if template_hex.is_empty() {
         return Err("empty blocktemplate_blob".into());
     }
@@ -578,17 +609,11 @@ fn assemble_block_blob_for_submit(
         return Err("nonce must be 8 hex chars".into());
     }
     let mut bytes = hex::decode(template_hex).map_err(|_| "blocktemplate_blob hex decode failed".to_string())?;
-    let off = reserved_offset as usize;
     let nonce_bytes = hex::decode(nonce_hex).map_err(|_| "nonce hex decode failed".to_string())?;
     if nonce_bytes.len() != 4 {
         return Err("nonce must decode to 4 bytes".into());
     }
-    if off + 4 > bytes.len() {
-        return Err(format!(
-            "reserved_offset+4 out of range: off={off} len={}",
-            bytes.len()
-        ));
-    }
+    let off = block_header_nonce_offset(&bytes)?;
     bytes[off..off + 4].copy_from_slice(&nonce_bytes);
     Ok(hex::encode(bytes))
 }
@@ -2121,7 +2146,6 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                         } else if !current.template_blob.is_empty() {
                           match assemble_block_blob_for_submit(
                             &current.template_blob,
-                            current.reserved_offset,
                             nonce,
                           ) {
                             Ok(h) => Some(h),
@@ -2229,23 +2253,67 @@ pub fn stop(st: &mut WalletBackendState) {
 mod tests {
     use super::*;
 
+    fn push_varint(mut v: u64, out: &mut Vec<u8>) {
+        loop {
+            let mut b = (v & 0x7f) as u8;
+            v >>= 7;
+            if v != 0 {
+                b |= 0x80;
+            }
+            out.push(b);
+            if v == 0 {
+                break;
+            }
+        }
+    }
+
+    /// Header: varint(major) + varint(minor) + varint(timestamp) + prev_id(32) + nonce(4), then body.
+    fn synthetic_template(timestamp: u64, body_len: usize) -> (Vec<u8>, usize) {
+        let mut raw = Vec::new();
+        push_varint(16, &mut raw); // major_version
+        push_varint(16, &mut raw); // minor_version
+        push_varint(timestamp, &mut raw);
+        raw.extend_from_slice(&[0xAA; 32]); // prev_id
+        let nonce_off = raw.len();
+        raw.extend_from_slice(&[0x11, 0x22, 0x33, 0x44]); // template nonce
+        raw.extend(std::iter::repeat(0xEE).take(body_len)); // miner tx & co.
+        (raw, nonce_off)
+    }
+
     #[test]
-    fn assemble_block_blob_writes_four_bytes_at_offset() {
-        let mut raw = vec![0u8; 80];
-        raw[10..14].copy_from_slice(&[0x11, 0x22, 0x33, 0x44]);
+    fn header_nonce_offset_matches_varint_layout() {
+        // Mainnet-era timestamp -> 5-byte varint -> classic offset 39.
+        let (raw, off) = synthetic_template(1_780_000_000, 60);
+        assert_eq!(off, 39);
+        assert_eq!(block_header_nonce_offset(&raw).expect("offset"), 39);
+        // Tiny timestamp -> 1-byte varint -> offset 35.
+        let (raw, off) = synthetic_template(5, 60);
+        assert_eq!(off, 35);
+        assert_eq!(block_header_nonce_offset(&raw).expect("offset"), 35);
+    }
+
+    #[test]
+    fn assemble_block_blob_writes_nonce_into_header_not_reserved_area() {
+        let (raw, nonce_off) = synthetic_template(1_780_000_000, 120);
+        let reserved_offset = 100usize; // typical tx_extra reserve position, must stay untouched
         let template = hex::encode(&raw);
-        let patched =
-            assemble_block_blob_for_submit(&template, 10, "aabbccdd").expect("assemble");
+        let patched = assemble_block_blob_for_submit(&template, "aabbccdd").expect("assemble");
         let out = hex::decode(&patched).expect("hex");
-        assert_eq!(&out[10..14], &[0xaa, 0xbb, 0xcc, 0xdd]);
-        assert_eq!(&out[0..10], &raw[0..10]);
-        assert_eq!(&out[14..], &raw[14..]);
+        assert_eq!(&out[nonce_off..nonce_off + 4], &[0xaa, 0xbb, 0xcc, 0xdd]);
+        assert_eq!(&out[..nonce_off], &raw[..nonce_off]);
+        assert_eq!(&out[nonce_off + 4..], &raw[nonce_off + 4..]);
+        assert_eq!(&out[reserved_offset..reserved_offset + 4], &raw[reserved_offset..reserved_offset + 4]);
     }
 
     #[test]
     fn assemble_block_blob_rejects_short_template_or_bad_nonce() {
-        let template = hex::encode([0u8; 76]);
-        assert!(assemble_block_blob_for_submit(&template, 70, "aabbccdd").is_err());
-        assert!(assemble_block_blob_for_submit(&template, 10, "aabb").is_err());
+        // Too short to contain header nonce (varints + prev_id need >= 39 bytes here).
+        let (raw, _) = synthetic_template(1_780_000_000, 0);
+        let truncated = hex::encode(&raw[..36]);
+        assert!(assemble_block_blob_for_submit(&truncated, "aabbccdd").is_err());
+        let (raw, _) = synthetic_template(1_780_000_000, 30);
+        let template = hex::encode(&raw);
+        assert!(assemble_block_blob_for_submit(&template, "aabb").is_err());
+        assert!(assemble_block_blob_for_submit("", "aabbccdd").is_err());
     }
 }
