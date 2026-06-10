@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.1.2 — 2026-06-10
+
+- Bump Flutter desktop to **5.1.2+6** and mobile to **5.1.2+51** (workspace **5.1.2**).
+- **Solo pool (desktop):** Fix block submission — miner nonce written to block header on `submit_block` (sidecar `arqma_flutter_solo_pool` republished on [FFI 1.0.15](https://github.com/ArqTras/FFI/releases/tag/1.0.15)); desktop bundles rebuilt with fixed solo pool binary.
+- **Desktop + mobile:** Wallet FFI **1.0.15** unchanged.
+
 ## 5.1.1 — 2026-05-27
 
 - Bump app / workspace version to **5.1.1** (patch after 5.1.0).
