@@ -32,8 +32,8 @@ typedef _ResetDart = int Function();
 typedef _StringFreeNative = Void Function(Pointer<Utf8> p);
 typedef _StringFreeDart = void Function(Pointer<Utf8> p);
 
-typedef _SetDefaultDllDirectoriesNative = Int32 Function(Uint32 DirectoryFlags);
-typedef _SetDefaultDllDirectoriesDart = int Function(int DirectoryFlags);
+typedef _SetDllDirectoryWNative = Int32 Function(Pointer<Utf16> lpPathName);
+typedef _SetDllDirectoryWDart = int Function(Pointer<Utf16> lpPathName);
 
 /// In-process wallet2 via `rust/arqma-wallet-flutter-ffi` (same `Wallet2ApiClient` as Tauri native mode).
 final class WalletNativeFfi {
@@ -120,10 +120,12 @@ final class WalletNativeFfi {
     _windowsSearchPathPrepared = true;
     try {
       final String exeDir = File(Platform.resolvedExecutable).parent.path;
-      _configureWindowsDllSearch(exeDir);
+      _setWindowsDllDirectory(exeDir);
+      _addWindowsDllDirectory(exeDir);
       _preloadWindowsDllsFrom(exeDir);
       final String libDir = '$exeDir${Platform.pathSeparator}lib';
       if (Directory(libDir).existsSync()) {
+        _addWindowsDllDirectory(libDir);
         _preloadWindowsDllsFrom(libDir);
       }
     } catch (e, st) {
@@ -131,26 +133,17 @@ final class WalletNativeFfi {
     }
   }
 
-  static void _configureWindowsDllSearch(String exeDir) {
+  static void _setWindowsDllDirectory(String dir) {
     final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
+    final _SetDllDirectoryWDart setDll = k32.lookupFunction<
+        _SetDllDirectoryWNative, _SetDllDirectoryWDart>('SetDllDirectoryW');
+    final Pointer<Utf16> dirW = dir.toNativeUtf16();
     try {
-      final _SetDefaultDllDirectoriesDart setDefault = k32.lookupFunction<
-          _SetDefaultDllDirectoriesNative, _SetDefaultDllDirectoriesDart>(
-        'SetDefaultDllDirectories',
-      );
-      // Application dir + System32 / WinSxS (avoid SetDllDirectory — breaks some Setup installs).
-      const int loadDefaultDirs = 0x00001000;
-      const int loadAppDir = 0x00002000;
-      if (setDefault(loadDefaultDirs | loadAppDir) == 0) {
-        debugPrint('[WalletNativeFfi] SetDefaultDllDirectories failed');
+      if (setDll(dirW) == 0) {
+        debugPrint('[WalletNativeFfi] SetDllDirectoryW failed for: $dir');
       }
-    } catch (e) {
-      debugPrint('[WalletNativeFfi] SetDefaultDllDirectories unavailable: $e');
-    }
-    _addWindowsDllDirectory(exeDir);
-    final String libDir = '$exeDir${Platform.pathSeparator}lib';
-    if (Directory(libDir).existsSync()) {
-      _addWindowsDllDirectory(libDir);
+    } finally {
+      malloc.free(dirW);
     }
   }
 
@@ -232,7 +225,12 @@ final class WalletNativeFfi {
         continue;
       }
       final String name = ent.uri.pathSegments.last;
-      byLower[name.toLowerCase()] = ent.path;
+      final String lower = name.toLowerCase();
+      // Inno Setup drops unins000.exe / unins000.dat next to the app — never LoadLibrary those.
+      if (!lower.endsWith('.dll')) {
+        continue;
+      }
+      byLower[lower] = ent.path;
     }
 
     void preloadName(String name, {bool critical = false}) {
@@ -251,40 +249,44 @@ final class WalletNativeFfi {
     }
 
     final List<String> tier1 = byLower.keys
-        .where((String n) =>
-            tier1Prefixes.any((String p) => n.toLowerCase().startsWith(p)))
+        .where((String lower) =>
+            tier1Prefixes.any((String p) => lower.startsWith(p)))
         .toList()
-      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    for (final String n in tier1) {
-      preloadName(n);
+      ..sort();
+    for (final String lower in tier1) {
+      _tryPreloadDllFile(byLower[lower]!);
     }
 
     final List<String> boost = byLower.keys
-        .where((String n) => n.toLowerCase().startsWith('libboost_'))
+        .where((String lower) => lower.startsWith('libboost_'))
         .toList()
-      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    for (final String n in boost) {
-      if (n.toLowerCase().contains('python') ||
-          n.toLowerCase().contains('numpy')) {
+      ..sort();
+    for (final String lower in boost) {
+      if (lower.contains('python') || lower.contains('numpy')) {
         continue;
       }
-      preloadName(n);
+      _tryPreloadDllFile(byLower[lower]!);
     }
 
+    final Set<String> done = <String>{
+      ...runtime.map((String n) => n.toLowerCase()),
+      ...tier1,
+      ...boost,
+      ...skipNames.map((String n) => n.toLowerCase()),
+    };
     final List<String> rest = byLower.keys
-        .where((String n) =>
-            !runtime.contains(n) &&
-            !tier1.contains(n) &&
-            !n.toLowerCase().startsWith('libboost_') &&
-            !skipNames.contains(n.toLowerCase()))
+        .where((String lower) => !done.contains(lower))
         .toList()
-      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    for (final String n in rest) {
-      preloadName(n);
+      ..sort();
+    for (final String lower in rest) {
+      _tryPreloadDllFile(byLower[lower]!);
     }
   }
 
   static void _tryPreloadDllFile(String path, {bool critical = false}) {
+    if (!path.toLowerCase().endsWith('.dll')) {
+      return;
+    }
     if (!File(path).existsSync()) {
       return;
     }
