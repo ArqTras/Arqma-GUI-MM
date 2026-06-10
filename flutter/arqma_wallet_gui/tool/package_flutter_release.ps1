@@ -131,41 +131,8 @@ Copy-TauriBinIntoRelease -RepoRoot $repoRoot -ReleaseDir $releaseDir
 $bundleFfi = Join-Path $repoRoot "build\ci\bundle-windows-ffi-release.ps1"
 if (Test-Path $bundleFfi) {
     & $bundleFfi -ReleaseDir $releaseDir -MsysRoot (Join-Path $MsysRoot "mingw64")
-}
-
-# MinGW-built FFI: compiler runtime + Boost/OpenSSL/sodium/unbound/ICU DLLs next to Arqma-Wallet.exe (Win32 126 if missing).
-# Same globs as windows/cmake/install_arqma_wallet_ffi.cmake.in — flat Release layout (not Release\lib).
-$mingwBin = Join-Path $MsysRoot "mingw64\bin"
-$copiedDeps = 0
-if (Test-Path $mingwBin) {
-    foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
-        $s = Join-Path $mingwBin $n
-        if (Test-Path $s) {
-            Copy-Item -Force $s $releaseDir
-            Write-Host "Copied MinGW runtime: $n -> $releaseDir"
-            $copiedDeps++
-        }
-    }
-    $globs = @(
-        "libboost_*.dll","libcrypto*.dll","libssl*.dll","libsodium*.dll","libhidapi*.dll",
-        "libunbound*.dll","libicu*.dll","libldns*.dll","libevent*.dll","libnghttp*.dll",
-        "libcares*.dll","libexpat*.dll","libsqlite3*.dll","libgmp*.dll",
-        "libzstd*.dll","zlib1.dll","libbz2*.dll","liblzma*.dll","libxml2*.dll","libiconv*.dll",
-        "libzmq*.dll","liblmdb*.dll","libunwind*.dll","libreadline*.dll","libhistory*.dll",
-        "libtermcap*.dll","libncurses*.dll","libncursesw*.dll","libintl*.dll","libffi*.dll",
-        "libssp*.dll","liblz4*.dll","libbrotli*.dll","libdeflate*.dll","libatomic*.dll"
-    )
-    foreach ($pat in $globs) {
-        Get-ChildItem -Path "$mingwBin\$pat" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
-            ForEach-Object {
-                Copy-Item -Force $_.FullName $releaseDir
-                $script:copiedDeps++
-            }
-    }
-    Write-Host "MinGW dependency DLLs synced: $copiedDeps file(s) -> $releaseDir"
 } else {
-    Write-Warning "MinGW bin not found at $mingwBin - wallet FFI will not load unless you copy MinGW dependency DLLs into Release (next to the exe)."
+    Write-Warning "Missing $bundleFfi — wallet FFI may fail to load (Win32 1114/126)"
 }
 
 foreach ($merged in @(

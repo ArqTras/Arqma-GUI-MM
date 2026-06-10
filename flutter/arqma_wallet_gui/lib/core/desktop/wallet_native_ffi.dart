@@ -167,119 +167,16 @@ final class WalletNativeFfi {
     }
   }
 
-  /// MinGW-built `arqma_wallet_flutter_ffi.dll` links many DLLs dynamically; Dart
-  /// `DynamicLibrary.open` often fails with **Win32 error 126/1114** when a dependency is missing
-  /// or loaded in the wrong order (ICU before Boost, runtime before wallet stack).
+  /// MinGW runtime only — do not preload every *.dll in the install dir (extra Boost DLLs
+  /// from old glob bundling caused Win32 1114 before wallet FFI DllMain runs).
   static void _preloadWindowsDllsFrom(String baseDir) {
     const List<String> runtime = <String>[
       'libgcc_s_seh-1.dll',
       'libstdc++-6.dll',
       'libwinpthread-1.dll',
     ];
-    const List<String> tier1Prefixes = <String>[
-      'libicu',
-      'libcrypto',
-      'libssl',
-      'libsodium',
-      'libunbound',
-      'libzmq',
-      'libhidapi',
-      'libiconv',
-      'libncurses',
-      'libtermcap',
-      'libhistory',
-      'libreadline',
-      'libintl',
-      'liblmdb',
-      'libevent',
-      'libcares',
-      'libexpat',
-      'libsqlite3',
-      'libgmp',
-      'libnghttp',
-      'zlib1.dll',
-      'libzstd',
-      'libbz2',
-      'liblzma',
-      'libxml2',
-      'libffi',
-      'libssp',
-      'liblz4',
-      'libbrotli',
-      'libdeflate',
-      'libatomic',
-      'libldns',
-    ];
-    const List<String> skipNames = <String>[
-      'flutter_windows.dll',
-      'arqma_wallet_flutter_ffi.dll',
-    ];
-
-    final Directory dir = Directory(baseDir);
-    if (!dir.existsSync()) {
-      return;
-    }
-    final Map<String, String> byLower = <String, String>{};
-    for (final FileSystemEntity ent in dir.listSync()) {
-      if (ent is! File) {
-        continue;
-      }
-      final String name = ent.uri.pathSegments.last;
-      final String lower = name.toLowerCase();
-      // Inno Setup drops unins000.exe / unins000.dat next to the app — never LoadLibrary those.
-      if (!lower.endsWith('.dll')) {
-        continue;
-      }
-      byLower[lower] = ent.path;
-    }
-
-    void preloadName(String name, {bool critical = false}) {
-      final String? path = byLower[name.toLowerCase()];
-      if (path == null) {
-        if (critical) {
-          debugPrint('[WalletNativeFfi] missing critical preload: $name in $baseDir');
-        }
-        return;
-      }
-      _tryPreloadDllFile(path, critical: critical);
-    }
-
     for (final String n in runtime) {
-      preloadName(n, critical: true);
-    }
-
-    final List<String> tier1 = byLower.keys
-        .where((String lower) =>
-            tier1Prefixes.any((String p) => lower.startsWith(p)))
-        .toList()
-      ..sort();
-    for (final String lower in tier1) {
-      _tryPreloadDllFile(byLower[lower]!);
-    }
-
-    final List<String> boost = byLower.keys
-        .where((String lower) => lower.startsWith('libboost_'))
-        .toList()
-      ..sort();
-    for (final String lower in boost) {
-      if (lower.contains('python') || lower.contains('numpy')) {
-        continue;
-      }
-      _tryPreloadDllFile(byLower[lower]!);
-    }
-
-    final Set<String> done = <String>{
-      ...runtime.map((String n) => n.toLowerCase()),
-      ...tier1,
-      ...boost,
-      ...skipNames.map((String n) => n.toLowerCase()),
-    };
-    final List<String> rest = byLower.keys
-        .where((String lower) => !done.contains(lower))
-        .toList()
-      ..sort();
-    for (final String lower in rest) {
-      _tryPreloadDllFile(byLower[lower]!);
+      _tryPreloadDllFile('$baseDir${Platform.pathSeparator}$n', critical: true);
     }
   }
 

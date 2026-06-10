@@ -1,5 +1,6 @@
 # Copy prebuilt wallet FFI + MinGW runtime deps flat next to Arqma-Wallet.exe (Release/).
-# Matches install_arqma_wallet_ffi.cmake.in and tool/package_flutter_release.ps1.
+# Only copies the PE import closure for arqma_wallet_flutter_ffi.dll (not every libboost_*.dll
+# from MSYS2 — extra Boost DLLs preloaded before wallet FFI caused Win32 error 1114).
 param(
     [Parameter(Mandatory = $true)]
     [string]$ReleaseDir,
@@ -11,111 +12,162 @@ $ErrorActionPreference = "Stop"
 $ReleaseDir = (Resolve-Path $ReleaseDir).Path
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 
-function Copy-MingwDeps {
+$Script:SystemDll = @(
+    'kernel32.dll', 'kernelbase.dll', 'ntdll.dll', 'msvcrt.dll', 'advapi32.dll',
+    'shell32.dll', 'ws2_32.dll', 'userenv.dll', 'mswsock.dll', 'bcryptprimitives.dll'
+)
+
+function Get-PeImportNames {
+    param([string]$DllPath, [string]$Objdump)
+    if (-not (Test-Path $DllPath)) { return @() }
+    & $Objdump -p $DllPath 2>$null |
+        Select-String '^\s*DLL Name:' |
+        ForEach-Object { ($_.Line -replace '^\s*DLL Name:\s*', '').Trim() } |
+        Select-Object -Unique
+}
+
+function Copy-RuntimeTriple {
     param([string]$DestDir, [string]$MingwBin, [switch]$RequireRuntime)
-    foreach ($n in @("libgcc_s_seh-1.dll", "libstdc++-6.dll", "libwinpthread-1.dll")) {
-        $src = Join-Path $MingwBin $n
+    $n = 0
+    foreach ($name in @('libgcc_s_seh-1.dll', 'libstdc++-6.dll', 'libwinpthread-1.dll')) {
+        $src = Join-Path $MingwBin $name
         if (-not (Test-Path $src)) {
             $msg = "missing MinGW runtime: $src"
-            if ($RequireRuntime -or $env:CI -eq "true" -or $env:GITHUB_ACTIONS -eq "true") {
+            if ($RequireRuntime -or $env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true') {
                 throw $msg
             }
             Write-Warning $msg
             continue
         }
-        Copy-Item -Force $src $DestDir
+        Copy-Item -Force $src (Join-Path $DestDir $name)
+        $n++
     }
-    $patterns = @(
-        "libboost_*.dll", "libcrypto*.dll", "libssl*.dll", "libsodium*.dll", "libhidapi*.dll",
-        "libunbound*.dll", "libicu*.dll", "libldns*.dll", "libevent*.dll", "libnghttp*.dll",
-        "libcares*.dll", "libexpat*.dll", "libsqlite3*.dll", "libgmp*.dll",
-        "libzstd*.dll", "zlib1.dll", "libbz2*.dll", "liblzma*.dll", "libxml2*.dll", "libiconv*.dll",
-        "libzmq*.dll", "liblmdb*.dll", "libunwind*.dll", "libreadline*.dll", "libhistory*.dll",
-        "libtermcap*.dll", "libncurses*.dll", "libncursesw*.dll", "libintl*.dll", "libffi*.dll",
-        "libssp*.dll", "liblz4*.dll", "libbrotli*.dll", "libdeflate*.dll", "libatomic*.dll"
-    )
-    $count = 0
-    foreach ($pat in $patterns) {
-        Get-ChildItem -Path "$MingwBin\$pat" -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -notmatch '^libboost_python' -and $_.Name -notmatch '^libboost_numpy' } |
-            ForEach-Object {
-                Copy-Item -Force $_.FullName $DestDir
-                $count++
-            }
-    }
-    return $count
+    return $n
 }
 
-function Copy-FfiPeImports {
-    param([string]$FfiDll, [string]$DestDir, [string]$MingwBin)
-    $objdump = Join-Path $MingwBin "objdump.exe"
-    if (-not (Test-Path $objdump)) {
-        Write-Host "[bundle-windows-ffi] skip PE import scan (no objdump at $objdump)"
-        return 0
-    }
-    $system = @(
-        'kernel32.dll', 'kernelbase.dll', 'ntdll.dll', 'msvcrt.dll', 'advapi32.dll',
-        'shell32.dll', 'ws2_32.dll', 'userenv.dll', 'mswsock.dll', 'bcryptprimitives.dll'
+function Copy-FfiPeImportClosure {
+    param(
+        [string]$RootDll,
+        [string]$DestDir,
+        [string]$MingwBin,
+        [string]$Objdump,
+        [int]$MaxDepth = 8
     )
-    $count = 0
-    $imports = & $objdump -p $FfiDll 2>$null |
-        Select-String '^\s*DLL Name:' |
-        ForEach-Object { ($_.Line -replace '^\s*DLL Name:\s*', '').Trim() }
-    foreach ($name in ($imports | Select-Object -Unique)) {
-        $lower = $name.ToLowerInvariant()
-        if ($lower -eq 'arqma_wallet_flutter_ffi.dll') { continue }
-        if ($lower -like 'api-ms-*') { continue }
-        if ($system -contains $lower) { continue }
-        $src = Join-Path $MingwBin $name
-        if (-not (Test-Path $src)) {
-            Write-Host "[bundle-windows-ffi] import $name not in $MingwBin"
-            continue
+    $queue = [System.Collections.Generic.Queue[object]]::new()
+    $queue.Enqueue([pscustomobject]@{ Path = $RootDll; Depth = 0 })
+    $seen = @{}
+    $copied = 0
+
+    while ($queue.Count -gt 0) {
+        $item = $queue.Dequeue()
+        $current = [string]$item.Path
+        $depth = [int]$item.Depth
+        $currentKey = $current.ToLowerInvariant()
+        if ($seen.ContainsKey($currentKey)) { continue }
+        $seen[$currentKey] = $true
+
+        foreach ($name in (Get-PeImportNames -DllPath $current -Objdump $Objdump)) {
+            $lower = $name.ToLowerInvariant()
+            if ($lower -eq 'arqma_wallet_flutter_ffi.dll') { continue }
+            if ($lower -like 'api-ms-*') { continue }
+            if ($Script:SystemDll -contains $lower) { continue }
+
+            $dest = Join-Path $DestDir $name
+            if (-not (Test-Path $dest)) {
+                $src = Join-Path $MingwBin $name
+                if (-not (Test-Path $src)) {
+                    Write-Host "[bundle-windows-ffi] missing import $name for $(Split-Path -Leaf $current)"
+                    continue
+                }
+                Copy-Item -Force $src $dest
+                $copied++
+            }
+
+            $destKey = $dest.ToLowerInvariant()
+            if ($seen.ContainsKey($destKey)) { continue }
+            if ($copied -gt 512) { throw 'PE import closure too large — aborting' }
+            if ($depth -lt $MaxDepth) {
+                $queue.Enqueue([pscustomobject]@{ Path = $dest; Depth = ($depth + 1) })
+            }
         }
-        Copy-Item -Force $src (Join-Path $DestDir $name)
-        $count++
     }
-    return $count
+    return $copied
+}
+
+function Resolve-MingwBin {
+    param([string]$MsysRoot)
+    if ($MsysRoot) {
+        $root = $MsysRoot.TrimEnd('\', '/')
+        if ($root -match 'mingw64\\?bin$') { return $root }
+        if (Test-Path (Join-Path $root 'bin')) { return (Join-Path $root 'bin') }
+        if (Test-Path (Join-Path $root 'mingw64\bin')) { return (Join-Path $root 'mingw64\bin') }
+    }
+    if ($env:ARQMA_WALLET2_MSYS_ROOT) {
+        $mb = Join-Path $env:ARQMA_WALLET2_MSYS_ROOT.TrimEnd('\', '/') 'bin'
+        if (Test-Path $mb) { return $mb }
+    }
+    if (Test-Path 'C:\msys64\mingw64\bin') { return 'C:\msys64\mingw64\bin' }
+    return ''
+}
+
+function Sync-FfiLayout {
+    param(
+        [string]$DestDir,
+        [string]$FfiDllSource,
+        [string]$MingwBin,
+        [string]$Objdump,
+        [switch]$RequireRuntime
+    )
+    Copy-Item -Force $FfiDllSource (Join-Path $DestDir 'arqma_wallet_flutter_ffi.dll')
+    $rt = Copy-RuntimeTriple -DestDir $DestDir -MingwBin $MingwBin -RequireRuntime:$RequireRuntime
+    $closure = Copy-FfiPeImportClosure -RootDll $FfiDllSource -DestDir $DestDir -MingwBin $MingwBin -Objdump $Objdump
+    return @{ runtime = $rt; closure = $closure }
+}
+
+function Clear-StaleWalletDeps {
+    param([string]$Dir)
+    if (-not (Test-Path $Dir)) { return }
+    Get-ChildItem -Path $Dir -Filter '*.dll' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $n = $_.Name.ToLowerInvariant()
+        if ($n -eq 'flutter_windows.dll') { return }
+        if ($n -like 'local_auth*') { return }
+        if ($n -like 'flutter_*') { return }
+        Remove-Item -Force $_.FullName
+    }
 }
 
 if (-not $FfiDllSource) {
-    $FfiDllSource = Join-Path $RepoRoot "rust\target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll"
+    $FfiDllSource = Join-Path $RepoRoot 'rust\target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll'
 }
 if (-not (Test-Path $FfiDllSource)) {
     throw "missing FFI prebuilt (ArqTras/FFI): $FfiDllSource"
 }
-Copy-Item -Force $FfiDllSource (Join-Path $ReleaseDir "arqma_wallet_flutter_ffi.dll")
-Write-Host "[bundle-windows-ffi] FFI <- $FfiDllSource -> $ReleaseDir"
 
-$mingwBin = ""
-if ($MsysRoot) {
-    $root = $MsysRoot.TrimEnd('\', '/')
-    if ($root -match 'mingw64\\?bin$') { $mingwBin = $root }
-    elseif (Test-Path (Join-Path $root "bin")) { $mingwBin = Join-Path $root "bin" }
-    elseif (Test-Path (Join-Path $root "mingw64\bin")) { $mingwBin = Join-Path $root "mingw64\bin" }
-}
-if (-not $mingwBin -and $env:ARQMA_WALLET2_MSYS_ROOT) {
-    $mb = Join-Path $env:ARQMA_WALLET2_MSYS_ROOT.TrimEnd('\', '/') "bin"
-    if (Test-Path $mb) { $mingwBin = $mb }
-}
-if (-not $mingwBin -and (Test-Path "C:\msys64\mingw64\bin")) {
-    $mingwBin = "C:\msys64\mingw64\bin"
-}
+$mingwBin = Resolve-MingwBin -MsysRoot $MsysRoot
 if (-not $mingwBin) {
-    throw "MinGW bin not found (pass -MsysRoot or set ARQMA_WALLET2_MSYS_ROOT)"
+    throw 'MinGW bin not found (pass -MsysRoot or set ARQMA_WALLET2_MSYS_ROOT)'
+}
+$objdump = Join-Path $mingwBin 'objdump.exe'
+if (-not (Test-Path $objdump)) {
+    throw "missing objdump: $objdump"
 }
 
-$requireRt = ($env:CI -eq "true") -or ($env:GITHUB_ACTIONS -eq "true")
-$n = Copy-MingwDeps -DestDir $ReleaseDir -MingwBin $mingwBin -RequireRuntime:$requireRt
-$nPe = Copy-FfiPeImports -FfiDll $FfiDllSource -DestDir $ReleaseDir -MingwBin $mingwBin
-Write-Host "[bundle-windows-ffi] MinGW dependency DLLs: $n glob + $nPe import(s) -> $ReleaseDir"
-if ($requireRt -and $n -lt 1 -and $nPe -lt 1) {
-    throw "no MinGW dependency DLLs copied from $mingwBin (wallet FFI will not load)"
+Write-Host "[bundle-windows-ffi] FFI <- $FfiDllSource -> $ReleaseDir"
+Clear-StaleWalletDeps -Dir $ReleaseDir
+$legacyLib = Join-Path $ReleaseDir 'lib'
+Clear-StaleWalletDeps -Dir $legacyLib
+
+$requireRt = ($env:CI -eq 'true') -or ($env:GITHUB_ACTIONS -eq 'true')
+$stats = Sync-FfiLayout -DestDir $ReleaseDir -FfiDllSource $FfiDllSource -MingwBin $mingwBin -Objdump $objdump -RequireRuntime:$requireRt
+Write-Host "[bundle-windows-ffi] runtime=$($stats.runtime) import-closure=$($stats.closure) -> $ReleaseDir"
+if ($requireRt -and $stats.runtime -lt 3) {
+    throw 'MinGW runtime triple incomplete (libgcc/libstdc++/libwinpthread)'
+}
+if ($requireRt -and $stats.closure -lt 5) {
+    throw 'PE import closure too small — wallet FFI dependencies missing'
 }
 
-# Legacy loader fallback: mirror under Release/lib/ (same prebuilt as root).
-$legacyLib = Join-Path $ReleaseDir "lib"
+$legacyLib = Join-Path $ReleaseDir 'lib'
 New-Item -Force -ItemType Directory -Path $legacyLib | Out-Null
-Copy-Item -Force (Join-Path $ReleaseDir "arqma_wallet_flutter_ffi.dll") (Join-Path $legacyLib "arqma_wallet_flutter_ffi.dll")
-$nLib = Copy-MingwDeps -DestDir $legacyLib -MingwBin $mingwBin -RequireRuntime:$requireRt
-$nLibPe = Copy-FfiPeImports -FfiDll $FfiDllSource -DestDir $legacyLib -MingwBin $mingwBin
-Write-Host "[bundle-windows-ffi] legacy lib/ mirror: $($nLib + $nLibPe + 1) file(s)"
+$libStats = Sync-FfiLayout -DestDir $legacyLib -FfiDllSource $FfiDllSource -MingwBin $mingwBin -Objdump $objdump -RequireRuntime:$requireRt
+Write-Host "[bundle-windows-ffi] legacy lib/ mirror runtime=$($libStats.runtime) closure=$($libStats.closure)"
