@@ -32,8 +32,8 @@ typedef _ResetDart = int Function();
 typedef _StringFreeNative = Void Function(Pointer<Utf8> p);
 typedef _StringFreeDart = void Function(Pointer<Utf8> p);
 
-typedef _SetDllDirectoryWNative = Int32 Function(Pointer<Utf16> lpPathName);
-typedef _SetDllDirectoryWDart = int Function(Pointer<Utf16> lpPathName);
+typedef _SetDefaultDllDirectoriesNative = Int32 Function(Uint32 DirectoryFlags);
+typedef _SetDefaultDllDirectoriesDart = int Function(int DirectoryFlags);
 
 /// In-process wallet2 via `rust/arqma-wallet-flutter-ffi` (same `Wallet2ApiClient` as Tauri native mode).
 final class WalletNativeFfi {
@@ -120,12 +120,10 @@ final class WalletNativeFfi {
     _windowsSearchPathPrepared = true;
     try {
       final String exeDir = File(Platform.resolvedExecutable).parent.path;
-      _setWindowsDllDirectory(exeDir);
-      _addWindowsDllDirectory(exeDir);
+      _configureWindowsDllSearch(exeDir);
       _preloadWindowsDllsFrom(exeDir);
       final String libDir = '$exeDir${Platform.pathSeparator}lib';
       if (Directory(libDir).existsSync()) {
-        _addWindowsDllDirectory(libDir);
         _preloadWindowsDllsFrom(libDir);
       }
     } catch (e, st) {
@@ -133,17 +131,26 @@ final class WalletNativeFfi {
     }
   }
 
-  static void _setWindowsDllDirectory(String dir) {
+  static void _configureWindowsDllSearch(String exeDir) {
     final DynamicLibrary k32 = DynamicLibrary.open('kernel32.dll');
-    final _SetDllDirectoryWDart setDll = k32.lookupFunction<
-        _SetDllDirectoryWNative, _SetDllDirectoryWDart>('SetDllDirectoryW');
-    final Pointer<Utf16> dirW = dir.toNativeUtf16();
     try {
-      if (setDll(dirW) == 0) {
-        debugPrint('[WalletNativeFfi] SetDllDirectoryW failed for: $dir');
+      final _SetDefaultDllDirectoriesDart setDefault = k32.lookupFunction<
+          _SetDefaultDllDirectoriesNative, _SetDefaultDllDirectoriesDart>(
+        'SetDefaultDllDirectories',
+      );
+      // Application dir + System32 / WinSxS (avoid SetDllDirectory — breaks some Setup installs).
+      const int loadDefaultDirs = 0x00001000;
+      const int loadAppDir = 0x00002000;
+      if (setDefault(loadDefaultDirs | loadAppDir) == 0) {
+        debugPrint('[WalletNativeFfi] SetDefaultDllDirectories failed');
       }
-    } finally {
-      malloc.free(dirW);
+    } catch (e) {
+      debugPrint('[WalletNativeFfi] SetDefaultDllDirectories unavailable: $e');
+    }
+    _addWindowsDllDirectory(exeDir);
+    final String libDir = '$exeDir${Platform.pathSeparator}lib';
+    if (Directory(libDir).existsSync()) {
+      _addWindowsDllDirectory(libDir);
     }
   }
 
@@ -168,51 +175,128 @@ final class WalletNativeFfi {
   }
 
   /// MinGW-built `arqma_wallet_flutter_ffi.dll` links many DLLs dynamically; Dart
-  /// `DynamicLibrary.open` often fails with **Win32 error 126** when a dependency is missing.
-  /// Preload by absolute path (ordered + full directory scan) fixes that for Setup installs.
+  /// `DynamicLibrary.open` often fails with **Win32 error 126/1114** when a dependency is missing
+  /// or loaded in the wrong order (ICU before Boost, runtime before wallet stack).
   static void _preloadWindowsDllsFrom(String baseDir) {
-    const List<String> first = <String>[
+    const List<String> runtime = <String>[
       'libgcc_s_seh-1.dll',
       'libstdc++-6.dll',
       'libwinpthread-1.dll',
     ];
-    for (final String n in first) {
-      _tryPreloadDllFile('$baseDir${Platform.pathSeparator}$n');
-    }
+    const List<String> tier1Prefixes = <String>[
+      'libicu',
+      'libcrypto',
+      'libssl',
+      'libsodium',
+      'libunbound',
+      'libzmq',
+      'libhidapi',
+      'libiconv',
+      'libncurses',
+      'libtermcap',
+      'libhistory',
+      'libreadline',
+      'libintl',
+      'liblmdb',
+      'libevent',
+      'libcares',
+      'libexpat',
+      'libsqlite3',
+      'libgmp',
+      'libnghttp',
+      'zlib1.dll',
+      'libzstd',
+      'libbz2',
+      'liblzma',
+      'libxml2',
+      'libffi',
+      'libssp',
+      'liblz4',
+      'libbrotli',
+      'libdeflate',
+      'libatomic',
+      'libldns',
+    ];
+    const List<String> skipNames = <String>[
+      'flutter_windows.dll',
+      'arqma_wallet_flutter_ffi.dll',
+    ];
+
     final Directory dir = Directory(baseDir);
     if (!dir.existsSync()) {
       return;
     }
-    final List<FileSystemEntity> entries = dir.listSync();
-    entries.sort((FileSystemEntity a, FileSystemEntity b) =>
-        a.path.toLowerCase().compareTo(b.path.toLowerCase()));
-    for (final FileSystemEntity ent in entries) {
+    final Map<String, String> byLower = <String, String>{};
+    for (final FileSystemEntity ent in dir.listSync()) {
       if (ent is! File) {
         continue;
       }
-      final String name = ent.uri.pathSegments.last.toLowerCase();
-      if (!name.endsWith('.dll')) {
+      final String name = ent.uri.pathSegments.last;
+      byLower[name.toLowerCase()] = ent.path;
+    }
+
+    void preloadName(String name, {bool critical = false}) {
+      final String? path = byLower[name.toLowerCase()];
+      if (path == null) {
+        if (critical) {
+          debugPrint('[WalletNativeFfi] missing critical preload: $name in $baseDir');
+        }
+        return;
+      }
+      _tryPreloadDllFile(path, critical: critical);
+    }
+
+    for (final String n in runtime) {
+      preloadName(n, critical: true);
+    }
+
+    final List<String> tier1 = byLower.keys
+        .where((String n) =>
+            tier1Prefixes.any((String p) => n.toLowerCase().startsWith(p)))
+        .toList()
+      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    for (final String n in tier1) {
+      preloadName(n);
+    }
+
+    final List<String> boost = byLower.keys
+        .where((String n) => n.toLowerCase().startsWith('libboost_'))
+        .toList()
+      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    for (final String n in boost) {
+      if (n.toLowerCase().contains('python') ||
+          n.toLowerCase().contains('numpy')) {
         continue;
       }
-      if (name == 'flutter_windows.dll' ||
-          name == 'arqma_wallet_flutter_ffi.dll') {
-        continue;
-      }
-      if (first.contains(name)) {
-        continue;
-      }
-      _tryPreloadDllFile(ent.path);
+      preloadName(n);
+    }
+
+    final List<String> rest = byLower.keys
+        .where((String n) =>
+            !runtime.contains(n) &&
+            !tier1.contains(n) &&
+            !n.toLowerCase().startsWith('libboost_') &&
+            !skipNames.contains(n.toLowerCase()))
+        .toList()
+      ..sort((String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    for (final String n in rest) {
+      preloadName(n);
     }
   }
 
-  static void _tryPreloadDllFile(String path) {
+  static void _tryPreloadDllFile(String path, {bool critical = false}) {
     if (!File(path).existsSync()) {
       return;
     }
     try {
       DynamicLibrary.open(path);
     } catch (e) {
-      debugPrint('[WalletNativeFfi] preload skip $path: $e');
+      final String msg = '[WalletNativeFfi] preload skip $path: $e';
+      if (critical) {
+        debugPrint('::warning::$msg');
+      } else {
+        debugPrint(msg);
+      }
     }
   }
 

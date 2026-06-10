@@ -12,6 +12,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'app_nav.dart';
 import 'core/desktop/desktop_app_exit.dart';
 import 'core/desktop/wallet_native_ffi.dart';
+import 'core/services/desktop_native_bridge.dart';
 import 'core/app_api.dart';
 import 'core/services/app_receiver.dart';
 import 'core/services/native_bridge.dart';
@@ -56,6 +57,9 @@ Future<void> main() async {
   // Native: MethodChannel embedder when it implements `native_ping`; else desktop I/O + `arqmad`.
   // `ARQMA_FLUTTER_USE_STUB=1` forces in-memory stub.
   final NativeBridge bridge = await resolveAppNativeBridge();
+  if (bridge is DesktopNativeBridge) {
+    await DesktopNativeBridge.warmAppVersion();
+  }
 
   final GoRouter router =
       createAppRouter(store, routerRefresh: routerRefresh);

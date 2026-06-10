@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../desktop/flutter_env_guard.dart';
 import '../desktop/arqma_daemon_launcher.dart';
@@ -186,6 +187,17 @@ String _desktopWalletRpcNettypeForConfig(Object? raw) {
 /// start local `arqmad` when daemon type is not `remote`, poll `get_info` for footer sync state.
 final class DesktopNativeBridge implements NativeBridge {
   DesktopNativeBridge();
+
+  static String? _appVersionStr;
+
+  /// Cached from `pubspec.yaml` via [PackageInfo] (footer, welcome screen, menu).
+  static Future<void> warmAppVersion() async {
+    if (_appVersionStr != null) {
+      return;
+    }
+    final PackageInfo info = await PackageInfo.fromPlatform();
+    _appVersionStr = info.version;
+  }
 
   final StreamController<Map<String, dynamic>> _controller =
       StreamController<Map<String, dynamic>>.broadcast();
@@ -591,6 +603,7 @@ final class DesktopNativeBridge implements NativeBridge {
 
   @override
   Future<void> start() async {
+    await warmAppVersion();
     unawaited(
       Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (!_controller.isClosed) {
@@ -666,7 +679,8 @@ final class DesktopNativeBridge implements NativeBridge {
       return null;
     }
     if (cmd == 'app_version_str') {
-      return '5.1.1';
+      await warmAppVersion();
+      return _appVersionStr ?? 'unknown';
     }
     if (cmd == 'daemon_version_probe') {
       final Map<String, dynamic>? c = _runtimeConfig;
