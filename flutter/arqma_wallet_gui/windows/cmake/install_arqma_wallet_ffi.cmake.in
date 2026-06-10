@@ -122,6 +122,65 @@ else()
     endif()
   endif()
 
+  # Legacy loader fallback: mirror FFI + MinGW runtime under lib/ (wallet_native_ffi.dart, Inno Setup).
+  set(_libdir "${_root}/lib")
+  file(MAKE_DIRECTORY "${_libdir}")
+  file(COPY "${_dll}" DESTINATION "${_libdir}")
+  foreach(_n IN ITEMS libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
+    if(EXISTS "${_root}/${_n}")
+      file(COPY "${_root}/${_n}" DESTINATION "${_libdir}")
+    endif()
+  endforeach()
+  set(_libmirror "")
+  foreach(_pat IN ITEMS
+      "${_root}/libboost_*.dll"
+      "${_root}/libcrypto*.dll"
+      "${_root}/libssl*.dll"
+      "${_root}/libsodium*.dll"
+      "${_root}/libhidapi*.dll"
+      "${_root}/libunbound*.dll"
+      "${_root}/libicu*.dll"
+      "${_root}/libldns*.dll"
+      "${_root}/libevent*.dll"
+      "${_root}/libcares*.dll"
+      "${_root}/libexpat*.dll"
+      "${_root}/libsqlite3*.dll"
+      "${_root}/libgmp*.dll"
+      "${_root}/libnghttp*.dll"
+      "${_root}/libzstd*.dll"
+      "${_root}/zlib1.dll"
+      "${_root}/libbz2*.dll"
+      "${_root}/liblzma*.dll"
+      "${_root}/libxml2*.dll"
+      "${_root}/libiconv*.dll"
+      "${_root}/libzmq*.dll"
+      "${_root}/liblmdb*.dll"
+      "${_root}/libunwind*.dll"
+      "${_root}/libreadline*.dll"
+      "${_root}/libhistory*.dll"
+      "${_root}/libtermcap*.dll"
+      "${_root}/libncurses*.dll"
+      "${_root}/libncursesw*.dll"
+      "${_root}/libintl*.dll"
+      "${_root}/libffi*.dll"
+      "${_root}/libssp*.dll"
+      "${_root}/liblz4*.dll"
+      "${_root}/libbrotli*.dll"
+      "${_root}/libdeflate*.dll"
+      "${_root}/libatomic*.dll")
+    file(GLOB _fg LIST_DIRECTORIES false "${_pat}")
+    list(APPEND _libmirror ${_fg})
+  endforeach()
+  list(REMOVE_DUPLICATES _libmirror)
+  foreach(_dep ${_libmirror})
+    if(EXISTS "${_dep}")
+      get_filename_component(_depnm "${_dep}" NAME)
+      if(NOT _depnm MATCHES "^libboost_python" AND NOT _depnm MATCHES "^libboost_numpy")
+        file(COPY "${_dep}" DESTINATION "${_libdir}")
+      endif()
+    endif()
+  endforeach()
+
   set(_merged "${_r}/arqma-rpc-upstream/build-mingw/src/wallet/libwallet_merged.a")
   if(EXISTS "${_merged}")
     file(COPY "${_merged}" DESTINATION "${_root}")

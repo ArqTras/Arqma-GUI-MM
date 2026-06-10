@@ -16,20 +16,30 @@ if (-not (Test-Path $ReleaseDir)) {
 }
 
 $failed = $false
+function Test-BundlePath {
+    param([string]$RelPath)
+    $p = Join-Path $ReleaseDir $RelPath
+    if (-not (Test-Path $p)) {
+        Write-Host "::error::bundle verify: missing $RelPath"
+        $script:failed = $true
+    }
+}
+
+# Flat Release/ layout (primary FFI load path) + legacy lib/ mirror (Inno recurses both).
 foreach ($rel in @(
         "Arqma-Wallet.exe",
         "arqma_wallet_flutter_ffi.dll",
         "libgcc_s_seh-1.dll",
         "libstdc++-6.dll",
         "libwinpthread-1.dll",
+        "lib\arqma_wallet_flutter_ffi.dll",
+        "lib\libgcc_s_seh-1.dll",
+        "lib\libstdc++-6.dll",
+        "lib\libwinpthread-1.dll",
         "flutter_windows.dll",
         "data\flutter_assets\AssetManifest.bin"
     )) {
-    $p = Join-Path $ReleaseDir $rel
-    if (-not (Test-Path $p)) {
-        Write-Host "::error::bundle verify: missing $rel"
-        $failed = $true
-    }
+    Test-BundlePath -RelPath $rel
 }
 $arqmad = Join-Path $ReleaseDir "bin\arqmad.exe"
 if (-not (Test-Path $arqmad)) {
