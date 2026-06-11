@@ -13,6 +13,7 @@ import '../../core/services/native_bridge.dart';
 import '../../core/utils/deep_merge.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../../widgets/format_arqma.dart';
 import '../../widgets/wallet_tab_visibility.dart';
 import '../../core/theme/arqma_colors.dart';
 
@@ -1181,6 +1182,8 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
                     label: Text(loc.tr('components.solo_pool.difficulty'))),
                 DataColumn(label: Text(loc.tr('components.solo_pool.worker'))),
                 DataColumn(
+                    label: Text(loc.tr('components.swap_list_tabular.amount'))),
+                DataColumn(
                     label: Text(
                         loc.tr('components.swap_list_tabular.block_hash'))),
                 DataColumn(
@@ -1197,6 +1200,7 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
                                 '${b['diff'] ?? b['difficulty'] ?? 0}') ??
                             0))),
                         DataCell(Text('${b['miner'] ?? ''}')),
+                        DataCell(Text(_formatBlockReward(b['reward']))),
                         DataCell(Text(_formatBlockHash(b['hash']))),
                         DataCell(Text(_formatShareTime(b['timeFound']))),
                       ],
@@ -1226,6 +1230,15 @@ class _SoloPoolPageState extends State<SoloPoolPage> {
     final DateTime dt =
         DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
     return dt.toString().substring(0, 19);
+  }
+
+  static String _formatBlockReward(Object? reward) {
+    final int? atomic =
+        (reward is num) ? reward.toInt() : int.tryParse('$reward');
+    if (atomic == null || atomic < 0) {
+      return '—';
+    }
+    return FormatArqma(amount: atomic, digits: 5).toString();
   }
 
   static String _formatBlockHash(Object? hash) {

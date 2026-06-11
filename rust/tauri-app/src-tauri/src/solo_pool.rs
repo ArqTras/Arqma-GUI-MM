@@ -208,6 +208,8 @@ struct JobState {
     seed_hash: String,
     next_seed_hash: String,
     created_ms: i64,
+    /// From `get_block_template` (`expected_reward` when present), else -1 until resolved.
+    expected_reward: i64,
 }
 
 #[derive(Clone, Default)]
@@ -510,6 +512,51 @@ fn json_u64(v: &Value) -> Option<u64> {
         }
     }
     v.as_str().and_then(|s| s.trim().parse::<u64>().ok())
+}
+
+/// Block reward from daemon `get_block_template` result (atomic units).
+fn template_expected_reward(r: &Value) -> i64 {
+    for key in ["expected_reward", "block_reward", "reward"] {
+        if let Some(n) = r.get(key).and_then(json_u64) {
+            return (n.min(i64::MAX as u64)) as i64;
+        }
+    }
+    -1
+}
+
+/// Sum coinbase outputs from `get_block` (fallback when template had no expected_reward).
+fn reward_from_get_block_value(v: &Value) -> Option<i64> {
+    if let Some(n) = v.pointer("/result/reward").and_then(json_u64) {
+        return Some((n.min(i64::MAX as u64)) as i64);
+    }
+    if let Some(n) = v.pointer("/result/block_reward").and_then(json_u64) {
+        return Some((n.min(i64::MAX as u64)) as i64);
+    }
+    let vouts = v.pointer("/result/block/miner_tx/vout")?.as_array()?;
+    let mut sum: u64 = 0;
+    for o in vouts {
+        let amt = o.get("amount").and_then(json_u64).unwrap_or(0);
+        sum = sum.saturating_add(amt);
+    }
+    (sum > 0).then_some((sum.min(i64::MAX as u64)) as i64)
+}
+
+async fn fetch_block_reward_from_daemon(
+    http: &reqwest::Client,
+    daemon: &(String, u16),
+    height: u64,
+) -> i64 {
+    if height == 0 {
+        return -1;
+    }
+    let params = json!({ "height": height });
+    let Ok(v) = daemon_post(http, &daemon.0, daemon.1, "get_block", 0, &params).await else {
+        return -1;
+    };
+    if v.get("error").is_some() {
+        return -1;
+    }
+    reward_from_get_block_value(&v).unwrap_or(-1)
 }
 
 /// XMRig can reject jobs when `next_seed_hash` is an empty string around seed-epoch edges
@@ -1175,6 +1222,7 @@ async fn refresh_job(
     j.seed_hash = seed_hash;
     j.next_seed_hash = next_seed_hash;
     j.created_ms = now_ms();
+    j.expected_reward = template_expected_reward(r);
     let mut ring = job_ring.lock().await;
     ring.push(j.clone());
     if ring.len() > 8 {
@@ -1707,6 +1755,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                 let round_hashes2 = round_hashes.clone();
                 let last_disconnected2 = last_disconnected.clone();
                 let config_dir_dump = config_dir.clone();
+                let sink2 = sink.clone();
                 tokio::spawn(async move {
                   solo_pool_log(&format!("stratum: accepted connection from {peer_l}"));
                   let (reader_half, mut writer_half) = socket.into_split();
@@ -2165,7 +2214,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                           None
                         };
                         if let Some(hx) = block_hex {
-                          if let Ok(sb) = daemon_post(
+                          match daemon_post(
                             &http2,
                             &daemon2.0,
                             daemon2.1,
@@ -2175,13 +2224,22 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                           )
                           .await
                           {
-                            if sb.get("error").is_none() {
+                            Ok(sb) if sb.get("error").is_none() => {
                               let worker_name = {
                                 let w = workers2.lock().await;
                                 w.get(&my_session_id)
                                   .map(|ws| ws.miner.clone())
                                   .unwrap_or_else(|| "worker".to_string())
                               };
+                              let mut reward = current.expected_reward;
+                              if reward < 0 {
+                                reward = fetch_block_reward_from_daemon(
+                                  &http2,
+                                  &daemon2,
+                                  current.height,
+                                )
+                                .await;
+                              }
                               let total_round = round_hashes2.swap(0, Ordering::Relaxed);
                               let mut bl = blocks2.lock().await;
                               bl.push(json!({
@@ -2190,7 +2248,7 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                                 "height": current.height,
                                 "timeFound": now_ms(),
                                 "miner": worker_name,
-                                "reward": -1,
+                                "reward": reward,
                                 "diff": current.difficulty,
                                 "hashes": total_round
                               }));
@@ -2199,15 +2257,64 @@ pub fn start<S: SoloPoolSink + Clone + Send + 'static>(sink: S, st: &mut WalletB
                                 bl.drain(0..keep_from);
                               }
                               solo_pool_log(&format!(
-                                "submit_block: accepted height={} miner={worker_name}",
+                                "submit_block: accepted height={} miner={worker_name} reward={reward}",
                                 current.height
                               ));
-                            } else {
+                              sink2.emit_receive(
+                                "solo_pool_block_found",
+                                json!({
+                                  "height": current.height,
+                                  "hash": result_hash,
+                                  "reward": reward,
+                                  "miner": worker_name,
+                                }),
+                              );
+                              sink2.emit_receive(
+                                "show_notification",
+                                json!({
+                                  "type": "positive",
+                                  "message": format!(
+                                    "Solo pool: block accepted at height {} (reward {} atomic units)",
+                                    current.height, reward
+                                  ),
+                                  "timeout": 8000
+                                }),
+                              );
+                            }
+                            Ok(sb) => {
                               solo_pool_log(&format!(
                                 "submit_block: daemon RPC error height={} err={}",
                                 current.height,
                                 sb.get("error").unwrap_or(&Value::Null)
                               ));
+                              sink2.emit_receive(
+                                "show_notification",
+                                json!({
+                                  "type": "warning",
+                                  "message": format!(
+                                    "Solo pool: daemon rejected block at height {}",
+                                    current.height
+                                  ),
+                                  "timeout": 8000
+                                }),
+                              );
+                            }
+                            Err(e) => {
+                              solo_pool_log(&format!(
+                                "submit_block: HTTP/RPC failed height={} err={e}",
+                                current.height
+                              ));
+                              sink2.emit_receive(
+                                "show_notification",
+                                json!({
+                                  "type": "warning",
+                                  "message": format!(
+                                    "Solo pool: could not submit block at height {} ({e})",
+                                    current.height
+                                  ),
+                                  "timeout": 8000
+                                }),
+                              );
                             }
                           }
                         }
@@ -2315,5 +2422,30 @@ mod tests {
         let template = hex::encode(&raw);
         assert!(assemble_block_blob_for_submit(&template, "aabb").is_err());
         assert!(assemble_block_blob_for_submit("", "aabbccdd").is_err());
+    }
+
+    #[test]
+    fn template_expected_reward_reads_daemon_fields() {
+        let r = json!({ "expected_reward": 1_234_567_890u64 });
+        assert_eq!(template_expected_reward(&r), 1_234_567_890);
+        let r2 = json!({ "block_reward": "999" });
+        assert_eq!(template_expected_reward(&r2), 999);
+    }
+
+    #[test]
+    fn reward_from_get_block_sums_miner_vout() {
+        let v = json!({
+          "result": {
+            "block": {
+              "miner_tx": {
+                "vout": [
+                  { "amount": 100 },
+                  { "amount": 50 }
+                ]
+              }
+            }
+          }
+        });
+        assert_eq!(reward_from_get_block_value(&v), Some(150));
     }
 }

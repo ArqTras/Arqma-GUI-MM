@@ -240,6 +240,15 @@ final class MobileNativeBridge implements NativeBridge {
   /// Last `getheight` reported native `refresh` / `rescan_*` still running.
   bool _whWalletBackgroundBusy = false;
 
+  int _walletScanHbLastHeight = -1;
+  int _walletScanStallTicks = 0;
+  DateTime? _walletLastRefreshKickAt;
+  static const int _walletScanStallNearTipBlocks = 64;
+  static const int _walletScanStallTicksFar = 3;
+  static const int _walletScanStallTicksNear = 2;
+  static const Duration _walletScanStallCooldownFar = Duration(seconds: 45);
+  static const Duration _walletScanStallCooldownNear = Duration(seconds: 15);
+
   /// Newest `height` field from the last successful `set_wallet_transactions` emit.
   int _whLastEmittedTxMaxHeight = 0;
 
@@ -1747,6 +1756,9 @@ final class MobileNativeBridge implements NativeBridge {
     _walletHeartbeat = null;
     _walletXferTipCatchUpThrottleUntil = null;
     _whScanGapAboveTolerance = null;
+    _walletScanHbLastHeight = -1;
+    _walletScanStallTicks = 0;
+    _walletLastRefreshKickAt = null;
   }
 
   /// Queue `get_transfers`; [immediate] runs a heartbeat tick now (after relay / new block).
@@ -2530,6 +2542,48 @@ final class MobileNativeBridge implements NativeBridge {
   /// Parity with Tauri `wallet_heartbeat`: never drop ticks — a slow `getheight` must not
   /// suppress later polls (that froze footer sync %). Heavy `get_transfers` runs via
   /// [unawaited] + [_walletXferBusy]; native FFI serializes concurrent calls.
+  Future<void> _maybeKickWalletRefreshOnStall(
+    ArqmaWalletRpcSession w, {
+    required int walletHeight,
+    required int daemonTip,
+  }) async {
+    if (daemonTip <= 0 || walletHeightNearDaemonTip(walletHeight, daemonTip)) {
+      _walletScanStallTicks = 0;
+      return;
+    }
+    if (walletHeight == _walletScanHbLastHeight) {
+      _walletScanStallTicks++;
+    } else {
+      _walletScanHbLastHeight = walletHeight;
+      _walletScanStallTicks = 0;
+    }
+    final int gap = walletDaemonTipGapBlocks(walletHeight, daemonTip);
+    final bool nearTip = gap <= _walletScanStallNearTipBlocks;
+    final int ticksNeeded =
+        nearTip ? _walletScanStallTicksNear : _walletScanStallTicksFar;
+    final Duration cooldown = nearTip
+        ? _walletScanStallCooldownNear
+        : _walletScanStallCooldownFar;
+    final DateTime now = DateTime.now();
+    final bool cooldownOk = _walletLastRefreshKickAt == null ||
+        now.difference(_walletLastRefreshKickAt!) > cooldown;
+    if (_walletScanStallTicks < ticksNeeded || !cooldownOk) {
+      return;
+    }
+    _walletScanStallTicks = 0;
+    _walletLastRefreshKickAt = now;
+    try {
+      debugPrint(
+        '[MobileNative] scan stalled at $walletHeight (daemon $daemonTip, gap $gap), refresh_from_height',
+      );
+      await w.call('refresh', <String, dynamic>{
+        'start_height': walletHeight,
+      }).timeout(const Duration(minutes: 30));
+    } catch (e, st) {
+      debugPrint('[MobileNative] wallet refresh: $e\n$st');
+    }
+  }
+
   Future<void> _walletHeartbeatTick() async {
     if (_walletHbInFlight) {
       return;
@@ -2576,6 +2630,13 @@ final class MobileNativeBridge implements NativeBridge {
       walletDaemonFromGh = walletDaemonHeightFromGetheight(gh);
     }
     _noteWalletScanGapForXfer(newH, dh);
+    if (ghOk) {
+      unawaited(_maybeKickWalletRefreshOnStall(
+        w,
+        walletHeight: newH,
+        daemonTip: dh,
+      ));
+    }
     final bool inScanRhythm = dh == 0 ||
         newH < dh ||
         _whWalletBackgroundBusy ||

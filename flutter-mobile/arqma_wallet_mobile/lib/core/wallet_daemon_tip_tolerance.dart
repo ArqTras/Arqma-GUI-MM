@@ -29,3 +29,28 @@ bool walletHeightScanningBehind(int walletHeight, int daemonTip) {
   }
   return walletHeight < daemonTip - kWalletDaemonTipToleranceBlocks;
 }
+
+/// Scan progress for UI (footer / tx banner). Never rounds to 100% while still behind tip.
+double walletScanProgressPercent(int walletHeight, int daemonTip) {
+  if (daemonTip <= 0) {
+    return 0;
+  }
+  final int gap = walletDaemonTipGapBlocks(walletHeight, daemonTip);
+  var pct = (100.0 * walletHeight) / daemonTip;
+  if (gap > kWalletDaemonTipToleranceBlocks && walletHeight < daemonTip) {
+    if (pct >= 100) {
+      pct = 99.999;
+    } else if (pct >= 99.9995) {
+      pct = 99.999;
+    }
+  }
+  return pct.clamp(0.0, 100.0);
+}
+
+String walletScanProgressPercentLabel(int walletHeight, int daemonTip) {
+  final double pct = walletScanProgressPercent(walletHeight, daemonTip);
+  if (pct >= 10) {
+    return pct.toStringAsFixed(1);
+  }
+  return pct.toStringAsFixed(2);
+}

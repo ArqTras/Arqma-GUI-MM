@@ -81,8 +81,12 @@ Map<String, dynamic> _coerceMap(Object? data) {
   return <String, dynamic>{};
 }
 
-/// Blocks behind daemon tip before Windows [ _maybeKickDesktopWalletRefresh ] stall kick.
-const int _desktopWalletScanXferDeferBlocks = 64;
+/// Near-tip band (blocks): faster stall refresh kick when gap ≤ this value.
+const int _desktopWalletScanStallNearTipBlocks = 64;
+const int _desktopWalletScanStallTicksFar = 3;
+const int _desktopWalletScanStallTicksNear = 2;
+const Duration _desktopWalletScanStallCooldownFar = Duration(seconds: 45);
+const Duration _desktopWalletScanStallCooldownNear = Duration(seconds: 15);
 
 /// Desktop FFI: in-process calls block the UI isolate; `get_transfers` can freeze footer scan % for a long time.
 /// Defer heavy RPC until the wallet is within [kWalletDaemonTipToleranceBlocks] of the daemon tip (footer Ready band).
@@ -328,6 +332,9 @@ final class DesktopNativeBridge implements NativeBridge {
     });
   }
 
+  /// Stops the `arqma_flutter_solo_pool` sidecar (also used from app exit).
+  Future<void> stopSoloPoolSidecarForExit() => _stopSoloPoolSidecar();
+
   Future<void> _stopSoloPoolSidecar() async {
     await _soloPoolOutSub?.cancel();
     _soloPoolOutSub = null;
@@ -335,11 +342,22 @@ final class DesktopNativeBridge implements NativeBridge {
     _soloPoolErrSub = null;
     final Process? p = _soloPoolProcess;
     _soloPoolProcess = null;
-    if (p != null) {
-      try {
-        p.kill(ProcessSignal.sigterm);
-      } catch (_) {}
+    if (p == null) {
+      return;
     }
+    try {
+      p.kill(ProcessSignal.sigterm);
+    } catch (_) {}
+    try {
+      await p.exitCode.timeout(const Duration(seconds: 2));
+      return;
+    } catch (_) {}
+    try {
+      p.kill(ProcessSignal.sigkill);
+    } catch (_) {}
+    try {
+      await p.exitCode.timeout(const Duration(seconds: 1));
+    } catch (_) {}
   }
 
   /// Clears sidecar handles when the child exits on its own (crash, SIGKILL, etc.).
@@ -412,6 +430,9 @@ final class DesktopNativeBridge implements NativeBridge {
             final Map<String, dynamic> payload =
                 raw is Map<String, dynamic> ? raw : _coerceMap(raw);
             _emit(<String, dynamic>{'event': ev, 'data': payload});
+            if (ev == 'solo_pool_block_found') {
+              _requestWalletTransactionsRefresh(immediate: true);
+            }
           } catch (e) {
             debugPrint('[DesktopNative] solo pool stdout JSON: $e');
           }
@@ -617,11 +638,6 @@ final class DesktopNativeBridge implements NativeBridge {
   }
 
   Future<void> _runConfirmCloseShutdown(ArqmaWalletRpcSession? w) async {
-    try {
-      await _stopSoloPoolSidecar();
-    } catch (e, st) {
-      debugPrint('[DesktopNative] confirm_close solo pool: $e\n$st');
-    }
     if (w != null) {
       await w.forceResetNativeFfi(watchdogMs: 0);
     }
@@ -721,6 +737,11 @@ final class DesktopNativeBridge implements NativeBridge {
         _daemonProcess?.kill();
       } catch (_) {}
       _daemonProcess = null;
+      try {
+        await _stopSoloPoolSidecar();
+      } catch (e, st) {
+        debugPrint('[DesktopNative] confirm_close solo pool: $e\n$st');
+      }
       unawaited(_runConfirmCloseShutdown(w));
       return null;
     }
@@ -1175,8 +1196,9 @@ final class DesktopNativeBridge implements NativeBridge {
                 as Map<String, dynamic>;
         String bindIp = '${((mergedPool['server'] as Map?)?['bindIP']) ?? ''}';
         if (bindIp.isEmpty || bindIp == '0.0.0.0' || bindIp == '127.0.0.1') {
+          bindIp = await preferredBindIp();
           mergedPool = deepMergeMaps(mergedPool, <String, dynamic>{
-            'server': <String, dynamic>{'bindIP': '127.0.0.1'},
+            'server': <String, dynamic>{'bindIP': bindIp},
           }) as Map<String, dynamic>;
         }
         mergedPool = _normalizePoolVarDiff(mergedPool);
@@ -2083,10 +2105,9 @@ final class DesktopNativeBridge implements NativeBridge {
   }) async {
     if (kIsWeb ||
         (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) ||
-        daemonTip <= 0) {
-      return;
-    }
-    if (walletHeight >= daemonTip - _desktopWalletScanXferDeferBlocks) {
+        daemonTip <= 0 ||
+        walletHeightNearDaemonTip(walletHeight, daemonTip)) {
+      _windowsScanStallTicks = 0;
       return;
     }
     if (walletHeight == _windowsScanHbLastHeight) {
@@ -2095,18 +2116,24 @@ final class DesktopNativeBridge implements NativeBridge {
       _windowsScanHbLastHeight = walletHeight;
       _windowsScanStallTicks = 0;
     }
+    final int gap = walletDaemonTipGapBlocks(walletHeight, daemonTip);
+    final bool nearTip = gap <= _desktopWalletScanStallNearTipBlocks;
+    final int ticksNeeded =
+        nearTip ? _desktopWalletScanStallTicksNear : _desktopWalletScanStallTicksFar;
+    final Duration cooldown = nearTip
+        ? _desktopWalletScanStallCooldownNear
+        : _desktopWalletScanStallCooldownFar;
     final DateTime now = DateTime.now();
     final bool cooldownOk = _windowsWalletLastRefreshAt == null ||
-        now.difference(_windowsWalletLastRefreshAt!) >
-            const Duration(seconds: 45);
-    if (_windowsScanStallTicks < 3 || !cooldownOk) {
+        now.difference(_windowsWalletLastRefreshAt!) > cooldown;
+    if (_windowsScanStallTicks < ticksNeeded || !cooldownOk) {
       return;
     }
     _windowsScanStallTicks = 0;
     _windowsWalletLastRefreshAt = now;
     try {
       debugPrint(
-        '[DesktopNative] scan stalled at $walletHeight (daemon $daemonTip), refresh_from_height',
+        '[DesktopNative] scan stalled at $walletHeight (daemon $daemonTip, gap $gap), refresh_from_height',
       );
       await w.call('refresh', <String, dynamic>{
         'start_height': walletHeight,
@@ -2454,6 +2481,13 @@ final class DesktopNativeBridge implements NativeBridge {
     });
 
     final bool gbOk = gb != null && walletJsonRpcNoError(gb);
+    if (ghOk) {
+      unawaited(_maybeKickDesktopWalletRefresh(
+        w,
+        walletHeight: newH,
+        daemonTip: dh,
+      ));
+    }
     _maybeWalletXfer(
       w: w,
       name: name,
@@ -3709,6 +3743,11 @@ final class DesktopNativeBridge implements NativeBridge {
       return <String, dynamic>{};
     }
     if (method == 'close_wallet') {
+      try {
+        await _stopSoloPoolSidecar();
+      } catch (e, st) {
+        debugPrint('[DesktopNative] close_wallet solo pool: $e\n$st');
+      }
       _pendingTxRelay.clear();
       _stopWalletHeartbeat();
       final ArqmaWalletRpcSession? wClose = _walletRpc;

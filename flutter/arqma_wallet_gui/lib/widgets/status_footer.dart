@@ -204,14 +204,10 @@ class _StatusFooterState extends State<StatusFooter> {
       if (walletSyncedForFooter) {
         return 100;
       }
-      final num pct = (100 * walletHeight) / displayTip;
-      if (pct >= 100) {
-        return double.parse(pct.toStringAsFixed(1)).clamp(0, 100);
-      }
-      if (walletHeight < displayTip && pct >= 99) {
-        return double.parse(pct.toStringAsFixed(3)).clamp(0, 100);
-      }
-      return double.parse(pct.toStringAsFixed(2)).clamp(0, 100);
+      return walletScanProgressPercent(
+        walletHeight.toInt(),
+        displayTip,
+      );
     }
 
     double barFloor(double pct) {

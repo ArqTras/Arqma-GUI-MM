@@ -162,11 +162,8 @@ class TxListWidget extends StatelessWidget {
     final int gapBlocks = daemonTip > 0
         ? (daemonTip - walletH).clamp(0, 1 << 62)
         : 0;
-    final double pctRaw =
-        daemonTip > 0 ? (100.0 * walletH) / daemonTip : 0.0;
-    final double pct = pctRaw.clamp(0.0, 100.0);
-    final String pctLabel =
-        pct >= 10 ? pct.toStringAsFixed(1) : pct.toStringAsFixed(2);
+    final double pct = walletScanProgressPercent(walletH, daemonTip);
+    final String pctLabel = walletScanProgressPercentLabel(walletH, daemonTip);
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),

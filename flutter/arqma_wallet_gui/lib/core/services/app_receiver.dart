@@ -206,6 +206,9 @@ class AppReceiver {
           WidgetsBinding.instance.scheduleFrame();
         });
         break;
+      case 'solo_pool_block_found':
+        unawaited(bridge.backendSend('wallet', 'refresh_transactions', {}));
+        break;
       default:
         // Defer high-frequency daemon/wallet merges to after the frame so we do not call
         // `notifyListeners` while a route is mid-dispose (avoids "deactivated ancestor" races).

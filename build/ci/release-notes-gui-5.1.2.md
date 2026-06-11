@@ -1,12 +1,13 @@
 ## Arqma Wallet 5.1.2
 
-Desktop and mobile bundles for tag **5.1.2**. Wallet FFI **[1.0.15](https://github.com/ArqTras/FFI/releases/tag/1.0.15)** **republished** (Windows LMDB link + scan crash fix). Desktop solo pool sidecar from FFI 1.0.15 (block submit fix: miner nonce in block header, full 256-bit block candidate check).
+Desktop and mobile bundles for tag **5.1.2**. Wallet FFI **[1.0.15](https://github.com/ArqTras/FFI/releases/tag/1.0.15)** **republished** (sync near tip, solo pool sidecar lifecycle + rewards). Desktop bundles rebuilt from this tag.
 
 ### Highlights
 
-- **Solo pool (desktop):** Fixed `submit_block` — Stratum miner nonce is patched into the **block-header nonce field** (not `reserved_offset` in coinbase `tx_extra`), matching `construct_block_blob` in arqma-electron-wallet and MoneroOcean. Solo-found blocks are accepted by `arqmad` and pay the configured mining address.
-- **Desktop Flutter:** **5.1.2+6** — republished with FFI **1.0.15** (Windows LMDB link + scan crash fix). Windows CI builds wallet FFI from source; Inno Setup includes wallet FFI flat + `lib/` mirror; GUI footer reads version from `pubspec.yaml`; improved MinGW DLL preload for Inno installs (Win32 1114).
-- **iOS / mobile:** **5.1.2+51** — semver bump; same wallet stack as 5.1.1 (FFI **1.0.15**, no solo pool on mobile).
+- **Solo pool (desktop):** Fixed `submit_block` — Stratum miner nonce in the **block-header nonce field** (not `reserved_offset`). Block reward stored from template/`get_block`; `solo_pool_block_found` triggers transaction refresh; desktop notifications on accept/reject. Sidecar stops on wallet close and app exit (fixes orphaned `arqma_flutter_solo_pool` on Linux).
+- **Wallet sync (desktop + mobile + Android):** FFI **1.0.15** — `TIP_BAND` 1 block; footer scan progress uses 1-block tip tolerance; refresh when sync stalls near tip; transaction history refreshes on balance change during catch-up.
+- **Desktop Flutter:** **5.1.2+6** — republished with FFI **1.0.15** and updated solo pool sidecar.
+- **iOS / mobile:** **5.1.2+51** — same wallet stack as desktop (FFI **1.0.15**, no solo pool on mobile).
 - **Android:** **5.1.2+14** — release APK/AAB filenames use slug `5.1.2`.
 
 ### Desktop install (artifact names use slug `5.1.2`)

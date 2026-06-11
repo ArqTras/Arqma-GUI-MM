@@ -66,6 +66,15 @@ void hardExitFromApp(NativeBridge bridge) {
       } catch (e, st) {
         debugPrint('[DesktopAppExit] confirm_close: $e\n$st');
       }
+      if (bridge is DesktopNativeBridge) {
+        try {
+          await bridge
+              .stopSoloPoolSidecarForExit()
+              .timeout(const Duration(seconds: 3));
+        } catch (e, st) {
+          debugPrint('[DesktopAppExit] stop solo pool: $e\n$st');
+        }
+      }
     } finally {
       watchdog?.cancel();
       terminateDesktopProcessNow();
