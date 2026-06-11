@@ -7,8 +7,18 @@ abstract final class WalletActivity {
   static bool _txListScrolling = false;
   static Timer? _userBusyClear;
 
+  /// Invoked when the user switches to the transactions tab (`/wallet`).
+  static void Function()? onTransactionsTabActivated;
+
   static void setActiveWalletTab(String path) {
+    final String? prev = _activeWalletTab;
+    if (prev == path) {
+      return;
+    }
     _activeWalletTab = path;
+    if (path == '/wallet') {
+      onTransactionsTabActivated?.call();
+    }
   }
 
   static bool get isTransactionsTabActive =>

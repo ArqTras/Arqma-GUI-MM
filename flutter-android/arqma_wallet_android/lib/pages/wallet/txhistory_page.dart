@@ -122,9 +122,9 @@ class _TxHistoryPageState extends State<TxHistoryPage>
     });
   }
 
-  Widget _txidFilterField(LocaleController loc) {
+  Widget _txidFilterField(LocaleController loc, {bool stretchContent = true}) {
     return ArqmaField(
-      stretchContent: true,
+      stretchContent: stretchContent,
       goldChrome: true,
       label: loc.tr('pages.wallet.txhistory.filter_by_transactionid'),
       disableMenu: false,
@@ -150,9 +150,9 @@ class _TxHistoryPageState extends State<TxHistoryPage>
     );
   }
 
-  Widget _typeFilterField(LocaleController loc) {
+  Widget _typeFilterField(LocaleController loc, {bool stretchContent = true}) {
     return ArqmaField(
-      stretchContent: true,
+      stretchContent: stretchContent,
       goldChrome: true,
       label: loc.tr('pages.wallet.txhistory.filter_by_transaction_type'),
       child: InputDecorator(
@@ -207,11 +207,12 @@ class _TxHistoryPageState extends State<TxHistoryPage>
                   MobileResponsiveLayout.stackFilters(constraints.maxWidth);
               if (stackFilters) {
                 return Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _txidFilterField(loc),
+                    _txidFilterField(loc, stretchContent: false),
                     const SizedBox(height: 10),
-                    _typeFilterField(loc),
+                    _typeFilterField(loc, stretchContent: false),
                   ],
                 );
               }

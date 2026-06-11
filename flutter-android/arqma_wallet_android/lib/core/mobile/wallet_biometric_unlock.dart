@@ -36,6 +36,9 @@ class PendingFaceIdEnable {
 class WalletBiometricUnlock {
   WalletBiometricUnlock._();
 
+  /// Face ID / Touch ID enrollment and unlock — iOS only (Android uses password).
+  static bool get _biometricsEnabledForPlatform => Platform.isIOS;
+
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -68,7 +71,7 @@ class WalletBiometricUnlock {
       return;
     }
     _pendingEnable = null;
-    if ((!Platform.isIOS && !Platform.isAndroid) || pending.password.isEmpty) {
+    if (!_biometricsEnabledForPlatform || pending.password.isEmpty) {
       return;
     }
     if (await isEnabled(pending.netType, pending.walletName)) {
@@ -103,7 +106,7 @@ class WalletBiometricUnlock {
 
   /// Hardware / OS support — [getAvailableBiometrics] is often empty on iOS release builds.
   static Future<bool> isPlatformSupported() async {
-    if (!Platform.isIOS && !Platform.isAndroid) {
+    if (!_biometricsEnabledForPlatform) {
       return false;
     }
     try {
@@ -283,4 +286,4 @@ class WalletBiometricUnlock {
     }
   }
 }
-
+

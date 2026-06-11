@@ -63,9 +63,11 @@ class _StatusFooterState extends State<StatusFooter> {
     final int daemonTip = snap.daemonChainTip;
     final num walletHeight = snap.walletHeight;
     final bool fullRescanUi = snap.fullRescanUi;
-    final int displayTip = daemonTip > 0
-        ? daemonTip
-        : (walletHeight > 0 ? walletHeight.toInt() : 0);
+    final int displayTip = walletDisplayDaemonTip(
+      daemonChainTip: daemonTip,
+      walletDaemonHeight: snap.walletDaemonHeight,
+      walletHeight: walletHeight.toInt(),
+    );
     if (displayTip == 0) {
       return loc.tr('components.footer.scanning');
     }
@@ -114,9 +116,11 @@ class _StatusFooterState extends State<StatusFooter> {
         final int daemonTip = snap.daemonChainTip;
         final num walletHeight = snap.walletHeight;
         final bool fullRescanUi = snap.fullRescanUi;
-        final int displayTip = daemonTip > 0
-            ? daemonTip
-            : (walletHeight > 0 ? walletHeight.toInt() : 0);
+        final int displayTip = walletDisplayDaemonTip(
+          daemonChainTip: daemonTip,
+          walletDaemonHeight: snap.walletDaemonHeight,
+          walletHeight: walletHeight.toInt(),
+        );
         final int gapBlocks = displayTip > 0
             ? (displayTip - walletHeight.toInt()).clamp(0, 1 << 62)
             : 0;
@@ -310,6 +314,7 @@ final class _FooterSnapshot {
     required this.daemonTargetHeight,
     required this.daemonHeightWithoutBootstrap,
     required this.walletHeight,
+    required this.walletDaemonHeight,
     required this.fullRescanUi,
     required this.walletSyncing,
     required this.hasOpenWallet,
@@ -324,6 +329,7 @@ final class _FooterSnapshot {
   final int daemonTargetHeight;
   final int daemonHeightWithoutBootstrap;
   final num walletHeight;
+  final int walletDaemonHeight;
   final bool fullRescanUi;
   final bool walletSyncing;
   final bool hasOpenWallet;
@@ -350,6 +356,8 @@ final class _FooterSnapshot {
       daemonHeightWithoutBootstrap:
           (num.tryParse('${info['height_without_bootstrap']}') ?? 0).toInt(),
       walletHeight: num.tryParse('${store.walletInfo['height']}') ?? 0,
+      walletDaemonHeight:
+          (num.tryParse('${store.walletInfo['daemon_height']}') ?? 0).toInt(),
       fullRescanUi: store.walletInfo['full_rescan_ui'] == true,
       walletSyncing: store.walletInfo['wallet_syncing'] == true,
       hasOpenWallet: store.hasOpenWallet,
@@ -374,6 +382,7 @@ final class _FooterSnapshot {
         other.daemonTargetHeight == daemonTargetHeight &&
         other.daemonHeightWithoutBootstrap == daemonHeightWithoutBootstrap &&
         other.walletHeight == walletHeight &&
+        other.walletDaemonHeight == walletDaemonHeight &&
         other.fullRescanUi == fullRescanUi &&
         other.walletSyncing == walletSyncing &&
         other.hasOpenWallet == hasOpenWallet &&
@@ -390,6 +399,7 @@ final class _FooterSnapshot {
         daemonTargetHeight,
         daemonHeightWithoutBootstrap,
         walletHeight,
+        walletDaemonHeight,
         fullRescanUi,
         walletSyncing,
         hasOpenWallet,

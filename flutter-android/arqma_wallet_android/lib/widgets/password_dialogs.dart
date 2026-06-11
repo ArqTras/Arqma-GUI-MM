@@ -24,6 +24,7 @@ class PasswordDialogs {
     if (has) {
       return showDialog<String>(
         context: context,
+        useRootNavigator: true,
         builder: (BuildContext c) => AlertDialog(
           backgroundColor: dark ? const Color(0xFF1d1d1d) : null,
           title: Text(title),
@@ -38,13 +39,33 @@ class PasswordDialogs {
         ),
       );
     }
+    return showWalletPasswordEntry(
+      context: context,
+      locale: locale,
+      title: title,
+      okLabel: okLabel,
+      dark: dark,
+    );
+  }
+
+  /// Always prompts for the wallet password (iOS Face ID enrollment; shared dialog shape).
+  static Future<String?> showWalletPasswordEntry({
+    required BuildContext context,
+    required LocaleController locale,
+    required String title,
+    required String okLabel,
+    String? message,
+    bool dark = true,
+  }) {
     return showDialog<String>(
       context: context,
+      useRootNavigator: true,
       builder: (BuildContext _) => _RpcPasswordPromptDialog(
         locale: locale,
         title: title,
         okLabel: okLabel,
         dark: dark,
+        message: message,
       ),
     );
   }
@@ -56,12 +77,14 @@ class _RpcPasswordPromptDialog extends StatefulWidget {
     required this.title,
     required this.okLabel,
     required this.dark,
+    this.message,
   });
 
   final LocaleController locale;
   final String title;
   final String okLabel;
   final bool dark;
+  final String? message;
 
   @override
   State<_RpcPasswordPromptDialog> createState() =>
@@ -82,16 +105,26 @@ class _RpcPasswordPromptDialogState extends State<_RpcPasswordPromptDialog> {
     return AlertDialog(
       backgroundColor: widget.dark ? const Color(0xFF1d1d1d) : null,
       title: Text(widget.title),
-      content: TextField(
-        controller: _pw,
-        autofocus: true,
-        obscureText: true,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => Navigator.pop(context, _pw.text),
-        decoration: InputDecoration(
-          labelText:
-              widget.locale.tr('composables.enter_wallet_password_to_continue'),
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.message != null && widget.message!.isNotEmpty) ...[
+            Text(widget.message!),
+            const SizedBox(height: 12),
+          ],
+          TextField(
+            controller: _pw,
+            autofocus: true,
+            obscureText: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => Navigator.pop(context, _pw.text),
+            decoration: InputDecoration(
+              labelText: widget.locale
+                  .tr('composables.enter_wallet_password_to_continue'),
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

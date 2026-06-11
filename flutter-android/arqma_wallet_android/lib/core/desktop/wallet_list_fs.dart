@@ -54,8 +54,6 @@ Map<String, dynamic> listWalletFiles(String walletDirPath) {
       }
       final Map<String, dynamic> walletData = <String, dynamic>{
         'name': name,
-        'address': null,
-        'password_protected': null,
       };
       final File meta =
           File('${dir.path}${Platform.pathSeparator}$name.meta.json');
@@ -98,4 +96,17 @@ Map<String, dynamic> listWalletFiles(String walletDirPath) {
     'directories': directories,
     'legacy': <dynamic>[]
   };
+}
+
+/// Address line for wallet-select rows (`address.txt` / `meta.json` may be missing).
+String walletListEntryAddress(Map<String, dynamic> wallet) {
+  final Object? raw = wallet['address'];
+  if (raw == null) {
+    return '';
+  }
+  final String s = '$raw'.trim();
+  if (s.isEmpty || s == 'null') {
+    return '';
+  }
+  return s;
 }

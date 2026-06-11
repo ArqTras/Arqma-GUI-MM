@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 
 import '../desktop/flutter_env_guard.dart';
 import '../mobile/ios_rescan_live_activity.dart';
+import '../mobile/wallet_activity.dart';
 import '../mobile/wallet_session_checkpoint.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
@@ -524,6 +525,9 @@ final class MobileNativeBridge implements NativeBridge {
 
   @override
   Future<void> start() async {
+    WalletActivity.onTransactionsTabActivated = () {
+      _requestWalletTransactionsRefresh(immediate: true);
+    };
     unawaited(
       Future<void>.delayed(const Duration(milliseconds: 300), () {
         if (!_controller.isClosed) {
@@ -2563,11 +2567,13 @@ final class MobileNativeBridge implements NativeBridge {
     _applyGetheightFlags(gh);
 
     int newH = h0;
+    int? walletDaemonFromGh;
     if (ghOk) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
         newH = _walletHeightForHeartbeat(parsed, dh);
       }
+      walletDaemonFromGh = walletDaemonHeightFromGetheight(gh);
     }
     _noteWalletScanGapForXfer(newH, dh);
     final bool inScanRhythm = dh == 0 ||
@@ -2613,6 +2619,8 @@ final class MobileNativeBridge implements NativeBridge {
       'full_rescan_ui': _walletFullRescanUi,
       'wallet_syncing': _walletSyncingForUi,
       if (_walletFullRescanUi) 'allow_lower_height': true,
+      if (walletDaemonFromGh != null && walletDaemonFromGh > 0)
+        'daemon_height': walletDaemonFromGh,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
       final Object? res = ga['result'];
@@ -2954,21 +2962,28 @@ final class MobileNativeBridge implements NativeBridge {
   Future<ArqmaWalletRpcSession?> _prepareWalletRpcForOpen(
     ArqmaWalletRpcSession w,
   ) async {
-    if (_openedWalletDisplayName.isEmpty) {
-      return w;
+    final bool hadSession = _openedWalletDisplayName.isNotEmpty;
+    if (hadSession) {
+      if (!_walletFullRescanUi) {
+        await _storeWalletToDiskIfSafe(reason: 'prepare_open');
+      }
+      try {
+        await w
+            .closeWalletSession()
+            .timeout(const Duration(seconds: 30), onTimeout: () => null);
+      } catch (e, st) {
+        debugPrint('[MobileNative] prepare open closeWalletSession: $e\n$st');
+      }
+      _openedWalletDisplayName = '';
+      _stopWalletHeartbeat();
     }
-    if (!_walletFullRescanUi) {
-      await _storeWalletToDiskIfSafe(reason: 'prepare_open');
+    if (w.usesNativeFfi && hadSession) {
+      await w.resetNativeFfiClient();
+      _walletRpc = null;
+      if (!await _ensureWalletRpcStarted()) {
+        return null;
+      }
     }
-    try {
-      await w
-          .closeWalletSession()
-          .timeout(const Duration(seconds: 30), onTimeout: () => null);
-    } catch (e, st) {
-      debugPrint('[MobileNative] prepare open closeWalletSession: $e\n$st');
-    }
-    _openedWalletDisplayName = '';
-    _stopWalletHeartbeat();
     return _walletRpc;
   }
 

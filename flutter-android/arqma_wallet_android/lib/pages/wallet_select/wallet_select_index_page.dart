@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../app_nav.dart';
 import '../../core/app_api.dart';
 import '../../core/desktop/arqma_paths.dart';
+import '../../core/desktop/wallet_list_fs.dart';
 import '../../core/mobile/wallet_biometric_unlock.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
@@ -122,8 +123,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     return (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   }
 
-  static bool get _biometricPlatform =>
-      Platform.isIOS || Platform.isAndroid;
+  static bool get _biometricPlatform => Platform.isIOS;
 
   Future<void> _maybeOfferBiometricEnable({
     required LocaleController loc,
@@ -502,6 +502,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     }
 
     Widget walletRow(Map<String, dynamic> w) {
+      final String address = walletListEntryAddress(w);
       return Card(
         color: const Color(0xFF161410),
         elevation: 0,
@@ -514,7 +515,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         ),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: AddressIdenticon(address: '${w['address'] ?? ''}', size: 44),
+          leading: AddressIdenticon(address: address, size: 44),
           title: Text(
             '${w['name']}',
             style: const TextStyle(
@@ -523,23 +524,25 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
               color: ArqmaColors.textPrimary,
             ),
           ),
-          subtitle: Text(
-            '${w['address']}',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: ArqmaColors.textMuted,
-              height: 1.35,
-            ),
-          ),
+          subtitle: address.isEmpty
+              ? null
+              : Text(
+                  address,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: ArqmaColors.textMuted,
+                    height: 1.35,
+                  ),
+                ),
           onTap: () => _openWallet(w),
           onLongPress: () => _showWalletDeleteMenu(w),
           trailing: PopupMenuButton<String>(
             onSelected: (String v) {
               if (v == 'open') {
                 _openWallet(w);
-              } else if (v == 'copy') {
-                _copyAddress('${w['address']}');
+              } else if (v == 'copy' && address.isNotEmpty) {
+                _copyAddress(address);
               } else if (v == 'delete') {
                 unawaited(_confirmAndDeleteWallet(w));
               }
@@ -549,10 +552,11 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
                   value: 'open',
                   child:
                       Text(loc.tr('pages.wallet_select.index.open_account'))),
-              PopupMenuItem<String>(
-                  value: 'copy',
-                  child:
-                      Text(loc.tr('pages.wallet_select.index.copy_address'))),
+              if (address.isNotEmpty)
+                PopupMenuItem<String>(
+                    value: 'copy',
+                    child: Text(
+                        loc.tr('pages.wallet_select.index.copy_address'))),
               PopupMenuItem<String>(
                 value: 'delete',
                 child: Text(
@@ -713,7 +717,7 @@ class _OpenWalletPasswordDialogState extends State<_OpenWalletPasswordDialog> {
   }
 
   Future<void> _loadBiometricState() async {
-    if (!Platform.isIOS && !Platform.isAndroid) {
+    if (!Platform.isIOS) {
       return;
     }
     final bool supported = await WalletBiometricUnlock.isPlatformSupported();
