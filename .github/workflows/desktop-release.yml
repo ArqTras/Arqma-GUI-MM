@@ -372,11 +372,6 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.92.0
-          targets: x86_64-pc-windows-gnu
-
       - name: Normalize shell scripts (LF)
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -395,18 +390,18 @@ jobs:
           $solo = "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
           if (-not (Test-Path $solo)) { throw "missing $solo after fetch" }
 
-      - name: Build wallet FFI from source (Windows-gnu, avoids duplicate LMDB in prebuilt)
+      - name: Fetch wallet FFI (ArqTras/FFI, Windows-gnu)
         shell: pwsh
         working-directory: ${{ github.workspace }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_FFI_REPO: ArqTras/FFI
+          ARQMA_FFI_FORCE: "1"
         run: |
           $ErrorActionPreference = "Stop"
-          $nodeCmd = Get-Command node -ErrorAction Stop
-          $env:ARQMA_CI_WINDOWS_NODE_DIR = Split-Path $nodeCmd.Source -Parent
-          $msys = "${{ steps.msys2.outputs.msys2-location }}"
-          if ([string]::IsNullOrWhiteSpace($msys)) { $msys = "C:\msys64" }
-          pwsh -NoProfile -File build/ci/build-windows-wallet-ffi-from-source.ps1 -MsysRoot $msys
+          pwsh -NoProfile -File build/ci/fetch-arqma-wallet-ffi-release.ps1 -Platforms windows-x86_64-gnu
           $dll = "rust\target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll"
-          if (-not (Test-Path $dll)) { throw "missing $dll after source build" }
+          if (-not (Test-Path $dll)) { throw "missing $dll after FFI fetch" }
 
       - name: Fetch Arqma arqmad.exe for Flutter bundle (bin — arqmad only)
         shell: pwsh
