@@ -1,0 +1,36 @@
+# Keep only the newest N workflow runs on this repository (default 3).
+name: Prune Actions runs
+
+on:
+  schedule:
+    # Weekly — Sunday 03:15 UTC
+    - cron: "15 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      keep_count:
+        description: "Number of newest workflow runs to keep"
+        required: false
+        default: "3"
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: prune-actions-runs
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    name: Prune old workflow runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prune workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARQMA_ACTIONS_RUNS_KEEP: ${{ github.event.inputs.keep_count || '3' }}
+        run: bash build/ci/prune-github-actions-runs.sh "${{ github.repository }}"
