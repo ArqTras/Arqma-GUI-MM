@@ -76,7 +76,9 @@ package_macos() {
   bash "${REPO_ROOT}/build/ci/verify-macos-bundle.sh" "${app}"
   local sign_status_file sign_label base zip_out dmg_out
   sign_status_file="$(mktemp "${TMPDIR:-/tmp}/arqma-macos-sign-status.XXXXXX")"
-  ARQMA_MACOS_SIGN_STATUS_FILE="${sign_status_file}" bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}"
+  ARQMA_MACOS_NOTARIZE="${ARQMA_MACOS_NOTARIZE:-auto}" \
+    ARQMA_MACOS_SIGN_STATUS_FILE="${sign_status_file}" \
+    bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}"
   sign_label="unsigned"
   if [[ -s "${sign_status_file}" ]]; then
     sign_label="$(tr -d '[:space:]' < "${sign_status_file}")"
@@ -87,7 +89,6 @@ package_macos() {
   dmg_out="${DIST}/${base}.dmg"
   rm -f "${zip_out}" "${dmg_out}"
   (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
-  # DMG must contain both the app and a symlink to /Applications for the standard drag-to-install layout.
   local staging
   staging="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
   ditto "${app}" "${staging}/$(basename "${app}")"
@@ -95,7 +96,10 @@ package_macos() {
   hdiutil create -quiet -volname "Arqma Wallet (Flutter)" -srcfolder "${staging}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
   rm -rf "${staging}"
   if [[ "${sign_label}" == "signed" ]]; then
-    bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}" --dmg "${dmg_out}"
+    ARQMA_MACOS_NOTARIZE="${ARQMA_MACOS_NOTARIZE:-auto}" \
+      bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}" --dmg "${dmg_out}" --skip-sign
+    rm -f "${zip_out}"
+    (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
   fi
   echo "Packaged: ${zip_out}"
   echo "Packaged: ${dmg_out}"

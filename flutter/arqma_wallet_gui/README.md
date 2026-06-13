@@ -29,30 +29,21 @@ tool/copy_arqma_desktop_bins.sh build/macos/Build/Products/Release/Arqma-Wallet.
 tool/package_flutter_release.sh
 ```
 
-### macOS code signing (local distribution)
+### macOS code signing and notarization (local distribution)
 
-After `flutter build macos --release` and `tool/copy_arqma_desktop_bins.sh`, sign with a **Developer ID Application** certificate (auto-detected from keychain):
+`tool/package_flutter_release.sh macos` signs with **Developer ID** and **notarizes automatically** when repo-root **`.notenv`** exists (same keys as legacy Electron: `SIGNING_APPLE_ID`, `SIGNING_APP_PASSWORD`, `SIGNING_TEAM_ID`) or when `APPLE_ID` + `APPLE_APP_SPECIFIC_PASSWORD` / `ARQMA_NOTARY_KEYCHAIN_PROFILE` are set.
+
+Manual sign + notarize on an existing `.app`:
 
 ```bash
 tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app
+tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app \
+  --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos-signed.dmg --skip-sign
 ```
 
-`package_flutter_release.sh macos` runs this automatically when a Developer ID identity is present.
+Disable notarization: `ARQMA_MACOS_NOTARIZE=0 ./tool/package_flutter_release.sh macos`
 
-For installation on **other users' Macs**, also notarize and staple (once per machine):
-
-```bash
-xcrun notarytool store-credentials "AC_PASSWORD" \
-  --apple-id "you@example.com" \
-  --team-id 75L2UT4BNN \
-  --password "@keychain:AC_PASSWORD"
-
-ARQMA_MACOS_NOTARIZE=1 ARQMA_NOTARY_KEYCHAIN_PROFILE=AC_PASSWORD \
-  tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app \
-  --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos-signed.dmg
-```
-
-Env: `ARQMA_MACOS_SIGN_IDENTITY`, `ARQMA_MACOS_SIGN_SKIP=1`, `ARQMA_MACOS_SIGN_REQUIRED=1`.
+Signed release files use the **`…-macos-signed`** suffix; CI builds use **`…-macos-unsigned`**.
 
 See [`tool/RELEASE_NAMING.md`](tool/RELEASE_NAMING.md).
 

@@ -16,7 +16,7 @@ Desktop and mobile bundles for tag **5.1.2**. Wallet FFI **[1.0.15](https://gith
 |----|------|--------|
 | **Windows** | `Arqma-Wallet-Flutter-5.1.2-windows-x64.zip` or `…-Setup.exe` | Portable ZIP or installer |
 | **Linux** | `Arqma-Wallet-Flutter-5.1.2-linux-x64.tar.gz` and/or `…-x86_64.AppImage` | tar.gz or AppImage |
-| **macOS (signed)** | `Arqma-Wallet-Flutter-5.1.2-macos-signed.zip` and/or `…-macos-signed.dmg` | **Developer ID** signed (local release build). Preferred for end users; may still require right-click → Open if not notarized. |
+| **macOS (signed)** | `Arqma-Wallet-Flutter-5.1.2-macos-signed.zip` and/or `…-macos-signed.dmg` | **Developer ID** signed + **notarized** (local `package_flutter_release.sh` with `.notenv`). Preferred for end users. |
 | **macOS (unsigned)** | `Arqma-Wallet-Flutter-5.1.2-macos-unsigned.zip` and/or `…-macos-unsigned.dmg` | **GitHub Actions CI** build (adhoc signature, not Developer ID). For developers or re-signing locally. |
 
-**macOS:** This release ships **two naming variants** when both are present — **`…-macos-signed.*`** (Developer ID, built outside CI) and **`…-macos-unsigned.*`** (CI artifact). Only the signed build is attached to this release if CI has not republished macOS yet; future CI runs add the unsigned files alongside signed.
+**macOS signed builds** are **Developer ID signed** and **notarized** when repo-root `.notenv` contains valid `SIGNING_APPLE_ID` + app-specific `SIGNING_APP_PASSWORD` (from [appleid.apple.com](https://appleid.apple.com)). **Unsigned** CI artifacts (`…-macos-unsigned.*`) are adhoc only.
