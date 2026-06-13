@@ -29,6 +29,31 @@ tool/copy_arqma_desktop_bins.sh build/macos/Build/Products/Release/Arqma-Wallet.
 tool/package_flutter_release.sh
 ```
 
+### macOS code signing (local distribution)
+
+After `flutter build macos --release` and `tool/copy_arqma_desktop_bins.sh`, sign with a **Developer ID Application** certificate (auto-detected from keychain):
+
+```bash
+tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app
+```
+
+`package_flutter_release.sh macos` runs this automatically when a Developer ID identity is present.
+
+For installation on **other users' Macs**, also notarize and staple (once per machine):
+
+```bash
+xcrun notarytool store-credentials "AC_PASSWORD" \
+  --apple-id "you@example.com" \
+  --team-id 75L2UT4BNN \
+  --password "@keychain:AC_PASSWORD"
+
+ARQMA_MACOS_NOTARIZE=1 ARQMA_NOTARY_KEYCHAIN_PROFILE=AC_PASSWORD \
+  tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app \
+  --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos.dmg
+```
+
+Env: `ARQMA_MACOS_SIGN_IDENTITY`, `ARQMA_MACOS_SIGN_SKIP=1`, `ARQMA_MACOS_SIGN_REQUIRED=1`.
+
 See [`tool/RELEASE_NAMING.md`](tool/RELEASE_NAMING.md).
 
 Legacy Vue/Tauri/Electron UI: branch **`outdated`**.

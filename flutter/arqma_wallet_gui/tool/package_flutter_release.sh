@@ -78,6 +78,7 @@ package_macos() {
   rm -f "${zip_out}" "${dmg_out}"
   bash "${GUI_ROOT}/tool/copy_arqma_desktop_bins.sh" "${app}"
   bash "${REPO_ROOT}/build/ci/verify-macos-bundle.sh" "${app}"
+  bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}"
   (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
   # DMG must contain both the app and a symlink to /Applications for the standard drag-to-install layout.
   local staging
@@ -86,6 +87,7 @@ package_macos() {
   ln -sf /Applications "${staging}/Applications"
   hdiutil create -quiet -volname "Arqma Wallet (Flutter)" -srcfolder "${staging}" -format UDZO -imagekey zlib-level=9 -ov "${dmg_out}"
   rm -rf "${staging}"
+  bash "${GUI_ROOT}/tool/sign_macos_app.sh" "${app}" --dmg "${dmg_out}"
   echo "Packaged: ${zip_out}"
   echo "Packaged: ${dmg_out}"
 }
