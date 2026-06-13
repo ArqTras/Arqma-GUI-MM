@@ -118,6 +118,7 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-RepoRootDaemonToTauriBin -RepoRoot $repoRoot
 
 $flutterBat = Resolve-FlutterBat
+$env:ARQMA_WALLET2_MSYS_ROOT = Join-Path $MsysRoot "mingw64"
 & $flutterBat build windows --release
 
 $releaseDir = Join-Path $GuiRoot "build\windows\x64\runner\Release"
@@ -125,64 +126,29 @@ if (-not (Test-Path $releaseDir)) {
     Write-Error "Missing $releaseDir after build"
 }
 
-Copy-RepoRootDaemonToTauriBin -RepoRoot $repoRoot
-Copy-TauriBinIntoRelease -RepoRoot $repoRoot -ReleaseDir $releaseDir
-
-$bundleFfi = Join-Path $repoRoot "build\ci\bundle-windows-ffi-release.ps1"
-if (Test-Path $bundleFfi) {
-    & $bundleFfi -ReleaseDir $releaseDir -MsysRoot (Join-Path $MsysRoot "mingw64")
-} else {
-    Write-Warning "Missing $bundleFfi — wallet FFI may fail to load (Win32 1114/126)"
+$packageWin = Join-Path $repoRoot "build\ci\package-flutter-windows-release.ps1"
+if (-not (Test-Path $packageWin)) {
+    Write-Error "Missing $packageWin"
 }
 
-foreach ($merged in @(
-        (Join-Path $repoRoot "rust\arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a"),
-        (Join-Path $repoRoot "arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a")
-    )) {
-    if (Test-Path $merged) {
-        Copy-Item -Force $merged $releaseDir
-        Write-Host "Copied libwallet_merged.a -> $releaseDir"
-        break
-    }
+$packageArgs = @{
+    RepoRoot         = $repoRoot
+    VersionSafe      = $versionSafe
+    MsysRoot         = (Join-Path $MsysRoot "mingw64")
+    ZipOutputDir     = $dist
+    FailIfNoArqmad   = $true
+    FailIfNoSoloPool = $true
 }
-
-if (-not $SkipBundleVerify) {
-    & (Join-Path $PSScriptRoot "verify_windows_bundle.ps1") -ReleaseDir $releaseDir -FailIfNoArqmad -FailIfNoSoloPool
+if ($BuildInstaller) {
+    $packageArgs.BuildInstaller = $true
 }
-
-$zipName = "Arqma-Wallet-Flutter-$versionSafe-windows-x64.zip"
-$zipPath = Join-Path $dist $zipName
-if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-Compress-Archive -Path (Join-Path $releaseDir "*") -DestinationPath $zipPath -Force
-Write-Host "Packaged: $zipPath"
+& $packageWin @packageArgs
 
 if ($BuildInstaller) {
-    $iss = Join-Path $repoRoot "build\ci\flutter-windows-installer.iss"
-    if (-not (Test-Path $iss)) { throw "Missing $iss" }
-    $verForInno = $versionLine -replace '\+.*', ''
-    $isccCandidates = @(
-        $env:INNO_ISCC
-        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
-        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
-        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe")
-    ) | Where-Object { $_ -and (Test-Path $_) }
-    $iscc = $isccCandidates | Select-Object -First 1
-    if (-not $iscc) {
-        Write-Warning "Inno Setup not found (set INNO_ISCC to ISCC.exe, or install Inno Setup 6). Omit -BuildInstaller for zip-only."
-    } else {
-        Push-Location $repoRoot
-        try {
-            & $iscc $iss "/DMyAppVersion=$verForInno" "/DVersionSafe=$versionSafe" "/DSrcRelease=$releaseDir"
-            $setupOut = Join-Path $repoRoot "Arqma-Wallet-Flutter-${versionSafe}-windows-x64-Setup.exe"
-            if (Test-Path $setupOut) {
-                $setupDst = Join-Path $dist (Split-Path -Leaf $setupOut)
-                Copy-Item -Force $setupOut $setupDst
-                Write-Host "Installer: $setupDst"
-            } else {
-                Write-Warning "Expected Setup output next to repo root: $setupOut"
-            }
-        } finally {
-            Pop-Location
-        }
+    $setupOut = Join-Path $repoRoot "Arqma-Wallet-Flutter-${versionSafe}-windows-x64-Setup.exe"
+    if (Test-Path $setupOut) {
+        $setupDst = Join-Path $dist (Split-Path -Leaf $setupOut)
+        Copy-Item -Force $setupOut $setupDst
+        Write-Host "Installer copy: $setupDst"
     }
 }

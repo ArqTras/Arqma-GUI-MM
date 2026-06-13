@@ -171,3 +171,14 @@ $legacyLib = Join-Path $ReleaseDir 'lib'
 New-Item -Force -ItemType Directory -Path $legacyLib | Out-Null
 $libStats = Sync-FfiLayout -DestDir $legacyLib -FfiDllSource $FfiDllSource -MingwBin $mingwBin -Objdump $objdump -RequireRuntime:$requireRt
 Write-Host "[bundle-windows-ffi] legacy lib/ mirror runtime=$($libStats.runtime) closure=$($libStats.closure)"
+
+foreach ($merged in @(
+        (Join-Path $RepoRoot 'rust\arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a'),
+        (Join-Path $RepoRoot 'arqma-rpc-upstream\build-mingw\src\wallet\libwallet_merged.a')
+    )) {
+    if (Test-Path $merged) {
+        Copy-Item -Force $merged $ReleaseDir
+        Write-Host "[bundle-windows-ffi] copied libwallet_merged.a (optional)"
+        break
+    }
+}

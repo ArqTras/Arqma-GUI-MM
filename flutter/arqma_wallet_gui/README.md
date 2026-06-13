@@ -26,8 +26,17 @@ tool/copy_arqma_desktop_bins.sh build/macos/Build/Products/Release/Arqma-Wallet.
 ## Release packages
 
 ```bash
-tool/package_flutter_release.sh
+tool/package_flutter_release.sh          # macOS / Linux
 ```
+
+**Windows** (MSYS2 MinGW64 + Inno Setup for installer):
+
+```powershell
+cd flutter\arqma_wallet_gui
+.\tool\package_flutter_release.ps1 -BuildInstaller
+```
+
+Uses `build/ci/package-flutter-windows-release.ps1`: bundles **`arqma_wallet_flutter_ffi.dll`** + MinGW deps into `runner/Release/`, verifies, then writes **`dist/*.zip`** and **`dist/*-Setup.exe`** (same layout as CI).
 
 ### macOS code signing and notarization (local distribution)
 

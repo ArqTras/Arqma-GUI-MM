@@ -441,67 +441,20 @@ jobs:
           ARQMA_WALLET2_MSYS_ROOT: ${{ steps.msys2.outputs.msys2-location }}\mingw64
         run: flutter build windows --release
 
-      - name: Bundle wallet FFI + MinGW runtime (flat Release/, force prebuilt)
+      - name: Package Windows ZIP + Inno Setup (FFI bundle, verify, installer)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          $rel = Join-Path $pwd "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
-          if (-not (Test-Path $rel)) { throw "missing $rel" }
           $msys = "${{ steps.msys2.outputs.msys2-location }}"
           if ([string]::IsNullOrWhiteSpace($msys)) { $msys = "C:\msys64" }
-          pwsh -NoProfile -File build/ci/bundle-windows-ffi-release.ps1 `
-            -ReleaseDir $rel `
-            -MsysRoot (Join-Path $msys "mingw64")
-
-      - name: Sync daemon into Flutter Release + verify bundle (local script parity)
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          node build/copy-to-flutter-desktop-bins.js
-          $rel = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
-          $src = Join-Path $env:GITHUB_WORKSPACE "build/flutter-desktop-bin"
-          New-Item -Force -ItemType Directory -Path (Join-Path $rel "bin") | Out-Null
-          foreach ($e in @("arqmad.exe", "arqma_flutter_solo_pool.exe")) {
-            $p = Join-Path $src $e
-            if (Test-Path $p) {
-              Copy-Item -Force $p (Join-Path $rel "bin/$e")
-              Write-Host "Synced $e -> $rel/bin/"
-            }
-          }
-          $verify = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1"
-          if (-not (Test-Path $verify)) { throw "missing verify script: $verify (commit flutter/arqma_wallet_gui/tool/verify_windows_bundle.ps1)" }
-          pwsh -File $verify -ReleaseDir $rel -FailIfNoArqmad -FailIfNoSoloPool
-
-      - name: Zip Release layout
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          $rel = "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
-          if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $safe = "${{ steps.pubver.outputs.safe }}"
-          $zip = Join-Path $env:GITHUB_WORKSPACE "Arqma-Wallet-Flutter-${safe}-windows-x64.zip"
-          if (Test-Path $zip) { Remove-Item -Force $zip }
-          Compress-Archive -Path (Join-Path $rel "*") -DestinationPath $zip -Force
-          Write-Host "Packaged: $zip"
-
-      - name: Inno Setup installer (Windows)
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: |
-          $ErrorActionPreference = "Stop"
-          choco install innosetup -y --no-progress
-          $rel = Join-Path $pwd "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
-          if (-not (Test-Path $rel)) { throw "missing $rel" }
-          $safe = "${{ steps.pubver.outputs.safe }}"
-          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { throw "missing ISCC: $iscc" }
-          & $iscc "build\ci\flutter-windows-installer.iss" "/DMyAppVersion=$safe" "/DVersionSafe=$safe" "/DSrcRelease=$rel"
-          $setup = Join-Path $pwd "Arqma-Wallet-Flutter-${safe}-windows-x64-Setup.exe"
-          if (-not (Test-Path $setup)) { throw "missing $setup" }
-          Get-Item $setup | Format-List *
+          pwsh -NoProfile -File build/ci/package-flutter-windows-release.ps1 `
+            -RepoRoot $env:GITHUB_WORKSPACE `
+            -VersionSafe "${{ steps.pubver.outputs.safe }}" `
+            -MsysRoot (Join-Path $msys "mingw64") `
+            -BuildInstaller `
+            -FailIfNoArqmad `
+            -FailIfNoSoloPool
 
       - uses: actions/upload-artifact@v6
         with:
