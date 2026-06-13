@@ -30,8 +30,8 @@ fn main() {
         println!("cargo:rustc-link-arg=-Wl,-z,muldefs");
     }
 
-    if target_os == "ios" {
-        compile_ios_clear_cache_stub();
+    if target_os == "ios" || target_os == "android" {
+        compile_clear_cache_stub();
     }
 
     if target_os == "windows" && target_env == "gnu" {
@@ -117,22 +117,25 @@ fn android_wallet_ffi_static_hybrid_cdylib_args() {
     emit("-lm");
 }
 
-fn compile_ios_clear_cache_stub() {
-    let sdk = std::process::Command::new("xcrun")
-        .args(["--sdk", "iphoneos", "--show-sdk-path"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
+fn compile_clear_cache_stub() {
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let mut build = cc::Build::new();
     build.cpp(true).file("ios_stubs/clear_cache.cpp");
-    build.flag("-arch").flag("arm64");
-    build.flag("-miphoneos-version-min=13.0");
-    if !sdk.is_empty() {
-        build.flag(format!("-isysroot{sdk}"));
+    if target_os == "ios" {
+        let sdk = std::process::Command::new("xcrun")
+            .args(["--sdk", "iphoneos", "--show-sdk-path"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_default();
+        build.flag("-arch").flag("arm64");
+        build.flag("-miphoneos-version-min=13.0");
+        if !sdk.is_empty() {
+            build.flag(format!("-isysroot{sdk}"));
+        }
     }
-    build.compile("arqma_ios_clear_cache");
+    build.compile("arqma_clear_cache_stub");
 }
 
 fn static_hybrid_enabled() -> bool {
