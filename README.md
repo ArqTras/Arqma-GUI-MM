@@ -56,7 +56,7 @@ flutter run
 |----------|---------|
 | [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml) | Desktop Flutter zip/tar.gz/DMG/AppImage/Setup → GitHub Release on tags |
 | [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) | Android APK/AAB |
-| [`.github/workflows/flutter-test.yml`](.github/workflows/flutter-test.yml) | Flutter analyze/tests |
+| [`.github/workflows/prune-actions-runs.yml`](.github/workflows/prune-actions-runs.yml) | Keep only the newest workflow runs |
 | [`.github/workflows/flutter-wallet-mirror.yml`](.github/workflows/flutter-wallet-mirror.yml) | Mirror assets to [arqma/Flutter-Wallet](https://github.com/arqma/Flutter-Wallet) |
 
 Release notes: [`build/ci/release-notes-gui-*.md`](build/ci/). iOS IPA: build on macOS with [`flutter-mobile/.../tool/package_mobile_release.sh`](flutter-mobile/arqma_wallet_mobile/tool/package_mobile_release.sh) (not in CI).
