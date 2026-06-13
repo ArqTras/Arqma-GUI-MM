@@ -51,6 +51,9 @@ package-lock.json
 # Local scratch (CI log exports, temp artifacts)
 .tmp/
 
+# Screenshot generator venv (tool/generate_app_store_screenshots.sh)
+**/.venv-screenshots/
+
 # Rust workspace (Flutter FFI optional local build)
 /rust/target
 /rust/**/target
