@@ -4,7 +4,7 @@
 
 **App:** Arqma Wallet Mobile · **Bundle ID:** `com.arqma.arqmaWalletMobile`  
 **Live Activity extension:** `com.arqma.arqmaWalletMobile.RescanLiveActivity`  
-**Last updated:** 2026-05-27
+**Last updated:** 2026-06-12
 
 ---
 
@@ -248,6 +248,32 @@ Apple does not replace legal counsel. Before enabling countries:
 
 Use **App Store Connect → Pricing and Availability** to limit territories if needed.
 
+### 8.1 Mainland China — **off by default** (required policy)
+
+**Default:** do **not** distribute Arqma Wallet Mobile in **mainland China** (People's Republic of China). Keep **mainland China** deselected in App Store Connect unless qualified legal counsel advises otherwise.
+
+**Why:**
+
+- **Local law:** PRC regulations (notably the 2021 multi-agency notice and follow-on enforcement) treat **cryptocurrency-related business activity** — including facilitating virtual-currency transactions — as **illegal**. A non-custodial wallet that **sends, receives, signs, and broadcasts** on-chain ARQ transactions falls in that category from a regulator/App Store perspective, even without a centralized exchange or fiat on-ramp.
+- **Apple Guideline 5 (Legal):** Apps must comply with **all legal requirements** in every location where they are made available. Apple has removed crypto wallet apps from the **China App Store** with wording such as: *“the app facilitates cryptocurrency transactions, which are not legal in China.”*
+- **Not the same as App Review 3.1.5(i):** Passing U.S./EU review as an **organization** non-custodial wallet does **not** make the app lawful for distribution in mainland China.
+- **Chinese UI locale (`cn-CN`) is unrelated:** In-app language support is **not** a compliance issue; **wallet/transaction functionality** is.
+
+**App Store Connect steps (each new version if needed):**
+
+1. **Apps** → **Arqma Wallet Mobile** → **Pricing and Availability**.
+2. Under **Availability**, choose **Specific countries or regions** (avoid “All countries or regions” if it re-includes China).
+3. **Deselect mainland China** (and optionally **Hong Kong** / **Macau** separately if you want a broader Greater China exclusion — they are distinct checkboxes).
+4. **Save** before submitting the build for review.
+
+**Important limitations:**
+
+- Deselecting mainland China is **operator policy** and avoids **intentional** distribution there; it does **not** guarantee Apple will never touch the app in the China storefront. Apple has stated that even when China was **not** selected as a salable territory, the app may still be **made unavailable** on the China App Store when content violates PRC law.
+- **TestFlight** in mainland China may also be unavailable for the same reason; do not promise CN testers access via public TestFlight links.
+- Do **not** document workarounds (overseas Apple ID, VPN) in store metadata — that does not fix publisher compliance and creates user legal risk.
+
+**If Apple sends a China removal notice:** Treat it as **expected** for a cryptocurrency wallet; no code change in Flutter/iOS will restore mainland China availability without a **fundamentally different product** (not a crypto transaction wallet) or a change in PRC law. Focus on other territories; keep mainland China **off** in Pricing and Availability.
+
 ---
 
 ## 9. Post-approval maintenance
@@ -278,5 +304,6 @@ Use **App Store Connect → Pricing and Availability** to limit territories if n
 
 | Date | Change |
 |------|--------|
+| 2026-06-12 | §8.1 — mainland China off by default (PRC crypto law, Guideline 5, App Store Connect steps) |
 | 2026-06-03 | Link to APP_STORE_REVIEW_INFORMATION.md (Guideline 2.1 demo restore) |
 | 2026-05-27 | Initial publication requirements (Guideline 3.1.5 org wallet, Connect metadata, export, review, build pipeline) |
