@@ -383,7 +383,7 @@ final class DesktopNativeBridge implements NativeBridge {
         resolveArqmaExecutable(ArqmaExecutableKind.flutterSoloPool);
     if (exe == null) {
       debugPrint(
-        '[DesktopNative] arqma_flutter_solo_pool not found (cargo build in rust/tauri-app/src-tauri or set ARQMA_FLUTTER_SOLO_POOL)',
+        '[DesktopNative] arqma_flutter_solo_pool not found (fetch FFI solo pool or set ARQMA_FLUTTER_SOLO_POOL)',
       );
       _showNotification(
         'negative',

@@ -6,7 +6,6 @@ members = [
   "arqma-wallet-rpc",
   "arqma-wallet2-api",
   "arqma-wallet-flutter-ffi",
-  "tauri-app/src-tauri",
 ]
 
 [workspace.package]
@@ -21,9 +20,7 @@ lto = true
 codegen-units = 1
 strip = "symbols"
 
-# Faster local "near-release" builds (Tauri/NSIS) — less LTO, more codegen units.
-# Use: `npm run tauri:build:local` in `rust/tauri-app`, or
-# `cargo build -p arqma-wallet --profile local` in `rust/tauri-app/src-tauri`
+# Faster local near-release FFI builds (optional).
 [profile.local]
 inherits = "release"
 lto = "thin"

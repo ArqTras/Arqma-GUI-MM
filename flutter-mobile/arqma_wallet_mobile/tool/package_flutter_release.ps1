@@ -6,8 +6,8 @@
 #   .\tool\package_flutter_release.ps1 -BuildNativeWalletFfi   # upstream MinGW + FFI DLL, then Flutter
 #   .\tool\package_flutter_release.ps1 -BuildInstaller        # optional Inno Setup (same naming as CI)
 #
-# Recommended prep (repo root): place arqmad in .\bin, then this script runs build\copy-to-tauri-bins.js so
-# rust\tauri-app\src-tauri\bin\ is populated before bundling.
+# Recommended prep (repo root): place arqmad in .\bin, then this script runs build\copy-to-flutter-desktop-bins.js so
+# build\flutter-desktop-bin\ is populated before bundling.
 
 param(
     [switch]$BuildNativeWalletFfi,
@@ -34,12 +34,12 @@ function Resolve-FlutterBat {
 
 function Copy-RepoRootDaemonToTauriBin {
     param([string]$RepoRoot)
-    $js = Join-Path $RepoRoot "build\copy-to-tauri-bins.js"
+    $js = Join-Path $RepoRoot "build\copy-to-flutter-desktop-bins.js"
     if ($SkipCopyToTauriBins) { return }
     if (-not (Test-Path $js)) { return }
     $node = Get-Command node -ErrorAction SilentlyContinue
     if (-not $node) {
-        Write-Warning "Node.js not on PATH; skipped build/copy-to-tauri-bins.js (place arqmad manually under rust\tauri-app\src-tauri\bin\)."
+        Write-Warning "Node.js not on PATH; skipped build/copy-to-flutter-desktop-bins.js (place arqmad manually under build\flutter-desktop-bin\)."
         return
     }
     Push-Location $RepoRoot
@@ -52,10 +52,10 @@ function Copy-RepoRootDaemonToTauriBin {
 
 function Copy-TauriBinIntoRelease {
     param([string]$RepoRoot, [string]$ReleaseDir)
-    $srcDir = Join-Path $RepoRoot "rust\tauri-app\src-tauri\bin"
+    $srcDir = Join-Path $RepoRoot "build\flutter-desktop-bin"
     $dstDir = Join-Path $ReleaseDir "bin"
     if (-not (Test-Path $srcDir)) {
-        Write-Warning "Missing $srcDir - no bundled daemons to copy (see rust/tauri-app/src-tauri/bin/README.txt)."
+        Write-Warning "Missing $srcDir - no bundled daemons to copy (see build/flutter-desktop-bin/README.txt)."
         return
     }
     New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
@@ -69,7 +69,7 @@ function Copy-TauriBinIntoRelease {
         }
     }
     if ($n -eq 0) {
-        Write-Warning "No arqmad.exe (or solo pool) in $srcDir - copy from repo .\bin via build/copy-to-tauri-bins.js or build CI download."
+        Write-Warning "No arqmad.exe (or solo pool) in $srcDir - copy from repo .\bin via build/copy-to-flutter-desktop-bins.js or build CI download."
     }
 }
 
@@ -85,7 +85,7 @@ $repoRoot = Split-Path (Split-Path $GuiRoot -Parent) -Parent
 $rustDllGnu = Join-Path $repoRoot "rust\target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll"
 $rustDllMsvc = Join-Path $repoRoot "rust\target\release\arqma_wallet_flutter_ffi.dll"
 
-$soloBin = Join-Path $repoRoot "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
+$soloBin = Join-Path $repoRoot "build\flutter-desktop-bin\arqma_flutter_solo_pool.exe"
 if ($BuildNativeWalletFfi) {
     $ffiPs1 = Join-Path $repoRoot "rust\tool\build_native_wallet_flutter_ffi_windows.ps1"
     if (-not (Test-Path $ffiPs1)) { Write-Error "Missing $ffiPs1" }

@@ -112,7 +112,7 @@ Future<({Process? process, String? error})> spawnLocalArqmadAndWait({
     return (
       process: null,
       error:
-          'arqmad binary not found. Set ARQMA_DAEMON, ARQMA_BUILD_DIR, ARQMA_INSTALL_PREFIX, PATH, place arqmad under rust/tauri-app/src-tauri/bin/, or rebuild the Flutter app after adding it there so Xcode copies it into the .app (Contents/Resources/bin/).',
+          'arqmad binary not found. Set ARQMA_DAEMON, ARQMA_BUILD_DIR, ARQMA_INSTALL_PREFIX, PATH, place arqmad under build/flutter-desktop-bin/, or rebuild the Flutter app after adding it there so Xcode copies it into the .app (Contents/Resources/bin/).',
     );
   }
   final List<String> args = buildArqmadArgs(configData, net);

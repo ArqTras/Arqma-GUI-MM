@@ -51,14 +51,16 @@ package-lock.json
 # Local scratch (CI log exports, temp artifacts)
 .tmp/
 
-# Rust workspace (Tauri, core, daemon)
+# Rust workspace (Flutter FFI optional local build)
 /rust/target
 /rust/**/target
-/rust/tauri-app/node_modules
-/rust/tauri-app/dist
-/rust/tauri-app/src-tauri/bin/*.exe
-/rust/tauri-app/src-tauri/bin/arqmad
-/rust/tauri-app/src-tauri/bin/arqma-wallet-rpc
+/build/flutter-desktop-bin/*
+!build/flutter-desktop-bin/.gitkeep
+!build/flutter-desktop-bin/README.txt
+/build/flutter-desktop-bin/arqmad
+/build/flutter-desktop-bin/arqmad.exe
+/build/flutter-desktop-bin/arqma_flutter_solo_pool
+/build/flutter-desktop-bin/arqma_flutter_solo_pool.exe
 
 # Local CI/release binaries and checksum sidecars (never commit secrets or signed builds)
 build/ci/*.ipa

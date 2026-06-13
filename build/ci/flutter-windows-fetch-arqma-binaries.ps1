@@ -1,8 +1,8 @@
-# Fetch arqmad.exe from arqma/arqma GitHub Releases into rust/tauri-app/src-tauri/bin/
+# Fetch arqmad.exe from arqma/arqma GitHub Releases into build/flutter-desktop-bin/
 # (same source as build/download-binaries.js). Only arqmad — no arqma-wallet-rpc in bin.
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$dst = Join-Path $root "rust\tauri-app\src-tauri\bin"
+$dst = Join-Path $root "build\flutter-desktop-bin"
 New-Item -ItemType Directory -Force -Path $dst | Out-Null
 Push-Location $root
 try {

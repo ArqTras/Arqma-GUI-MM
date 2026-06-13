@@ -76,7 +76,7 @@ package_macos() {
   local zip_out="${DIST}/${base}.zip"
   local dmg_out="${DIST}/${base}.dmg"
   rm -f "${zip_out}" "${dmg_out}"
-  bash "${GUI_ROOT}/tool/copy_arqma_tauri_bins.sh" "${app}"
+  bash "${GUI_ROOT}/tool/copy_arqma_desktop_bins.sh" "${app}"
   bash "${REPO_ROOT}/build/ci/verify-macos-bundle.sh" "${app}"
   (cd "$(dirname "${app}")" && ditto -c -k --sequesterRsrc --keepParent "$(basename "${app}")" "${zip_out}")
   # DMG must contain both the app and a symlink to /Applications for the standard drag-to-install layout.

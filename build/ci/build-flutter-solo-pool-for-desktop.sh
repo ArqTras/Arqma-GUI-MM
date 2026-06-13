@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Install arqma_flutter_solo_pool into rust/tauri-app/src-tauri/bin/ for Flutter **desktop** bundles only.
-# Default: download from ArqTras/FFI release (same tag as ARQMA_FFI_RELEASE_VERSION / ARQMA_SOLO_POOL_RELEASE_VERSION).
-# Fallback: build from source when ARQMA_SOLO_POOL_BUILD_FROM_SOURCE=1 or fetch miss with ALLOW_MISS.
+# Install arqma_flutter_solo_pool into build/flutter-desktop-bin/ for Flutter **desktop** bundles.
+# Downloads from ArqTras/FFI release (see ARQMA_FFI_RELEASE_VERSION / ARQMA_SOLO_POOL_RELEASE_VERSION).
 #
 # Usage:
 #   bash build/ci/build-flutter-solo-pool-for-desktop.sh linux|macos|mingw
@@ -14,7 +13,7 @@ if [[ -z "${PLATFORM}" ]]; then
   exit 2
 fi
 
-chmod +x "${ROOT}/build/ci/"*.sh "${ROOT}/rust/tool/"*.sh 2>/dev/null || true
+chmod +x "${ROOT}/build/ci/"*.sh 2>/dev/null || true
 
 case "${PLATFORM}" in
   linux) FETCH_PLATFORM="linux-x86_64" ;;
@@ -26,50 +25,24 @@ case "${PLATFORM}" in
     ;;
 esac
 
-TAURI_BIN="${ROOT}/rust/tauri-app/src-tauri/bin"
+DESKTOP_BIN="${ROOT}/build/flutter-desktop-bin"
 solo_present() {
-  [[ -f "${TAURI_BIN}/arqma_flutter_solo_pool" ]] || [[ -f "${TAURI_BIN}/arqma_flutter_solo_pool.exe" ]]
+  [[ -f "${DESKTOP_BIN}/arqma_flutter_solo_pool" ]] || [[ -f "${DESKTOP_BIN}/arqma_flutter_solo_pool.exe" ]]
 }
 
-build_from_source() {
-  echo "[build-flutter-solo-pool] building from source (${PLATFORM})..."
-  bash "${ROOT}/build/ci/clone-arqma.sh"
-  case "${PLATFORM}" in
-    linux)
-      export ARQMA_WALLET_FFI_USE_DEPENDS=1
-      bash "${ROOT}/build/ci/build-arqma-linux.sh"
-      ;;
-    macos)
-      export ARQMA_WALLET_FFI_USE_DEPENDS=1
-      bash "${ROOT}/build/ci/build-arqma-macos.sh"
-      ;;
-    mingw)
-      bash "${ROOT}/build/ci/build-arqma-mingw.sh"
-      ;;
-  esac
-  bash "${ROOT}/build/ci/ensure-tauri-dist-stub.sh" "${ROOT}"
-  bash "${ROOT}/rust/tool/build_flutter_solo_pool.sh" --skip-upstream
-}
-
-if [[ "${ARQMA_SOLO_POOL_BUILD_FROM_SOURCE:-0}" == "1" ]]; then
-  build_from_source
-elif solo_present; then
-  echo "[build-flutter-solo-pool] already present under ${TAURI_BIN}"
+if solo_present; then
+  echo "[build-flutter-solo-pool] already present under ${DESKTOP_BIN}"
 else
-  if ARQMA_SOLO_POOL_PLATFORMS="${FETCH_PLATFORM}" \
-    bash "${ROOT}/build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh"; then
-  :
-  elif [[ "${PLATFORM}" == mingw ]]; then
-    echo "[build-flutter-solo-pool] linux fetch script cannot run on Windows host; use fetch ps1 or build from source" >&2
-    exit 1
+  if [[ "${PLATFORM}" == mingw ]]; then
+    pwsh -NoProfile -File "${ROOT}/build/ci/fetch-arqma-wallet-solo-pool-release.ps1" -Platforms "${FETCH_PLATFORM}"
   else
-    echo "[build-flutter-solo-pool] fetch miss — building from source" >&2
-    build_from_source
+    ARQMA_SOLO_POOL_PLATFORMS="${FETCH_PLATFORM}" \
+      bash "${ROOT}/build/ci/fetch-arqma-wallet-solo-pool-release-linux.sh"
   fi
 fi
 
 if ! solo_present; then
-  echo "::error::arqma_flutter_solo_pool missing under ${TAURI_BIN}" >&2
+  echo "::error::arqma_flutter_solo_pool missing under ${DESKTOP_BIN} (fetch ArqTras/FFI or see branch outdated for source build)" >&2
   exit 1
 fi
 

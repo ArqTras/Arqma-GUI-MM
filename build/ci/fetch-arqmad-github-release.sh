@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch **arqmad** from the latest GitHub Release of `arqma/arqma` (static binaries in the published archive).
-# Native `wallet_merged` must still be built from **arqtras/arqma** (CI default: branch pospow) via `build/ci/build-arqma-*.sh` — this script supplies the **arqmad** binary for `rust/tauri-app/src-tauri/bin/` from **`arqma/arqma` latest GitHub Release** (same source family as Windows `flutter-windows-fetch-arqma-binaries.ps1`).
+# Native `wallet_merged` must still be built from **arqtras/arqma** (CI default: branch pospow) via `build/ci/build-arqma-*.sh` — this script supplies the **arqmad** binary for `build/flutter-desktop-bin/` from **`arqma/arqma` latest GitHub Release** (same source family as Windows `flutter-windows-fetch-arqma-binaries.ps1`).
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
@@ -54,7 +54,7 @@ case "$OS" in
     ;;
 esac
 
-# Linux: some archives unpack `arqmad` at repo root (not under ./bin/); stage for copy-to-tauri-bins.
+# Linux: some archives unpack `arqmad` at repo root (not under ./bin/); stage for copy-to-flutter-desktop-bins.
 if [[ "$(uname -s)" == "Linux" ]] && [[ ! -f "$ROOT/bin/arqmad" ]]; then
   found=""
   while IFS= read -r f; do
@@ -72,9 +72,9 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ ! -f "$ROOT/bin/arqmad" ]]; then
   fi
 fi
 
-node "$ROOT/build/copy-to-tauri-bins.js"
-if [[ ! -f "$ROOT/rust/tauri-app/src-tauri/bin/arqmad" ]]; then
-  echo "[fetch-arqmad-github-release] error: arqmad missing under rust/tauri-app/src-tauri/bin/ after copy (see ./bin layout and build/copy-to-tauri-bins.js)" >&2
+node "$ROOT/build/copy-to-flutter-desktop-bins.js"
+if [[ ! -f "$ROOT/build/flutter-desktop-bin/arqmad" ]]; then
+  echo "[fetch-arqmad-github-release] error: arqmad missing under build/flutter-desktop-bin/ after copy (see ./bin layout and build/copy-to-flutter-desktop-bins.js)" >&2
   find "$ROOT/bin" -type f 2>/dev/null | head -80 || true
   exit 1
 fi

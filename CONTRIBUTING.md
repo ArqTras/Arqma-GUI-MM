@@ -2,12 +2,20 @@
 
 ## Language
 
-- **Commit messages** and **pull request titles/descriptions** should be written in **English** so the history and reviews are clear for all maintainers and contributors.
+- **Commit messages** and **pull request titles/descriptions** in **English**.
 
-## Rust workspace
+## Flutter
 
-See [`rust/README.md`](rust/README.md) for `cargo check`, `cargo clippy`, and Tauri release builds.
+| Tree | Analyze |
+|------|---------|
+| Desktop | `cd flutter/arqma_wallet_gui && flutter analyze` |
+| iOS | `cd flutter-mobile/arqma_wallet_mobile && flutter analyze` |
+| Android | `cd flutter-android/arqma_wallet_android && flutter analyze` |
 
-## Frontend (Electron / Quasar)
+## Rust (optional local FFI)
 
-See the root [`README.md`](README.md) for install, `quasar dev`, and lint commands.
+See [`rust/README.md`](rust/README.md) and [`rust/docs/NATIVE_WALLET2.md`](rust/docs/NATIVE_WALLET2.md).
+
+## Legacy Electron / Tauri
+
+Preserved on branch **`outdated`** — not built from **`main`**.

@@ -14,7 +14,6 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $rustRoot = Join-Path $repoRoot "rust"
-$tauriApp = Join-Path $rustRoot "tauri-app"
 
 $env:Path = "$MsysRoot\mingw64\bin;$MsysRoot\usr\bin;" + $env:Path
 $env:ARQMA_WALLET2_MSYS_ROOT = "$MsysRoot\mingw64"
@@ -28,11 +27,11 @@ if ($StaticHybridFfi) {
     Remove-Item Env:ARQMA_WALLET_FFI_STATIC_HYBRID -ErrorAction SilentlyContinue
 }
 
-Push-Location $tauriApp
+Push-Location $repoRoot
 try {
     if (-not $SkipArqmaCMake) {
-        npm run build:arqma:mingw
-        if ($LASTEXITCODE -ne 0) { throw "npm run build:arqma:mingw failed (exit $LASTEXITCODE)" }
+        & bash (Join-Path $repoRoot "build/ci/build-arqma-mingw.sh")
+        if ($LASTEXITCODE -ne 0) { throw "build-arqma-mingw.sh failed (exit $LASTEXITCODE)" }
     }
 } finally {
     Pop-Location
@@ -51,8 +50,7 @@ if (-not (Test-Path $dll)) { throw "Missing $dll" }
 Write-Host "OK: $dll"
 
 if (-not $SkipSoloPool) {
-    $soloPs1 = Join-Path $PSScriptRoot "build_flutter_solo_pool.ps1"
-    & $soloPs1 -MsysRoot $MsysRoot -SkipArqmaCMake
+    & bash (Join-Path $repoRoot "build/ci/build-flutter-solo-pool-for-desktop.sh") mingw
 }
 
 if (-not $SkipFlutter) {

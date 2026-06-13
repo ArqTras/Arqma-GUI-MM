@@ -32,7 +32,7 @@ fi
 req "${B}/data/flutter_assets/AssetManifest.bin"
 
 if [[ ! -f "${B}/bin/arqmad" ]]; then
-  msg="bundle verify: missing bin/arqmad (CMake install from rust/tauri-app/src-tauri/bin/)"
+  msg="bundle verify: missing bin/arqmad (CMake install from build/flutter-desktop-bin/)"
   if [[ "${FAIL_IF_NO_ARQMAD}" == "1" ]]; then
     echo "::error::${msg}" >&2
     failed=1

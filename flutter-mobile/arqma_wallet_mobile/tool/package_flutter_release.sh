@@ -40,7 +40,7 @@ fi
 REPO_ROOT="$(cd "${GUI_ROOT}/../.." && pwd)"
 
 ensure_solo_pool_bin() {
-  local bin_dir="${REPO_ROOT}/rust/tauri-app/src-tauri/bin"
+  local bin_dir="${REPO_ROOT}/build/flutter-desktop-bin"
   if [[ -f "${bin_dir}/arqma_flutter_solo_pool" ]] || [[ -f "${bin_dir}/arqma_flutter_solo_pool.exe" ]]; then
     return 0
   fi

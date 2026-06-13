@@ -1,132 +1,74 @@
-# Arqma Wallet (GUI)
+# Arqma Wallet — Flutter
 
-Desktop wallet for Arqma: **Electron** build (legacy/main pipeline) and **Tauri** + Rust shell (`rust/tauri-app`).
+Monorepo for **Arqma Wallet** on **desktop** (Windows, Linux, macOS), **iOS**, and **Android**. All active UI and release CI live in Flutter; legacy **Electron (Quasar)** and **Tauri (Vue)** stacks are preserved on branch [`outdated`](https://github.com/ArqTras/Arqma-GUI-MM/tree/outdated).
 
-## Windows 10 — VC++ Redistributable
+**Version:** 5.1.2 · Wallet FFI prebuilts: [ArqTras/FFI](https://github.com/ArqTras/FFI/releases/latest)
 
-Windows 10 needs the **VC++ Redistributable** from Microsoft:
+## Layout
 
-https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170  
+| Path | Platform |
+|------|----------|
+| [`flutter/arqma_wallet_gui/`](flutter/arqma_wallet_gui/) | Desktop — Windows, Linux, macOS |
+| [`flutter-mobile/arqma_wallet_mobile/`](flutter-mobile/arqma_wallet_mobile/) | iOS (remote node; TestFlight built locally on macOS) |
+| [`flutter-android/arqma_wallet_android/`](flutter-android/arqma_wallet_android/) | Android |
+| [`build/ci/`](build/ci/) | Release scripts, GitHub Actions helpers |
+| [`build/flutter-desktop-bin/`](build/flutter-desktop-bin/) | `arqmad` + `arqma_flutter_solo_pool` staged for desktop bundles |
+| [`rust/`](rust/) | Optional local build of `arqma-wallet-flutter-ffi` (CI uses FFI releases) |
 
-x64: https://aka.ms/vs/17/release/vc_redist.x64.exe
+## Prerequisites
 
-## macOS — running on other Macs
+- **Flutter** ≥ 3.41.9 ([`build/ci/flutter-version`](build/ci/flutter-version))
+- **Desktop:** local `arqmad` in [`bin/`](bin/) then `node build/copy-to-flutter-desktop-bins.js`, or CI fetch from [arqma/arqma](https://github.com/arqma/arqma/releases)
+- **Wallet FFI:** prebuilt from [ArqTras/FFI](https://github.com/ArqTras/FFI) (`build/ci/fetch-arqma-wallet-ffi-release*.sh`) or build locally — [`rust/docs/NATIVE_WALLET2.md`](rust/docs/NATIVE_WALLET2.md)
+- **iOS:** Xcode, Apple Developer org account — [`flutter-mobile/README.md`](flutter-mobile/README.md)
 
-The Mac build may be distributed **without** an Apple Developer signature. On **first launch**, Gatekeeper may show an “unidentified developer” warning.
+## Quick start
 
-**To open once:**
-
-1. Open the folder with the app (e.g. after unzipping or mounting the DMG).
-2. **Right-click** (or Control-click) **Arqma-Wallet.app**.
-3. Choose **Open**, then confirm **Open** in the dialog.
-
-After that, double-click works as usual. You can also allow the app under **System Settings → Privacy & Security** if needed.
-
-### Bypass Gatekeeper
-
-macOS will block the app from opening because it is not notarized.  
-Run this once in Terminal:
-
-```bash
-xattr -cr "/Applications/Arqma-Wallet.app"
-```
-
----
-
-## Electron app (Quasar)
-
-### Install dependencies
+### Desktop
 
 ```bash
-yarn
-# or
-npm install
+cd flutter/arqma_wallet_gui
+flutter pub get
+flutter run -d macos   # or linux / windows
 ```
 
-Dependencies are pinned to compatible minor/patch versions for security (Node ≥ 18.19, same major Vue/Quasar/Electron). Check updates: `npm outdated`; safe fixes: `npm audit fix`.
+Populate [`build/flutter-desktop-bin/`](build/flutter-desktop-bin/) before release builds — see [`build/flutter-desktop-bin/README.txt`](build/flutter-desktop-bin/README.txt).
 
-### Development
+### iOS
 
 ```bash
-quasar dev
+cd flutter-mobile/arqma_wallet_mobile
+bash tool/prepare_ios_wallet_ffi.sh
+flutter run -d <device-id>
 ```
 
-### Lint / format
+### Android
 
 ```bash
-yarn lint
-# or npm run lint
-
-yarn format
-# or npm run format
+cd flutter-android/arqma_wallet_android
+flutter pub get
+flutter run
 ```
 
-### Production build
+## Releases & CI
 
-```bash
-quasar build
-```
+| Workflow | Purpose |
+|----------|---------|
+| [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml) | Desktop Flutter zip/tar.gz/DMG/AppImage/Setup → GitHub Release on tags |
+| [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) | Android APK/AAB |
+| [`.github/workflows/flutter-test.yml`](.github/workflows/flutter-test.yml) | Flutter analyze/tests |
+| [`.github/workflows/flutter-wallet-mirror.yml`](.github/workflows/flutter-wallet-mirror.yml) | Mirror assets to [arqma/Flutter-Wallet](https://github.com/arqma/Flutter-Wallet) |
 
-Quasar config: [quasar.config.js](https://v2.quasar.dev/quasar-cli-webpack/quasar-config-js).
+Release notes: [`build/ci/release-notes-gui-*.md`](build/ci/). iOS IPA: build on macOS with [`flutter-mobile/.../tool/package_mobile_release.sh`](flutter-mobile/arqma_wallet_mobile/tool/package_mobile_release.sh) (not in CI).
 
-### Log files (Electron)
+## Legacy stacks (branch `outdated`)
 
-- **Windows:** `%APPDATA%\Roaming\Arqma-Electron-Wallet\logs\Arqma.log`  
-  Example: `C:\Users\{USERNAME}\AppData\Roaming\Arqma-Electron-Wallet\logs\Arqma.log`
-- **Linux:** `~/.config/Arqma-Electron-Wallet/logs/Arqma.log`
-- **macOS:** `~/Library/Application Support/Arqma-Electron-Wallet/logs/Arqma.log`
-
-### Watching logs
-
-**Linux**
-
-```bash
-watch tail -n 10 ~/.config/Arqma-Electron-Wallet/logs/Arqma.log
-```
-
-**macOS**
-
-```bash
-watch tail -n 10 ~/Library/Application\ Support/Arqma-Electron-Wallet/logs/Arqma.log
-```
-
----
-
-## Tauri app (Rust + Vue)
-
-See **`rust/README.md`** for workspace layout, `cargo check` / `clippy`, and **release build** steps (`npm run ci:tauri` from `rust/tauri-app`).
-
-Briefly:
-
-```bash
-# Optional: place Arqma binaries in ./bin, then:
-node build/copy-to-tauri-bins.js
-
-cd rust/tauri-app
-npm install
-npm run ci:tauri
-```
-
----
-
-## Flutter shell (`flutter/arqma_wallet_gui`)
-
-Experimental **Flutter** UI on the same `GatewayStore` / `backend-receive` event model as Tauri. See **`flutter/arqma_wallet_gui/README.md`** for `flutter run` and **solo pool** (`arqma_flutter_solo_pool`) on **desktop only** (Windows, Linux, macOS — not Android/iOS).
-
----
-
-## CI (GitHub Actions)
-
-- **`desktop-release.yml`** — Push do **`dev`**: buduje Flutter desktop (macOS / Linux / Windows) i publikuje artefakty w Actions (bez GitHub Release). Tag `v*` / semver `*.*.*` lub `workflow_dispatch`: to samo + jeden **GitHub Release** (prebuilt FFI z **[ArqTras/FFI](https://github.com/ArqTras/FFI)**, **`arqmad`** z **arqma/arqma**). Opcjonalnie po push tagu: repozytorium **private** przy secrecie `ARQMA_REPO_VISIBILITY_PAT`.
-
----
+Electron + Quasar (`src/`, `src-electron/`, root `package.json`) and Tauri + Vue (`rust/tauri-app/`) were removed from **`main`** to keep this repository focused on Flutter builds. Full history and sources remain on **`outdated`**.
 
 ## Contributing
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** (English commit messages / PR text, Rust and frontend notes).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Commit messages and PR text in **English**.
 
----
+## Changelog
 
-## `rust/web/`
-
-Placeholder for a future web build (Vite/SSR or WASM) sharing `rust/core` with Tauri. Keep it separate from `tauri-app/` (see `rust/web/README.md`).
+[`CHANGELOG.md`](CHANGELOG.md)

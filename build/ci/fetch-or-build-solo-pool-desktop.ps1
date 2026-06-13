@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$TauriBin = Join-Path $Root "rust\tauri-app\src-tauri\bin"
+$TauriBin = Join-Path $Root "build\flutter-desktop-bin"
 $Solo = Join-Path $TauriBin "arqma_flutter_solo_pool.exe"
 
 if (Test-Path $Solo) {

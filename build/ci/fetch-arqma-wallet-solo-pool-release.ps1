@@ -7,7 +7,7 @@
 #   $env:ARQMA_SOLO_POOL_FORCE = "1"
 #
 # Layout: .prebuilt/arqma-wallet-solo-pool/<version>/<platform>/...
-# Mirrors into rust/tauri-app/src-tauri/bin/ and rust/target/... for copy_* scripts.
+# Mirrors into build/flutter-desktop-bin/ and rust/target/... for copy_* scripts.
 
 param(
     [string]$Version = $(if ($env:ARQMA_SOLO_POOL_RELEASE_VERSION) { $env:ARQMA_SOLO_POOL_RELEASE_VERSION }
@@ -108,11 +108,11 @@ function Mirror-TauriBin {
     param([string]$Platform, [string]$Dir)
     $src = Find-SoloPoolBinary -Dir $Dir -Platform $Platform
     if (-not $src) { return }
-    $tauriBin = Join-Path $Root "rust\tauri-app\src-tauri\bin"
+    $tauriBin = Join-Path $Root "build\flutter-desktop-bin"
     New-Item -ItemType Directory -Force -Path $tauriBin | Out-Null
     $name = Split-Path $src -Leaf
     Copy-Item -Force $src (Join-Path $tauriBin $name)
-    Write-Host "[fetch-solo-pool] rust/tauri-app/src-tauri/bin/ <- $src"
+    Write-Host "[fetch-solo-pool] build/flutter-desktop-bin/ <- $src"
 }
 
 function Mirror-RustTargets {

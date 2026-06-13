@@ -1,5 +1,0 @@
-Place **arqmad.exe** (Windows) or **arqmad** (Unix) here before `tauri build`, or run from repo root: `node build/copy-to-tauri-bins.js` after `./bin` contains that file from download/extract (script copies **arqmad only**). Do not put **arqma-wallet-rpc** in this directory.
-
-**Flutter desktop:** `flutter build macos|linux|windows` installs **arqmad** and **arqma_flutter_solo_pool** from this folder into the app bundle (`Contents/Resources/bin` on macOS, `bin/` next to the exe on Linux/Windows). Build the solo pool helper: `bash rust/tool/build_flutter_solo_pool.sh` (Unix) or `rust\tool\build_flutter_solo_pool.ps1` (Windows). Override paths at runtime with `ARQMA_DAEMON`, `ARQMA_WALLET_RPC`, `ARQMA_FLUTTER_SOLO_POOL` if needed.
-
-Windows: if Cargo build fails with "Proces nie może uzyskać dostępu..." (Win32 os error 32) on bin/*.exe, another process locks the file — close all instances of arqma-wallet-rpc and Tauri (`tauri dev`) before rebuilding; avoid parallel `cargo` that touches this folder while RPC is running from the same copy.

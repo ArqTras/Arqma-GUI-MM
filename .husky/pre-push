@@ -1,4 +1,3 @@
 #!/usr/bin/env sh
 set -e
-# --runInBand: avoid flaky Jest worker segfault on Windows during pre-push.
-npm test -- --runInBand
+# Flutter-only repo — legacy Electron Jest tests live on branch `outdated`.

@@ -100,19 +100,19 @@ fetch_platform() {
   echo "[fetch-solo-pool] extracted -> ${dest} (${bin})"
 }
 
-mirror_tauri_bin() {
+mirror_flutter_desktop_bin() {
   local platform="$1"
   local dir="${VER_DIR}/${platform}"
-  local tauri_bin="${ROOT}/rust/tauri-app/src-tauri/bin"
-  mkdir -p "${tauri_bin}"
+  local desktop_bin="${ROOT}/build/flutter-desktop-bin"
+  mkdir -p "${desktop_bin}"
   local src
   src="$(find_solo_pool_binary "${dir}" "${platform}")"
   [[ -n "${src}" && -f "${src}" ]] || return 0
   local name
   name="$(basename "${src}")"
-  cp -f "${src}" "${tauri_bin}/${name}"
-  chmod +x "${tauri_bin}/${name}" 2>/dev/null || true
-  echo "[fetch-solo-pool] rust/tauri-app/src-tauri/bin/ <- ${src}"
+  cp -f "${src}" "${desktop_bin}/${name}"
+  chmod +x "${desktop_bin}/${name}" 2>/dev/null || true
+  echo "[fetch-solo-pool] build/flutter-desktop-bin/ <- ${src}"
 }
 
 mirror_rust_target() {
@@ -146,7 +146,7 @@ for p in "${_platforms[@]}"; do
   p="${p// /}"
   [[ -n "${p}" ]] || continue
   if fetch_platform "${p}"; then
-    mirror_tauri_bin "${p}"
+    mirror_flutter_desktop_bin "${p}"
     mirror_rust_target "${p}"
     fetched=1
   fi

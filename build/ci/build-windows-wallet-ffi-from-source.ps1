@@ -1,5 +1,4 @@
 # Build arqma_wallet_flutter_ffi.dll for Windows CI (MinGW-gnu) from this repo's rust/ tree.
-# Replaces fetch-arqma-wallet-ffi-release.ps1 when the prebuilt DLL has stale link flags (e.g. duplicate LMDB).
 param(
     [string]$MsysRoot = "C:\msys64"
 )
@@ -7,7 +6,6 @@ param(
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $rustRoot = Join-Path $root "rust"
-$tauriApp = Join-Path $rustRoot "tauri-app"
 
 if (-not (Test-Path $MsysRoot)) { throw "MSYS2 not found at $MsysRoot" }
 
@@ -25,13 +23,8 @@ if ($env:GITHUB_ACTIONS -eq "true" -and $env:GITHUB_PATH) {
     }
 }
 
-Push-Location $tauriApp
-try {
-    npm run build:arqma:mingw
-    if ($LASTEXITCODE -ne 0) { throw "npm run build:arqma:mingw failed (exit $LASTEXITCODE)" }
-} finally {
-    Pop-Location
-}
+& bash (Join-Path $root "build/ci/build-arqma-mingw.sh")
+if ($LASTEXITCODE -ne 0) { throw "build-arqma-mingw.sh failed (exit $LASTEXITCODE)" }
 
 Push-Location $rustRoot
 try {
@@ -41,7 +34,3 @@ try {
 } finally {
     Pop-Location
 }
-
-$dll = Join-Path $rustRoot "target\x86_64-pc-windows-gnu\release\arqma_wallet_flutter_ffi.dll"
-if (-not (Test-Path $dll)) { throw "Missing $dll after build" }
-Write-Host "OK: built Windows FFI from source -> $dll"

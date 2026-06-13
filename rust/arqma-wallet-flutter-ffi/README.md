@@ -40,7 +40,7 @@ Artifacts (host triple):
 
 - **macOS:** Xcode “Copy Arqma Tauri bins” copies the dylib into `Contents/Frameworks/` when present under `rust/target/…`.
 - **Linux / Windows:** `flutter/arqma_wallet_gui/linux|windows/CMakeLists.txt` installs the library into the Flutter bundle (`lib/` on Linux and **`runner/Release/`** next to the exe on Windows).
-- **Manual:** `flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh` supports `.app`, Linux `bundle/`, and Windows `runner/Release`.
+- **Manual:** `flutter/arqma_wallet_gui/tool/copy_arqma_desktop_bins.sh` supports `.app`, Linux `bundle/`, and Windows `runner/Release`.
 
 Dart discovery and env vars: `flutter/arqma_wallet_gui/lib/core/desktop/wallet_native_ffi.dart`.
 

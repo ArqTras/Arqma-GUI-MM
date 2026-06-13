@@ -151,7 +151,7 @@ jobs:
         run: |
           set -eu
           APP="flutter/arqma_wallet_gui/build/macos/Build/Products/Release/Arqma-Wallet.app"
-          bash flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh "$APP"
+          bash flutter/arqma_wallet_gui/tool/copy_arqma_desktop_bins.sh "$APP"
           bash build/ci/verify-macos-bundle.sh "$APP"
 
       - name: Zip app bundle
@@ -294,7 +294,7 @@ jobs:
           set -eu
           b="flutter/arqma_wallet_gui/build/linux/x64/release/bundle"
           bash flutter/arqma_wallet_gui/tool/bundle_linux_ffi_runtime_libs.sh "$b"
-          bash flutter/arqma_wallet_gui/tool/copy_arqma_tauri_bins.sh "$b"
+          bash flutter/arqma_wallet_gui/tool/copy_arqma_desktop_bins.sh "$b"
           FAIL_IF_NO_SOLO_POOL=1 bash flutter/arqma_wallet_gui/tool/verify_linux_bundle.sh "$b"
 
       - name: Tar bundle
@@ -387,7 +387,7 @@ jobs:
           ARQMA_FFI_REPO: ArqTras/FFI
         run: |
           pwsh -NoProfile -File build/ci/fetch-arqma-wallet-solo-pool-release.ps1 -Platforms windows-x86_64-gnu
-          $solo = "rust\tauri-app\src-tauri\bin\arqma_flutter_solo_pool.exe"
+          $solo = "build\flutter-desktop-bin\arqma_flutter_solo_pool.exe"
           if (-not (Test-Path $solo)) { throw "missing $solo after fetch" }
 
       - name: Fetch wallet FFI (ArqTras/FFI, Windows-gnu)
@@ -440,9 +440,9 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           $ErrorActionPreference = "Stop"
-          node build/copy-to-tauri-bins.js
+          node build/copy-to-flutter-desktop-bins.js
           $rel = Join-Path $env:GITHUB_WORKSPACE "flutter/arqma_wallet_gui/build/windows/x64/runner/Release"
-          $src = Join-Path $env:GITHUB_WORKSPACE "rust/tauri-app/src-tauri/bin"
+          $src = Join-Path $env:GITHUB_WORKSPACE "build/flutter-desktop-bin"
           New-Item -Force -ItemType Directory -Path (Join-Path $rel "bin") | Out-Null
           foreach ($e in @("arqmad.exe", "arqma_flutter_solo_pool.exe")) {
             $p = Join-Path $src $e

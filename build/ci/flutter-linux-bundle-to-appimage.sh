@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUNDLE="${1:?usage: $0 <path-to-flutter-linux-release-bundle> [output.AppImage]}"
 OUT="${2:-$ROOT/Arqma-Wallet-Flutter-x86_64.AppImage}"
 TOOL_URL="https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-ICON="${ARQMA_FLUTTER_APPIMAGE_ICON:-$ROOT/rust/tauri-app/public/icon_512x512.png}"
+ICON="${ARQMA_FLUTTER_APPIMAGE_ICON:-$ROOT/build/branding/icon_512x512.png}"
 
 test -x "$BUNDLE/Arqma-Wallet" || { echo "error: missing executable $BUNDLE/Arqma-Wallet" >&2; exit 1; }
 if [[ ! -f "$BUNDLE/lib/libarqma_wallet_flutter_ffi.so" ]]; then

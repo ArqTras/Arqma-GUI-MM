@@ -3,6 +3,7 @@
 ## 5.1.2 — 2026-06-10
 
 - Bump Flutter desktop to **5.1.2+6**, mobile to **5.1.2+51**, and Android tree to **5.1.2+14** (workspace **5.1.2**).
+- **Repo layout:** **`main`** is Flutter-only (desktop, iOS, Android). Legacy **Electron** and **Tauri** stacks moved to branch **`outdated`**. Desktop binaries staged under **`build/flutter-desktop-bin/`** (replaces `rust/tauri-app/src-tauri/bin/`).
 - **Solo pool (desktop):** Fix block submission — miner nonce written to block header on `submit_block` (sidecar `arqma_flutter_solo_pool` republished on [FFI 1.0.15](https://github.com/ArqTras/FFI/releases/tag/1.0.15)); desktop bundles rebuilt with fixed solo pool binary.
 - **Solo pool (desktop, republish):** Block reward from template/`get_block`, `solo_pool_block_found` event + tx refresh, submit success/failure notifications; stop sidecar on `close_wallet` and app exit (SIGTERM/SIGKILL, fixes orphaned process on Linux).
 - **Wallet sync (desktop + mobile + Android, republish FFI 1.0.15):** `TIP_BAND` 1 block near daemon tip; stall refresh near tip; footer progress ≠ 100% when gap > 1; transaction refresh on balance change during catch-up.
