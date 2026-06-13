@@ -15,7 +15,7 @@ param(
         else { "latest" }),
     [string]$Repo = $(if ($env:ARQMA_FFI_REPO) { $env:ARQMA_FFI_REPO } else { "ArqTras/FFI" }),
     [string[]]$Platforms = @("windows-x86_64-gnu"),
-    [switch]$SkipTauriBinMirror,
+    [switch]$SkipDesktopBinMirror,
     [switch]$SkipRustTargetMirror,
     [switch]$AllowMiss
 )
@@ -104,14 +104,14 @@ function Ensure-Platform {
     return $dest
 }
 
-function Mirror-TauriBin {
+function Mirror-DesktopBin {
     param([string]$Platform, [string]$Dir)
     $src = Find-SoloPoolBinary -Dir $Dir -Platform $Platform
     if (-not $src) { return }
-    $tauriBin = Join-Path $Root "build\flutter-desktop-bin"
-    New-Item -ItemType Directory -Force -Path $tauriBin | Out-Null
+    $desktopBin = Join-Path $Root "build\flutter-desktop-bin"
+    New-Item -ItemType Directory -Force -Path $desktopBin | Out-Null
     $name = Split-Path $src -Leaf
-    Copy-Item -Force $src (Join-Path $tauriBin $name)
+    Copy-Item -Force $src (Join-Path $desktopBin $name)
     Write-Host "[fetch-solo-pool] build/flutter-desktop-bin/ <- $src"
 }
 
@@ -140,7 +140,7 @@ $fetched = 0
 foreach ($p in $Platforms) {
     $dir = Ensure-Platform -Platform $p
     if (-not $dir) { continue }
-    if (-not $SkipTauriBinMirror) { Mirror-TauriBin -Platform $p -Dir $dir }
+    if (-not $SkipDesktopBinMirror) { Mirror-DesktopBin -Platform $p -Dir $dir }
     if (-not $SkipRustTargetMirror) { Mirror-RustTargets -Platform $p -Dir $dir }
     $fetched++
 }

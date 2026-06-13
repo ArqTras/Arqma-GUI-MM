@@ -7,8 +7,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
-$TauriBin = Join-Path $Root "build\flutter-desktop-bin"
-$Solo = Join-Path $TauriBin "arqma_flutter_solo_pool.exe"
+$DesktopBin = Join-Path $Root "build\flutter-desktop-bin"
+$Solo = Join-Path $DesktopBin "arqma_flutter_solo_pool.exe"
 
 if (Test-Path $Solo) {
     Write-Host "[fetch-or-build-solo-pool] already present: $Solo"
@@ -27,12 +27,9 @@ if ($env:ARQMA_SOLO_POOL_BUILD_FROM_SOURCE -ne "1") {
     }
 }
 
-Write-Host "[fetch-or-build-solo-pool] building from source..."
-if ([string]::IsNullOrWhiteSpace($MsysRoot)) {
-    $MsysRoot = "C:\msys64"
-}
-& (Join-Path $Root "rust\tool\build_flutter_solo_pool.ps1") -MsysRoot $MsysRoot
+Write-Host "[fetch-or-build-solo-pool] fetching via build-flutter-solo-pool-for-desktop.sh (ArqTras/FFI)..."
+& bash (Join-Path $Root "build/ci/build-flutter-solo-pool-for-desktop.sh") mingw
 if (-not (Test-Path $Solo)) {
-    throw "missing $Solo after build"
+    throw "missing $Solo after fetch (set ARQMA_SOLO_POOL_BUILD_FROM_SOURCE=1 only with branch outdated source build)"
 }
 Write-Host "[fetch-or-build-solo-pool] OK"

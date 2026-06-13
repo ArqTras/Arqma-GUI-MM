@@ -17,7 +17,7 @@ node "$ROOT/build/download-binaries.js"
 OS="$(uname -s)"
 case "$OS" in
   Linux)
-    # Same layout as `.github/workflows/desktop-release.yml` job `tauri` (extract into repo root, expect ./bin/arqmad).
+    # Same layout as desktop-release.yml Windows fetch (extract into repo root, expect ./bin/arqmad).
     f=""
     for c in \
       "$ROOT/downloads/latest.tar.xz" \

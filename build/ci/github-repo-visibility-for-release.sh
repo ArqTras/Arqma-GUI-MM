@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GitHub Actions on private repos can incur minutes billing; public repos do not charge the same way.
 # Use this script so visibility is public BEFORE pushes that trigger CI (commit/tag/release), then
-# private again after the Tauri workflow run finishes.
+# private again after the Desktop release (Flutter) workflow run finishes.
 #
 # If secret `ARQMA_REPO_VISIBILITY_PAT` is set in the repo, the Desktop release workflow job
 # `repo-private-after-release` switches the repository to private after tag builds (no local script).
@@ -9,10 +9,10 @@
 # Typical flow:
 #   1) ./build/ci/github-repo-visibility-for-release.sh public
 #   2) git commit … && git push … && git tag vX.Y.Z && git push origin vX.Y.Z && gh release create …
-#   3) ./build/ci/github-repo-visibility-for-release.sh watch-tauri --tag vX.Y.Z
+#   3) ./build/ci/github-repo-visibility-for-release.sh watch-desktop --tag vX.Y.Z
 #
 # On **workflow_dispatch** of *Desktop release (Flutter)*, Actions may run parallel jobs;
-# `watch-tauri` only waits for the workflow run you select — use `gh run watch` for the Flutter run separately if needed before `private`.
+# `watch-desktop` waits for one workflow run — pick the run id you care about if several are active.
 #
 # Environment: GH_TOKEN or gh auth (same as `gh`). Optional: GITHUB_REPOSITORY=owner/name
 set -eu
@@ -33,14 +33,17 @@ Usage:
       Set repository to public (run this before git push / tag / release that starts CI).
 
   github-repo-visibility-for-release.sh private
-      Set repository to private (run after CI if you skipped watch-tauri).
+      Set repository to private (run after CI if you skipped watch-desktop).
 
-  github-repo-visibility-for-release.sh   watch-tauri --tag vX.Y.Z
+  github-repo-visibility-for-release.sh watch-desktop --tag vX.Y.Z
       Wait for the latest "Desktop release (Flutter)" workflow run for that tag, then set repository to private.
       Always restores private on exit (even if the workflow failed or watch was interrupted).
 
-  github-repo-visibility-for-release.sh watch-tauri --run-id RUN_ID
+  github-repo-visibility-for-release.sh watch-desktop --run-id RUN_ID
       Wait for a specific workflow run, then set private.
+
+  watch-tauri
+      Deprecated alias for watch-desktop (legacy Electron/Tauri naming).
 EOF
 }
 
@@ -60,7 +63,7 @@ cmd_private() {
   set_private_always
 }
 
-cmd_watch_tauri() {
+cmd_watch_desktop_release() {
   local tag="" run_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -109,9 +112,9 @@ cmd_watch_tauri() {
 case "${1:-}" in
   public) cmd_public ;;
   private) cmd_private ;;
-  watch-tauri)
+  watch-desktop|watch-tauri)
     shift
-    cmd_watch_tauri "$@"
+    cmd_watch_desktop_release "$@"
     ;;
   ""|-h|--help|help) usage ;;
   *)

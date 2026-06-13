@@ -1,7 +1,7 @@
 # Build Arqma MinGW wallet_merged + arqma-wallet-flutter-ffi.dll (native wallet, no arqma-wallet-rpc).
 # Linux/macOS (same static-hybrid intent): export ARQMA_WALLET_FFI_STATIC_HYBRID=1 then
 # `cargo build -p arqma-wallet-flutter-ffi --release` from `rust/` (see rust/tool/flutter-ffi-static-hybrid-build.sh).
-# Prereqs: MSYS2 MINGW64 packages per .github/workflows/desktop-release.yml (job tauri, Windows), rustup target x86_64-pc-windows-gnu.
+# Prereqs: MSYS2 MINGW64 packages per .github/workflows/desktop-release.yml (Windows Flutter job), rustup target x86_64-pc-windows-gnu.
 param(
     [string]$MsysRoot = "C:\msys64",
     [switch]$SkipArqmaCMake,
