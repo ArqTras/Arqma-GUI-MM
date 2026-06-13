@@ -109,6 +109,10 @@ if ($BuildInstaller) {
         throw "Missing Windows app icon for installer: $iconSrc"
     }
     Copy-Item -Force $iconSrc (Join-Path $releaseDir "app_icon.ico")
+    $iconInRelease = Join-Path $releaseDir "app_icon.ico"
+    if (-not (Test-Path $iconInRelease)) {
+        throw "Missing app_icon.ico in Release after copy: $iconInRelease"
+    }
     if ($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true') {
         choco install innosetup -y --no-progress | Out-Null
     }

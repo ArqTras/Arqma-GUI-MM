@@ -16,7 +16,7 @@
 #define MyAppPublisher "Arqma"
 ; Output next to repo root (this .iss lives under build/ci/).
 #define RepoRoot "..\\..\\"
-#define AppIcon "{#RepoRoot}flutter\\arqma_wallet_gui\\windows\\runner\\resources\\app_icon.ico"
+; Setup icon: copied into {#SrcRelease}\app_icon.ico by package-flutter-windows-release.ps1 before ISCC.
 
 [Setup]
 AppId={{E7F3A1B2-4C5D-6789-ABCD-EF0123456789}}
@@ -26,7 +26,7 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 OutputDir={#RepoRoot}
 OutputBaseFilename=Arqma-Wallet-Flutter-{#VersionSafe}-windows-x64-Setup
-SetupIconFile={#AppIcon}
+SetupIconFile={#SrcRelease}\app_icon.ico
 UninstallDisplayIcon={app}\app_icon.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
