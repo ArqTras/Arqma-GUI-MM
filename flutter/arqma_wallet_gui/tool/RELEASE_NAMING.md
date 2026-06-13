@@ -11,8 +11,10 @@
 |----------|------------------|
 | Windows (portable zip) | `Arqma-Wallet-Flutter-{slug}-windows-x64.zip` |
 | Windows (Inno Setup) | `Arqma-Wallet-Flutter-{slug}-windows-x64-Setup.exe` |
-| macOS (zip) | `Arqma-Wallet-Flutter-{slug}-macos.zip` |
-| macOS (DMG) | `Arqma-Wallet-Flutter-{slug}-macos.dmg` |
+| macOS (zip, CI) | `Arqma-Wallet-Flutter-{slug}-macos-unsigned.zip` |
+| macOS (DMG, CI) | `Arqma-Wallet-Flutter-{slug}-macos-unsigned.dmg` |
+| macOS (zip, local signed) | `Arqma-Wallet-Flutter-{slug}-macos-signed.zip` |
+| macOS (DMG, local signed) | `Arqma-Wallet-Flutter-{slug}-macos-signed.dmg` |
 | Linux (tar.gz) | `Arqma-Wallet-Flutter-{slug}-linux-x64.tar.gz` |
 | Linux (AppImage) | `Arqma-Wallet-Flutter-{slug}-x86_64.AppImage` |
 
@@ -45,4 +47,5 @@ Fetched by `build/ci/fetch-arqma-desktop-prebuilts.sh` (local: `tool/fetch_lates
 - CI: `.github/workflows/desktop-release.yml` (**Pubspec semver for release filenames** step, artifact uploads).
 - Inno Setup: `build/ci/flutter-windows-installer.iss` — `OutputBaseFilename=Arqma-Wallet-Flutter-{#VersionSafe}-windows-x64-Setup`, with `/DMyAppVersion` (semver for Windows metadata) and `/DVersionSafe` (filename slug).
 - Local Windows: `tool/package_flutter_release.ps1` (zip under `dist/`, optional `-BuildInstaller`).
-- Local macOS/Linux: `tool/package_flutter_release.sh` — uses `Arqma-Wallet-Flutter-${VERSION_SAFE}-…`.
+- Local macOS: `tool/package_flutter_release.sh` — `Arqma-Wallet-Flutter-${VERSION_SAFE}-macos-signed.*` when Developer ID signing succeeds, `-macos-unsigned.*` otherwise.
+- CI macOS: `.github/workflows/desktop-release.yml` — always `-macos-unsigned.*` (no codesign in CI).

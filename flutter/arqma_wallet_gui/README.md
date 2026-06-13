@@ -49,7 +49,7 @@ xcrun notarytool store-credentials "AC_PASSWORD" \
 
 ARQMA_MACOS_NOTARIZE=1 ARQMA_NOTARY_KEYCHAIN_PROFILE=AC_PASSWORD \
   tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app \
-  --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos.dmg
+  --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos-signed.dmg
 ```
 
 Env: `ARQMA_MACOS_SIGN_IDENTITY`, `ARQMA_MACOS_SIGN_SKIP=1`, `ARQMA_MACOS_SIGN_REQUIRED=1`.

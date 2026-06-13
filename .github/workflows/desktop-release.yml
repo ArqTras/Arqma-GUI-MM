@@ -157,7 +157,7 @@ jobs:
       - name: Zip app bundle
         run: |
           cd build/macos/Build/Products/Release
-          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip"
+          ditto -c -k --sequesterRsrc --keepParent Arqma-Wallet.app "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned.zip"
 
       - name: DMG (macOS, drag to Applications)
         working-directory: ${{ github.workspace }}
@@ -168,16 +168,16 @@ jobs:
           STAGING="$(mktemp -d "${TMPDIR:-/tmp}/arqma-wallet-dmg-staging.XXXXXX")"
           cp -R "$APP" "${STAGING}/"
           ln -sf /Applications "${STAGING}/Applications"
-          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "${STAGING}" -ov -format UDZO -imagekey zlib-level=9 "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          hdiutil create -volname "Arqma Wallet (Flutter)" -srcfolder "${STAGING}" -ov -format UDZO -imagekey zlib-level=9 "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned.dmg"
           rm -rf "${STAGING}"
-          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg"
+          ls -la "${GITHUB_WORKSPACE}/Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned.dmg"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos
+          name: Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned
           path: |
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.zip
-            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos.dmg
+            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned.zip
+            Arqma-Wallet-Flutter-${{ steps.pubver.outputs.safe }}-macos-unsigned.dmg
           retention-days: 30
 
   flutter-linux:

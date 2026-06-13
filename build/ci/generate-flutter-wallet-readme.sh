@@ -23,7 +23,7 @@ Installers and packages are attached to the [${TAG} release](https://github.com/
 |----------|--------|
 | **Windows** | \`Arqma-Wallet-Flutter-${TAG}-windows-x64.zip\`, \`Arqma-Wallet-Flutter-${TAG}-windows-x64-Setup.exe\` |
 | **Linux** | \`Arqma-Wallet-Flutter-${TAG}-linux-x64.tar.gz\`, \`Arqma-Wallet-Flutter-${TAG}-x86_64.AppImage\` |
-| **macOS** | \`Arqma-Wallet-Flutter-${TAG}-macos.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos.dmg\` |
+| **macOS** | \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.dmg\` (CI; adhoc) · \`…-macos-signed.*\` (local Developer ID build) |
 | **Android** | \`Arqma-Wallet-Android-${TAG}.apk\`, \`Arqma-Wallet-Android-${TAG}.aab\` |
 | **iOS** | \`Arqma-Wallet-Mobile-${TAG}-ios-testflight.ipa\` (TestFlight / registered devices) |
 

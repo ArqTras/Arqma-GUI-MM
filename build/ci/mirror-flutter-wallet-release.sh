@@ -38,8 +38,10 @@ mkdir -p "${ASSETS}" "${DOCS}"
 canonical_asset_names() {
   local t="$1"
   printf '%s\n' \
-    "Arqma-Wallet-Flutter-${t}-macos.zip" \
-    "Arqma-Wallet-Flutter-${t}-macos.dmg" \
+    "Arqma-Wallet-Flutter-${t}-macos-unsigned.zip" \
+    "Arqma-Wallet-Flutter-${t}-macos-unsigned.dmg" \
+    "Arqma-Wallet-Flutter-${t}-macos-signed.zip" \
+    "Arqma-Wallet-Flutter-${t}-macos-signed.dmg" \
     "Arqma-Wallet-Flutter-${t}-linux-x64.tar.gz" \
     "Arqma-Wallet-Flutter-${t}-x86_64.AppImage" \
     "Arqma-Wallet-Flutter-${t}-windows-x64.zip" \

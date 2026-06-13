@@ -7,7 +7,7 @@
 #
 # Usage:
 #   tool/sign_macos_app.sh build/macos/Build/Products/Release/Arqma-Wallet.app
-#   tool/sign_macos_app.sh Arqma-Wallet.app --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos.dmg
+#   tool/sign_macos_app.sh Arqma-Wallet.app --dmg dist/Arqma-Wallet-Flutter-5.1.2-macos-signed.dmg
 #
 # Env:
 #   ARQMA_MACOS_SIGN_IDENTITY   explicit codesign identity (default: auto Developer ID Application)
@@ -16,6 +16,7 @@
 #   ARQMA_MACOS_NOTARIZE=1      submit to Apple notary service and staple ticket
 #   ARQMA_NOTARY_KEYCHAIN_PROFILE  notarytool keychain profile name
 #   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / DEVELOPMENT_TEAM  notarytool credentials
+#   ARQMA_MACOS_SIGN_STATUS_FILE  write "signed" or "unsigned" (for package_flutter_release.sh)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,6 +24,12 @@ GUI_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENTITLEMENTS="${GUI_ROOT}/macos/Runner/Release.entitlements"
 DMG_PATH=""
 NOTARIZE="${ARQMA_MACOS_NOTARIZE:-0}"
+
+write_sign_status() {
+  if [[ -n "${ARQMA_MACOS_SIGN_STATUS_FILE:-}" ]]; then
+    printf '%s\n' "$1" > "${ARQMA_MACOS_SIGN_STATUS_FILE}"
+  fi
+}
 
 usage() {
   echo "usage: $0 path/to/Arqma-Wallet.app [--dmg path/to/file.dmg]" >&2
@@ -59,6 +66,7 @@ APP="$(cd "$(dirname "${APP}")" && pwd)/$(basename "${APP}")"
 
 if [[ "${ARQMA_MACOS_SIGN_SKIP:-0}" == "1" ]]; then
   echo "[sign-macos] skip (ARQMA_MACOS_SIGN_SKIP=1)"
+  write_sign_status unsigned
   exit 0
 fi
 
@@ -83,6 +91,7 @@ if [[ -z "${IDENTITY}" ]]; then
     exit 1
   fi
   echo "${msg}; leaving adhoc signature"
+  write_sign_status unsigned
   exit 0
 fi
 
@@ -146,6 +155,7 @@ fi
 if [[ "${NOTARIZE}" != "1" ]]; then
   echo "[sign-macos] notarization skipped (set ARQMA_MACOS_NOTARIZE=1 to enable)"
   spctl -a -vv "${APP}" 2>&1 || true
+  write_sign_status signed
   exit 0
 fi
 
@@ -180,4 +190,5 @@ if [[ -n "${DMG_PATH}" && -f "${DMG_PATH}" ]]; then
 fi
 
 spctl -a -vv "${APP}" 2>&1 || true
+write_sign_status signed
 echo "[sign-macos] done"
