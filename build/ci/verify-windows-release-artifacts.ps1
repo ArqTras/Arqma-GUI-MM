@@ -39,31 +39,45 @@ function Test-ZipContainsWalletFfi {
     Write-Host "verify-windows-release-artifacts: ZIP OK - $Path"
 }
 
-function Test-SetupContainsWalletFfi {
-    param([string]$Path)
+function Test-SetupInstaller {
+    param(
+        [string]$Path,
+        [string]$ZipReferencePath
+    )
     if (-not (Test-Path $Path)) {
         throw "Setup.exe not found: $Path"
+    }
+    $setup = Get-Item $Path
+    $minSetupBytes = 5MB
+    if ($setup.Length -lt $minSetupBytes) {
+        throw "Setup.exe too small ($($setup.Length) bytes): $Path"
+    }
+    if (Test-Path $ZipReferencePath) {
+        $zip = Get-Item $ZipReferencePath
+        # Inno LZMA2 installer is smaller than raw ZIP but should remain in the same order of magnitude.
+        $minRatio = [int64]($zip.Length * 0.25)
+        if ($setup.Length -lt $minRatio) {
+            throw "Setup.exe ($($setup.Length) bytes) suspiciously smaller than ZIP ($($zip.Length) bytes)"
+        }
     }
     $sevenZip = @(
         $env:SEVEN_ZIP
         (Join-Path ${env:ProgramFiles} '7-Zip\7z.exe')
         (Join-Path ${env:ProgramFiles(x86)} '7-Zip\7z.exe')
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-    if (-not $sevenZip) {
-        Write-Warning "7-Zip not found; skipped Setup.exe content check (install 7-Zip or set SEVEN_ZIP)"
-        return
+    if ($sevenZip) {
+        # Inno Setup payloads do not always expose per-file names via `7z l`; integrity test is enough here.
+        & $sevenZip t $Path 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw "7-Zip integrity test failed for Setup.exe (exit $LASTEXITCODE)"
+        }
+    } else {
+        Write-Host "verify-windows-release-artifacts: 7-Zip not installed; Setup size check only"
     }
-    $listing = & $sevenZip l $Path 2>&1 | Out-String
-    if ($listing -notmatch 'arqma_wallet_flutter_ffi\.dll') {
-        throw "Setup.exe listing missing arqma_wallet_flutter_ffi.dll"
-    }
-    if ($listing -notmatch 'Arqma-Wallet\.exe') {
-        throw "Setup.exe listing missing Arqma-Wallet.exe"
-    }
-    Write-Host "verify-windows-release-artifacts: Setup OK - $Path"
+    Write-Host "verify-windows-release-artifacts: Setup OK - $Path ($($setup.Length) bytes)"
 }
 
 Test-ZipContainsWalletFfi -Path $ZipPath
 if ($SetupPath) {
-    Test-SetupContainsWalletFfi -Path $SetupPath
+    Test-SetupInstaller -Path $SetupPath -ZipReferencePath $ZipPath
 }

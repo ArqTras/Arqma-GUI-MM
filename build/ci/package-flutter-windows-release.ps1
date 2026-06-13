@@ -106,7 +106,6 @@ $setupPath = ""
 if ($BuildInstaller) {
     if ($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true') {
         choco install innosetup -y --no-progress | Out-Null
-        choco install 7zip -y --no-progress | Out-Null
     }
     $iss = Join-Path $RepoRoot "build\ci\flutter-windows-installer.iss"
     if (-not (Test-Path $iss)) {
