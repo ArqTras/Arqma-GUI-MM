@@ -8,7 +8,7 @@ description = "Rust wrapper for Arqma wallet2_api.h (native C++/FFI bridge)."
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-thiserror = "1"
+thiserror = "2"
 cxx = "1"
 
 [build-dependencies]
