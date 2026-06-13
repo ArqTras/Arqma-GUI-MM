@@ -16,6 +16,7 @@
 #define MyAppPublisher "Arqma"
 ; Output next to repo root (this .iss lives under build/ci/).
 #define RepoRoot "..\\..\\"
+#define AppIcon "{#RepoRoot}flutter\\arqma_wallet_gui\\windows\\runner\\resources\\app_icon.ico"
 
 [Setup]
 AppId={{E7F3A1B2-4C5D-6789-ABCD-EF0123456789}}
@@ -25,6 +26,8 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 OutputDir={#RepoRoot}
 OutputBaseFilename=Arqma-Wallet-Flutter-{#VersionSafe}-windows-x64-Setup
+SetupIconFile={#AppIcon}
+UninstallDisplayIcon={app}\app_icon.ico
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/ultra64
@@ -40,8 +43,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "{#SrcRelease}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"; IconFilename: "{app}\app_icon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\Arqma-Wallet.exe"; IconFilename: "{app}\app_icon.ico"
 
 [Run]
 Filename: "{app}\Arqma-Wallet.exe"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

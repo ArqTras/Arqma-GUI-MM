@@ -104,6 +104,11 @@ Get-Item $zipPath | Format-List Name, Length, LastWriteTime
 
 $setupPath = ""
 if ($BuildInstaller) {
+    $iconSrc = Join-Path $guiRoot "windows\runner\resources\app_icon.ico"
+    if (-not (Test-Path $iconSrc)) {
+        throw "Missing Windows app icon for installer: $iconSrc"
+    }
+    Copy-Item -Force $iconSrc (Join-Path $releaseDir "app_icon.ico")
     if ($env:CI -eq 'true' -or $env:GITHUB_ACTIONS -eq 'true') {
         choco install innosetup -y --no-progress | Out-Null
     }
