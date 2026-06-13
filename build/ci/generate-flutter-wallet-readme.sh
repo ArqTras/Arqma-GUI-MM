@@ -23,11 +23,19 @@ Installers and packages are attached to the [${TAG} release](https://github.com/
 |----------|--------|
 | **Windows** | \`Arqma-Wallet-Flutter-${TAG}-windows-x64.zip\`, \`Arqma-Wallet-Flutter-${TAG}-windows-x64-Setup.exe\` |
 | **Linux** | \`Arqma-Wallet-Flutter-${TAG}-linux-x64.tar.gz\`, \`Arqma-Wallet-Flutter-${TAG}-x86_64.AppImage\` |
-| **macOS** | \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.dmg\` (CI; adhoc) · \`…-macos-signed.*\` (local Developer ID build) |
+| **macOS (signed)** | \`Arqma-Wallet-Flutter-${TAG}-macos-signed.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos-signed.dmg\` — **Developer ID** signed + **notarized** (preferred) |
+| **macOS (unsigned)** | \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.zip\`, \`Arqma-Wallet-Flutter-${TAG}-macos-unsigned.dmg\` — CI adhoc only (when present) |
 | **Android** | \`Arqma-Wallet-Android-${TAG}.apk\`, \`Arqma-Wallet-Android-${TAG}.aab\` |
 | **iOS** | \`Arqma-Wallet-Mobile-${TAG}-ios-testflight.ipa\` (TestFlight / registered devices) |
 
 Checksum files: \`SHA256SUMS-android-${TAG}.txt\`, \`SHA256SUMS-ios.txt\` (when present).
+
+### macOS — signed vs unsigned
+
+- **Signed** (\`…-macos-signed.*\`): **Developer ID** signed and **notarized** by the ArqTras release maintainer. Preferred for end users; Gatekeeper should accept without extra steps.
+- **Unsigned** (\`…-macos-unsigned.*\`): **GitHub Actions CI** builds with adhoc signature only (not Developer ID). For developers or local re-signing.
+
+If macOS still blocks launch, remove quarantine: \`xattr -cr "/Applications/Arqma-Wallet.app"\`.
 
 ## Privacy & App Store
 

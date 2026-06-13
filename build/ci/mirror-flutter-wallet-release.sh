@@ -159,6 +159,8 @@ if gh release view "${TAG}" -R "${TARGET_REPO}" >/dev/null 2>&1; then
   echo "==> Replace existing release assets on ${TARGET_REPO}@${TAG}"
   bash "${ROOT}/build/ci/delete-github-release-assets.sh" "${TARGET_REPO}" "${TAG}"
   gh release upload "${TAG}" -R "${TARGET_REPO}" "${upload_paths[@]}"
+  echo "==> Update release notes on ${TARGET_REPO}@${TAG}"
+  gh release edit "${TAG}" -R "${TARGET_REPO}" --notes-file "${body_file}"
 else
   gh release create "${TAG}" -R "${TARGET_REPO}" \
     --title "Arqma Wallet ${TAG}" \
