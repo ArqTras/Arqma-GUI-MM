@@ -60,20 +60,7 @@ function Test-SetupInstaller {
             throw "Setup.exe ($($setup.Length) bytes) suspiciously smaller than ZIP ($($zip.Length) bytes)"
         }
     }
-    $sevenZip = @(
-        $env:SEVEN_ZIP
-        (Join-Path ${env:ProgramFiles} '7-Zip\7z.exe')
-        (Join-Path ${env:ProgramFiles(x86)} '7-Zip\7z.exe')
-    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-    if ($sevenZip) {
-        # Inno Setup payloads do not always expose per-file names via `7z l`; integrity test is enough here.
-        & $sevenZip t $Path 2>&1 | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "7-Zip integrity test failed for Setup.exe (exit $LASTEXITCODE)"
-        }
-    } else {
-        Write-Host "verify-windows-release-artifacts: 7-Zip not installed; Setup size check only"
-    }
+    # Inno Setup .exe is not a 7-Zip archive; ISCC success + ZIP/Release verify is sufficient.
     Write-Host "verify-windows-release-artifacts: Setup OK - $Path ($($setup.Length) bytes)"
 }
 
