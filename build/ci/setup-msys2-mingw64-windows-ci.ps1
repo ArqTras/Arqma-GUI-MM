@@ -1,4 +1,4 @@
-# MSYS2 MinGW64 for Windows desktop CI (replaces msys2/setup-msys2 when action download fails).
+# MSYS2 MinGW64 for Windows desktop CI (local runs; GitHub Actions uses msys2/setup-msys2@v2).
 $ErrorActionPreference = 'Stop'
 $msys = 'C:\msys64'
 if (-not (Test-Path $msys)) { throw "MSYS2 not found at $msys (expected on windows-latest)" }
@@ -24,10 +24,14 @@ $pkgs = @(
   'zip'
 ) -join ' '
 
-# pacman -Syu may terminate the MSYS2 shell mid-run; use separate invocations.
+# Refresh keyring when runner MSYS2 is stale (invalid PGP signature on pacman sync).
 foreach ($cmd in @(
-    'pacman -Syu --noconfirm'
-    'pacman -Syu --noconfirm'
+    'pacman-key --init'
+    'pacman-key --populate msys2'
+    'pacman -Sy --noconfirm msys2-keyring'
+    'pacman-key --populate msys2'
+    'pacman -Syuu --noconfirm'
+    'pacman -Syuu --noconfirm'
     "pacman -S --noconfirm --needed $pkgs"
 )) {
     & $bash -lc $cmd

@@ -25,4 +25,4 @@ if (-not (Test-Path (Join-Path $dst "arqmad.exe"))) {
   Write-Host "  Add upstream-built arqmad, or rely on ARQMA_BUILD_DIR / ARQMA_DAEMON (see docs/WALLET_RUST_PORT.md)."
   exit 0
 }
-Write-Host "[prepare-release-bins] OK — arqmad.exe present under src-tauri/bin."
+Write-Host "[prepare-release-bins] OK — arqmad.exe present under build/flutter-desktop-bin."

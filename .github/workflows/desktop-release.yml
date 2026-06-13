@@ -363,10 +363,29 @@ jobs:
           Write-Host "VersionSafe=$safe"
 
       - name: MSYS2 / MinGW64 (Windows — Flutter FFI runtime DLLs)
+        uses: msys2/setup-msys2@v2
         id: msys2
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: pwsh -NoProfile -File build/ci/setup-msys2-mingw64-windows-ci.ps1
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-boost
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-libsodium
+            mingw-w64-x86_64-zeromq
+            mingw-w64-x86_64-hidapi
+            mingw-w64-x86_64-readline
+            mingw-w64-x86_64-ncurses
+            mingw-w64-x86_64-unbound
+            mingw-w64-x86_64-lmdb
+            mingw-w64-x86_64-icu
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-libunwind
+            git
+            zip
 
       - uses: actions/setup-node@v4
         with:
