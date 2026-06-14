@@ -216,6 +216,8 @@ final class MobileNativeBridge implements NativeBridge {
   /// In-memory only — used to reopen the wallet after iOS suspend stranded the FFI session.
   String? _sessionWalletPassword;
 
+  String _sessionPrimaryAddress = '';
+
   /// iOS: set when the app backgrounds so [recoverWalletSessionAfterForeground] reopens FFI.
   bool _iosWalletSessionStale = false;
 
@@ -448,6 +450,103 @@ final class MobileNativeBridge implements NativeBridge {
       return true;
     }
     return _walletPasswordHashHex != emptyH;
+  }
+
+  Future<void> _ensureWalletListAddressPersisted(
+    String name,
+    String address,
+  ) async {
+    if (name.isEmpty || address.isEmpty) {
+      return;
+    }
+    final Map<String, dynamic>? cfg = _runtimeConfig;
+    if (cfg == null) {
+      return;
+    }
+    final String? wdir = walletFilesDir(cfg);
+    if (wdir == null || wdir.isEmpty) {
+      return;
+    }
+    final File addrFile =
+        File('$wdir${Platform.pathSeparator}$name.address.txt');
+    if (addrFile.existsSync()) {
+      try {
+        if (addrFile.readAsStringSync().trim().isNotEmpty) {
+          return;
+        }
+      } catch (_) {}
+    }
+    await _persistWalletAddressFile(name, address);
+  }
+
+  String? _parsePrimaryAddressFromGetAddress(Map<String, dynamic>? ga) {
+    if (ga == null || !walletJsonRpcNoError(ga)) {
+      return null;
+    }
+    final Object? res = ga['result'];
+    if (res is! Map) {
+      return null;
+    }
+    final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
+    final String top = '${rm['address'] ?? ''}'.trim();
+    if (top.isNotEmpty) {
+      return top;
+    }
+    final List<dynamic>? addrs = rm['addresses'] as List<dynamic>?;
+    if (addrs != null) {
+      for (final Object? row in addrs) {
+        if (row is Map) {
+          final String a = '${row['address'] ?? ''}'.trim();
+          if (a.isNotEmpty) {
+            return a;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _resolveWalletPrimaryAddress(ArqmaWalletRpcSession w) async {
+    for (int attempt = 0; attempt < 10; attempt++) {
+      try {
+        final Map<String, dynamic>? ga = await w
+            .call('get_address', <String, dynamic>{'account_index': 0})
+            .timeout(
+              Duration(seconds: 12 + attempt * 3),
+              onTimeout: () => null,
+            );
+        final String? addr = _parsePrimaryAddressFromGetAddress(ga);
+        if (addr != null && addr.isNotEmpty) {
+          return addr;
+        }
+      } catch (e, st) {
+        debugPrint('[MobileNative] resolveWalletPrimaryAddress: $e\n$st');
+      }
+      await Future<void>.delayed(Duration(milliseconds: 350 * (attempt + 1)));
+    }
+    return null;
+  }
+
+  Future<void> _waitWalletBackgroundIdle(
+    ArqmaWalletRpcSession w, {
+    Duration maxWait = const Duration(seconds: 90),
+  }) async {
+    final DateTime deadline = DateTime.now().add(maxWait);
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final Map<String, dynamic>? gh = await w
+            .call('getheight', <String, dynamic>{})
+            .timeout(const Duration(seconds: 15), onTimeout: () => null);
+        _applyGetheightFlags(gh);
+        if (!_whWalletBackgroundBusy) {
+          return;
+        }
+      } catch (e, st) {
+        debugPrint('[MobileNative] waitWalletBackgroundIdle: $e\n$st');
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
   }
 
   Future<void> _persistWalletMetaFile(
@@ -1990,6 +2089,12 @@ final class MobileNativeBridge implements NativeBridge {
         cp?.walletName == name && cp!.fullRescanUi == true;
 
     debugPrint('[MobileNative] recover: reopening wallet "$name"');
+    await _waitWalletBackgroundIdle(w);
+    if (_whWalletBackgroundBusy) {
+      debugPrint(
+          '[MobileNative] recover: defer reopen while wallet background busy');
+      return;
+    }
     if (!resumeRescan) {
       await _storeWalletToDiskIfSafe(reason: 'resume_reopen');
     }
@@ -2183,9 +2288,6 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   Future<bool> _walletRpcHealthy(ArqmaWalletRpcSession w) async {
-    if (Platform.isIOS && _iosWalletSessionStale) {
-      return false;
-    }
     try {
       final Map<String, dynamic>? gh = await w
           .call('getheight', <String, dynamic>{})
@@ -2416,10 +2518,11 @@ final class MobileNativeBridge implements NativeBridge {
 
       await _restoreUiFromCheckpointIfNeeded();
 
-      if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
+      if (await _walletRpcHealthy(w)) {
         _walletTxListClearedForRescan = false;
         _whFetchTxPending = true;
         unawaited(_walletHeartbeatTick());
+        _iosWalletSessionStale = false;
         return;
       }
 
@@ -2431,7 +2534,7 @@ final class MobileNativeBridge implements NativeBridge {
       } catch (e, st) {
         debugPrint('[MobileNative] recover refresh: $e\n$st');
       }
-      if (!_iosWalletSessionStale && await _walletRpcHealthy(w)) {
+      if (await _walletRpcHealthy(w)) {
         _walletTxListClearedForRescan = false;
         _whFetchTxPending = true;
         unawaited(_walletHeartbeatTick());
@@ -2814,12 +2917,11 @@ final class MobileNativeBridge implements NativeBridge {
       if (_walletFullRescanUi) 'allow_lower_height': true,
     };
     if (ga != null && walletJsonRpcNoError(ga)) {
-      final Object? res = ga['result'];
-      if (res is Map) {
-        final String addr = '${res['address'] ?? ''}'.trim();
-        if (addr.isNotEmpty) {
-          info['address'] = addr;
-        }
+      final String? addr = _parsePrimaryAddressFromGetAddress(ga);
+      if (addr != null && addr.isNotEmpty) {
+        info['address'] = addr;
+        _sessionPrimaryAddress = addr;
+        unawaited(_ensureWalletListAddressPersisted(name, addr));
       }
     }
     if (gb != null && walletJsonRpcNoError(gb)) {
@@ -3375,15 +3477,9 @@ final class MobileNativeBridge implements NativeBridge {
       }
     }
 
-    String? address;
-    if (walletJsonRpcNoError(ga) && ga != null) {
-      final Object? res = ga['result'];
-      if (res is Map) {
-        final String a = '${res['address'] ?? ''}'.trim();
-        if (a.isNotEmpty) {
-          address = a;
-        }
-      }
+    String? address = _parsePrimaryAddressFromGetAddress(ga);
+    if (address == null || address.isEmpty) {
+      address = await _resolveWalletPrimaryAddress(w);
     }
 
     if (isNewWallet) {
@@ -3425,6 +3521,7 @@ final class MobileNativeBridge implements NativeBridge {
     }
 
     if (address != null) {
+      _sessionPrimaryAddress = address;
       await _persistWalletAddressFile(name, address);
     }
     await _persistWalletMetaFile(
@@ -4065,9 +4162,15 @@ final class MobileNativeBridge implements NativeBridge {
         debugPrint(
             '[MobileNative] close_wallet during rescan — skip store; native close waits for background job');
       }
+      final String closeName = _openedWalletDisplayName;
+      final String closeAddr = _sessionPrimaryAddress;
       _openedWalletDisplayName = '';
       _walletPasswordHashHex = null;
       _sessionWalletPassword = null;
+      _sessionPrimaryAddress = '';
+      if (closeName.isNotEmpty && closeAddr.isNotEmpty) {
+        unawaited(_ensureWalletListAddressPersisted(closeName, closeAddr));
+      }
       _walletTxListClearedForRescan = false;
       _walletFullRescanUi = false;
       _backgroundPulseCount = 0;

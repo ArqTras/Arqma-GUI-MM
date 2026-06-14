@@ -121,6 +121,18 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     return (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   }
 
+  static String _walletRowAddress(Map<String, dynamic> w) {
+    final Object? raw = w['address'];
+    if (raw == null) {
+      return '';
+    }
+    final String s = '$raw'.trim();
+    if (s.isEmpty || s == 'null') {
+      return '';
+    }
+    return s;
+  }
+
   Future<void> _maybeOfferFaceIdEnable({
     required LocaleController loc,
     required String netType,
@@ -502,6 +514,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
     }
 
     Widget walletRow(Map<String, dynamic> w) {
+      final String displayAddress = _walletRowAddress(w);
       return Card(
         color: const Color(0xFF161410),
         elevation: 0,
@@ -514,7 +527,7 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
         ),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: AddressIdenticon(address: '${w['address'] ?? ''}', size: 44),
+          leading: AddressIdenticon(address: displayAddress, size: 44),
           title: Text(
             '${w['name']}',
             style: const TextStyle(
@@ -523,15 +536,17 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
               color: ArqmaColors.textPrimary,
             ),
           ),
-          subtitle: Text(
-            '${w['address']}',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11,
-              color: ArqmaColors.textMuted,
-              height: 1.35,
-            ),
-          ),
+          subtitle: displayAddress.isEmpty
+              ? null
+              : Text(
+                  displayAddress,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: ArqmaColors.textMuted,
+                    height: 1.35,
+                  ),
+                ),
           onTap: () => _openWallet(w),
           onLongPress: () => _showWalletDeleteMenu(w),
           trailing: PopupMenuButton<String>(
@@ -539,7 +554,9 @@ class _WalletSelectIndexPageState extends State<WalletSelectIndexPage> {
               if (v == 'open') {
                 _openWallet(w);
               } else if (v == 'copy') {
-                _copyAddress('${w['address']}');
+                if (displayAddress.isNotEmpty) {
+                  _copyAddress(displayAddress);
+                }
               } else if (v == 'delete') {
                 unawaited(_confirmAndDeleteWallet(w));
               }
