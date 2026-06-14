@@ -12,6 +12,7 @@ class WalletSessionCheckpoint {
     required this.unlockedBalance,
     required this.fullRescanUi,
     required this.savedAtMs,
+    this.txMaxHeight = 0,
   });
 
   final String walletName;
@@ -21,6 +22,9 @@ class WalletSessionCheckpoint {
   final int unlockedBalance;
   final bool fullRescanUi;
   final int savedAtMs;
+
+  /// Newest tx block height from the last successful tx list emit.
+  final int txMaxHeight;
 
   static const String _prefsKey = 'arqma_wallet_session_checkpoint_v1';
 
@@ -32,6 +36,7 @@ class WalletSessionCheckpoint {
         'unlockedBalance': unlockedBalance,
         'fullRescanUi': fullRescanUi,
         'savedAtMs': savedAtMs,
+        'txMaxHeight': txMaxHeight,
       };
 
   static WalletSessionCheckpoint? fromJson(Object? raw) {
@@ -51,6 +56,7 @@ class WalletSessionCheckpoint {
       unlockedBalance: (m['unlockedBalance'] as num?)?.toInt() ?? 0,
       fullRescanUi: m['fullRescanUi'] == true,
       savedAtMs: (m['savedAtMs'] as num?)?.toInt() ?? 0,
+      txMaxHeight: (m['txMaxHeight'] as num?)?.toInt() ?? 0,
     );
   }
 

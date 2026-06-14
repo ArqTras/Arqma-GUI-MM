@@ -224,6 +224,8 @@ final class MobileNativeBridge implements NativeBridge {
   int _resumeTipStableTicks = 0;
   static const int _kResumeSuspiciousHeightJumpBlocks = 720 * 12;
 
+  bool _walletOpenHistoryPending = false;
+
   bool _resumePasswordUiPending = false;
 
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
@@ -334,6 +336,7 @@ final class MobileNativeBridge implements NativeBridge {
     _resumeScanBaselineHeight = 0;
     _resumeScanReconcilePending = false;
     _resumeTipStableTicks = 0;
+    _walletOpenHistoryPending = false;
   }
 
   int _adoptWalletHeightAfterResume(int parsedFromRpc, int daemonTip) {
@@ -367,23 +370,15 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   int _resolveCheckpointHeight(int liveHeight) {
-    int height = liveHeight > 0 ? liveHeight : _whStoredHeight;
-    final int dh = _daemonChainTipHeight;
-    if (dh <= 0 || _whStoredHeight <= 0 || height <= 0) {
-      return height;
-    }
-    final bool suspiciousTip = _whLastEmittedTxMaxHeight == 0 &&
-        _whStoredBalance == 0 &&
-        walletHeightNearDaemonTip(height, dh) &&
-        !walletHeightNearDaemonTip(_whStoredHeight, dh) &&
-        height > _whStoredHeight + _kResumeSuspiciousHeightJumpBlocks;
-    if (suspiciousTip) {
+    final int live = liveHeight > 0 ? liveHeight : _whStoredHeight;
+    if (_whStoredHeight > 0 &&
+        live > _whStoredHeight + _kResumeSuspiciousHeightJumpBlocks) {
       debugPrint(
-        '[MobileNative] checkpoint height clamp $height -> $_whStoredHeight (suspicious tip at suspend)',
+        '[MobileNative] checkpoint height clamp $live -> $_whStoredHeight (RPC jump at suspend)',
       );
       return _whStoredHeight;
     }
-    return height;
+    return live > 0 ? live : _whStoredHeight;
   }
 
   Future<int> _reconcileOpenedHeightFromCheckpoint({
@@ -391,25 +386,33 @@ final class MobileNativeBridge implements NativeBridge {
     required int parsedHeight,
     required int daemonTip,
   }) async {
-    if (parsedHeight <= 0 || daemonTip <= 0) {
+    if (parsedHeight <= 0) {
       return parsedHeight;
     }
     final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
     if (cp == null || cp.walletName != name || cp.height <= 0) {
       return parsedHeight;
     }
-    final bool cpMidScan = !walletHeightNearDaemonTip(cp.height, daemonTip);
-    final bool suspiciousJump = parsedHeight >
-            cp.height + _kResumeSuspiciousHeightJumpBlocks &&
-        walletHeightNearDaemonTip(parsedHeight, daemonTip);
-    if (!cpMidScan && !suspiciousJump) {
+    if (cp.txMaxHeight > 0 || cp.balance > 0) {
+      _walletOpenHistoryPending = true;
+    }
+    final bool largeJump =
+        parsedHeight > cp.height + _kResumeSuspiciousHeightJumpBlocks;
+    final bool cpMidScan = daemonTip > 0 &&
+        !walletHeightNearDaemonTip(cp.height, daemonTip);
+    final bool suspiciousTipJump = largeJump &&
+        (daemonTip <= 0 || walletHeightNearDaemonTip(parsedHeight, daemonTip));
+    if (!largeJump && !cpMidScan && !suspiciousTipJump) {
       return parsedHeight;
     }
     debugPrint(
-      '[MobileNative] open reconcile baseline=${cp.height} parsed=$parsedHeight tip=$daemonTip',
+      '[MobileNative] open reconcile baseline=${cp.height} parsed=$parsedHeight tip=$daemonTip txMax=${cp.txMaxHeight}',
     );
     _beginResumeScanReconcile(baselineHeight: cp.height);
-    return _adoptWalletHeightAfterResume(parsedHeight, daemonTip);
+    if (daemonTip > 0) {
+      return _adoptWalletHeightAfterResume(parsedHeight, daemonTip);
+    }
+    return cp.height;
   }
 
   void _syncIosWalletScanLiveActivity({
@@ -1883,6 +1886,7 @@ final class MobileNativeBridge implements NativeBridge {
       _walletFullRescanUi ||
       _walletSessionStale ||
       _resumeScanReconcilePending ||
+      _walletOpenHistoryPending ||
       walletHeightScanningBehind(_whStoredHeight, _daemonChainTipHeight);
 
   /// Oxen `wallet-rpc.js::heartbeatAction` + Tauri `wallet_heartbeat.rs`.
@@ -2224,6 +2228,7 @@ final class MobileNativeBridge implements NativeBridge {
         unlockedBalance: _whStoredUnlocked,
         fullRescanUi: _walletFullRescanUi,
         savedAtMs: DateTime.now().millisecondsSinceEpoch,
+        txMaxHeight: _whLastEmittedTxMaxHeight,
       ),
     );
   }
@@ -2720,6 +2725,12 @@ final class MobileNativeBridge implements NativeBridge {
       }
       final List<dynamic> list =
           _mergeWalletRpcTransfersList(Map<String, dynamic>.from(res));
+      if (list.isEmpty && _walletOpenHistoryPending) {
+        debugPrint(
+            '[MobileNative] skip empty get_transfers emit (open history pending)');
+        _whFetchTxPending = true;
+        return;
+      }
       if (list.isEmpty &&
           !_walletTxListClearedForRescan &&
           !_walletFullRescanUi &&
@@ -2740,6 +2751,11 @@ final class MobileNativeBridge implements NativeBridge {
       emittedOk = true;
       _walletTxListClearedForRescan = false;
       _whFetchTxPending = false;
+      if (_walletOpenHistoryPending && list.isNotEmpty) {
+        _walletOpenHistoryPending = false;
+      } else if (_walletOpenHistoryPending && list.isEmpty) {
+        _whFetchTxPending = true;
+      }
       if (_openedWalletDisplayName == walletNameAtStart) {
         await _emitWalletAddressListFromRpc(w);
       }
@@ -3475,6 +3491,13 @@ final class MobileNativeBridge implements NativeBridge {
     _openedWalletDisplayName = name;
     final int ts = DateTime.now().millisecondsSinceEpoch;
     _clearResumeScanReconcile();
+    final WalletSessionCheckpoint? cpExisting =
+        await WalletSessionCheckpoint.load();
+    if (cpExisting != null &&
+        cpExisting.walletName == name &&
+        (cpExisting.txMaxHeight > 0 || cpExisting.balance > 0)) {
+      _walletOpenHistoryPending = true;
+    }
     _whWalletBackgroundBusy = false;
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
@@ -3498,6 +3521,13 @@ final class MobileNativeBridge implements NativeBridge {
           .timeout(const Duration(seconds: 8), onTimeout: () => null);
     } catch (e, st) {
       debugPrint('[MobileNative] post-open refresh kick: $e\n$st');
+    }
+
+    if (_daemonChainTipHeight <= 0) {
+      final Map<String, dynamic>? cfg = _runtimeConfig;
+      if (cfg != null) {
+        await _heartbeatTick(cfg);
+      }
     }
 
     final List<Map<String, dynamic>?> postOpen = await Future.wait(
@@ -3544,6 +3574,14 @@ final class MobileNativeBridge implements NativeBridge {
         unl = (rm['unlocked_balance'] as num?)?.toInt() ??
             (rm['unlocked'] as num?)?.toInt() ??
             0;
+      }
+    }
+    if (cpExisting != null && cpExisting.walletName == name) {
+      if (bal == 0 && cpExisting.balance > 0) {
+        bal = cpExisting.balance;
+      }
+      if (unl == 0 && cpExisting.unlockedBalance > 0) {
+        unl = cpExisting.unlockedBalance;
       }
     }
 
