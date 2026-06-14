@@ -354,17 +354,22 @@ final class MobileNativeBridge implements NativeBridge {
       return h;
     }
     final int baseline = _resumeScanBaselineHeight;
-    if (baseline > 0 &&
-        h > baseline + kWalletDaemonTipToleranceBlocks &&
-        h - baseline > _kResumeSuspiciousHeightJumpBlocks &&
-        walletHeightNearDaemonTip(h, daemonTip)) {
+    if (baseline <= 0) {
+      return h;
+    }
+    final bool falseTipJump = walletHeightNearDaemonTip(h, daemonTip) &&
+        !walletHeightNearDaemonTip(baseline, daemonTip);
+    final bool largeTipJump = h > baseline + _kResumeSuspiciousHeightJumpBlocks &&
+        walletHeightNearDaemonTip(h, daemonTip);
+    if (h > baseline + kWalletDaemonTipToleranceBlocks &&
+        (falseTipJump || largeTipJump)) {
       debugPrint(
-        '[MobileNative] resume height clamp $h -> $baseline (stale tip jump)',
+        '[MobileNative] resume height clamp $h -> $baseline (${falseTipJump ? "false tip" : "stale tip jump"})',
       );
       _resumeTipStableTicks = 0;
       return baseline;
     }
-    if (h > baseline) {
+    if (h > baseline && !falseTipJump) {
       _resumeScanBaselineHeight = h;
     }
     if (walletHeightNearDaemonTip(h, daemonTip) && !_whWalletBackgroundBusy) {
@@ -2474,6 +2479,30 @@ final class MobileNativeBridge implements NativeBridge {
       });
       return;
     }
+    final int baseline = _checkpointScanBaseline(cp);
+    final int dh = _daemonChainTipHeight;
+    if (baseline > 0 &&
+        dh > 0 &&
+        walletHeightNearDaemonTip(_whStoredHeight, dh) &&
+        !walletHeightNearDaemonTip(baseline, dh)) {
+      _applyCheckpointSessionFields(cp);
+      _beginResumeScanReconcile(baselineHeight: baseline);
+      _whFetchTxPending = true;
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': name,
+          'height': _whStoredHeight,
+          'balance': _whStoredBalance,
+          'unlocked_balance': _whStoredUnlocked,
+          'full_rescan_ui': _walletFullRescanUi,
+          'wallet_syncing': true,
+          if (_walletFullRescanUi) 'allow_lower_height': true,
+          'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        },
+      });
+      return;
+    }
     if (cp.height <= _whStoredHeight && !_walletFullRescanUi) {
       return;
     }
@@ -2654,8 +2683,17 @@ final class MobileNativeBridge implements NativeBridge {
     int newH = _whStoredHeight;
     if (gh != null && walletJsonRpcNoError(gh)) {
       _applyGetheightFlags(gh);
+      final int? daemonFromGh = walletDaemonHeightFromGetheight(gh);
+      if (daemonFromGh != null && daemonFromGh > 0) {
+        _daemonChainTipHeight = daemonFromGh;
+      }
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null && parsed > 0) {
+        await _reconcileOpenedHeightFromCheckpoint(
+          name: name,
+          parsedHeight: parsed,
+          daemonTip: _daemonChainTipHeight,
+        );
         newH = _adoptWalletHeightAfterResume(parsed, _daemonChainTipHeight);
       }
     }
