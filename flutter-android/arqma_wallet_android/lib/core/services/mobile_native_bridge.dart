@@ -219,6 +219,11 @@ final class MobileNativeBridge implements NativeBridge {
   /// Set when the app backgrounds so [recoverWalletSessionAfterForeground] reconciles RPC.
   bool _walletSessionStale = false;
 
+  int _resumeScanBaselineHeight = 0;
+  bool _resumeScanReconcilePending = false;
+  int _resumeTipStableTicks = 0;
+  static const int _kResumeSuspiciousHeightJumpBlocks = 720 * 12;
+
   bool _resumePasswordUiPending = false;
 
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
@@ -311,6 +316,54 @@ final class MobileNativeBridge implements NativeBridge {
       _rescanProgressPeak = parsedFromRpc;
     }
     return parsedFromRpc;
+  }
+
+  void _beginResumeScanReconcile({required int baselineHeight}) {
+    if (baselineHeight <= 0) {
+      return;
+    }
+    _resumeScanBaselineHeight = baselineHeight;
+    _resumeScanReconcilePending = true;
+    _resumeTipStableTicks = 0;
+    if (_whStoredHeight > baselineHeight + kWalletDaemonTipToleranceBlocks) {
+      _whStoredHeight = baselineHeight;
+    }
+  }
+
+  void _clearResumeScanReconcile() {
+    _resumeScanBaselineHeight = 0;
+    _resumeScanReconcilePending = false;
+    _resumeTipStableTicks = 0;
+  }
+
+  int _adoptWalletHeightAfterResume(int parsedFromRpc, int daemonTip) {
+    final int h = _walletHeightForHeartbeat(parsedFromRpc, daemonTip);
+    if (!_resumeScanReconcilePending || daemonTip <= 0) {
+      return h;
+    }
+    final int baseline = _resumeScanBaselineHeight;
+    if (baseline > 0 &&
+        h > baseline + kWalletDaemonTipToleranceBlocks &&
+        h - baseline > _kResumeSuspiciousHeightJumpBlocks &&
+        walletHeightNearDaemonTip(h, daemonTip)) {
+      debugPrint(
+        '[MobileNative] resume height clamp $h -> $baseline (stale tip jump)',
+      );
+      _resumeTipStableTicks = 0;
+      return baseline;
+    }
+    if (h > baseline) {
+      _resumeScanBaselineHeight = h;
+    }
+    if (walletHeightNearDaemonTip(h, daemonTip) && !_whWalletBackgroundBusy) {
+      _resumeTipStableTicks++;
+      if (_resumeTipStableTicks >= 2) {
+        _clearResumeScanReconcile();
+      }
+    } else {
+      _resumeTipStableTicks = 0;
+    }
+    return h;
   }
 
   void _syncIosWalletScanLiveActivity({
@@ -1783,6 +1836,7 @@ final class MobileNativeBridge implements NativeBridge {
       _whWalletBackgroundBusy ||
       _walletFullRescanUi ||
       _walletSessionStale ||
+      _resumeScanReconcilePending ||
       walletHeightScanningBehind(_whStoredHeight, _daemonChainTipHeight);
 
   /// Oxen `wallet-rpc.js::heartbeatAction` + Tauri `wallet_heartbeat.rs`.
@@ -2097,11 +2151,29 @@ final class MobileNativeBridge implements NativeBridge {
     if (name.isEmpty) {
       return;
     }
+    int height = _whStoredHeight;
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w != null) {
+      try {
+        final Map<String, dynamic>? gh = await w
+            .call('getheight', <String, dynamic>{})
+            .timeout(const Duration(seconds: 15), onTimeout: () => null);
+        if (walletJsonRpcNoError(gh)) {
+          _applyGetheightFlags(gh);
+          final int? live = walletHeightFromGetheight(gh);
+          if (live != null && live > 0) {
+            height = live;
+          }
+        }
+      } catch (e, st) {
+        debugPrint('[MobileNative] checkpoint getheight: $e\n$st');
+      }
+    }
     await WalletSessionCheckpoint.save(
       WalletSessionCheckpoint(
         walletName: name,
         netType: _sessionNetType(),
-        height: _whStoredHeight,
+        height: height,
         balance: _whStoredBalance,
         unlockedBalance: _whStoredUnlocked,
         fullRescanUi: _walletFullRescanUi,
@@ -2163,6 +2235,9 @@ final class MobileNativeBridge implements NativeBridge {
     _whStoredUnlocked =
         cp.unlockedBalance > 0 ? cp.unlockedBalance : _whStoredUnlocked;
     if (_walletSessionStale) {
+      _beginResumeScanReconcile(
+        baselineHeight: cp.height > 0 ? cp.height : _whStoredHeight,
+      );
       _whFetchTxPending = true;
       _emit(<String, dynamic>{
         'event': 'set_wallet_info',
@@ -2361,7 +2436,7 @@ final class MobileNativeBridge implements NativeBridge {
       _applyGetheightFlags(gh);
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null && parsed > 0) {
-        newH = _walletHeightForHeartbeat(parsed, _daemonChainTipHeight);
+        newH = _adoptWalletHeightAfterResume(parsed, _daemonChainTipHeight);
       }
     }
     if (gb != null && walletJsonRpcNoError(gb)) {
@@ -2763,7 +2838,7 @@ final class MobileNativeBridge implements NativeBridge {
     if (ghOk) {
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null) {
-        newH = _walletHeightForHeartbeat(parsed, dh);
+        newH = _adoptWalletHeightAfterResume(parsed, dh);
       }
       walletDaemonFromGh = walletDaemonHeightFromGetheight(gh);
     }
@@ -3347,6 +3422,7 @@ final class MobileNativeBridge implements NativeBridge {
     }
     _openedWalletDisplayName = name;
     final int ts = DateTime.now().millisecondsSinceEpoch;
+    _clearResumeScanReconcile();
     _whWalletBackgroundBusy = false;
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
