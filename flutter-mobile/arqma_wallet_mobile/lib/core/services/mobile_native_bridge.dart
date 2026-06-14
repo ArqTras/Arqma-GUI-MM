@@ -230,6 +230,11 @@ final class MobileNativeBridge implements NativeBridge {
   /// Cold reopen: checkpoint had txs/balance — keep syncing until history is refetched.
   bool _walletOpenHistoryPending = false;
 
+  /// Monotonic scan height — ignores one-shot RPC jumps to chain tip.
+  int _trustedScanHeight = 0;
+  DateTime? _lastUiCheckpointWriteMs;
+  static const Duration _kUiCheckpointWriteInterval = Duration(seconds: 20);
+
   bool _resumePasswordUiPending = false;
 
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
@@ -268,6 +273,9 @@ final class MobileNativeBridge implements NativeBridge {
 
   /// Newest `height` field from the last successful `set_wallet_transactions` emit.
   int _whLastEmittedTxMaxHeight = 0;
+
+  /// Tx scan cap from checkpoint until open history is refetched (survives `_whLastEmittedTxMaxHeight = 0` on open).
+  int _sessionCheckpointTxMaxHeight = 0;
 
   /// Throttle catch-up `get_transfers` when the footer is at tip but the tx list lags.
   DateTime? _walletXferTipCatchUpThrottleUntil;
@@ -336,11 +344,13 @@ final class MobileNativeBridge implements NativeBridge {
     }
   }
 
-  void _clearResumeScanReconcile() {
+  void _clearResumeScanReconcile({bool clearHistoryPending = true}) {
     _resumeScanBaselineHeight = 0;
     _resumeScanReconcilePending = false;
     _resumeTipStableTicks = 0;
-    _walletOpenHistoryPending = false;
+    if (clearHistoryPending) {
+      _walletOpenHistoryPending = false;
+    }
   }
 
   /// While reconciling after sleep, ignore a one-shot jump to chain tip from stale RPC.
@@ -365,7 +375,7 @@ final class MobileNativeBridge implements NativeBridge {
     }
     if (walletHeightNearDaemonTip(h, daemonTip) && !_whWalletBackgroundBusy) {
       _resumeTipStableTicks++;
-      if (_resumeTipStableTicks >= 2) {
+      if (_resumeTipStableTicks >= 2 && !_walletOpenHistoryPending) {
         _clearResumeScanReconcile();
       }
     } else {
@@ -374,16 +384,101 @@ final class MobileNativeBridge implements NativeBridge {
     return h;
   }
 
-  int _resolveCheckpointHeight(int liveHeight) {
-    final int live = liveHeight > 0 ? liveHeight : _whStoredHeight;
-    if (_whStoredHeight > 0 &&
-        live > _whStoredHeight + _kResumeSuspiciousHeightJumpBlocks) {
-      debugPrint(
-        '[MobileNative] checkpoint height clamp $live -> $_whStoredHeight (RPC jump at suspend)',
-      );
-      return _whStoredHeight;
+  void _noteTrustedScanHeight(int h) {
+    if (h <= 0) {
+      return;
     }
-    return live > 0 ? live : _whStoredHeight;
+    if (_trustedScanHeight <= 0) {
+      _trustedScanHeight = h;
+      return;
+    }
+    if (h <= _trustedScanHeight + _kResumeSuspiciousHeightJumpBlocks) {
+      if (h > _trustedScanHeight) {
+        _trustedScanHeight = h;
+      }
+    }
+  }
+
+  int _checkpointScanBaseline(WalletSessionCheckpoint cp) {
+    int baseline = cp.height;
+    if (cp.trustedScanHeight > 0) {
+      if (cp.trustedScanHeight < baseline) {
+        baseline = cp.trustedScanHeight;
+      }
+    }
+    final int txMax = cp.txMaxHeight > 0
+        ? cp.txMaxHeight
+        : _sessionCheckpointTxMaxHeight;
+    if (txMax > 0 &&
+        baseline > txMax + kWalletDaemonTipToleranceBlocks) {
+      baseline = txMax;
+    }
+    return baseline;
+  }
+
+  int get _effectiveCheckpointTxMaxHeight =>
+      _whLastEmittedTxMaxHeight > 0
+          ? _whLastEmittedTxMaxHeight
+          : _sessionCheckpointTxMaxHeight;
+
+  void _applyCheckpointSessionFields(WalletSessionCheckpoint cp) {
+    if (cp.trustedScanHeight > 0) {
+      _trustedScanHeight = cp.trustedScanHeight;
+    }
+    if (cp.txMaxHeight > 0) {
+      _sessionCheckpointTxMaxHeight = cp.txMaxHeight;
+    }
+    if (cp.txMaxHeight > 0 || cp.balance > 0) {
+      _walletOpenHistoryPending = true;
+    }
+  }
+
+  void _resetWalletResumeSessionState() {
+    _clearResumeScanReconcile();
+    _trustedScanHeight = 0;
+    _sessionCheckpointTxMaxHeight = 0;
+    _lastUiCheckpointWriteMs = null;
+  }
+
+  int _resolveCheckpointHeight(int liveHeight) {
+    int height = liveHeight > 0 ? liveHeight : _whStoredHeight;
+    if (_whStoredHeight > 0 &&
+        height > _whStoredHeight + _kResumeSuspiciousHeightJumpBlocks) {
+      debugPrint(
+        '[MobileNative] checkpoint height clamp $height -> $_whStoredHeight (RPC jump at suspend)',
+      );
+      height = _whStoredHeight;
+    }
+    if (_whLastEmittedTxMaxHeight > 0 &&
+        height > _whLastEmittedTxMaxHeight + _kResumeSuspiciousHeightJumpBlocks) {
+      final int cap = _whStoredHeight > _whLastEmittedTxMaxHeight
+          ? _whStoredHeight
+          : _whLastEmittedTxMaxHeight;
+      debugPrint(
+        '[MobileNative] checkpoint height clamp $height -> $cap (ahead of tx scan)',
+      );
+      height = cap;
+    } else {
+      final int txCap = _effectiveCheckpointTxMaxHeight;
+      if (txCap > 0 &&
+          height > txCap + _kResumeSuspiciousHeightJumpBlocks) {
+        final int cap =
+            _whStoredHeight > txCap ? _whStoredHeight : txCap;
+        debugPrint(
+          '[MobileNative] checkpoint height clamp $height -> $cap (ahead of session tx scan)',
+        );
+        height = cap;
+      }
+    }
+    if (_trustedScanHeight > 0 &&
+        height > _trustedScanHeight + _kResumeSuspiciousHeightJumpBlocks) {
+      debugPrint(
+        '[MobileNative] checkpoint height clamp $height -> $_trustedScanHeight (trusted scan)',
+      );
+      height = _trustedScanHeight;
+    }
+    _noteTrustedScanHeight(height);
+    return height > 0 ? height : _whStoredHeight;
   }
 
   Future<int> _reconcileOpenedHeightFromCheckpoint({
@@ -395,29 +490,65 @@ final class MobileNativeBridge implements NativeBridge {
       return parsedHeight;
     }
     final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
-    if (cp == null || cp.walletName != name || cp.height <= 0) {
+    if (cp == null || cp.walletName != name) {
       return parsedHeight;
     }
-    if (cp.txMaxHeight > 0 || cp.balance > 0) {
+    final int baseline = _checkpointScanBaseline(cp);
+    if (baseline <= 0) {
+      return parsedHeight;
+    }
+    _applyCheckpointSessionFields(cp);
+    final bool falseTipAtOpen = daemonTip > 0 &&
+        walletHeightNearDaemonTip(parsedHeight, daemonTip) &&
+        !walletHeightNearDaemonTip(baseline, daemonTip);
+    if (falseTipAtOpen) {
       _walletOpenHistoryPending = true;
     }
     final bool largeJump =
-        parsedHeight > cp.height + _kResumeSuspiciousHeightJumpBlocks;
+        parsedHeight > baseline + _kResumeSuspiciousHeightJumpBlocks;
     final bool cpMidScan = daemonTip > 0 &&
-        !walletHeightNearDaemonTip(cp.height, daemonTip);
-    final bool suspiciousTipJump = largeJump &&
-        (daemonTip <= 0 || walletHeightNearDaemonTip(parsedHeight, daemonTip));
-    if (!largeJump && !cpMidScan && !suspiciousTipJump) {
+        !walletHeightNearDaemonTip(baseline, daemonTip);
+    if (!largeJump && !cpMidScan && !falseTipAtOpen) {
       return parsedHeight;
     }
     debugPrint(
-      '[MobileNative] open reconcile baseline=${cp.height} parsed=$parsedHeight tip=$daemonTip txMax=${cp.txMaxHeight}',
+      '[MobileNative] open reconcile baseline=$baseline parsed=$parsedHeight tip=$daemonTip txMax=${cp.txMaxHeight} trusted=${cp.trustedScanHeight}',
     );
-    _beginResumeScanReconcile(baselineHeight: cp.height);
+    _beginResumeScanReconcile(baselineHeight: baseline);
     if (daemonTip > 0) {
       return _adoptWalletHeightAfterResume(parsedHeight, daemonTip);
     }
-    return cp.height;
+    return baseline;
+  }
+
+  Future<void> _kickRefreshFromTrustedHeightIfNeeded(
+    ArqmaWalletRpcSession w,
+    int openedHeight,
+  ) async {
+    if (!_resumeScanReconcilePending && !_walletOpenHistoryPending) {
+      return;
+    }
+    int start = _resumeScanBaselineHeight;
+    if (start <= 0 && _trustedScanHeight > 0) {
+      start = _trustedScanHeight;
+    }
+    if (start <= 0) {
+      return;
+    }
+    final int dh = _daemonChainTipHeight;
+    if (dh > 0 && start >= dh - kWalletDaemonTipToleranceBlocks) {
+      return;
+    }
+    try {
+      debugPrint(
+        '[MobileNative] refresh from trusted height $start (opened=$openedHeight tip=$dh)',
+      );
+      await w
+          .call('refresh', <String, dynamic>{'start_height': start})
+          .timeout(const Duration(minutes: 2), onTimeout: () => null);
+    } catch (e, st) {
+      debugPrint('[MobileNative] refresh from trusted height: $e\n$st');
+    }
   }
 
   void _syncIosWalletScanLiveActivity({
@@ -2339,7 +2470,37 @@ final class MobileNativeBridge implements NativeBridge {
         unlockedBalance: _whStoredUnlocked,
         fullRescanUi: _walletFullRescanUi,
         savedAtMs: DateTime.now().millisecondsSinceEpoch,
-        txMaxHeight: _whLastEmittedTxMaxHeight,
+        txMaxHeight: _effectiveCheckpointTxMaxHeight,
+        trustedScanHeight: _trustedScanHeight,
+      ),
+    );
+  }
+
+  /// Lightweight checkpoint from UI state (no live RPC) — survives abrupt kill during scan.
+  Future<void> _writeSessionCheckpointFromUiState() async {
+    final String name = _openedWalletDisplayName;
+    if (name.isEmpty) {
+      return;
+    }
+    final DateTime now = DateTime.now();
+    if (_lastUiCheckpointWriteMs != null &&
+        now.difference(_lastUiCheckpointWriteMs!) <
+            _kUiCheckpointWriteInterval) {
+      return;
+    }
+    _lastUiCheckpointWriteMs = now;
+    final int height = _resolveCheckpointHeight(_whStoredHeight);
+    await WalletSessionCheckpoint.save(
+      WalletSessionCheckpoint(
+        walletName: name,
+        netType: _sessionNetType(),
+        height: height,
+        balance: _whStoredBalance,
+        unlockedBalance: _whStoredUnlocked,
+        fullRescanUi: _walletFullRescanUi,
+        savedAtMs: now.millisecondsSinceEpoch,
+        txMaxHeight: _effectiveCheckpointTxMaxHeight,
+        trustedScanHeight: _trustedScanHeight,
       ),
     );
   }
@@ -2358,7 +2519,9 @@ final class MobileNativeBridge implements NativeBridge {
           _whStoredHeight > 0 &&
           !walletHeightNearDaemonTip(
               _whStoredHeight, _daemonChainTipHeight)) {
-        _beginResumeScanReconcile(baselineHeight: _whStoredHeight);
+        final int baseline =
+            _trustedScanHeight > 0 ? _trustedScanHeight : _whStoredHeight;
+        _beginResumeScanReconcile(baselineHeight: baseline);
       }
       await _writeSessionCheckpoint();
       if (!_walletFullRescanUi) {
@@ -2407,8 +2570,9 @@ final class MobileNativeBridge implements NativeBridge {
     // After iOS background, checkpoint height may match daemon tip while the FFI
     // wallet session is still catching up — only restore balance until live RPC.
     if (_iosWalletSessionStale) {
+      _applyCheckpointSessionFields(cp);
       _beginResumeScanReconcile(
-        baselineHeight: cp.height > 0 ? cp.height : _whStoredHeight,
+        baselineHeight: _checkpointScanBaseline(cp),
       );
       _whFetchTxPending = true;
       _emit(<String, dynamic>{
@@ -2631,6 +2795,7 @@ final class MobileNativeBridge implements NativeBridge {
       }
     }
     _whStoredHeight = newH;
+    _noteTrustedScanHeight(newH);
     _walletTxListClearedForRescan = false;
     _whFetchTxPending = true;
     _emit(<String, dynamic>{
@@ -2648,6 +2813,7 @@ final class MobileNativeBridge implements NativeBridge {
     });
     _startWalletHeartbeat();
     unawaited(_walletHeartbeatTick());
+    unawaited(_kickRefreshFromTrustedHeightIfNeeded(w, newH));
     unawaited(_writeSessionCheckpoint());
   }
 
@@ -2899,6 +3065,10 @@ final class MobileNativeBridge implements NativeBridge {
       _whFetchTxPending = false;
       if (_walletOpenHistoryPending && list.isNotEmpty) {
         _walletOpenHistoryPending = false;
+        _sessionCheckpointTxMaxHeight = _whLastEmittedTxMaxHeight;
+        if (!_resumeScanReconcilePending) {
+          _clearResumeScanReconcile(clearHistoryPending: false);
+        }
       } else if (_walletOpenHistoryPending && list.isEmpty) {
         _whFetchTxPending = true;
       }
@@ -3053,6 +3223,12 @@ final class MobileNativeBridge implements NativeBridge {
       if (parsed != null) {
         newH = _adoptWalletHeightAfterResume(parsed, dh);
       }
+    }
+    _noteTrustedScanHeight(newH);
+    if (walletHeightScanningBehind(newH, dh) ||
+        _resumeScanReconcilePending ||
+        _walletOpenHistoryPending) {
+      unawaited(_writeSessionCheckpointFromUiState());
     }
     _noteWalletScanGapForXfer(newH, dh);
     if (ghOk) {
@@ -3603,13 +3779,11 @@ final class MobileNativeBridge implements NativeBridge {
     }
     _openedWalletDisplayName = name;
     final int ts = DateTime.now().millisecondsSinceEpoch;
-    _clearResumeScanReconcile();
+    _resetWalletResumeSessionState();
     final WalletSessionCheckpoint? cpExisting =
         await WalletSessionCheckpoint.load();
-    if (cpExisting != null &&
-        cpExisting.walletName == name &&
-        (cpExisting.txMaxHeight > 0 || cpExisting.balance > 0)) {
-      _walletOpenHistoryPending = true;
+    if (cpExisting != null && cpExisting.walletName == name) {
+      _applyCheckpointSessionFields(cpExisting);
     }
     _whWalletBackgroundBusy = false;
     _emit(<String, dynamic>{
@@ -3794,7 +3968,9 @@ final class MobileNativeBridge implements NativeBridge {
     _whStoredHeight = openedHeight;
     _whStoredBalance = bal;
     _whStoredUnlocked = unl;
+    _noteTrustedScanHeight(openedHeight);
     _whFetchTxPending = true;
+    unawaited(_kickRefreshFromTrustedHeightIfNeeded(w, openedHeight));
     _traceWalletOpen('_emitWalletOpenedUi starting wallet heartbeat', sw: sw);
     _startWalletHeartbeat();
     unawaited(_writeSessionCheckpoint());
@@ -4389,6 +4565,7 @@ final class MobileNativeBridge implements NativeBridge {
       _walletPasswordHashHex = null;
       _sessionWalletPassword = null;
       _sessionPrimaryAddress = '';
+      _resetWalletResumeSessionState();
       if (closeName.isNotEmpty && closeAddr.isNotEmpty) {
         unawaited(_ensureWalletListAddressPersisted(closeName, closeAddr));
       }

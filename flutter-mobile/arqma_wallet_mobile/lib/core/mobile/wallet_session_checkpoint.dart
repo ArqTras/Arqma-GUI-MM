@@ -13,6 +13,7 @@ class WalletSessionCheckpoint {
     required this.fullRescanUi,
     required this.savedAtMs,
     this.txMaxHeight = 0,
+    this.trustedScanHeight = 0,
   });
 
   final String walletName;
@@ -26,6 +27,9 @@ class WalletSessionCheckpoint {
   /// Newest tx block height from the last successful tx list emit.
   final int txMaxHeight;
 
+  /// Monotonic scan progress (ignores one-shot RPC jumps to daemon tip).
+  final int trustedScanHeight;
+
   static const String _prefsKey = 'arqma_wallet_session_checkpoint_v1';
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -37,6 +41,7 @@ class WalletSessionCheckpoint {
         'fullRescanUi': fullRescanUi,
         'savedAtMs': savedAtMs,
         'txMaxHeight': txMaxHeight,
+        'trustedScanHeight': trustedScanHeight,
       };
 
   static WalletSessionCheckpoint? fromJson(Object? raw) {
@@ -57,6 +62,7 @@ class WalletSessionCheckpoint {
       fullRescanUi: m['fullRescanUi'] == true,
       savedAtMs: (m['savedAtMs'] as num?)?.toInt() ?? 0,
       txMaxHeight: (m['txMaxHeight'] as num?)?.toInt() ?? 0,
+      trustedScanHeight: (m['trustedScanHeight'] as num?)?.toInt() ?? 0,
     );
   }
 
