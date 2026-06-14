@@ -366,6 +366,52 @@ final class MobileNativeBridge implements NativeBridge {
     return h;
   }
 
+  int _resolveCheckpointHeight(int liveHeight) {
+    int height = liveHeight > 0 ? liveHeight : _whStoredHeight;
+    final int dh = _daemonChainTipHeight;
+    if (dh <= 0 || _whStoredHeight <= 0 || height <= 0) {
+      return height;
+    }
+    final bool suspiciousTip = _whLastEmittedTxMaxHeight == 0 &&
+        _whStoredBalance == 0 &&
+        walletHeightNearDaemonTip(height, dh) &&
+        !walletHeightNearDaemonTip(_whStoredHeight, dh) &&
+        height > _whStoredHeight + _kResumeSuspiciousHeightJumpBlocks;
+    if (suspiciousTip) {
+      debugPrint(
+        '[MobileNative] checkpoint height clamp $height -> $_whStoredHeight (suspicious tip at suspend)',
+      );
+      return _whStoredHeight;
+    }
+    return height;
+  }
+
+  Future<int> _reconcileOpenedHeightFromCheckpoint({
+    required String name,
+    required int parsedHeight,
+    required int daemonTip,
+  }) async {
+    if (parsedHeight <= 0 || daemonTip <= 0) {
+      return parsedHeight;
+    }
+    final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
+    if (cp == null || cp.walletName != name || cp.height <= 0) {
+      return parsedHeight;
+    }
+    final bool cpMidScan = !walletHeightNearDaemonTip(cp.height, daemonTip);
+    final bool suspiciousJump = parsedHeight >
+            cp.height + _kResumeSuspiciousHeightJumpBlocks &&
+        walletHeightNearDaemonTip(parsedHeight, daemonTip);
+    if (!cpMidScan && !suspiciousJump) {
+      return parsedHeight;
+    }
+    debugPrint(
+      '[MobileNative] open reconcile baseline=${cp.height} parsed=$parsedHeight tip=$daemonTip',
+    );
+    _beginResumeScanReconcile(baselineHeight: cp.height);
+    return _adoptWalletHeightAfterResume(parsedHeight, daemonTip);
+  }
+
   void _syncIosWalletScanLiveActivity({
     required int walletHeight,
     required int daemonTip,
@@ -2162,7 +2208,7 @@ final class MobileNativeBridge implements NativeBridge {
           _applyGetheightFlags(gh);
           final int? live = walletHeightFromGetheight(gh);
           if (live != null && live > 0) {
-            height = live;
+            height = _resolveCheckpointHeight(live);
           }
         }
       } catch (e, st) {
@@ -2190,6 +2236,12 @@ final class MobileNativeBridge implements NativeBridge {
       }
       debugPrint('[MobileNative] persistWalletBeforeSuspend ($reason)');
       _walletSessionStale = true;
+      if (_daemonChainTipHeight > 0 &&
+          _whStoredHeight > 0 &&
+          !walletHeightNearDaemonTip(
+              _whStoredHeight, _daemonChainTipHeight)) {
+        _beginResumeScanReconcile(baselineHeight: _whStoredHeight);
+      }
       await _writeSessionCheckpoint();
       if (!_walletFullRescanUi) {
         await _storeWalletToDiskIfSafe(reason: reason);
@@ -3440,15 +3492,13 @@ final class MobileNativeBridge implements NativeBridge {
       'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
 
-    unawaited(
-      w
+    try {
+      await w
           .call('refresh', <String, dynamic>{})
-          .timeout(const Duration(seconds: 8), onTimeout: () => null)
-          .catchError((Object e, StackTrace st) {
-        debugPrint('[MobileNative] post-open refresh kick: $e\n$st');
-        return null;
-      }),
-    );
+          .timeout(const Duration(seconds: 8), onTimeout: () => null);
+    } catch (e, st) {
+      debugPrint('[MobileNative] post-open refresh kick: $e\n$st');
+    }
 
     final List<Map<String, dynamic>?> postOpen = await Future.wait(
       <Future<Map<String, dynamic>?>>[
@@ -3473,7 +3523,17 @@ final class MobileNativeBridge implements NativeBridge {
     _traceWalletOpen('post-open getbalance ok=${walletJsonRpcNoError(gb)}', sw: sw);
     _traceWalletOpen('post-open get_address ok=${walletJsonRpcNoError(ga)}', sw: sw);
 
-    final int openedHeight = walletHeightFromGetheight(gh) ?? 0;
+    final int? daemonFromGh = walletDaemonHeightFromGetheight(gh);
+    if (daemonFromGh != null && daemonFromGh > 0) {
+      _daemonChainTipHeight = daemonFromGh;
+    }
+
+    int openedHeight = walletHeightFromGetheight(gh) ?? 0;
+    openedHeight = await _reconcileOpenedHeightFromCheckpoint(
+      name: name,
+      parsedHeight: openedHeight,
+      daemonTip: _daemonChainTipHeight,
+    );
     int bal = 0;
     int unl = 0;
     if (walletJsonRpcNoError(gb) && gb != null) {
