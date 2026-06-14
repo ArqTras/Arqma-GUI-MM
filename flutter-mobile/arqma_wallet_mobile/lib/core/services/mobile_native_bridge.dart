@@ -1880,7 +1880,10 @@ final class MobileNativeBridge implements NativeBridge {
   }
 
   bool get _walletSyncingForUi =>
-      _whWalletBackgroundBusy || _walletFullRescanUi;
+      _whWalletBackgroundBusy ||
+      _walletFullRescanUi ||
+      _iosWalletSessionStale ||
+      walletHeightScanningBehind(_whStoredHeight, _daemonChainTipHeight);
 
   /// Oxen `wallet-rpc.js::heartbeatAction` + Tauri `wallet_heartbeat.rs`.
   void _maybeWalletXfer({
@@ -2263,16 +2266,35 @@ final class MobileNativeBridge implements NativeBridge {
     if (cp == null || cp.walletName != name) {
       return;
     }
-    if (cp.height <= _whStoredHeight && !_walletFullRescanUi) {
-      return;
-    }
     if (!_walletFullRescanUi && cp.fullRescanUi) {
       _walletFullRescanUi = true;
     }
-    _whStoredHeight = cp.height > _whStoredHeight ? cp.height : _whStoredHeight;
     _whStoredBalance = cp.balance > 0 ? cp.balance : _whStoredBalance;
     _whStoredUnlocked =
         cp.unlockedBalance > 0 ? cp.unlockedBalance : _whStoredUnlocked;
+    // After iOS background, checkpoint height may match daemon tip while the FFI
+    // wallet session is still catching up — only restore balance until live RPC.
+    if (_iosWalletSessionStale) {
+      _whFetchTxPending = true;
+      _emit(<String, dynamic>{
+        'event': 'set_wallet_info',
+        'data': <String, dynamic>{
+          'name': name,
+          'height': _whStoredHeight,
+          'balance': _whStoredBalance,
+          'unlocked_balance': _whStoredUnlocked,
+          'full_rescan_ui': _walletFullRescanUi,
+          'wallet_syncing': true,
+          if (_walletFullRescanUi) 'allow_lower_height': true,
+          'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        },
+      });
+      return;
+    }
+    if (cp.height <= _whStoredHeight && !_walletFullRescanUi) {
+      return;
+    }
+    _whStoredHeight = cp.height > _whStoredHeight ? cp.height : _whStoredHeight;
     _emit(<String, dynamic>{
       'event': 'set_wallet_info',
       'data': <String, dynamic>{
@@ -2281,6 +2303,7 @@ final class MobileNativeBridge implements NativeBridge {
         'balance': _whStoredBalance,
         'unlocked_balance': _whStoredUnlocked,
         'full_rescan_ui': _walletFullRescanUi,
+        'wallet_syncing': _walletSyncingForUi,
         if (_walletFullRescanUi) 'allow_lower_height': true,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
       },
@@ -2306,6 +2329,9 @@ final class MobileNativeBridge implements NativeBridge {
       final int? h = walletHeightFromGetheight(gh);
       if (h != null && h > 0) {
         return true;
+      }
+      if (_iosWalletSessionStale) {
+        return false;
       }
       // Stale height 0 while refresh/rescan threads hold the wallet lock — session is alive.
       if (_whStoredHeight > 0) {
@@ -2445,6 +2471,7 @@ final class MobileNativeBridge implements NativeBridge {
     } catch (_) {}
     int newH = _whStoredHeight;
     if (gh != null && walletJsonRpcNoError(gh)) {
+      _applyGetheightFlags(gh);
       final int? parsed = walletHeightFromGetheight(gh);
       if (parsed != null && parsed > 0) {
         newH = _walletHeightForHeartbeat(parsed, _daemonChainTipHeight);
@@ -2454,11 +2481,18 @@ final class MobileNativeBridge implements NativeBridge {
       final Object? res = gb['result'];
       if (res is Map) {
         final Map<String, dynamic> rm = Map<String, dynamic>.from(res);
-        _whStoredBalance =
+        final int bal =
             (rm['balance'] as num?)?.toInt() ?? _whStoredBalance;
-        _whStoredUnlocked = (rm['unlocked_balance'] as num?)?.toInt() ??
+        final int unl = (rm['unlocked_balance'] as num?)?.toInt() ??
             (rm['unlocked'] as num?)?.toInt() ??
             _whStoredUnlocked;
+        // Transient zero balance after sleep — keep last known until RPC catches up.
+        if (bal > 0 || _whStoredBalance == 0) {
+          _whStoredBalance = bal;
+        }
+        if (unl > 0 || _whStoredUnlocked == 0) {
+          _whStoredUnlocked = unl;
+        }
       }
     }
     _whStoredHeight = newH;
@@ -2472,9 +2506,13 @@ final class MobileNativeBridge implements NativeBridge {
         'balance': _whStoredBalance,
         'unlocked_balance': _whStoredUnlocked,
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
+        'full_rescan_ui': _walletFullRescanUi,
+        'wallet_syncing': _walletSyncingForUi,
+        if (_walletFullRescanUi) 'allow_lower_height': true,
       },
     });
     _startWalletHeartbeat();
+    unawaited(_walletHeartbeatTick());
     unawaited(_writeSessionCheckpoint());
   }
 
@@ -2518,10 +2556,18 @@ final class MobileNativeBridge implements NativeBridge {
 
       await _restoreUiFromCheckpointIfNeeded();
 
+      if (Platform.isIOS && _iosWalletSessionStale && !_walletFullRescanUi) {
+        try {
+          await w
+              .call('refresh', <String, dynamic>{})
+              .timeout(const Duration(seconds: 45), onTimeout: () => null);
+        } catch (e, st) {
+          debugPrint('[MobileNative] recover pre-check refresh: $e\n$st');
+        }
+      }
+
       if (await _walletRpcHealthy(w)) {
-        _walletTxListClearedForRescan = false;
-        _whFetchTxPending = true;
-        unawaited(_walletHeartbeatTick());
+        await _nudgeWalletAfterResume(name);
         _iosWalletSessionStale = false;
         return;
       }
@@ -2535,9 +2581,7 @@ final class MobileNativeBridge implements NativeBridge {
         debugPrint('[MobileNative] recover refresh: $e\n$st');
       }
       if (await _walletRpcHealthy(w)) {
-        _walletTxListClearedForRescan = false;
-        _whFetchTxPending = true;
-        unawaited(_walletHeartbeatTick());
+        await _nudgeWalletAfterResume(name);
         _iosWalletSessionStale = false;
         return;
       }
