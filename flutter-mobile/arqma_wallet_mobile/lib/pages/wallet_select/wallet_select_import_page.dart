@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_api.dart';
+import '../../core/desktop/arqma_paths.dart';
 import '../../i18n/locale_controller.dart';
 import '../../mixins/wallet_flow_listener_mixin.dart';
 import '../../widgets/app_loading.dart';
@@ -77,6 +78,15 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
       );
       return;
     }
+    if (walletBaseNameInputErrorKey(name) == 'invalid_chars') {
+      setState(() => _nameTouched = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.tr('pages.wallet_select.import.invalid_account_name')),
+        ),
+      );
+      return;
+    }
     if (path.isEmpty) {
       setState(() => _pathTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +124,7 @@ class _WalletSelectImportPageState extends State<WalletSelectImportPage>
         children: [
           ArqmaField(
             label: loc.tr('pages.wallet_select.import.account_name'),
-            error: _nameTouched && _name.text.trim().isEmpty,
+            error: _nameTouched && walletBaseNameInputErrorKey(_name.text) != null,
             child: TextField(
               controller: _name,
               decoration: InputDecoration(

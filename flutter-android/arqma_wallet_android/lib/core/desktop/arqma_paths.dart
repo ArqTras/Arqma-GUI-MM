@@ -165,7 +165,8 @@ String? sanitizeWalletBaseName(String raw) {
   if (trimmed.isEmpty) {
     return null;
   }
-  final String normalized = trimmed.replaceAll('\\', '/');
+  final String collapsed = trimmed.replaceAll(RegExp(r'\s+'), '_');
+  final String normalized = collapsed.replaceAll('\\', '/');
   if (normalized.contains('..')) {
     return null;
   }
@@ -186,4 +187,16 @@ String? sanitizeWalletBaseName(String raw) {
     return null;
   }
   return base;
+}
+
+/// Returns a user-facing error key suffix when [raw] cannot be used as a wallet name.
+String? walletBaseNameInputErrorKey(String raw) {
+  final String trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return 'empty';
+  }
+  if (sanitizeWalletBaseName(trimmed) == null) {
+    return 'invalid_chars';
+  }
+  return null;
 }

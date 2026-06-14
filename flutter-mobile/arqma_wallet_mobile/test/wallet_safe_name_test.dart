@@ -17,6 +17,12 @@ void main() {
     expect(sanitizeWalletBaseName(r'foo\bar'), isNull);
     expect(sanitizeWalletBaseName(''), isNull);
     expect(sanitizeWalletBaseName('   '), isNull);
-    expect(sanitizeWalletBaseName('bad name'), isNull);
+    expect(sanitizeWalletBaseName('bad/name'), isNull);
+  });
+
+  test('sanitizeWalletBaseName normalizes spaces', () {
+    expect(sanitizeWalletBaseName('bad name'), 'bad_name');
+    expect(sanitizeWalletBaseName('Arqma Wallet'), 'Arqma_Wallet');
+    expect(sanitizeWalletBaseName('My Wallet'), 'My_Wallet');
   });
 }

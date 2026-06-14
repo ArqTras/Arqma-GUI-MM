@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -97,9 +99,52 @@ class _StatusFooterState extends State<StatusFooter> {
     final String scan = loc.tr('components.footer.scanning');
     final String sync = loc.tr('components.footer.syncing');
     if (s == scan || s == sync) {
-      return ArqmaColors.warning;
+      return ArqmaColors.arqmaGreenSolid;
+    }
+    final String connecting = loc.tr('pages.init.connecting_to_backend');
+    if (s == connecting || s.startsWith('Connecting to')) {
+      return ArqmaColors.textPrimary;
     }
     return ArqmaColors.textSecondary;
+  }
+
+  Future<void> _showLanguageSheet(LocaleController loc) async {
+    final String? picked = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: ArqmaColors.darkPanel,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: <Widget>[
+              for (final Map<String, String> o in _localeOptions)
+                ListTile(
+                  title: Text(o['label']!),
+                  trailing: o['value'] == loc.locale
+                      ? const Icon(Icons.check, color: ArqmaColors.arqmaGreenSolid)
+                      : null,
+                  onTap: () => Navigator.pop(sheetContext, o['value']),
+                ),
+              if (loc.locale != 'en-US')
+                ListTile(
+                  leading: const Icon(Icons.refresh, color: ArqmaColors.warning),
+                  title: Text(
+                    loc.tr('components.footer.reset_language'),
+                    style: const TextStyle(color: ArqmaColors.warning),
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, 'en-US'),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || picked == null) {
+      return;
+    }
+    await context.read<LocaleController>().setLocale(picked);
   }
 
   @override
@@ -243,23 +288,15 @@ class _StatusFooterState extends State<StatusFooter> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text('${loc.tr('components.footer.language')}: '),
-                          PopupMenuButton<String>(
-                            padding: EdgeInsets.zero,
-                            useRootNavigator: true,
-                            color: ArqmaColors.darkPanel,
-                            onSelected: (String v) => context
-                                .read<LocaleController>()
-                                .setLocale(v),
-                            itemBuilder: (BuildContext c) => _localeOptions
-                                .map(
-                                  (Map<String, String> o) =>
-                                      PopupMenuItem<String>(
-                                    value: o['value'],
-                                    child: Text(o['label']!),
-                                  ),
-                                )
-                                .toList(),
-                            child: Text(selectedLocaleLabel),
+                          InkWell(
+                            onTap: () => unawaited(_showLanguageSheet(loc)),
+                            child: Text(
+                              selectedLocaleLabel,
+                              style: const TextStyle(
+                                decoration: TextDecoration.underline,
+                                decorationColor: ArqmaColors.arqmaGreenSolid,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -275,7 +312,13 @@ class _StatusFooterState extends State<StatusFooter> {
                               ? '${loc.tr('components.footer.remote')}: $nodeLabel · h ${snap.daemonHeight > 0 ? snap.daemonHeight : '—'}'
                               : '${loc.tr('components.footer.remote')}: $nodeLabel',
                         ),
-                      if (snap.hasOpenWallet) Text(walletLine),
+                      if (snap.hasOpenWallet)
+                        Text(
+                          walletLine,
+                          style: const TextStyle(
+                            color: ArqmaColors.textPrimary,
+                          ),
+                        ),
                     ],
                   ),
                 ),

@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 
 import '../desktop/flutter_env_guard.dart';
 import '../mobile/ios_rescan_live_activity.dart';
+import '../mobile/wallet_biometric_unlock.dart';
 import '../mobile/wallet_session_checkpoint.dart';
 import '../mobile/mobile_defaults.dart';
 import '../mobile/mobile_paths.dart';
@@ -1937,6 +1938,84 @@ final class MobileNativeBridge implements NativeBridge {
     return (cfg?['app'] as Map?)?['net_type'] as String? ?? 'mainnet';
   }
 
+  Future<String?> _resolveSessionPasswordForRecover(String walletName) async {
+    final String? cached = _sessionWalletPassword;
+    if (cached != null && cached.isNotEmpty) {
+      return cached;
+    }
+    if (!Platform.isIOS) {
+      return null;
+    }
+    final String netType = _sessionNetType();
+    if (!await WalletBiometricUnlock.isEnabled(netType, walletName)) {
+      return null;
+    }
+    final String? bio = await WalletBiometricUnlock.unlockPassword(
+      netType: netType,
+      walletName: walletName,
+      localizedReason: 'Unlock wallet to continue syncing',
+    );
+    if (bio != null && bio.isNotEmpty) {
+      _sessionWalletPassword = bio;
+      return bio;
+    }
+    return null;
+  }
+
+  Future<void> _reopenWalletSessionAfterResume({
+    required ArqmaWalletRpcSession session,
+    required String name,
+    required String pwd,
+    required bool resumeRescan,
+    WalletSessionCheckpoint? cp,
+  }) async {
+    if (!resumeRescan) {
+      _walletFullRescanUi = false;
+      _walletTxListClearedForRescan = false;
+      _rescanPreTipHeight = 0;
+      _rescanProgressPeak = 0;
+      if (Platform.isIOS) {
+        unawaited(IosRescanLiveActivity.end());
+      }
+    }
+    final Map<String, dynamic>? opened = await session.call(
+      'open_wallet',
+      <String, dynamic>{'filename': name, 'password': pwd},
+    );
+    if (!walletJsonRpcNoError(opened)) {
+      final String msg = walletJsonRpcErrorMessage(opened,
+          fallback: 'Could not reopen wallet after resume');
+      _showNotification('negative', msg, 8000);
+      return;
+    }
+    _refreshSessionPasswordDigest(pwd);
+    if (resumeRescan) {
+      _walletFullRescanUi = true;
+      _whStoredHeight = cp!.height;
+      _emitRescanStartingUi(clearTransactions: false);
+      final Map<String, dynamic>? res = await _callRescanBlockchainWithRetry(
+        session,
+        hard: true,
+      );
+      if (!walletJsonRpcNoError(res)) {
+        final String msg = walletJsonRpcErrorMessage(res,
+            fallback: 'Rescan could not resume after wake');
+        _restoreWalletUiAfterRescanFailure();
+        _showNotification('negative', msg, 8000);
+      } else {
+        _walletTxListClearedForRescan = true;
+        _whLastEmittedTxMaxHeight = 0;
+        _whFetchTxPending = true;
+        unawaited(_refreshWalletUiAfterRescan(clearTransactions: false));
+      }
+      _startWalletHeartbeat();
+    } else {
+      await _nudgeWalletAfterResume(name);
+    }
+    _iosWalletSessionStale = false;
+    await _writeSessionCheckpoint();
+  }
+
   Future<void> _writeSessionCheckpoint() async {
     final String name = _openedWalletDisplayName;
     if (name.isEmpty) {
@@ -2284,12 +2363,21 @@ final class MobileNativeBridge implements NativeBridge {
         return;
       }
 
-      final String? pwd = _sessionWalletPassword;
+      final String? pwd = await _resolveSessionPasswordForRecover(name);
       if (pwd == null) {
-        if (Platform.isAndroid) {
-          _walletTxListClearedForRescan = false;
-          _whFetchTxPending = true;
-          unawaited(_walletHeartbeatTick());
+        _walletTxListClearedForRescan = false;
+        _whFetchTxPending = true;
+        unawaited(_walletHeartbeatTick());
+        final Map<String, dynamic>? cfg = _runtimeConfig;
+        if (cfg != null) {
+          unawaited(_heartbeatTick(cfg));
+        }
+        if (Platform.isIOS) {
+          _showNotification(
+            'negative',
+            'Wallet session paused — open the wallet with your password to continue sync',
+            8000,
+          );
         }
         return;
       }
@@ -2319,51 +2407,13 @@ final class MobileNativeBridge implements NativeBridge {
       if (session == null) {
         return;
       }
-      if (!resumeRescan) {
-        _walletFullRescanUi = false;
-        _walletTxListClearedForRescan = false;
-        _rescanPreTipHeight = 0;
-        _rescanProgressPeak = 0;
-        if (Platform.isIOS) {
-          unawaited(IosRescanLiveActivity.end());
-        }
-      }
-      final Map<String, dynamic>? opened = await session.call(
-        'open_wallet',
-        <String, dynamic>{'filename': name, 'password': pwd},
+      await _reopenWalletSessionAfterResume(
+        session: session,
+        name: name,
+        pwd: pwd,
+        resumeRescan: resumeRescan,
+        cp: cp,
       );
-      if (!walletJsonRpcNoError(opened)) {
-        final String msg = walletJsonRpcErrorMessage(opened,
-            fallback: 'Could not reopen wallet after resume');
-        _showNotification('negative', msg, 8000);
-        return;
-      }
-      _refreshSessionPasswordDigest(pwd);
-      if (resumeRescan) {
-        _walletFullRescanUi = true;
-        _whStoredHeight = cp.height;
-        _emitRescanStartingUi(clearTransactions: false);
-        final Map<String, dynamic>? res = await _callRescanBlockchainWithRetry(
-          session,
-          hard: true,
-        );
-        if (!walletJsonRpcNoError(res)) {
-          final String msg = walletJsonRpcErrorMessage(res,
-              fallback: 'Rescan could not resume after wake');
-          _restoreWalletUiAfterRescanFailure();
-          _showNotification('negative', msg, 8000);
-        } else {
-          _walletTxListClearedForRescan = true;
-          _whLastEmittedTxMaxHeight = 0;
-          _whFetchTxPending = true;
-          unawaited(_refreshWalletUiAfterRescan(clearTransactions: false));
-        }
-        _startWalletHeartbeat();
-      } else {
-        await _nudgeWalletAfterResume(name);
-      }
-      _iosWalletSessionStale = false;
-      await _writeSessionCheckpoint();
     });
   }
 

@@ -392,16 +392,16 @@ class TxListWidget extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 height: 1.4,
-                color: ArqmaColors.textSecondary,
+                color: ArqmaColors.textPrimary,
               ),
             ),
             const SizedBox(height: 10),
             Text(
               loc.tr('pages.wallet.txhistory.scan_progress_hint'),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
                 height: 1.35,
-                color: ArqmaColors.textMuted.withValues(alpha: 0.92),
+                color: ArqmaColors.textSecondary,
               ),
             ),
           ],

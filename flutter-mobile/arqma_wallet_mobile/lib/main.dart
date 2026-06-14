@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 import 'app_nav.dart';
 import 'core/app_exit_watchdog.dart';
@@ -21,6 +20,7 @@ import 'core/services/native_bridge.dart';
 import 'core/services/native_bridge_resolver.dart';
 import 'core/theme/arqma_colors.dart';
 import 'core/theme/arqma_theme.dart';
+import 'i18n/app_locale.dart';
 import 'i18n/locale_controller.dart';
 import 'router/app_router.dart';
 import 'store/gateway_router_refresh.dart';
@@ -35,7 +35,7 @@ void _configureAppErrorPresentation() {
       child: Center(
         child: Icon(
           Icons.warning_amber_rounded,
-          size: 56,
+          size: 22,
           color: ArqmaColors.warning,
         ),
       ),
@@ -65,6 +65,7 @@ Future<void> main() async {
 /// Replaces the splash [MaterialApp] with the router shell (second [runApp] — iOS-safe).
 Future<void> _launchFullWalletApp() async {
   final LocaleController locale = LocaleController();
+  locale.onLocaleApplied = configureAppTimeago;
   try {
     await locale.loadSaved().timeout(const Duration(seconds: 12));
   } catch (e, st) {
@@ -75,7 +76,6 @@ Future<void> _launchFullWalletApp() async {
       debugPrint('[ArqmaWallet] locale fallback: $e2\n$st2');
     }
   }
-  _configureTimeago(locale.locale);
 
   final GatewayStore store = GatewayStore();
   final GatewayRouterRefreshListenable routerRefresh =
@@ -114,64 +114,6 @@ Future<void> _launchFullWalletApp() async {
   );
   unawaited(receiver.start());
 }
-
-void _configureTimeago(String normalizedLocale) {
-  timeago.setLocaleMessages('en', timeago.EnMessages());
-  final String primary = normalizedLocale.split('-').first.toLowerCase();
-  switch (primary) {
-    case 'pl':
-      timeago.setLocaleMessages('pl', timeago.PlMessages());
-      break;
-    case 'fr':
-      timeago.setLocaleMessages('fr', timeago.FrMessages());
-      break;
-    case 'es':
-      timeago.setLocaleMessages('es', timeago.EsMessages());
-      break;
-    case 'de':
-      timeago.setLocaleMessages('de', timeago.DeMessages());
-      break;
-    case 'ru':
-      timeago.setLocaleMessages('ru', timeago.RuMessages());
-      break;
-    case 'pt':
-      timeago.setLocaleMessages('pt_BR', timeago.PtBrMessages());
-      break;
-    case 'ja':
-    case 'jp':
-      timeago.setLocaleMessages('ja', timeago.JaMessages());
-      break;
-    case 'zh':
-    case 'cn':
-      timeago.setLocaleMessages('zh_CN', timeago.ZhCnMessages());
-      break;
-    default:
-      break;
-  }
-}
-
-Locale _flutterLocaleFromTag(String tag) {
-  final List<String> p = tag.split('-');
-  if (p.length >= 2) {
-    return Locale(p[0].toLowerCase(), p[1].toUpperCase());
-  }
-  return Locale(p[0].toLowerCase());
-}
-
-const List<Locale> kAppSupportedLocales = <Locale>[
-  Locale('en', 'US'),
-  Locale('de', 'DE'),
-  Locale('fr', 'FR'),
-  Locale('ua', 'UA'),
-  Locale('pl', 'PL'),
-  Locale('es', 'ES'),
-  Locale('cn', 'CN'),
-  Locale('jp', 'JP'),
-  Locale('ms', 'MY'),
-  Locale('ar', 'SA'),
-  Locale('pt', 'BR'),
-  Locale('ru', 'RU'),
-];
 
 class ArqmaWalletApp extends StatefulWidget {
   const ArqmaWalletApp({
@@ -327,8 +269,19 @@ class _ArqmaWalletAppState extends State<ArqmaWalletApp> with WidgetsBindingObse
             },
             routerConfig: widget.router,
             scaffoldMessengerKey: appScaffoldMessengerKey,
-            locale: _flutterLocaleFromTag(loc.locale),
-            supportedLocales: kAppSupportedLocales,
+            locale: flutterLocaleFromAppTag(loc.locale),
+            supportedLocales: kAppSupportedFlutterLocales,
+            localeResolutionCallback:
+                (Locale? deviceLocale, Iterable<Locale> supported) {
+              final Locale appLocale = flutterLocaleFromAppTag(loc.locale);
+              for (final Locale l in supported) {
+                if (l.languageCode == appLocale.languageCode &&
+                    l.countryCode == appLocale.countryCode) {
+                  return l;
+                }
+              }
+              return supported.first;
+            },
             localizationsDelegates: const [
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,

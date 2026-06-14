@@ -348,6 +348,9 @@ class _StakingPoolsPageState extends State<StakingPoolsPage>
       case 'zh':
       case 'cn':
         return 'zh_CN';
+      case 'ua':
+      case 'uk':
+        return 'uk';
       default:
         return 'en';
     }

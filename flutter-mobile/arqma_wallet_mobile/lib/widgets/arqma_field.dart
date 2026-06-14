@@ -125,7 +125,7 @@ class _ArqmaFieldState extends State<ArqmaField> {
       ),
     );
     if (stretch) {
-      return Expanded(child: inner);
+      return SizedBox(width: double.infinity, child: inner);
     }
     return inner;
   }

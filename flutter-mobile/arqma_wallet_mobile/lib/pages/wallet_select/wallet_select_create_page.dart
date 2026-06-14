@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/desktop/arqma_paths.dart';
 import '../../core/app_api.dart';
 import '../../i18n/locale_controller.dart';
 import '../../mixins/wallet_flow_listener_mixin.dart';
@@ -84,12 +85,17 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
   Future<void> _create() async {
     final LocaleController loc = context.read<LocaleController>();
     final String name = _name.text.trim();
-    if (name.isEmpty) {
+    final String? nameErrorKey = walletBaseNameInputErrorKey(name);
+    if (nameErrorKey != null) {
       setState(() => _nameTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(
-                loc.tr('pages.wallet_select.create.enter_an_account_name'))),
+          content: Text(
+            nameErrorKey == 'empty'
+                ? loc.tr('pages.wallet_select.create.enter_an_account_name')
+                : loc.tr('pages.wallet_select.create.invalid_account_name'),
+          ),
+        ),
       );
       return;
     }
@@ -129,7 +135,7 @@ class _WalletSelectCreatePageState extends State<WalletSelectCreatePage>
         children: [
           ArqmaField(
             label: loc.tr('pages.wallet_select.create.account_name'),
-            error: _nameTouched && _name.text.trim().isEmpty,
+            error: _nameTouched && walletBaseNameInputErrorKey(_name.text) != null,
             child: TextField(
               controller: _name,
               decoration: InputDecoration(

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_locale.dart';
+
 /// Loads the same JSON trees as `src/locales/*.json` (Vue i18n).
 class LocaleController extends ChangeNotifier {
   LocaleController();
@@ -13,17 +15,13 @@ class LocaleController extends ChangeNotifier {
   String _locale = 'en-US';
   Map<String, dynamic> _messages = <String, dynamic>{};
 
+  /// Called after a locale is applied (timeago, intl hooks).
+  void Function(String assetTag)? onLocaleApplied;
+
   String get locale => _locale;
 
   static String normalizeLocale(String? raw) {
-    if (raw == null || raw.isEmpty) {
-      return 'en-US';
-    }
-    final parts = raw.split('-');
-    if (parts.length >= 2) {
-      return '${parts[0].toLowerCase()}-${parts[1].toUpperCase()}';
-    }
-    return raw;
+    return migrateLegacyLocaleTag(raw);
   }
 
   Future<void> loadSaved() async {
@@ -31,6 +29,8 @@ class LocaleController extends ChangeNotifier {
     final String? s = p.getString(_prefKey);
     await setLocale(normalizeLocale(s));
   }
+
+  Future<void> resetToEnglish() => setLocale('en-US');
 
   Future<void> setLocale(String raw) async {
     final String next = normalizeLocale(raw);
@@ -49,6 +49,7 @@ class LocaleController extends ChangeNotifier {
     }
     final SharedPreferences p = await SharedPreferences.getInstance();
     await p.setString(_prefKey, _locale);
+    onLocaleApplied?.call(_locale);
     notifyListeners();
   }
 
