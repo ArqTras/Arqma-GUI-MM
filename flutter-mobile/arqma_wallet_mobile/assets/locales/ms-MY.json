@@ -69,6 +69,7 @@
                 "import_account": "Import Akaun",
                 "import_file_path_message": "Masukkan nama akaun dan fail laluan",
                 "import_account_name_message": "Masukkan nama akaun",
+                "invalid_account_name": "Nama akaun tidak sah. Gunakan huruf, nombor, ruang, dan . - _ sahaja.",
                 "import_path_message": "Masukkan fail laluan",
                 "passwords_dont_match": "Kata laluan tidak sepadan"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Pulihkan Akaun",
                 "restore_wallet_message": "Masukkan nama dompet dan perkataan benih",
                 "enter_wallet_name": "Masukkan nama dompet",
+                "invalid_account_name": "Nama akaun tidak sah. Gunakan huruf, nombor, ruang, dan . - _ sahaja.",
                 "enter_seed_words": "Masukkan perkataan benih",
                 "invalid_seed_words": "Panjang perkataan benih tidak sah",
                 "invalid_restore_height": "Ketinggian pemulihan tidak sah",
@@ -129,6 +131,7 @@
                 "confirm_password": "Sahkan Kata Laluan",
                 "create_account": "Buat Akaun",
                 "enter_an_account_name": "Masukkan nama akaun",
+                "invalid_account_name": "Nama akaun tidak sah. Gunakan huruf, nombor, ruang, dan . - _ sahaja.",
                 "passwords_do_not_match": "Kata laluan tidak sepadan",
                 "confirm_no_password_message": "Adakah anda pasti mahu membuat akaun tanpa kata laluan?",
                 "confirm_no_password_title": "Tiada kata laluan ditetapkan",
@@ -386,7 +389,8 @@
             "scanning": "Mengimbas",
             "synced": "Disegerakkan",
             "ready": "Sedia",
-            "blocks_left": "≈{n} blok tinggal"
+            "blocks_left": "≈{n} blok tinggal",
+            "reset_language": "Tetapkan semula ke Bahasa Inggeris"
         },
         "mainmenu": {
             "daemon_settings": "Tetapan Daemon",
@@ -754,7 +758,11 @@
                 "wxeq": "Pertukaran",
                 "staking_pools": "Kolam Staking",
                 "address_book": "Buku Alamat",
-                "wallet_inactivityMessage": "Anda telah keluar kerana tiada aktiviti."
+                "wallet_inactivityMessage": "Anda telah keluar kerana tiada aktiviti.",
+                "session_resume_password_title": "Teruskan penyegerakan",
+                "session_resume_password_message": "Masukkan kata laluan dompet untuk membuka semula dompet selepas aplikasi berada di latar belakang.",
+                "session_resume_password_ok": "Teruskan",
+                "session_resume_biometric_reason": "Buka kunci dompet untuk meneruskan penyegerakan"
             }
         }
     },

@@ -169,6 +169,9 @@ class WalletBiometricUnlock {
   }
 
   static Future<bool> isEnabled(String netType, String walletName) async {
+    if (!_biometricsEnabledForPlatform) {
+      return false;
+    }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     if (!(prefs.getBool(_enabledPrefKey(netType, walletName)) ?? false)) {
       return false;
@@ -231,6 +234,9 @@ class WalletBiometricUnlock {
     required String password,
     required String localizedReason,
   }) async {
+    if (!_biometricsEnabledForPlatform) {
+      throw StateError('Biometrics unavailable on this platform');
+    }
     if (!await isPlatformSupported()) {
       throw StateError('Biometrics unavailable on this device');
     }
@@ -267,6 +273,9 @@ class WalletBiometricUnlock {
     required String walletName,
     required String localizedReason,
   }) async {
+    if (!_biometricsEnabledForPlatform) {
+      return null;
+    }
     if (!await isEnabled(netType, walletName)) {
       return null;
     }

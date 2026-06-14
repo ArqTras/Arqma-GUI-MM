@@ -69,6 +69,7 @@
                 "import_account": "Importez un compte",
                 "import_file_path_message": "Entrez le chemin vers le fichier du compte",
                 "import_account_name_message": "Entrez un nom de compte",
+                "invalid_account_name": "Nom de compte invalide. Utilisez des lettres, chiffres, espaces et . - _ uniquement.",
                 "import_path_message": "Entrez le chemin vers le fichier du compte",
                 "passwords_dont_match": "Mot de passe érroné"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Restaurer le compte",
                 "restore_wallet_message": "Entrez le nom du portefeuille et mots aléatoire (Mnemonic Seed)",
                 "enter_wallet_name": "Entrez le nom du portefeuille",
+                "invalid_account_name": "Nom de compte invalide. Utilisez des lettres, chiffres, espaces et . - _ uniquement.",
                 "enter_seed_words": "Entrez les mots aléatoires (Mnemonic Seed)",
                 "invalid_seed_words": "Longueur de mots Mnemonic Seed invalide",
                 "invalid_restore_height": "Hauteur du block de restauration invalide",
@@ -129,6 +131,7 @@
                 "confirm_password": "Confirmer le mot de passe",
                 "create_account": "Créer un compte",
                 "enter_an_account_name": "Entrez le nom du compte",
+                "invalid_account_name": "Nom de compte invalide. Utilisez des lettres, chiffres, espaces et . - _ uniquement.",
                 "passwords_do_not_match": "Mot de passe érroné",
                 "confirm_no_password_message": "Êtes-vous sure de vouloir restaurer un compte sans mot de passe?",
                 "confirm_no_password_title": "Mot de passe non configuré",
@@ -386,7 +389,8 @@
             "scanning": "Balayage",
             "synced": "Synchronisé",
             "ready": "Prêt",
-            "blocks_left": "≈{n} blocs à balayer"
+            "blocks_left": "≈{n} blocs à balayer",
+            "reset_language": "Réinitialiser en anglais"
         },
         "mainmenu": {
             "daemon_settings": "Configuration Daemon",
@@ -754,7 +758,11 @@
                 "wxeq": "Swaps",
                 "staking_pools": "Pools Staking",
                 "address_book": "Carnet Adresses",
-                "wallet_inactivityMessage": "Vous avez été déconnecté en raison de l'inactivité."
+                "wallet_inactivityMessage": "Vous avez été déconnecté en raison de l'inactivité.",
+                "session_resume_password_title": "Continuer la synchronisation",
+                "session_resume_password_message": "Entrez le mot de passe du portefeuille pour le rouvrir après la mise en arrière-plan.",
+                "session_resume_password_ok": "Continuer",
+                "session_resume_biometric_reason": "Déverrouiller le portefeuille pour continuer la synchronisation"
             }
         }
     },

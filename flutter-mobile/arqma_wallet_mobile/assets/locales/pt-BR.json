@@ -69,6 +69,7 @@
                 "import_account": "Importar conta",
                 "import_file_path_message": "Digite um nome de conta e um arquivo de caminho",
                 "import_account_name_message": "Digite um nome de conta",
+                "invalid_account_name": "Nome de conta inválido. Use letras, números, espaços e apenas . - _.",
                 "import_path_message": "Digite um arquivo de caminho",
                 "passwords_dont_match": "As senhas não correspondem"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Restaurar conta",
                 "restore_wallet_message": "Digite um nome de carteira e semente words",
                 "enter_wallet_name": "Digite um nome de carteira",
+                "invalid_account_name": "Nome de conta inválido. Use letras, números, espaços e apenas . - _.",
                 "enter_seed_words": "Digite palavras-semente",
                 "invalid_seed_words": "Comprimento inválido da palavra-semente",
                 "invalid_restore_height": "Altura de restauração inválida",
@@ -129,6 +131,7 @@
                 "confirm_password": "Confirmar senha",
                 "create_account": "Criar conta",
                 "enter_an_account_name": "Digite um nome de conta",
+                "invalid_account_name": "Nome de conta inválido. Use letras, números, espaços e apenas . - _.",
                 "passwords_do_not_match": "As senhas não correspondem",
                 "confirm_no_password_message": "Tem certeza de que deseja criar uma conta sem senha?",
                 "confirm_no_password_title": "Nenhuma senha definida",
@@ -386,7 +389,8 @@
             "scanning": "Escaneando",
             "synced": "Sincronizado",
             "ready": "Pronto",
-            "blocks_left": "≈{n} blocos a varrer"
+            "blocks_left": "≈{n} blocos a varrer",
+            "reset_language": "Redefinir para inglês"
         },
         "mainmenu": {
             "daemon_settings": "Configurações do Daemon",
@@ -754,7 +758,11 @@
                 "wxeq": "Swaps",
                 "staking_pools": "Pools de staking",
                 "address_book": "Catálogo de endereços",
-                "wallet_inactivityMessage": "Você foi desconectado devido à inatividade."
+                "wallet_inactivityMessage": "Você foi desconectado devido à inatividade.",
+                "session_resume_password_title": "Continuar sincronização",
+                "session_resume_password_message": "Digite a senha da carteira para reabri-la após o app ficar em segundo plano.",
+                "session_resume_password_ok": "Continuar",
+                "session_resume_biometric_reason": "Desbloquear carteira para continuar a sincronização"
             }
         }
     },

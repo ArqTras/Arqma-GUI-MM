@@ -69,6 +69,7 @@
                 "import_account": "Importar Cuenta",
                 "import_file_path_message": "Ingresa un nombre de cuenta y ruta de archivo",
                 "import_account_name_message": "Ingresa un nombre de cuenta",
+                "invalid_account_name": "Nombre de cuenta no válido. Use letras, números, espacios y solo . - _.",
                 "import_path_message": "Ingresa una ruta de archivo",
                 "passwords_dont_match": "Las contraseñas no coinciden"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Restaurar Cuenta",
                 "restore_wallet_message": "Ingresa un nombre de billetera y las palabras semilla",
                 "enter_wallet_name": "Ingresa un nombre de billetera",
+                "invalid_account_name": "Nombre de cuenta no válido. Use letras, números, espacios y solo . - _.",
                 "enter_seed_words": "Ingresa las palabras semilla",
                 "invalid_seed_words": "Longitud de palabra semilla inválida",
                 "invalid_restore_height": "Altura de restauración inválida",
@@ -129,6 +131,7 @@
                 "confirm_password": "Confirmar Contraseña",
                 "create_account": "Crear Cuenta",
                 "enter_an_account_name": "Ingresa un nombre de cuenta",
+                "invalid_account_name": "Nombre de cuenta no válido. Use letras, números, espacios y solo . - _.",
                 "passwords_do_not_match": "Las contraseñas no coinciden",
                 "confirm_no_password_message": "¿Estás seguro de que deseas crear una cuenta sin contraseña?",
                 "confirm_no_password_title": "Sin contraseña establecida",
@@ -386,7 +389,8 @@
             "scanning": "Escaneando",
             "synced": "Sincronizado",
             "ready": "Listo",
-            "blocks_left": "≈{n} bloques a escanear"
+            "blocks_left": "≈{n} bloques a escanear",
+            "reset_language": "Restablecer a inglés"
         },
         "mainmenu": {
             "daemon_settings": "Configuración del Daemon",
@@ -754,7 +758,11 @@
                 "wxeq": "Intercambios",
                 "staking_pools": "Grupos de Staking",
                 "address_book": "Libreta de Direcciones",
-                "wallet_inactivityMessage": "Te has desconectado por inactividad."
+                "wallet_inactivityMessage": "Te has desconectado por inactividad.",
+                "session_resume_password_title": "Continuar sincronización",
+                "session_resume_password_message": "Introduzca la contraseña del monedero para reabrirlo tras estar en segundo plano.",
+                "session_resume_password_ok": "Continuar",
+                "session_resume_biometric_reason": "Desbloquear monedero para continuar la sincronización"
             }
         }
     },

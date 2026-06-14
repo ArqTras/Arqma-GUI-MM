@@ -777,7 +777,11 @@
                 "wxeq": "Swaps",
                 "staking_pools": "Staking Pools",
                 "address_book": "Address Book",
-                "wallet_inactivityMessage": "You have been logged out due to inactivity."
+                "wallet_inactivityMessage": "You have been logged out due to inactivity.",
+                "session_resume_password_title": "Continue syncing",
+                "session_resume_password_message": "Enter your wallet password to reopen the wallet after the app was in the background.",
+                "session_resume_password_ok": "Continue",
+                "session_resume_biometric_reason": "Unlock wallet to continue syncing"
             }
         }
     },

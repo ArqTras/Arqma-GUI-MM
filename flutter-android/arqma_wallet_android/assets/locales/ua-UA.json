@@ -69,6 +69,7 @@
                 "import_account": "Імпорт облікового запису",
                 "import_file_path_message": "Введіть ім’я облікового запису та шлях до файлу",
                 "import_account_name_message": "Введіть назву облікового запису",
+                "invalid_account_name": "Недійсна назва облікового запису. Дозволені літери, цифри, пробіли та лише . - _.",
                 "import_path_message": "Введіть шлях до",
                 "passwords_dont_match": "Паролі не збігаються"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Відновити обліковий запис",
                 "restore_wallet_message": "Введіть назву гаманця та Мнемонічні слова",
                 "enter_wallet_name": "Введіть назву гаманця",
+                "invalid_account_name": "Недійсна назва облікового запису. Дозволені літери, цифри, пробіли та лише . - _.",
                 "enter_seed_words": "Введіть Мнемонічні слова",
                 "invalid_seed_words": "Недійсна довжина мнемонічної фрази",
                 "invalid_restore_height": "Недійсна висота відновлення",
@@ -129,6 +131,7 @@
                 "confirm_password": "Підтвердьте пароль",
                 "create_account": "Створити обліковий запис",
                 "enter_an_account_name": "Введіть назву облікового запису",
+                "invalid_account_name": "Недійсна назва облікового запису. Дозволені літери, цифри, пробіли та лише . - _.",
                 "passwords_do_not_match": "Паролі не збігаються",
                 "confirm_no_password_message": "Ви впевнені, що хочете створити обліковий запис без пароля?",
                 "confirm_no_password_title": "Пароль не встановлено",
@@ -386,7 +389,8 @@
             "scanning": "Сканування",
             "ready": "Готовий",
             "synced": "Синхронізовано",
-            "blocks_left": "≈{n} блоків до сканування"
+            "blocks_left": "≈{n} блоків до сканування",
+            "reset_language": "Скинути до англійської"
         },
         "mainmenu": {
             "daemon_settings": "Налаштування Демона",
@@ -754,7 +758,11 @@
                 "wxeq": "Свапи",
                 "staking_pools": "Стейкінг-пули",
                 "address_book": "Адресна книга",
-                "wallet_inactivityMessage": "Ви були виведені з системи через бездіяльність."
+                "wallet_inactivityMessage": "Ви були виведені з системи через бездіяльність.",
+                "session_resume_password_title": "Продовжити синхронізацію",
+                "session_resume_password_message": "Введіть пароль гаманця, щоб знову відкрити його після роботи застосунку у фоні.",
+                "session_resume_password_ok": "Продовжити",
+                "session_resume_biometric_reason": "Розблокуйте гаманець, щоб продовжити синхронізацію"
             }
         }
     },

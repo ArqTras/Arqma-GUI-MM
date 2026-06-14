@@ -69,6 +69,7 @@
                 "import_account": "استيراد الحساب",
                 "import_file_path_message": "أدخل اسم الحساب ومسار الملف",
                 "import_account_name_message": "أدخل اسم الحساب",
+                "invalid_account_name": "اسم الحساب غير صالح. استخدم الحروف والأرقام والمسافات و . - _ فقط.",
                 "import_path_message": "أدخل مسار الملف",
                 "passwords_dont_match": "كلمات المرور غير متطابقة"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "استعادة الحساب",
                 "restore_wallet_message": "أدخل اسم المحفظة وكلمات البذور",
                 "enter_wallet_name": "أدخل اسم المحفظة",
+                "invalid_account_name": "اسم الحساب غير صالح. استخدم الحروف والأرقام والمسافات و . - _ فقط.",
                 "enter_seed_words": "أدخل كلمات البذور",
                 "invalid_seed_words": "طول كلمة البذور غير صالح",
                 "invalid_restore_height": "ارتفاع الاستعادة غير صالح",
@@ -129,6 +131,7 @@
                 "confirm_password": "تأكيد كلمة المرور",
                 "create_account": "إنشاء حساب",
                 "enter_an_account_name": "أدخل اسم الحساب",
+                "invalid_account_name": "اسم الحساب غير صالح. استخدم الحروف والأرقام والمسافات و . - _ فقط.",
                 "passwords_do_not_match": "كلمات المرور غير متطابقة",
                 "confirm_no_password_message": "هل أنت متأكد أنك تريد إنشاء حساب بدون كلمة مرور؟",
                 "confirm_no_password_title": "لا توجد كلمة مرور محددة",
@@ -386,7 +389,8 @@
             "scanning": "جاري المسح",
             "ready": "جاهز",
             "synced": "متزامن",
-            "blocks_left": "≈{n} بلوك متبقٍ"
+            "blocks_left": "≈{n} بلوك متبقٍ",
+            "reset_language": "إعادة التعيين إلى الإنجليزية"
         },
         "mainmenu": {
             "daemon_settings": "إعدادات الواجهة الخلفية",
@@ -754,7 +758,11 @@
                 "wxeq": "المبادلات",
                 "staking_pools": "برك التخزين",
                 "address_book": "دفتر العناوين",
-                "wallet_inactivityMessage": "لقد تم تسجيل خروجك بسبب عدم النشاط."
+                "wallet_inactivityMessage": "لقد تم تسجيل خروجك بسبب عدم النشاط.",
+                "session_resume_password_title": "متابعة المزامنة",
+                "session_resume_password_message": "أدخل كلمة مرور المحفظة لإعادة فتحها بعد عمل التطبيق في الخلفية.",
+                "session_resume_password_ok": "متابعة",
+                "session_resume_biometric_reason": "افتح المحفظة لمتابعة المزامنة"
             }
         }
     },

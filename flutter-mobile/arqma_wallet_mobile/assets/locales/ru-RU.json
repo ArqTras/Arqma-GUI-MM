@@ -69,6 +69,7 @@
                 "import_account": "Импортировать аккаунт",
                 "import_file_path_message": "Введите имя аккаунта и путь к файлу",
                 "import_account_name_message": "Введите имя аккаунта",
+                "invalid_account_name": "Недопустимое имя учётной записи. Разрешены буквы, цифры, пробелы и только . - _.",
                 "import_path_message": "Введите путь к файлу",
                 "passwords_dont_match": "Пароли не совпадают"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Восстановить аккаунт",
                 "restore_wallet_message": "Введите имя кошелька и слова мнемонической фразы",
                 "enter_wallet_name": "Введите имя кошелька",
+                "invalid_account_name": "Недопустимое имя учётной записи. Разрешены буквы, цифры, пробелы и только . - _.",
                 "enter_seed_words": "Введите слова мнемонической фразы",
                 "invalid_seed_words": "Неверная длина мнемонической фразы",
                 "invalid_restore_height": "Недействительная высота восстановления",
@@ -129,6 +131,7 @@
                 "confirm_password": "Подтвердить пароль",
                 "create_account": "Создать аккаунт",
                 "enter_an_account_name": "Введите имя аккаунта",
+                "invalid_account_name": "Недопустимое имя учётной записи. Разрешены буквы, цифры, пробелы и только . - _.",
                 "passwords_do_not_match": "Пароли не совпадают",
                 "confirm_no_password_message": "Вы уверены, что хотите создать аккаунт без пароля?",
                 "confirm_no_password_title": "Пароль не установлен",
@@ -386,7 +389,8 @@
             "scanning": "Сканирование",
             "synced": "Синхронизирован",
             "ready": "Готов",
-            "blocks_left": "≈{n} блоков в очереди сканирования"
+            "blocks_left": "≈{n} блоков в очереди сканирования",
+            "reset_language": "Сбросить на английский"
         },
         "mainmenu": {
             "daemon_settings": "Настройки демона",
@@ -754,7 +758,11 @@
                 "wxeq": "Обмены",
                 "staking_pools": "Пулы стейкинга",
                 "address_book": "Адресная книга",
-                "wallet_inactivityMessage": "Вы были выведены из системы из-за неактивности."
+                "wallet_inactivityMessage": "Вы были выведены из системы из-за неактивности.",
+                "session_resume_password_title": "Продолжить синхронизацию",
+                "session_resume_password_message": "Введите пароль кошелька, чтобы снова открыть его после работы приложения в фоне.",
+                "session_resume_password_ok": "Продолжить",
+                "session_resume_biometric_reason": "Разблокируйте кошелёк, чтобы продолжить синхронизацию"
             }
         }
     },

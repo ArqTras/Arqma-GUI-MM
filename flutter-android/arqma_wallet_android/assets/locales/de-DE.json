@@ -69,6 +69,7 @@
                 "import_account": "Konto importieren",
                 "import_file_path_message": "Geben Sie einen Kontonamen und eine Pfaddatei ein",
                 "import_account_name_message": "Geben Sie einen Kontonamen ein",
+                "invalid_account_name": "Ungültiger Kontoname. Erlaubt sind Buchstaben, Zahlen, Leerzeichen sowie . - _.",
                 "import_path_message": "Geben Sie eine Pfaddatei ein",
                 "passwords_dont_match": "Passwörter stimmen nicht überein"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "Konto wiederherstellen",
                 "restore_wallet_message": "Geben Sie einen Wallet-Namen und Startwörter ein",
                 "enter_wallet_name": "Geben Sie einen Wallet-Namen ein",
+                "invalid_account_name": "Ungültiger Kontoname. Erlaubt sind Buchstaben, Zahlen, Leerzeichen sowie . - _.",
                 "enter_seed_words": "Geben Sie Startwörter ein",
                 "invalid_seed_words": "Ungültige Seed-Wortlänge",
                 "invalid_restore_height": "Ungültige Wiederherstellungshöhe",
@@ -129,6 +131,7 @@
                 "confirm_password": "Passwort bestätigen",
                 "create_account": "Konto erstellen",
                 "enter_an_account_name": "Geben Sie einen Kontonamen ein",
+                "invalid_account_name": "Ungültiger Kontoname. Erlaubt sind Buchstaben, Zahlen, Leerzeichen sowie . - _.",
                 "passwords_do_not_match": "Passwörter stimmen nicht überein",
                 "confirm_no_password_message": "Sind Sie sicher, dass Sie ein Konto ohne Passwort erstellen möchten?",
                 "confirm_no_password_title": "Kein Passwort festgelegt",
@@ -386,7 +389,8 @@
             "scanning": "Scannen",
             "synced": "Synchronisiert",
             "ready": "Bereit",
-            "blocks_left": "≈{n} Blöcke zu scannen"
+            "blocks_left": "≈{n} Blöcke zu scannen",
+            "reset_language": "Zurück zu Englisch"
         },
         "mainmenu": {
             "daemon_settings": "Daemon-Einstellungen",
@@ -754,7 +758,11 @@
                 "wxeq": "Swaps",
                 "staking_pools": "Polnischer Streik",
                 "address_book": "Adressbuch",
-                "wallet_inactivityMessage": "Sie wurden aufgrund von Inaktivität abgemeldet."
+                "wallet_inactivityMessage": "Sie wurden aufgrund von Inaktivität abgemeldet.",
+                "session_resume_password_title": "Synchronisation fortsetzen",
+                "session_resume_password_message": "Geben Sie Ihr Wallet-Passwort ein, um das Wallet nach dem Hintergrund erneut zu öffnen.",
+                "session_resume_password_ok": "Fortsetzen",
+                "session_resume_biometric_reason": "Wallet entsperren, um die Synchronisation fortzusetzen"
             }
         }
     },

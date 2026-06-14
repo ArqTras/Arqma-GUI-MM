@@ -86,6 +86,7 @@
                 "import_account": "Importuj konto",
                 "import_file_path_message": "Wprowadź nazwę konta i ścieżkę do pliku",
                 "import_account_name_message": "Wprowadź nazwę konta",
+                "invalid_account_name": "Nieprawidłowa nazwa konta. Dozwolone są litery, cyfry, spacje oraz . - _.",
                 "import_path_message": "Wprowadź ścieżkę do pliku",
                 "passwords_dont_match": "Hasła nie pasują"
             },
@@ -129,6 +130,7 @@
                 "restore_account": "Przywróć konto",
                 "restore_wallet_message": "Wprowadź nazwę portfela i słowa seed",
                 "enter_wallet_name": "Wprowadź nazwę portfela",
+                "invalid_account_name": "Nieprawidłowa nazwa konta. Dozwolone są litery, cyfry, spacje oraz . - _.",
                 "enter_seed_words": "Wprowadź słowa seed",
                 "invalid_seed_words": "Nieprawidłowa długość słów seed",
                 "invalid_restore_height": "Nieprawidłowa wysokość przywracania",
@@ -146,6 +148,7 @@
                 "confirm_password": "Potwierdź hasło",
                 "create_account": "Utwórz konto",
                 "enter_an_account_name": "Wprowadź nazwę konta",
+                "invalid_account_name": "Nieprawidłowa nazwa konta. Dozwolone są litery, cyfry, spacje oraz . - _.",
                 "passwords_do_not_match": "Hasła nie pasują",
                 "confirm_no_password_message": "Czy na pewno chcesz utworzyć konto bez hasła?",
                 "confirm_no_password_title": "Brak ustawionego hasła",
@@ -398,7 +401,8 @@
             "scanning": "Skanowanie",
             "synced": "Zsynchronizowano",
             "ready": "Gotowy",
-            "blocks_left": "≈{n} bloków do przeskanowania"
+            "blocks_left": "≈{n} bloków do przeskanowania",
+            "reset_language": "Resetuj do angielskiego"
         },
         "mainmenu": {
             "daemon_settings": "Ustawienia demona",
@@ -771,7 +775,11 @@
                 "wxeq": "Wymiany",
                 "staking_pools": "Pula stakingowa",
                 "address_book": "Książka adresowa",
-                "wallet_inactivityMessage": "Zostałeś wylogowany z powodu braku aktywności."
+                "wallet_inactivityMessage": "Zostałeś wylogowany z powodu braku aktywności.",
+                "session_resume_password_title": "Kontynuuj synchronizację",
+                "session_resume_password_message": "Wprowadź hasło portfela, aby ponownie otworzyć portfel po powrocie aplikacji z tła.",
+                "session_resume_password_ok": "Kontynuuj",
+                "session_resume_biometric_reason": "Odblokuj portfel, aby kontynuować synchronizację"
             }
         }
     },

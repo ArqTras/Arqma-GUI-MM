@@ -219,6 +219,8 @@ final class MobileNativeBridge implements NativeBridge {
   /// iOS: set when the app backgrounds so [recoverWalletSessionAfterForeground] reopens FFI.
   bool _iosWalletSessionStale = false;
 
+  bool _resumePasswordUiPending = false;
+
   /// Set when UI intentionally cleared txs for a hard rescan; blocks empty `get_transfers` wipes.
   bool _walletTxListClearedForRescan = false;
 
@@ -1962,6 +1964,80 @@ final class MobileNativeBridge implements NativeBridge {
     return null;
   }
 
+  void _requestResumePasswordUi(String walletName) {
+    if (_resumePasswordUiPending) {
+      return;
+    }
+    _resumePasswordUiPending = true;
+    _emit(<String, dynamic>{
+      'event': 'wallet_session_needs_password',
+      'data': <String, dynamic>{'wallet_name': walletName},
+    });
+  }
+
+  /// Clears the one-shot resume UI gate so a later foreground recover can prompt again.
+  void clearResumePasswordUiPending() {
+    _resumePasswordUiPending = false;
+  }
+
+  Future<void> _reopenStaleWalletSession(String name, String pwd) async {
+    final ArqmaWalletRpcSession? w = _walletRpc;
+    if (w == null || name.isEmpty || name != _openedWalletDisplayName) {
+      return;
+    }
+    final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
+    final bool resumeRescan =
+        cp?.walletName == name && cp!.fullRescanUi == true;
+
+    debugPrint('[MobileNative] recover: reopening wallet "$name"');
+    if (!resumeRescan) {
+      await _storeWalletToDiskIfSafe(reason: 'resume_reopen');
+    }
+    try {
+      await w.closeWalletSession();
+    } catch (e, st) {
+      debugPrint('[MobileNative] recover closeWalletSession: $e\n$st');
+    }
+    if (w.usesNativeFfi) {
+      await w.resetNativeFfiClient();
+      _walletRpc = null;
+      if (!await _ensureWalletRpcStarted()) {
+        _showNotification(
+          'negative',
+          'Wallet backend unavailable after resume',
+          8000,
+        );
+        return;
+      }
+    }
+    final ArqmaWalletRpcSession? session = _walletRpc;
+    if (session == null) {
+      return;
+    }
+    await _reopenWalletSessionAfterResume(
+      session: session,
+      name: name,
+      pwd: pwd,
+      resumeRescan: resumeRescan,
+      cp: cp,
+    );
+  }
+
+  Future<void> resumeWalletSessionAfterPassword(String password) {
+    return _runWalletSyncLane(() async {
+      try {
+        final String name = _openedWalletDisplayName;
+        if (name.isEmpty || password.isEmpty) {
+          return;
+        }
+        _sessionWalletPassword = password;
+        await _reopenStaleWalletSession(name, password);
+      } finally {
+        clearResumePasswordUiPending();
+      }
+    });
+  }
+
   Future<void> _reopenWalletSessionAfterResume({
     required ArqmaWalletRpcSession session,
     required String name,
@@ -2373,47 +2449,12 @@ final class MobileNativeBridge implements NativeBridge {
           unawaited(_heartbeatTick(cfg));
         }
         if (Platform.isIOS) {
-          _showNotification(
-            'negative',
-            'Wallet session paused — open the wallet with your password to continue sync',
-            8000,
-          );
+          _requestResumePasswordUi(name);
         }
         return;
       }
-      final WalletSessionCheckpoint? cp = await WalletSessionCheckpoint.load();
-      final bool resumeRescan =
-          cp?.walletName == name && cp!.fullRescanUi == true;
-
-      debugPrint('[MobileNative] recover: reopening wallet "$name"');
-      try {
-        await w.closeWalletSession();
-      } catch (e, st) {
-        debugPrint('[MobileNative] recover closeWalletSession: $e\n$st');
-      }
-      if (w.usesNativeFfi) {
-        await w.resetNativeFfiClient();
-        _walletRpc = null;
-        if (!await _ensureWalletRpcStarted()) {
-          _showNotification(
-            'negative',
-            'Wallet backend unavailable after resume',
-            8000,
-          );
-          return;
-        }
-      }
-      final ArqmaWalletRpcSession? session = _walletRpc;
-      if (session == null) {
-        return;
-      }
-      await _reopenWalletSessionAfterResume(
-        session: session,
-        name: name,
-        pwd: pwd,
-        resumeRescan: resumeRescan,
-        cp: cp,
-      );
+      _sessionWalletPassword = pwd;
+      await _reopenStaleWalletSession(name, pwd);
     });
   }
 

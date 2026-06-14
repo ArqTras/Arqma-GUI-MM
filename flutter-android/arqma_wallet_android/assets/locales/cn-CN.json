@@ -69,6 +69,7 @@
                 "import_account": "导入账户",
                 "import_file_path_message": "输入账户名称和路径文件",
                 "import_account_name_message": "输入账户名称",
+                "invalid_account_name": "账户名称无效。仅可使用字母、数字、空格以及 . - _。",
                 "import_path_message": "输入路径文件",
                 "passwords_dont_match": "密码不匹配"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "恢复账户",
                 "restore_wallet_message": "输入钱包名称和种子词",
                 "enter_wallet_name": "输入钱包名称",
+                "invalid_account_name": "账户名称无效。仅可使用字母、数字、空格以及 . - _。",
                 "enter_seed_words": "输入种子词",
                 "invalid_seed_words": "无效的种子词长度",
                 "invalid_restore_height": "无效的恢复高度",
@@ -129,6 +131,7 @@
                 "confirm_password": "确认密码",
                 "create_account": "创建账户",
                 "enter_an_account_name": "输入账户名称",
+                "invalid_account_name": "账户名称无效。仅可使用字母、数字、空格以及 . - _。",
                 "passwords_do_not_match": "密码不匹配",
                 "confirm_no_password_message": "您确定要创建没有密码的账户吗？",
                 "confirm_no_password_title": "未设置密码",
@@ -386,7 +389,8 @@
             "scanning": "扫描中",
             "ready": "准备就绪",
             "synced": "已同步",
-            "blocks_left": "约 {n} 个区块待扫描"
+            "blocks_left": "约 {n} 个区块待扫描",
+            "reset_language": "重置为英语"
         },
         "mainmenu": {
             "daemon_settings": "守护进程设置",
@@ -754,7 +758,11 @@
                 "wxeq": "兑换",
                 "staking_pools": "质押池",
                 "address_book": "地址簿",
-                "wallet_inactivityMessage": "您因长时间未活动而已被登出。"
+                "wallet_inactivityMessage": "您因长时间未活动而已被登出。",
+                "session_resume_password_title": "继续同步",
+                "session_resume_password_message": "应用从后台返回后，请输入钱包密码以重新打开钱包。",
+                "session_resume_password_ok": "继续",
+                "session_resume_biometric_reason": "解锁钱包以继续同步"
             }
         }
     },

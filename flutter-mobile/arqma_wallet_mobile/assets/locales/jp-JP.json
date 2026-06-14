@@ -69,6 +69,7 @@
                 "import_account": "アカウントをインポート",
                 "import_file_path_message": "アカウント名とパスファイルを入力してください",
                 "import_account_name_message": "アカウント名を入力してください",
+                "invalid_account_name": "アカウント名が無効です。英数字、スペース、および . - _ のみ使用できます。",
                 "import_path_message": "パスファイルを入力してください",
                 "passwords_dont_match": "パスワードが一致しません"
             },
@@ -112,6 +113,7 @@
                 "restore_account": "アカウントを復元",
                 "restore_wallet_message": "ウォレット名とシードワードを入力してください",
                 "enter_wallet_name": "ウォレット名を入力",
+                "invalid_account_name": "アカウント名が無効です。英数字、スペース、および . - _ のみ使用できます。",
                 "enter_seed_words": "シードワードを入力",
                 "invalid_seed_words": "無効なシードワードの長さ",
                 "invalid_restore_height": "無効な復元高さ",
@@ -129,6 +131,7 @@
                 "confirm_password": "パスワードを確認",
                 "create_account": "アカウントを作成",
                 "enter_an_account_name": "アカウント名を入力",
+                "invalid_account_name": "アカウント名が無効です。英数字、スペース、および . - _ のみ使用できます。",
                 "passwords_do_not_match": "パスワードが一致しません",
                 "confirm_no_password_message": "パスワードなしでアカウントを作成してもよろしいですか？",
                 "confirm_no_password_title": "パスワードが設定されていません",
@@ -386,7 +389,8 @@
             "scanning": "スキャン中",
             "ready": "準備完了",
             "synced": "同期済み",
-            "blocks_left": "残り約 {n} ブロック"
+            "blocks_left": "残り約 {n} ブロック",
+            "reset_language": "英語にリセット"
         },
         "mainmenu": {
             "daemon_settings": "デーモン設定",
@@ -754,7 +758,11 @@
                 "wxeq": "スワップ",
                 "staking_pools": "ステーキングプール",
                 "address_book": "アドレス帳",
-                "wallet_inactivityMessage": "非アクティブのため、ログアウトされました。"
+                "wallet_inactivityMessage": "非アクティブのため、ログアウトされました。",
+                "session_resume_password_title": "同期を続行",
+                "session_resume_password_message": "バックグラウンドから戻った後、ウォレットを再度開くにはパスワードを入力してください。",
+                "session_resume_password_ok": "続行",
+                "session_resume_biometric_reason": "同期を続行するためにウォレットのロックを解除"
             }
         }
     },

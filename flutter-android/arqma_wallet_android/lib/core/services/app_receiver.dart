@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../app_nav.dart';
 import '../../i18n/locale_controller.dart';
 import '../../store/gateway_store.dart';
+import '../mobile/wallet_session_resume_prompt.dart';
+import 'mobile_native_bridge.dart';
 import 'native_bridge.dart';
 
 /// Parity with `src/receiver/receiver.js` (Notify, Loading, reboot confirm).
@@ -205,6 +207,21 @@ class AppReceiver {
         break;
       case 'settings_changed_reboot':
         _promptRestartAfterSettingsChange();
+        break;
+      case 'wallet_session_needs_password':
+        if (bridge is MobileNativeBridge && data is Map) {
+          final mobileBridge = bridge as MobileNativeBridge;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            unawaited(
+              WalletSessionResumePrompt.showForBridgeEvent(
+                bridge: mobileBridge,
+                store: store,
+                locale: locale,
+                data: Map<String, dynamic>.from(data),
+              ),
+            );
+          });
+        }
         break;
       // Transaction list must hit the store before the next paint; deferring only to
       // `addPostFrameCallback` (with other events) can leave the list visually stale on
