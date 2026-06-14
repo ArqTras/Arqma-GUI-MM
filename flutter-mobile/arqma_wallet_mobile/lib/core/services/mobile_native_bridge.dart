@@ -3425,10 +3425,6 @@ final class MobileNativeBridge implements NativeBridge {
         'wallet_syncing': true,
       },
     });
-    _emit(<String, dynamic>{
-      'event': 'reset_wallet_status',
-      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
-    });
 
     unawaited(
       w
@@ -3558,6 +3554,10 @@ final class MobileNativeBridge implements NativeBridge {
         'scan_poll_ts': DateTime.now().millisecondsSinceEpoch,
         'wallet_syncing': _walletSyncingForUi,
       },
+    });
+    _emit(<String, dynamic>{
+      'event': 'reset_wallet_status',
+      'data': <String, dynamic>{'code': 0, 'message': 'OK'},
     });
     _whLastEmittedTxMaxHeight = 0;
     _emit(<String, dynamic>{

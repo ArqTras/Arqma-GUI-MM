@@ -172,6 +172,7 @@
                 "copy_spend_key": "Skopiuj klucz wydawania",
                 "open_account": "Otwórz konto",
                 "wallet": "Portfel",
+                "address_pending": "Pobieranie adresu portfela…",
                 "error_copying_private_key": "Błąd podczas kopiowania klucza prywatnego",
                 "private_key_warning_message": "Uważaj, komu wysyłasz swoje klucze prywatne, ponieważ kontrolują one Twoje fundusze.",
                 "private_key_warning_ok_label": "OK",

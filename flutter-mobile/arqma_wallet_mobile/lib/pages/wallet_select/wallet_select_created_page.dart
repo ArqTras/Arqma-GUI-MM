@@ -94,6 +94,17 @@ class WalletSelectCreatedPage extends StatelessWidget {
     }
   }
 
+  static String _walletDisplayAddress(Object? raw) {
+    if (raw == null) {
+      return '';
+    }
+    final String s = '$raw'.trim();
+    if (s.isEmpty || s == 'null') {
+      return '';
+    }
+    return s;
+  }
+
   @override
   Widget build(BuildContext context) {
     final LocaleController loc = context.watch<LocaleController>();
@@ -105,7 +116,7 @@ class WalletSelectCreatedPage extends StatelessWidget {
     final String viewKey = '${secret['view_key'] ?? ''}';
     final String spendKey = '${secret['spend_key'] ?? ''}';
     final String name = '${info['name'] ?? ''}';
-    final String address = '${info['address'] ?? ''}';
+    final String address = _walletDisplayAddress(info['address']);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -119,8 +130,21 @@ class WalletSelectCreatedPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                  child: SelectableText(address,
-                      style: const TextStyle(fontSize: 13))),
+                child: address.isEmpty
+                    ? Text(
+                        loc.tr(
+                            'pages.wallet_select.created.address_pending'),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.white54,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    : SelectableText(
+                        address,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+              ),
               IconButton(
                 icon: const Icon(Icons.copy, size: 20),
                 onPressed: address.isEmpty

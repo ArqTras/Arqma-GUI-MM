@@ -155,6 +155,7 @@
                 "copy_spend_key": "Copier la clé de dépense",
                 "open_account": "Ouvrir le compte",
                 "wallet": "Portefeuille",
+                "address_pending": "Récupération de l'adresse du portefeuille…",
                 "error_copying_private_key": "Erreur lors de la copie de la clé privée",
                 "private_key_warning_message": "Soyez prudent à qui vous donner vos clés privées, ils pourront utiliser vos fonds.",
                 "private_key_warning_ok_label": "OK",

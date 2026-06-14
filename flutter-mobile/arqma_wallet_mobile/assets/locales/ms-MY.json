@@ -155,6 +155,7 @@
                 "copy_spend_key": "Salin kunci perbelanjaan",
                 "open_account": "Buka Akaun",
                 "wallet": "Dompet",
+                "address_pending": "Mengambil alamat dompet…",
                 "error_copying_private_key": "Ralat menyalin kunci peribadi",
                 "private_key_warning_message": "Berhati-hati kepada siapa anda menghantar kunci peribadi anda kerana ia mengawal dana anda.",
                 "private_key_warning_ok_label": "OK",

@@ -172,6 +172,7 @@
                 "copy_spend_key": "Copy spend key",
                 "open_account": "Open Account",
                 "wallet": "Wallet",
+                "address_pending": "Fetching wallet address…",
                 "error_copying_private_key": "Error copying private key",
                 "private_key_warning_message": "Be careful who you send your private keys to as they control your funds.",
                 "private_key_warning_ok_label": "OK",

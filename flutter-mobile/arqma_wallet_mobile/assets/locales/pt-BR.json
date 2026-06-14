@@ -155,6 +155,7 @@
                 "copy_spend_key": "Copiar chave de gastos",
                 "open_account": "Abrir conta",
                 "wallet": "Carteira",
+                "address_pending": "Obtendo endereço da carteira…",
                 "error_copying_private_key": "Erro ao copiar chave privada",
                 "private_key_warning_message": "Tenha cuidado para quem você envia suas chaves privadas, pois eles controlam seus fundos.",
                 "private_key_warning_ok_label": "OK",

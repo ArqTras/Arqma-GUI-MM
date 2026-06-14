@@ -155,6 +155,7 @@
                 "copy_spend_key": "Копировать ключ трат",
                 "open_account": "Открыть аккаунт",
                 "wallet": "Кошелек",
+                "address_pending": "Получение адреса кошелька…",
                 "error_copying_private_key": "Ошибка копирования приватного ключа",
                 "private_key_warning_message": "Будьте осторожны, кому вы отправляете свои приватные ключи, так как они контролируют ваши средства.",
                 "private_key_warning_ok_label": "ОК",

@@ -155,6 +155,7 @@
                 "copy_spend_key": "支出キーをコピー",
                 "open_account": "アカウントを開く",
                 "wallet": "ウォレット",
+                "address_pending": "ウォレットアドレスを取得中…",
                 "error_copying_private_key": "プライベートキーのコピー中にエラーが発生しました",
                 "private_key_warning_message": "プライベートキーを送信する相手に注意してください。彼らがあなたの資金を管理します。",
                 "private_key_warning_ok_label": "OK",

@@ -155,6 +155,7 @@
                 "copy_spend_key": "Ausgabenschlüssel kopieren",
                 "open_account": "Konto eröffnen",
                 "wallet": "Brieftasche",
+                "address_pending": "Wallet-Adresse wird abgerufen…",
                 "error_copying_private_key": "Fehler beim Kopieren des privaten Schlüssels",
                 "private_key_warning_message": "Seien Sie vorsichtig, an wen Sie Ihre privaten Schlüssel senden, da sie Ihr Geld kontrollieren.",
                 "private_key_warning_ok_label": "OK",
