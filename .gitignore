@@ -72,3 +72,4 @@ build/ci/*.aab
 build/ci/SHA256SUMS-*.txt
 build/ci/Arqma-Wallet-*-manifest.txt
 build/ci/Arqma-Wallet-*-testflight.ipa
+build/ci/testflight-what-to-test-*.txt
